@@ -229,6 +229,12 @@ export async function fetchWeeklySchedule(offsetWeeks = 0) {
             countryOfOrigin
             isAdult
             format
+            relations {
+              edges {
+                relationType
+                node { type }
+              }
+            }
           }
         }
       }
@@ -259,4 +265,11 @@ export async function fetchWeeklySchedule(offsetWeeks = 0) {
   }
 
   return { schedules: all, monday };
+}
+
+// Vrai si la série est une suite (a un préquel anime)
+export function isReturningSeries(media) {
+  return (media.relations?.edges || []).some(
+    (e) => e.relationType === "PREQUEL" && e.node?.type === "ANIME"
+  );
 }
