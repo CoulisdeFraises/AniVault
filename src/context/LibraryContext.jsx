@@ -79,10 +79,16 @@ export function LibraryProvider({ children }) {
 
   // ── saveEntry (création + modification) ───────────────────────────────────
   const saveEntry = useCallback((form, editingId) => {
-    // Nettoyage des saisons
+    // À la création avec statut "Terminé" : tous les épisodes connus → vus.
+    // Ce flag est évalué ICI (dans la transformation des données) pour être
+    // certain qu'il s'applique avant le clamping Math.min(total, watched).
+    const forceAllWatched = !editingId && form.status === "termine";
+
     const seasons = form.seasons.map((s) => {
       const total      = s.totalEpisodes == null ? null : Math.max(0, Number(s.totalEpisodes) || 0);
-      const watchedRaw = Math.max(0, Number(s.watchedEpisodes) || 0);
+      const watchedRaw = forceAllWatched && total != null
+        ? total                                          // ← tous vus
+        : Math.max(0, Number(s.watchedEpisodes) || 0);  // ← valeur du formulaire
       const watched    = total != null ? Math.min(total, watchedRaw) : watchedRaw;
       return { number: s.number, totalEpisodes: total, watchedEpisodes: watched, coverImage: s.coverImage ?? null };
     });
