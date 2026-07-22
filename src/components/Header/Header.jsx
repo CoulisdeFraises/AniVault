@@ -1,237 +1,321 @@
-import { useMemo, useState } from "react";
-import { Plus, Film, Tv, LogOut, ChevronDown, Settings, User, Calendar, Menu } from "lucide-react";
+import { memo, useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Chip } from "../common/Chip";
-import { STATUS, STATUS_ORDER } from "../../utils/status";
+import { Pencil, Trash2, Film, Tv, Check, CheckCheck, ChevronRight, Star } from "lucide-react";
+import "./Card.css";
+import { ProgressBar } from "./ProgressBar";
+import { ConfirmDialog } from "../Modal/Modal";
+import { getRatingEmoji } from "../common/Rating";
+import { STATUS, seasonTotals, formatCountdown } from "../../utils/status";
 import { useLibrary } from "../../context/LibraryContext";
-import { useAuth } from "../../context/AuthContext";
-import { RefreshCw } from "lucide-react";
+import { fetchNextAiring } from "../../api";
 
-function getInitials(name) {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  return parts.length >= 2
-    ? (parts[0][0] + parts[1][0]).toUpperCase()
-    : name.slice(0, 2).toUpperCase();
-}
-
-export function Header({
-  filter, typeFilter, onFilterChange, onTypeFilterChange, onAddClick,
-  syncing = false, syncProgress = { current: 0, total: 0 }, onSyncClick,
-}) {
-  const { entries, loading } = useLibrary();
-  const { user, profile, logout } = useAuth();
+export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
+  const { incrementEpisode, decrementEpisode, setEpisodeCount, markDone, deleteEntry } = useLibrary();
   const navigate = useNavigate();
-  const [menuOpen, setMenuOpen] = useState(false);
 
-  const avatarColor = user?.user_metadata?.avatar_color || "#7c3aed";
+  const seasons = entry.seasons;
+  const [activeSeason,      setActiveSeason]      = useState(() => {
+    const idx = seasons.findIndex((s) => s.totalEpisodes == null || s.watchedEpisodes < s.totalEpisodes);
+    return idx === -1 ? seasons.length - 1 : idx;
+  });
+  const [showDeleteWarning, setShowDeleteWarning] = useState(false);
+  const [nextAiring,        setNextAiring]        = useState(null);
+  const [celebrating,       setCelebrating]       = useState(false);
 
-  const byType = useMemo(
-    () => (typeFilter === "all" ? entries : entries.filter((e) => e.type === typeFilter)),
-    [entries, typeFilter]
-  );
-  const counts = useMemo(
-    () => STATUS_ORDER.reduce((acc, k) => ({ ...acc, [k]: byType.filter((e) => e.status === k).length }), {}),
-    [byType]
-  );
-  const topGenres = useMemo(() => {
-    const tally = {};
-    entries.forEach((e) => e.genres.forEach((g) => { tally[g] = (tally[g] || 0) + 1; }));
-    return Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 3);
-  }, [entries]);
+  const s = STATUS[entry.status];
 
-  function closeMenu() { setMenuOpen(false); }
+  // ── Next airing ──
+  useEffect(() => {
+    if (entry.status === "termine" || entry.status === "abandonne") { setNextAiring(null); return; }
+    if (!((entry.source === "anilist" && entry.anilistIds?.length) || (entry.source === "tvmaze" && entry.tvmazeId))) return;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const result = await fetchNextAiring(entry);
+        if (!cancelled) setNextAiring(result);
+      } catch (_) {}
+    }, Math.random() * 800);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [entry.id, entry.source, entry.status, entry.anilistIds?.length, entry.tvmazeId]);
 
-  function go(path) { closeMenu(); navigate(path); }
+  const current    = seasons[Math.min(activeSeason, seasons.length - 1)];
+  const { watched: totalWatched, total: totalAll } = seasonTotals(seasons);
+  const canFinish  = entry.status === "en-cours" && totalAll != null && totalAll > 0 && totalWatched >= totalAll;
+  const seasonDone = current.totalEpisodes != null && current.watchedEpisodes >= current.totalEpisodes;
+  const hasNext    = activeSeason < seasons.length - 1;
+
+  // ── Animation saison complète ──
+  const prevRef = useRef({ watched: current.watchedEpisodes, seasonIdx: activeSeason });
+  useEffect(() => {
+    const prev = prevRef.current;
+    const justCompleted =
+      prev.seasonIdx === activeSeason &&
+      current.totalEpisodes != null &&
+      current.watchedEpisodes >= current.totalEpisodes &&
+      prev.watched < current.totalEpisodes;
+    if (justCompleted) {
+      setCelebrating(false);
+      requestAnimationFrame(() => setCelebrating(true));
+      const t = setTimeout(() => setCelebrating(false), 900);
+      prevRef.current = { watched: current.watchedEpisodes, seasonIdx: activeSeason };
+      return () => clearTimeout(t);
+    }
+    prevRef.current = { watched: current.watchedEpisodes, seasonIdx: activeSeason };
+  }, [current.watchedEpisodes, current.totalEpisodes, activeSeason]);
 
   return (
     <>
-      {/* ── Barre principale ── */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">
-            Mon Journal de visionnage
-          </p>
-          <h1
-            className="text-3xl sm:text-4xl font-bold tracking-tight"
-            style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-          >
-            ANIVAULT
-          </h1>
-        </div>
+      {/*
+        ─ hover:-translate-y-0.5 : légère élévation au survol
+        ─ hover:shadow-lg        : ombre portée qui renforce la profondeur
+        ─ card-noise             : texture de bruit subtile (custom.css)
+        ─ animate-fadeInUp       : entrée en fondu + remontée
+        ─ animationDelay stagger : décalage selon l'index dans la liste
+      */}
+      <div
+        onClick={() => navigate(`/details/${entry.id}`)}
+        className={`
+          relative card-noise rounded-2xl bg-violet-900/30
+          border-t border-r border-b border-white/5
+          p-4 flex gap-3 overflow-hidden
+          transition-all duration-200 ease-out
+          hover:-translate-y-0.5 hover:shadow-lg hover:shadow-violet-950/60 hover:bg-violet-800/40
+          cursor-pointer
+          animate-fadeInUp
+          motion-reduce:animate-none motion-reduce:transition-none
+          ${celebrating ? "card-season-complete" : ""}
+        `}
+        style={{
+          animationDelay:    `${Math.min(index * 45, 350)}ms`,
+          animationFillMode: "both",
+        }}
+      >
+        {/* ── Bordure gauche en dégradé (remplace border-l-4 plat) ── */}
+        <div
+          className="absolute inset-y-0 left-0 w-[3px] rounded-l-2xl"
+          style={{
+            background: `linear-gradient(to bottom, ${s.color}, ${s.color}70, ${s.color}10)`,
+          }}
+        />
 
-        <div className="flex items-center gap-2">
+        {/* ── Image ── */}
+        {(() => {
+          const displayImage  = current?.coverImage || (activeSeason === 0 ? entry.coverImage : null);
+          const fallbackImage = entry.seasons[0]?.coverImage || entry.coverImage;
+          const showFallback  = !displayImage && activeSeason > 0 && fallbackImage;
+          return displayImage ? (
+            <div className="w-[72px] h-[108px] flex-shrink-0 rounded-lg overflow-hidden bg-white/5">
+              <img src={displayImage} alt="" className="w-full h-full object-cover" />
+            </div>
+          ) : showFallback ? (
+            <div className="relative w-[72px] h-[108px] flex-shrink-0 rounded-lg overflow-hidden bg-white/5">
+              <img src={fallbackImage} alt="" className="w-full h-full object-cover brightness-[0.25]" />
+              <span className="absolute inset-0 flex items-center justify-center text-5xl font-bold text-white/50">?</span>
+            </div>
+          ) : null;
+        })()}
 
-          {/* Sync */}
-          <button
-            onClick={onSyncClick}
-            disabled={syncing}
-            title={syncing ? `Sync en cours… ${syncProgress.current}/${syncProgress.total}` : "Actualiser les données"}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-70 transition-colors motion-reduce:transition-none"
-          >
-            <RefreshCw size={14} className={`text-violet-400 ${syncing ? "animate-spin motion-reduce:animate-none" : ""}`} />
-            {syncing
-              ? <span className="text-xs font-mono text-violet-400 hidden sm:inline">{syncProgress.current}/{syncProgress.total}</span>
-              : <span className="text-xs font-mono text-violet-400 hidden sm:inline">Sync</span>
-            }
-          </button>
+        <div className="flex-1 min-w-0 flex flex-col gap-3 relative z-10">
 
-          {/* ── Burger menu ── */}
-          <div className="relative">
-            <button
-              onClick={() => setMenuOpen((v) => !v)}
-              className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 transition-colors motion-reduce:transition-none"
-              aria-label="Menu"
-            >
-              {/* Mini avatar */}
-              <div
-                className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                style={{ backgroundColor: avatarColor }}
-              >
-                {getInitials(profile)}
+          {/* ── Titre + boutons ── */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-violet-300">
+                  {entry.type === "anime" ? <Film size={11} /> : <Tv size={11} />}
+                  {entry.type === "anime" ? "Anime" : "Série"}
+                </span>
+
+                {/* Badge statut – glassmorphism + dot pulsant pour En cours */}
+                <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest backdrop-blur-sm px-1.5 py-0.5 rounded-full bg-white/5 ${s.text}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${s.dot} ${entry.status === "en-cours" ? "animate-pulse" : ""}`} />
+                  {s.label}
+                </span>
+
+                {nextAiring && (() => {
+                  const countdown = formatCountdown(nextAiring.airingAt);
+                  if (!countdown) return null;
+                  return (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-sky-300">
+                      <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
+                      {nextAiring.season ? `S${nextAiring.season} · ` : ""}Ép.{nextAiring.episode} {countdown}
+                    </span>
+                  );
+                })()}
               </div>
-              <Menu size={15} className="text-violet-400" />
-            </button>
+              <h3
+                className="font-semibold text-violet-50 leading-tight truncate"
+                style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                title={entry.title}
+              >
+                {entry.title}
+              </h3>
+            </div>
 
-            {/* Dropdown */}
-            {menuOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={closeMenu} />
-                <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-violet-900 border border-white/10 shadow-xl z-20 overflow-hidden">
-
-                  {/* Info utilisateur */}
-                  <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                      style={{ backgroundColor: avatarColor }}
-                    >
-                      {getInitials(profile)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-violet-50 truncate">{profile}</p>
-                      <p className="text-[10px] text-violet-400 truncate">{user?.email}</p>
-                    </div>
-                  </div>
-
-                  {/* Navigation */}
-                  <div className="py-1">
-                    <button
-                      onClick={() => go("/profile")}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-violet-200 hover:bg-white/10 transition-colors motion-reduce:transition-none"
-                    >
-                      <User size={15} className="text-violet-400 flex-shrink-0" />
-                      Mon profil
-                    </button>
-                    <button
-                      onClick={() => go("/calendar")}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-violet-200 hover:bg-white/10 transition-colors motion-reduce:transition-none"
-                    >
-                      <Calendar size={15} className="text-violet-400 flex-shrink-0" />
-                      Calendrier
-                    </button>
-                    <button
-                      onClick={() => go("/settings")}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-violet-200 hover:bg-white/10 transition-colors motion-reduce:transition-none"
-                    >
-                      <Settings size={15} className="text-violet-400 flex-shrink-0" />
-                      Paramètres
-                    </button>
-                  </div>
-
-                  <div className="border-t border-white/5 py-1">
-                    <button
-                      onClick={() => { closeMenu(); logout(); }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-rose-300 hover:bg-rose-500/10 transition-colors motion-reduce:transition-none"
-                    >
-                      <LogOut size={15} />
-                      Se déconnecter
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
+            <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => onEdit(entry)}
+                aria-label="Modifier"
+                className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-violet-50 active:scale-95 transition-transform motion-reduce:transition-none"
+              >
+                <Pencil size={14} />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowDeleteWarning(true); }}
+                aria-label="Supprimer"
+                className="p-1.5 rounded-lg text-violet-300 hover:bg-rose-500/20 hover:text-rose-300 active:scale-95 transition-transform motion-reduce:transition-none"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
           </div>
 
-          {/* Ajouter */}
-          <button
-            onClick={onAddClick}
-            className="flex items-center gap-1.5 bg-amber-400 text-violet-950 font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-amber-300 transition-colors motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-violet-950"
+          {/* ── Genres ── */}
+          {entry.genres.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {entry.genres.map((g) => (
+                <span key={g} className="px-2 py-0.5 rounded-full bg-white/5 text-[10px] text-violet-300">{g}</span>
+              ))}
+            </div>
+          )}
+
+          {/* ── Onglets saisons ── */}
+          <div
+            className="flex items-center gap-1 overflow-x-auto flex-nowrap pb-0.5"
+            onClick={(e) => e.stopPropagation()}
           >
-            <Plus size={16} />
-            <span className="hidden sm:inline">Ajouter un titre</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ── Stats ── */}
-      {!loading && entries.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/10 rounded-2xl bg-violet-900/30 border border-white/5 mb-6 overflow-hidden">
-          <div className="p-4">
-            <p className="font-mono text-2xl font-medium">{entries.length}</p>
-            <p className="text-[11px] text-violet-400 uppercase tracking-wide">Titres suivis</p>
-          </div>
-          <div className="p-4">
-            <p className="font-mono text-2xl font-medium">{counts["en-cours"]}</p>
-            <p className="text-[11px] text-violet-400 uppercase tracking-wide">En cours</p>
-          </div>
-          <div className="p-4">
-            {topGenres.length > 0 ? (
-              <>
-                <p className="font-medium truncate">{topGenres.map(([g]) => g).join(", ")}</p>
-                <p className="text-[11px] text-violet-400 uppercase tracking-wide">Genres préférés</p>
-              </>
-            ) : (
-              <>
-                <p className="font-medium text-violet-500">—</p>
-                <p className="text-[11px] text-violet-400 uppercase tracking-wide">Genres préférés</p>
-              </>
+            {seasons.map((se, i) => (
+              <button
+                key={se.number}
+                onClick={() => setActiveSeason(i)}
+                className={`px-2 py-0.5 rounded-md text-[10px] font-mono border whitespace-nowrap flex-shrink-0 transition-colors active:scale-95 motion-reduce:transition-none ${
+                  i === activeSeason
+                    ? `${s.border} ${s.text} bg-white/10`
+                    : "border-white/10 text-violet-400 hover:bg-white/5"
+                }`}
+              >
+                S{se.number}
+              </button>
+            ))}
+            {seasonDone && hasNext && (
+              <button
+                onClick={() => setActiveSeason(activeSeason + 1)}
+                className="flex items-center gap-0.5 text-[10px] text-violet-400 hover:text-violet-200 flex-shrink-0 whitespace-nowrap active:scale-95 transition-transform motion-reduce:transition-none"
+              >
+                Saison suiv. <ChevronRight size={11} />
+              </button>
             )}
           </div>
-        </div>
-      )}
 
-      {/* ── Filtre type ── */}
-      <div className="flex justify-center mb-5">
-        <div className="inline-flex rounded-full bg-white/5 border border-white/10 p-0.5">
-          {[
-            { key: "all",   label: "Tout",   icon: null },
-            { key: "anime", label: "Animes", icon: <Film size={12} /> },
-            { key: "serie", label: "Séries", icon: <Tv size={12} /> },
-          ].map(({ key, label, icon }) => (
+          {/* ── Progression épisodes ── */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              {/*
+                key={current.watchedEpisodes} : force un remontage quand le
+                compteur change → déclenche animate-countBounce à chaque +1/-1
+              */}
+              <span
+                key={current.watchedEpisodes}
+                className="font-mono text-[11px] text-violet-300 tracking-wider inline-block animate-countBounce motion-reduce:animate-none"
+              >
+                S{current.number} · ÉP. {String(current.watchedEpisodes).padStart(2, "0")}
+                {current.totalEpisodes != null ? ` / ${String(current.totalEpisodes).padStart(2, "0")}` : ""}
+              </span>
+
+              <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => decrementEpisode(entry.id, activeSeason)}
+                  className="text-[10px] font-mono uppercase tracking-wide px-2 py-0.5 rounded-md bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform motion-reduce:transition-none"
+                >
+                  -1 ép.
+                </button>
+                {(current.totalEpisodes == null || current.watchedEpisodes < current.totalEpisodes) && (
+                  <button
+                    onClick={() => incrementEpisode(entry.id, activeSeason)}
+                    className="text-[10px] font-mono uppercase tracking-wide px-2 py-0.5 rounded-md bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform motion-reduce:transition-none"
+                  >
+                    +1 ép.
+                  </button>
+                )}
+                {current.totalEpisodes != null && current.watchedEpisodes < current.totalEpisodes && (
+                  <button
+                    onClick={() => setEpisodeCount(entry.id, activeSeason, current.totalEpisodes)}
+                    aria-label="Tout cocher"
+                    title={`Cocher tous les épisodes (${current.totalEpisodes})`}
+                    className="text-[10px] font-mono uppercase tracking-wide px-2 py-0.5 rounded-md bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform motion-reduce:transition-none flex items-center gap-1"
+                  >
+                    <CheckCheck size={11} /> tout
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="h-4 flex items-center">
+              {current.totalEpisodes != null ? (
+                <ProgressBar
+                  watched={current.watchedEpisodes}
+                  total={current.totalEpisodes}
+                  colorClass={s.bar}
+                  glow={entry.status === "en-cours"}
+                  color={s.color}
+                  onChange={(v) => setEpisodeCount(entry.id, activeSeason, v)}
+                />
+              ) : (
+                <p className="text-[10px] font-mono text-violet-500">Total inconnu — suivi libre</p>
+              )}
+            </div>
+
+            {seasons.length > 1 && (
+              <p className="text-[10px] font-mono text-violet-500 mt-1">
+                Total : {totalWatched}{totalAll != null ? `/${totalAll}` : ""} épisodes vus
+              </p>
+            )}
+          </div>
+
+          {/* ── Bouton terminer ── */}
+          {canFinish && (
             <button
-              key={key}
-              onClick={() => onTypeFilterChange(key)}
-              className={`flex items-center gap-1.5 px-6 py-1.5 rounded-full text-xs font-medium transition-colors motion-reduce:transition-none
-                ${typeFilter === key ? "bg-amber-400 text-violet-950 font-semibold" : "text-violet-300 hover:text-violet-100"}`}
+              onClick={(e) => { e.stopPropagation(); markDone(entry.id); }}
+              className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg bg-teal-400/15 text-teal-300 hover:bg-teal-400/25 active:scale-95 transition-transform motion-reduce:transition-none"
             >
-              {icon}{label}
+              <Check size={13} /> Marquer comme terminé
             </button>
-          ))}
+          )}
         </div>
-      </div>
-      <div className="border-b border-white/10 mb-5" />
 
-      {/* ── Filtre statut ── */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        <Chip active={filter === "all"} onClick={() => onFilterChange("all")}>
-          Tous <span className="font-mono opacity-70">({byType.length})</span>
-        </Chip>
-        {STATUS_ORDER.map((k) => (
-          <Chip
-            key={k}
-            active={filter === k}
-            onClick={() => onFilterChange(k)}
-            colorClass={
-              k === "en-cours" ? "bg-amber-400/90 border-amber-400 text-violet-950" :
-              k === "termine"  ? "bg-teal-400/90 border-teal-400 text-violet-950"   :
-              k === "a-voir"   ? "bg-sky-400/90 border-sky-400 text-violet-950"     :
-                                 "bg-rose-400/90 border-rose-400 text-violet-950"
-            }
-          >
-            {STATUS[k].label} <span className="font-mono opacity-70">({counts[k]})</span>
-          </Chip>
-        ))}
+        {/* ── Note ── */}
+        <div className="flex flex-col items-center justify-center gap-1 pl-3 border-l border-white/5 min-w-[48px] relative z-10">
+          <p className="font-mono text-[9px] uppercase tracking-widest text-violet-400">Ma note</p>
+          <div className="flex items-center gap-1">
+            <span className="text-xl font-bold text-violet-50" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+              {entry.rating || "—"}
+            </span>
+            {entry.rating > 0 && <Star size={16} fill="#fbbf24" strokeWidth={0} />}
+          </div>
+          {getRatingEmoji(entry.rating) && (
+            <span className="text-2xl">{getRatingEmoji(entry.rating)}</span>
+          )}
+        </div>
+
+        {entry.notes && (
+          <p className="text-xs text-violet-300/80 italic line-clamp-2 relative z-10">{entry.notes}</p>
+        )}
       </div>
+
+      {showDeleteWarning && (
+        <ConfirmDialog
+          icon={<Trash2 size={14} className="text-rose-400" />}
+          title="Supprimer ce titre ?"
+          description={
+            <>
+              <span className="text-violet-50 font-medium">« {entry.title} »</span> et toute sa progression seront supprimés définitivement.
+            </>
+          }
+          confirmLabel="Supprimer"
+          onConfirm={() => { deleteEntry(entry.id); setShowDeleteWarning(false); }}
+          onCancel={() => setShowDeleteWarning(false)}
+        />
+      )}
     </>
   );
-}
+});

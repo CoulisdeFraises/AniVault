@@ -16,10 +16,8 @@ export function Home() {
   const [showForm,     setShowForm]     = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
 
-  // ── Sync automatique au premier chargement des entrées ──
   useEffect(() => {
     if (!loading && entries.length > 0) {
-      // Léger délai pour ne pas bloquer le rendu initial
       const t = setTimeout(() => syncAll(), 1500);
       return () => clearTimeout(t);
     }
@@ -36,14 +34,11 @@ export function Home() {
   const filteredAnime = useMemo(() => filtered.filter((e) => e.type === "anime"), [filtered]);
   const filteredSerie = useMemo(() => filtered.filter((e) => e.type === "serie"), [filtered]);
 
-  function openNewForm() {
-    setEditingEntry(null);
-    setShowForm(true);
-  }
-  function openEditForm(entry) {
-    setEditingEntry(entry);
-    setShowForm(true);
-  }
+  function openNewForm()      { setEditingEntry(null);  setShowForm(true); }
+  function openEditForm(entry){ setEditingEntry(entry); setShowForm(true); }
+
+  // Clé qui change quand un filtre change → remonte la grille → stagger des cartes
+  const gridKey = `${filter}-${typeFilter}`;
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -70,20 +65,27 @@ export function Home() {
         {loading ? (
           <p className="text-violet-400 text-sm font-mono">Chargement…</p>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20 rounded-2xl border border-dashed border-white/10">
+          <div className="text-center py-20 rounded-2xl border border-dashed border-white/10 animate-fadeIn">
             <p className="text-violet-300 mb-4">
               {entries.length === 0
                 ? "C'est bien vide ici — Commence ton journal et ajoute donc une série !"
                 : "Hello Darkness My Old Friend..."}
             </p>
             {entries.length === 0 && (
-              <button onClick={openNewForm} className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-300 hover:text-amber-200">
+              <button
+                onClick={openNewForm}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-300 hover:text-amber-200 active:scale-95 transition-transform motion-reduce:transition-none"
+              >
                 <Plus size={15} /> Ajouter un titre
               </button>
             )}
           </div>
         ) : typeFilter === "all" ? (
-          <div className="space-y-8">
+          /*
+            key={gridKey} : quand un filtre change, toute la section remonte.
+            Les cartes reçoivent leur index pour le stagger fadeInUp.
+          */
+          <div key={gridKey} className="space-y-8 animate-fadeIn motion-reduce:animate-none">
             {filteredAnime.length > 0 && (
               <section>
                 <div className="flex items-center gap-2 mb-3">
@@ -92,8 +94,8 @@ export function Home() {
                   <span className="font-mono text-xs text-violet-600">({filteredAnime.length})</span>
                 </div>
                 <div className="grid grid-cols-1 gap-4">
-                  {filteredAnime.map((entry) => (
-                    <Card key={entry.id} entry={entry} onEdit={openEditForm} />
+                  {filteredAnime.map((entry, i) => (
+                    <Card key={entry.id} entry={entry} onEdit={openEditForm} index={i} />
                   ))}
                 </div>
               </section>
@@ -106,17 +108,17 @@ export function Home() {
                   <span className="font-mono text-xs text-violet-600">({filteredSerie.length})</span>
                 </div>
                 <div className="grid grid-cols-1 gap-4">
-                  {filteredSerie.map((entry) => (
-                    <Card key={entry.id} entry={entry} onEdit={openEditForm} />
+                  {filteredSerie.map((entry, i) => (
+                    <Card key={entry.id} entry={entry} onEdit={openEditForm} index={i} />
                   ))}
                 </div>
               </section>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4">
-            {filtered.map((entry) => (
-              <Card key={entry.id} entry={entry} onEdit={openEditForm} />
+          <div key={gridKey} className="grid grid-cols-1 gap-4 animate-fadeIn motion-reduce:animate-none">
+            {filtered.map((entry, i) => (
+              <Card key={entry.id} entry={entry} onEdit={openEditForm} index={i} />
             ))}
           </div>
         )}

@@ -9,12 +9,12 @@ import { STATUS, seasonTotals, formatCountdown } from "../../utils/status";
 import { useLibrary } from "../../context/LibraryContext";
 import { fetchNextAiring } from "../../api";
 
-export const Card = memo(function Card({ entry, onEdit }) {
+export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
   const { incrementEpisode, decrementEpisode, setEpisodeCount, markDone, deleteEntry } = useLibrary();
   const navigate = useNavigate();
 
   const seasons = entry.seasons;
-  const [activeSeason, setActiveSeason] = useState(() => {
+  const [activeSeason,      setActiveSeason]      = useState(() => {
     const idx = seasons.findIndex((s) => s.totalEpisodes == null || s.watchedEpisodes < s.totalEpisodes);
     return idx === -1 ? seasons.length - 1 : idx;
   });
@@ -29,68 +29,93 @@ export const Card = memo(function Card({ entry, onEdit }) {
     if (entry.status === "termine" || entry.status === "abandonne") { setNextAiring(null); return; }
     if (!((entry.source === "anilist" && entry.anilistIds?.length) || (entry.source === "tvmaze" && entry.tvmazeId))) return;
     let cancelled = false;
-    const jitter = Math.random() * 800;
     const t = setTimeout(async () => {
       try {
         const result = await fetchNextAiring(entry);
         if (!cancelled) setNextAiring(result);
       } catch (_) {}
-    }, jitter);
+    }, Math.random() * 800);
     return () => { cancelled = true; clearTimeout(t); };
   }, [entry.id, entry.source, entry.status, entry.anilistIds?.length, entry.tvmazeId]);
 
-  const current = seasons[Math.min(activeSeason, seasons.length - 1)];
+  const current    = seasons[Math.min(activeSeason, seasons.length - 1)];
   const { watched: totalWatched, total: totalAll } = seasonTotals(seasons);
   const canFinish  = entry.status === "en-cours" && totalAll != null && totalAll > 0 && totalWatched >= totalAll;
   const seasonDone = current.totalEpisodes != null && current.watchedEpisodes >= current.totalEpisodes;
   const hasNext    = activeSeason < seasons.length - 1;
 
-  // ── Détection complétion de saison → animation ──
+  // ── Animation saison complète ──
   const prevRef = useRef({ watched: current.watchedEpisodes, seasonIdx: activeSeason });
-
   useEffect(() => {
     const prev = prevRef.current;
     const justCompleted =
-      prev.seasonIdx === activeSeason &&           // même saison (pas un simple changement d'onglet)
-      current.totalEpisodes != null &&             // total connu
-      current.watchedEpisodes >= current.totalEpisodes && // maintenant complète
-      prev.watched < current.totalEpisodes;        // avant elle ne l'était pas
-
+      prev.seasonIdx === activeSeason &&
+      current.totalEpisodes != null &&
+      current.watchedEpisodes >= current.totalEpisodes &&
+      prev.watched < current.totalEpisodes;
     if (justCompleted) {
       setCelebrating(false);
-      // Force un re-trigger si on déclenche deux fois de suite la même saison
       requestAnimationFrame(() => setCelebrating(true));
       const t = setTimeout(() => setCelebrating(false), 900);
       prevRef.current = { watched: current.watchedEpisodes, seasonIdx: activeSeason };
       return () => clearTimeout(t);
     }
-
     prevRef.current = { watched: current.watchedEpisodes, seasonIdx: activeSeason };
   }, [current.watchedEpisodes, current.totalEpisodes, activeSeason]);
 
   return (
     <>
+      {/*
+        ─ hover:-translate-y-0.5 : légère élévation au survol
+        ─ hover:shadow-lg        : ombre portée qui renforce la profondeur
+        ─ card-noise             : texture de bruit subtile (custom.css)
+        ─ animate-fadeInUp       : entrée en fondu + remontée
+        ─ animationDelay stagger : décalage selon l'index dans la liste
+      */}
       <div
         onClick={() => navigate(`/details/${entry.id}`)}
-        className={`rounded-2xl bg-violet-900/30 border-l-4 ${s.border} border-t border-r border-b border-white/5 p-4 flex gap-3 transition-colors duration-200 hover:bg-violet-800/40 hover:border-white/10 cursor-pointer${celebrating ? " card-season-complete" : ""}`}
+        className={`
+          relative card-noise rounded-2xl bg-violet-900/30
+          border-t border-r border-b border-white/5
+          p-4 flex gap-3 overflow-hidden
+          transition-all duration-200 ease-out
+          hover:-translate-y-0.5 hover:shadow-lg hover:shadow-violet-950/60 hover:bg-violet-800/40
+          cursor-pointer
+          animate-fadeInUp
+          motion-reduce:animate-none motion-reduce:transition-none
+          ${celebrating ? "card-season-complete" : ""}
+        `}
+        style={{
+          animationDelay:    `${Math.min(index * 45, 350)}ms`,
+          animationFillMode: "both",
+        }}
       >
+        {/* ── Bordure gauche en dégradé (remplace border-l-4 plat) ── */}
+        <div
+          className="absolute inset-y-0 left-0 w-[3px] rounded-l-2xl"
+          style={{
+            background: `linear-gradient(to bottom, ${s.color}, ${s.color}70, ${s.color}10)`,
+          }}
+        />
+
+        {/* ── Image ── */}
         {(() => {
-          const displayImage = current?.coverImage || (activeSeason === 0 ? entry.coverImage : null);
+          const displayImage  = current?.coverImage || (activeSeason === 0 ? entry.coverImage : null);
           const fallbackImage = entry.seasons[0]?.coverImage || entry.coverImage;
-          const showFallback = !displayImage && activeSeason > 0 && fallbackImage;
+          const showFallback  = !displayImage && activeSeason > 0 && fallbackImage;
           return displayImage ? (
-            <div className="self-stretch aspect-[2/3] flex-shrink-0 rounded-lg overflow-hidden bg-white/5">
+            <div className="w-[72px] h-[108px] flex-shrink-0 rounded-lg overflow-hidden bg-white/5">
               <img src={displayImage} alt="" className="w-full h-full object-cover" />
             </div>
           ) : showFallback ? (
-            <div className="relative self-stretch aspect-[2/3] flex-shrink-0 rounded-lg overflow-hidden bg-white/5">
+            <div className="relative w-[72px] h-[108px] flex-shrink-0 rounded-lg overflow-hidden bg-white/5">
               <img src={fallbackImage} alt="" className="w-full h-full object-cover brightness-[0.25]" />
               <span className="absolute inset-0 flex items-center justify-center text-5xl font-bold text-white/50">?</span>
             </div>
           ) : null;
         })()}
 
-        <div className="flex-1 min-w-0 flex flex-col gap-3">
+        <div className="flex-1 min-w-0 flex flex-col gap-3 relative z-10">
 
           {/* ── Titre + boutons ── */}
           <div className="flex items-start justify-between gap-2">
@@ -100,10 +125,13 @@ export const Card = memo(function Card({ entry, onEdit }) {
                   {entry.type === "anime" ? <Film size={11} /> : <Tv size={11} />}
                   {entry.type === "anime" ? "Anime" : "Série"}
                 </span>
-                <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest ${s.text}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+
+                {/* Badge statut – glassmorphism + dot pulsant pour En cours */}
+                <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest backdrop-blur-sm px-1.5 py-0.5 rounded-full bg-white/5 ${s.text}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${s.dot} ${entry.status === "en-cours" ? "animate-pulse" : ""}`} />
                   {s.label}
                 </span>
+
                 {nextAiring && (() => {
                   const countdown = formatCountdown(nextAiring.airingAt);
                   if (!countdown) return null;
@@ -123,18 +151,19 @@ export const Card = memo(function Card({ entry, onEdit }) {
                 {entry.title}
               </h3>
             </div>
+
             <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={() => onEdit(entry)}
                 aria-label="Modifier"
-                className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-violet-50"
+                className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-violet-50 active:scale-95 transition-transform motion-reduce:transition-none"
               >
                 <Pencil size={14} />
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setShowDeleteWarning(true); }}
                 aria-label="Supprimer"
-                className="p-1.5 rounded-lg text-violet-300 hover:bg-rose-500/20 hover:text-rose-300"
+                className="p-1.5 rounded-lg text-violet-300 hover:bg-rose-500/20 hover:text-rose-300 active:scale-95 transition-transform motion-reduce:transition-none"
               >
                 <Trash2 size={14} />
               </button>
@@ -159,7 +188,7 @@ export const Card = memo(function Card({ entry, onEdit }) {
               <button
                 key={se.number}
                 onClick={() => setActiveSeason(i)}
-                className={`px-2 py-0.5 rounded-md text-[10px] font-mono border whitespace-nowrap flex-shrink-0 ${
+                className={`px-2 py-0.5 rounded-md text-[10px] font-mono border whitespace-nowrap flex-shrink-0 transition-colors active:scale-95 motion-reduce:transition-none ${
                   i === activeSeason
                     ? `${s.border} ${s.text} bg-white/10`
                     : "border-white/10 text-violet-400 hover:bg-white/5"
@@ -171,7 +200,7 @@ export const Card = memo(function Card({ entry, onEdit }) {
             {seasonDone && hasNext && (
               <button
                 onClick={() => setActiveSeason(activeSeason + 1)}
-                className="flex items-center gap-0.5 text-[10px] text-violet-400 hover:text-violet-200 flex-shrink-0 whitespace-nowrap"
+                className="flex items-center gap-0.5 text-[10px] text-violet-400 hover:text-violet-200 flex-shrink-0 whitespace-nowrap active:scale-95 transition-transform motion-reduce:transition-none"
               >
                 Saison suiv. <ChevronRight size={11} />
               </button>
@@ -181,21 +210,29 @@ export const Card = memo(function Card({ entry, onEdit }) {
           {/* ── Progression épisodes ── */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <span className="font-mono text-[11px] text-violet-300 tracking-wider">
+              {/*
+                key={current.watchedEpisodes} : force un remontage quand le
+                compteur change → déclenche animate-countBounce à chaque +1/-1
+              */}
+              <span
+                key={current.watchedEpisodes}
+                className="font-mono text-[11px] text-violet-300 tracking-wider inline-block animate-countBounce motion-reduce:animate-none"
+              >
                 S{current.number} · ÉP. {String(current.watchedEpisodes).padStart(2, "0")}
                 {current.totalEpisodes != null ? ` / ${String(current.totalEpisodes).padStart(2, "0")}` : ""}
               </span>
+
               <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={() => decrementEpisode(entry.id, activeSeason)}
-                  className="text-[10px] font-mono uppercase tracking-wide px-2 py-0.5 rounded-md bg-white/10 text-violet-200 hover:bg-white/20"
+                  className="text-[10px] font-mono uppercase tracking-wide px-2 py-0.5 rounded-md bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform motion-reduce:transition-none"
                 >
                   -1 ép.
                 </button>
                 {(current.totalEpisodes == null || current.watchedEpisodes < current.totalEpisodes) && (
                   <button
                     onClick={() => incrementEpisode(entry.id, activeSeason)}
-                    className="text-[10px] font-mono uppercase tracking-wide px-2 py-0.5 rounded-md bg-white/10 text-violet-200 hover:bg-white/20"
+                    className="text-[10px] font-mono uppercase tracking-wide px-2 py-0.5 rounded-md bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform motion-reduce:transition-none"
                   >
                     +1 ép.
                   </button>
@@ -205,13 +242,14 @@ export const Card = memo(function Card({ entry, onEdit }) {
                     onClick={() => setEpisodeCount(entry.id, activeSeason, current.totalEpisodes)}
                     aria-label="Tout cocher"
                     title={`Cocher tous les épisodes (${current.totalEpisodes})`}
-                    className="text-[10px] font-mono uppercase tracking-wide px-2 py-0.5 rounded-md bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 flex items-center gap-1"
+                    className="text-[10px] font-mono uppercase tracking-wide px-2 py-0.5 rounded-md bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform motion-reduce:transition-none flex items-center gap-1"
                   >
                     <CheckCheck size={11} /> tout
                   </button>
                 )}
               </div>
             </div>
+
             <div className="h-4 flex items-center">
               {current.totalEpisodes != null ? (
                 <ProgressBar
@@ -226,6 +264,7 @@ export const Card = memo(function Card({ entry, onEdit }) {
                 <p className="text-[10px] font-mono text-violet-500">Total inconnu — suivi libre</p>
               )}
             </div>
+
             {seasons.length > 1 && (
               <p className="text-[10px] font-mono text-violet-500 mt-1">
                 Total : {totalWatched}{totalAll != null ? `/${totalAll}` : ""} épisodes vus
@@ -237,7 +276,7 @@ export const Card = memo(function Card({ entry, onEdit }) {
           {canFinish && (
             <button
               onClick={(e) => { e.stopPropagation(); markDone(entry.id); }}
-              className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg bg-teal-400/15 text-teal-300 hover:bg-teal-400/25"
+              className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg bg-teal-400/15 text-teal-300 hover:bg-teal-400/25 active:scale-95 transition-transform motion-reduce:transition-none"
             >
               <Check size={13} /> Marquer comme terminé
             </button>
@@ -245,7 +284,7 @@ export const Card = memo(function Card({ entry, onEdit }) {
         </div>
 
         {/* ── Note ── */}
-        <div className="flex flex-col items-center justify-center gap-1 pl-3 border-l border-white/5 min-w-[48px]">
+        <div className="flex flex-col items-center justify-center gap-1 pl-3 border-l border-white/5 min-w-[48px] relative z-10">
           <p className="font-mono text-[9px] uppercase tracking-widest text-violet-400">Ma note</p>
           <div className="flex items-center gap-1">
             <span className="text-xl font-bold text-violet-50" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
@@ -259,11 +298,10 @@ export const Card = memo(function Card({ entry, onEdit }) {
         </div>
 
         {entry.notes && (
-          <p className="text-xs text-violet-300/80 italic line-clamp-2">{entry.notes}</p>
+          <p className="text-xs text-violet-300/80 italic line-clamp-2 relative z-10">{entry.notes}</p>
         )}
       </div>
 
-      {/* ── Confirmation suppression titre ── */}
       {showDeleteWarning && (
         <ConfirmDialog
           icon={<Trash2 size={14} className="text-rose-400" />}

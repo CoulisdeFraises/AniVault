@@ -4,13 +4,13 @@
   100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
 }
 
-/* ── Chargement (surcharge Tailwind animate-spin si besoin) ── */
+/* ── Chargement ───────────────────────────────────────────── */
 @keyframes spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
 
-/* ── Saison complète : bounce + wiggle ──────────────────────── */
+/* ── Saison complète : bounce + wiggle ─────────────────────── */
 @keyframes seasonComplete {
   0%   { transform: translateY(0)     rotate(0deg);    }
   10%  { transform: translateY(-9px)  rotate(-2.5deg); }
@@ -23,3 +23,53 @@
   91%  { transform: translateY(0)     rotate(0deg);    }
   100% { transform: translateY(0)     rotate(0deg);    }
 }
+
+/* ── Entrée des cartes (fade + remontée) ───────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* ── Fade simple ───────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Shimmer (squelettes de chargement) ────────────────────── */
+@keyframes shimmer {
+  0%   { background-position:  200% center; }
+  100% { background-position: -200% center; }
+}
+
+/* ── Halo pulsant (badge Aujourd'hui) ──────────────────────── */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0  6px 1px rgba(251, 191, 36, 0.45); }
+  50%       { box-shadow: 0 0 14px 5px rgba(251, 191, 36, 0.80); }
+}
+
+/* ── Bounce compteur épisodes ──────────────────────────────── */
+@keyframes countBounce {
+  0%   { transform: scale(1);    color: inherit;  }
+  30%  { transform: scale(1.22); color: #fbbf24;  }
+  60%  { transform: scale(0.93); color: #fbbf24;  }
+  100% { transform: scale(1);    color: inherit;  }
+}
+
+/* ── Slide horizontal (navigation calendrier) ─────────────── */
+@keyframes slideFromRight {
+  from { opacity: 0; transform: translateX(18px); }
+  to   { opacity: 1; transform: translateX(0);    }
+}
+@keyframes slideFromLeft {
+  from { opacity: 0; transform: translateX(-18px); }
+  to   { opacity: 1; transform: translateX(0);     }
+}
+
+/* ── Classes utilitaires ───────────────────────────────────── */
+.animate-fadeInUp    { animation: fadeInUp     0.35s ease-out both; }
+.animate-fadeIn      { animation: fadeIn       0.20s ease-out both; }
+.animate-countBounce { animation: countBounce  0.28s ease-out both; }
+.animate-glowPulse   { animation: glowPulse    2s    ease-in-out infinite; }
+.animate-slideFromRight { animation: slideFromRight 0.22s ease-out both; }
+.animate-slideFromLeft  { animation: slideFromLeft  0.22s ease-out both; }
