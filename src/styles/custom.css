@@ -1,0 +1,35 @@
+/* ── Range input (scrubber d'épisodes) ────────────────────── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--thumb-color, #fbbf24);
+  cursor: pointer;
+  margin-top: -4px;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 9999px;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  background: var(--thumb-color, #fbbf24);
+  cursor: pointer;
+}
+
+/* ── Typographies externes ─────────────────────────────────── */
+.font-mono {
+  font-family: "IBM Plex Mono", monospace;
+}
