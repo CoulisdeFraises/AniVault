@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight, Trash2, Download, Upload, Info, Film, Tv, RotateCcw } from "lucide-react";
-import { useAuth }    from "../context/Authcontext";
-import { useLibrary } from "../context/librarycontext";
+import { useAuth }    from "../context/AuthContext";
+import { useLibrary } from "../context/LibraryContext";
 
 const STORAGE_KEY = "playlog-entries";
 
