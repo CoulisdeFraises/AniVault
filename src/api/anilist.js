@@ -9,7 +9,8 @@ async function anilistQuery(query, variables) {
 }
 
 export async function searchAniList(q) {
-  const query = `query ($search: String) { Page(perPage: 12) { media(search: $search, type: ANIME, sort: POPULARITY_DESC) { id title { romaji english } episodes genres coverImage { medium } seasonYear format relations { edges { relationType } } } } }`;
+  // coverImage.large (~460 px) : résolution suffisante pour cartes + fiche détail
+  const query = `query ($search: String) { Page(perPage: 12) { media(search: $search, type: ANIME, sort: POPULARITY_DESC) { id title { romaji english } episodes genres coverImage { large } seasonYear format relations { edges { relationType } } } } }`;
   const json = await anilistQuery(query, { search: q });
   const media = json.data?.Page?.media || [];
   const filtered = media.filter((m) => !m.relations.edges.some((e) => e.relationType === "PREQUEL"));
@@ -18,15 +19,12 @@ export async function searchAniList(q) {
     id: m.id,
     title: m.title.english || m.title.romaji,
     year: m.seasonYear,
-    image: m.coverImage?.medium,
+    image: m.coverImage?.large,   // ← large au lieu de medium
     episodes: m.episodes,
     genres: m.genres || [],
   }));
 }
 
-// Remonte la chaîne de préquelles jusqu'à la racine, puis redescend la
-// chaîne de suites : reconstitue l'intégralité d'un franchise anime
-// (une "saison" chez nous = une entrée AniList distincte).
 export async function fetchAniListAllSeasons(startId) {
   async function findRoot(id, visited = new Set()) {
     if (visited.has(id)) return id;
@@ -46,7 +44,8 @@ export async function fetchAniListAllSeasons(startId) {
   async function followSequels(id, visited = new Set()) {
     if (!id || visited.has(id)) return [];
     visited.add(id);
-    const query = `query ($id: Int) { Media(id: $id, type: ANIME) { id episodes coverImage { medium } relations { edges { relationType node { id type } } } } }`;
+    // coverImage.large pour chaque saison
+    const query = `query ($id: Int) { Media(id: $id, type: ANIME) { id episodes coverImage { large } relations { edges { relationType node { id type } } } } }`;
     let json;
     try {
       json = await anilistQuery(query, { id });
@@ -57,7 +56,7 @@ export async function fetchAniListAllSeasons(startId) {
     if (!media) return [];
     const sequel = media.relations?.edges?.find((e) => e.relationType === "SEQUEL" && e.node.type === "ANIME");
     const rest = await followSequels(sequel?.node?.id ?? null, visited);
-    return [{ anilistId: id, totalEpisodes: media.episodes ?? null, watchedEpisodes: 0, coverImage: media.coverImage?.medium ?? null }, ...rest];
+    return [{ anilistId: id, totalEpisodes: media.episodes ?? null, watchedEpisodes: 0, coverImage: media.coverImage?.large ?? null }, ...rest];
   }
 
   const rootId = await findRoot(startId);
@@ -75,7 +74,8 @@ export async function fetchAniListNextSeason(rootId, currentSeasonCount) {
 
   while (currentId && !visited.has(currentId) && allEntries.length <= currentSeasonCount) {
     visited.add(currentId);
-    const query = `query ($id: Int) { Media(id: $id, type: ANIME) { id episodes coverImage { medium } relations { edges { relationType node { id type } } } } }`;
+    // coverImage.large pour la saison suivante
+    const query = `query ($id: Int) { Media(id: $id, type: ANIME) { id episodes coverImage { large } relations { edges { relationType node { id type } } } } }`;
     let json;
     try {
       json = await anilistQuery(query, { id: currentId });
@@ -84,7 +84,7 @@ export async function fetchAniListNextSeason(rootId, currentSeasonCount) {
     }
     const media = json.data?.Media;
     if (!media) break;
-    allEntries.push({ id: currentId, episodes: media.episodes ?? null, coverImage: media.coverImage?.medium ?? null });
+    allEntries.push({ id: currentId, episodes: media.episodes ?? null, coverImage: media.coverImage?.large ?? null });
     const sequel = (media.relations?.edges || []).find((e) => e.relationType === "SEQUEL" && e.node.type === "ANIME");
     if (!sequel) break;
     currentId = sequel.node.id;
@@ -117,8 +117,6 @@ async function fetchAniListIdMal(anilistId) {
   return json.data?.Media?.idMal ?? null;
 }
 
-// L'API Jikan (MyAnimeList) ne liste que les épisodes déjà diffusés, ce qui
-// couvre naturellement le cas d'une saison en cours de parution.
 async function fetchJikanEpisodes(malId) {
   const episodes = [];
   let page = 1;
@@ -135,8 +133,6 @@ async function fetchJikanEpisodes(malId) {
   return episodes;
 }
 
-// Repli utilisé quand TMDB n'a pas la fiche : AniList d'abord (rapide,
-// mais souvent vide), puis Jikan/MyAnimeList (plus complet).
 export async function fetchAniListEpisodesBySeasonId(anilistId) {
   try {
     const streaming = await fetchAniListStreamingEpisodes(anilistId);
@@ -173,10 +169,9 @@ export async function fetchNextAiringAniList(anilistId) {
   }
 }
 
-// ── Calcule les bornes Unix de la semaine (offsetWeeks = 0 → semaine courante) ──
 function getWeekBounds(offsetWeeks = 0) {
   const now   = new Date();
-  const dow   = now.getDay(); // 0 = dimanche
+  const dow   = now.getDay();
   const toMon = dow === 0 ? -6 : 1 - dow;
   const monday = new Date(now);
   monday.setDate(now.getDate() + toMon + offsetWeeks * 7);
@@ -193,32 +188,22 @@ function getWeekBounds(offsetWeeks = 0) {
   };
 }
 
-// ── Détection disponibilité française ─────────────────────────────────────────
-// Sites exclusivement francophones → pas besoin de vérifier la langue
 const FR_ONLY_SITES = new Set(["ADN", "Wakanim", "Anime Digital Network"]);
-
-// Patterns d'URL associés aux plateformes françaises
 const FR_URL_PATTERNS = ["animedigitalnetwork.fr", "wakanim.tv/fr", "adn."];
 
 export function hasFrenchVersion(media) {
   return (media.externalLinks || []).some((l) => {
-    // Plateformes 100 % françaises → toujours VF/VOSTFR
     if (FR_ONLY_SITES.has(l.site)) return true;
-
-    // Champ language renseigné (valeurs possibles : "French" ou "fr")
     if (l.language === "French" || l.language === "fr") return true;
-
-    // Vérification par URL quand le champ language est absent
     if (l.url && FR_URL_PATTERNS.some((p) => l.url.includes(p))) return true;
-
     return false;
   });
 }
 
-// ── Fetch du calendrier hebdomadaire ──────────────────────────────────────────
 export async function fetchWeeklySchedule(offsetWeeks = 0) {
   const { start, end, monday } = getWeekBounds(offsetWeeks);
 
+  // medium : vignettes 48px du calendrier — large : bannière du modal détail
   const query = `
     query ($start: Int, $end: Int, $page: Int) {
       Page(page: $page, perPage: 50) {
@@ -267,7 +252,6 @@ export async function fetchWeeklySchedule(offsetWeeks = 0) {
     const pageData = json.data?.Page;
     if (!pageData) break;
 
-    // Garde uniquement les animes japonais non-adultes
     all.push(...(pageData.airingSchedules || []).filter(
       (s) => !s.media?.isAdult && s.media?.countryOfOrigin === "JP"
     ));
@@ -279,7 +263,6 @@ export async function fetchWeeklySchedule(offsetWeeks = 0) {
   return { schedules: all, monday };
 }
 
-// Vrai si la série est une suite (a un préquel anime)
 export function isReturningSeries(media) {
   return (media.relations?.edges || []).some(
     (e) => e.relationType === "PREQUEL" && e.node?.type === "ANIME"

@@ -5,12 +5,13 @@ import {
   ChevronLeft, ChevronRight, X,
 } from "lucide-react";
 import { fetchWeeklySchedule, hasFrenchVersion, isReturningSeries } from "../api/anilist";
-import { hasTMDB, searchTMDBShow, fetchTMDBEpisodeFR } from "../api/tmdb";
+import { hasTMDB, searchTMDBShow, fetchTMDBEpisodeFR, fetchTMDBWatchProvidersFR } from "../api/tmdb";
 import { useLibrary } from "../context/LibraryContext";
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 const DAY_NAMES    = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 const VISIBLE_DAYS = 3;
+const TMDB_CHUNK   = 5;
 
 function getSeasonLabel() {
   const now   = new Date();
@@ -28,31 +29,30 @@ function todayIndex() {
 }
 
 // ── Modal détail épisode ──────────────────────────────────────────────────────
-function EpisodeDetailModal({ schedule, onClose }) {
-  const [loading,      setLoading]      = useState(true);
-  const [frTitle,      setFrTitle]      = useState(null);
-  const [frSynopsis,   setFrSynopsis]   = useState(null);
-  const [episodeName,  setEpisodeName]  = useState(null);
+function EpisodeDetailModal({ schedule, initialFrTitle, hasFrFromTmdb, onClose }) {
+  const [loading,     setLoading]     = useState(true);
+  const [frTitle,     setFrTitle]     = useState(initialFrTitle ?? null);
+  const [frSynopsis,  setFrSynopsis]  = useState(null);
+  const [episodeName, setEpisodeName] = useState(null);
 
-  const rawTitle       = schedule.media.title.english || schedule.media.title.romaji;
-  const displayTitle   = frTitle    || rawTitle;
+  const rawTitle        = schedule.media.title.english || schedule.media.title.romaji;
+  const displayTitle    = frTitle    || rawTitle;
   const displaySynopsis = frSynopsis || schedule.media.description || null;
-  const isFr           = hasFrenchVersion(schedule.media);
-  const airingDate     = new Date(schedule.airingAt * 1000);
-  const cover          = schedule.media.coverImage?.large || schedule.media.coverImage?.medium;
+  // Badge VF : TMDB watch providers (fiable) OU AniList externalLinks (fallback)
+  const isFr            = hasFrFromTmdb || hasFrenchVersion(schedule.media);
+  const airingDate      = new Date(schedule.airingAt * 1000);
+  const cover           = schedule.media.coverImage?.large || schedule.media.coverImage?.medium;
 
-  // ── Fetch TMDB (FR) + Jikan (fallback nom épisode) en parallèle ──
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setFrTitle(null);
+    if (!initialFrTitle) setFrTitle(null);
     setFrSynopsis(null);
     setEpisodeName(null);
 
     async function load() {
       const title = schedule.media.title.english || schedule.media.title.romaji;
 
-      // ── TMDB : titre FR + synopsis FR + nom d'épisode FR ──
       const tmdbTask = hasTMDB()
         ? searchTMDBShow(title)
             .then(async (tmdb) => {
@@ -60,20 +60,13 @@ function EpisodeDetailModal({ schedule, onClose }) {
               const frEpName = tmdb.id
                 ? await fetchTMDBEpisodeFR(tmdb.id, schedule.episode).catch(() => null)
                 : null;
-              return {
-                frTitle:    tmdb.name     ?? null,
-                frSynopsis: tmdb.overview ?? null,
-                frEpName,
-              };
+              return { frTitle: tmdb.name ?? null, frSynopsis: tmdb.overview ?? null, frEpName };
             })
             .catch(() => ({ frTitle: null, frSynopsis: null, frEpName: null }))
         : Promise.resolve({ frTitle: null, frSynopsis: null, frEpName: null });
 
-      // ── Jikan : nom d'épisode EN/romaji (fallback si TMDB n'a pas le nom FR) ──
       const jikanTask = schedule.media.idMal
-        ? fetch(
-            `https://api.jikan.moe/v4/anime/${schedule.media.idMal}/episodes/${schedule.episode}`
-          )
+        ? fetch(`https://api.jikan.moe/v4/anime/${schedule.media.idMal}/episodes/${schedule.episode}`)
             .then((r) => (r.ok ? r.json() : null))
             .then((json) => json?.data?.title ?? null)
             .catch(() => null)
@@ -84,7 +77,6 @@ function EpisodeDetailModal({ schedule, onClose }) {
 
       if (tmdb.frTitle)    setFrTitle(tmdb.frTitle);
       if (tmdb.frSynopsis) setFrSynopsis(tmdb.frSynopsis);
-      // Priorité : nom FR TMDB > nom EN Jikan
       setEpisodeName(tmdb.frEpName || jikanEpName || null);
       setLoading(false);
     }
@@ -93,7 +85,6 @@ function EpisodeDetailModal({ schedule, onClose }) {
     return () => { cancelled = true; };
   }, [schedule.media.id, schedule.episode]);
 
-  // Fermeture sur Échap
   useEffect(() => {
     const handler = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", handler);
@@ -106,67 +97,38 @@ function EpisodeDetailModal({ schedule, onClose }) {
       onClick={onClose}
     >
       <div
-        className="relative max-w-sm w-full bg-violet-900 rounded-2xl border border-white/10 overflow-hidden shadow-2xl"
+        className="relative max-w-sm w-full bg-violet-900 rounded-2xl border border-white/10 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ── Bannière cover ── */}
         {cover && (
-          <div className="relative h-44 overflow-hidden bg-violet-950">
-            <img
-              src={cover}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover opacity-30 scale-110"
-              style={{ filter: "blur(16px)" }}
-              aria-hidden
-            />
-            <img
-              src={cover}
-              alt={displayTitle}
-              className="relative mx-auto h-full w-auto object-contain drop-shadow-xl"
-            />
+          <div className="relative h-44 flex-shrink-0 overflow-hidden bg-violet-950">
+            <img src={cover} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30 scale-110" style={{ filter: "blur(16px)" }} aria-hidden />
+            <img src={cover} alt={displayTitle} className="relative mx-auto h-full w-auto object-contain drop-shadow-xl" />
           </div>
         )}
 
-        {/* ── Bouton fermer ── */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 p-1.5 rounded-full bg-black/50 hover:bg-black/70 text-white/70 hover:text-white transition-colors motion-reduce:transition-none"
+          className="absolute top-3 right-3 p-1.5 rounded-full bg-black/50 hover:bg-black/70 text-white/70 hover:text-white transition-colors motion-reduce:transition-none z-10"
           aria-label="Fermer"
         >
           <X size={15} />
         </button>
 
-        {/* ── Contenu ── */}
-        <div className="p-4 space-y-3">
-
-          {/* Titre + badges */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
           <div>
             <div className="flex items-start gap-2">
-              <h2 className="flex-1 text-sm font-bold text-violet-100 leading-snug">
-                {displayTitle}
-              </h2>
-              {/* Indicateur de chargement discret à côté du titre */}
+              <h2 className="flex-1 text-sm font-bold text-violet-100 leading-snug">{displayTitle}</h2>
               {loading && hasTMDB() && (
-                <Loader2
-                  size={12}
-                  className="flex-shrink-0 mt-0.5 text-violet-500 animate-spin"
-                  aria-label="Chargement des infos en français…"
-                />
+                <Loader2 size={12} className="flex-shrink-0 mt-0.5 text-violet-500 animate-spin" aria-label="Chargement…" />
               )}
             </div>
-
             <div className="flex flex-wrap items-center gap-2 mt-1.5">
-              <span className="font-mono text-[11px] text-amber-400 font-semibold">
-                Épisode {schedule.episode}
-              </span>
+              <span className="font-mono text-[11px] text-amber-400 font-semibold">Épisode {schedule.episode}</span>
               {!loading && episodeName && (
-                <span className="font-mono text-[11px] text-violet-300 truncate max-w-[160px]">
-                  — {episodeName}
-                </span>
+                <span className="font-mono text-[11px] text-violet-300 truncate max-w-[160px]">— {episodeName}</span>
               )}
-              {loading && (
-                <span className="h-2 w-24 rounded bg-white/10 animate-pulse" />
-              )}
+              {loading && <span className="h-2 w-24 rounded bg-white/10 animate-pulse" />}
               {isFr && (
                 <span className="font-mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/20">
                   VF dispo
@@ -175,9 +137,7 @@ function EpisodeDetailModal({ schedule, onClose }) {
             </div>
           </div>
 
-          {/* Synopsis */}
           {loading ? (
-            // Skeleton pendant le fetch
             <div className="space-y-1.5 pt-0.5">
               <div className="h-2 rounded bg-white/10 animate-pulse w-full"  />
               <div className="h-2 rounded bg-white/10 animate-pulse w-11/12" />
@@ -185,24 +145,15 @@ function EpisodeDetailModal({ schedule, onClose }) {
               <div className="h-2 rounded bg-white/10 animate-pulse w-3/5"   />
             </div>
           ) : displaySynopsis ? (
-            <p className="text-xs text-violet-300 leading-relaxed line-clamp-6">
-              {displaySynopsis}
-            </p>
+            <p className="text-xs text-violet-300 leading-relaxed">{displaySynopsis}</p>
           ) : (
-            <p className="text-xs text-violet-500 font-mono italic">
-              Aucun synopsis disponible.
-            </p>
+            <p className="text-xs text-violet-500 font-mono italic">Aucun synopsis disponible.</p>
           )}
 
-          {/* Horaire */}
           <p className="font-mono text-[10px] text-violet-500 pt-1 border-t border-white/5">
-            {airingDate.toLocaleDateString("fr-FR", {
-              weekday: "long", day: "numeric", month: "long",
-            })}
+            {airingDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
             {" · "}
-            {airingDate.toLocaleTimeString("fr-FR", {
-              hour: "2-digit", minute: "2-digit",
-            })}
+            {airingDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
           </p>
         </div>
       </div>
@@ -211,10 +162,9 @@ function EpisodeDetailModal({ schedule, onClose }) {
 }
 
 // ── Carte épisode ─────────────────────────────────────────────────────────────
-function EpisodeCard({ schedule, showVfBadge, onClick }) {
+function EpisodeCard({ schedule, showVfBadge, onClick, frTitle, isFrench }) {
   const time  = new Date(schedule.airingAt * 1000);
-  const title = schedule.media.title.english || schedule.media.title.romaji;
-  const isFr  = hasFrenchVersion(schedule.media);
+  const title = frTitle || schedule.media.title.english || schedule.media.title.romaji;
 
   return (
     <button
@@ -222,11 +172,7 @@ function EpisodeCard({ schedule, showVfBadge, onClick }) {
       className="w-full text-left flex gap-2.5 p-2.5 rounded-xl bg-white/5 hover:bg-white/10 active:bg-white/15 transition-colors motion-reduce:transition-none cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"
     >
       {schedule.media.coverImage?.medium ? (
-        <img
-          src={schedule.media.coverImage.medium}
-          alt=""
-          className="w-12 h-[72px] object-cover rounded-lg flex-shrink-0"
-        />
+        <img src={schedule.media.coverImage.medium} alt="" className="w-12 h-[72px] object-cover rounded-lg flex-shrink-0" />
       ) : (
         <div className="w-12 h-[72px] rounded-lg bg-white/10 flex-shrink-0" />
       )}
@@ -236,7 +182,7 @@ function EpisodeCard({ schedule, showVfBadge, onClick }) {
         <p className="font-mono text-[10px] text-violet-500">
           {time.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
         </p>
-        {showVfBadge && isFr && (
+        {showVfBadge && isFrench && (
           <span className="inline-block mt-1 font-mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/20">
             VF
           </span>
@@ -275,6 +221,11 @@ export function Calendar() {
   const [weekOffset,       setWeekOffset]        = useState(0);
   const [selectedSchedule, setSelectedSchedule]  = useState(null);
 
+  // Titre FR par mediaId (AniList) → affiché dans les cartes
+  const [tmdbTitles,      setTmdbTitles]      = useState({});
+  // Disponibilité FR confirmée par TMDB watch providers → filtre VF
+  const [tmdbFrAvailable, setTmdbFrAvailable] = useState({});
+
   const [contentFilter, setContentFilter] = useState("all");
   const [langFilter,    setLangFilter]    = useState("all");
 
@@ -305,6 +256,70 @@ export function Calendar() {
 
   useEffect(() => { load(weekOffset); }, [weekOffset]);
 
+  // ── Pre-fetch TMDB : titres FR + disponibilité FR ─────────────────────────
+  // Pour chaque anime unique de la semaine, on enchaîne :
+  //   1. searchTMDBShow  → titre FR + TMDB ID (mis en cache)
+  //   2. fetchTMDBWatchProvidersFR → disponible en France ? (mis en cache)
+  // Les deux appels sont séquentiels par anime mais les TMDB_CHUNK animes
+  // du lot tournent en parallèle. Les caches évitent tout double-appel
+  // lors d'une navigation inter-semaines ou d'une ouverture de modal.
+  useEffect(() => {
+    if (!hasTMDB() || schedules.length === 0) {
+      setTmdbTitles({});
+      setTmdbFrAvailable({});
+      return;
+    }
+
+    let cancelled = false;
+
+    const uniqueMedia = [
+      ...new Map(schedules.map((s) => [s.media.id, s.media])).values(),
+    ];
+
+    async function fetchTmdbData() {
+      for (let i = 0; i < uniqueMedia.length; i += TMDB_CHUNK) {
+        if (cancelled) return;
+
+        const chunk = uniqueMedia.slice(i, i + TMDB_CHUNK);
+        const results = await Promise.allSettled(
+          chunk.map(async (media) => {
+            const rawTitle = media.title.english || media.title.romaji;
+
+            // 1. Titre FR + TMDB ID
+            const tmdb = await searchTMDBShow(rawTitle);
+            if (!tmdb) return { id: media.id, name: null, hasFR: false };
+
+            // 2. Disponibilité sur les plateformes françaises
+            const hasFR = await fetchTMDBWatchProvidersFR(tmdb.id).catch(() => false);
+
+            return { id: media.id, name: tmdb.name ?? null, hasFR };
+          })
+        );
+
+        if (cancelled) return;
+
+        const partialTitles = {};
+        const partialFR     = {};
+
+        results.forEach((r) => {
+          if (r.status !== "fulfilled") return;
+          if (r.value.name)  partialTitles[r.value.id] = r.value.name;
+          if (r.value.hasFR) partialFR[r.value.id]     = true;
+        });
+
+        if (Object.keys(partialTitles).length > 0)
+          setTmdbTitles((prev) => ({ ...prev, ...partialTitles }));
+        if (Object.keys(partialFR).length > 0)
+          setTmdbFrAvailable((prev) => ({ ...prev, ...partialFR }));
+      }
+    }
+
+    setTmdbTitles({});
+    setTmdbFrAvailable({});
+    fetchTmdbData();
+    return () => { cancelled = true; };
+  }, [schedules]);
+
   function prevWeek() { setWeekOffset((w) => w - 1); setDayOffset(0); }
   function nextWeek() { setWeekOffset((w) => w + 1); setDayOffset(0); }
   function thisWeek() { setWeekOffset(0); setDayOffset(Math.max(0, Math.min(4, todayIndex() - 1))); }
@@ -317,6 +332,12 @@ export function Calendar() {
     return `${fmt(weekMonday)} – ${fmt(end)}`;
   }, [weekMonday]);
 
+  // Combinaison TMDB watch providers + AniList externalLinks
+  const isAvailableInFR = useCallback(
+    (media) => tmdbFrAvailable[media.id] || hasFrenchVersion(media),
+    [tmdbFrAvailable]
+  );
+
   const byDay = useMemo(() => {
     if (!weekMonday) return [];
     return Array.from({ length: 7 }, (_, i) => {
@@ -327,7 +348,7 @@ export function Calendar() {
 
       const entries = schedules.filter((s) => {
         if (s.airingAt < dayStart || s.airingAt >= dayEnd) return false;
-        if (langFilter    === "vf"        && !hasFrenchVersion(s.media)) return false;
+        if (langFilter    === "vf"        && !isAvailableInFR(s.media)) return false;
         if (contentFilter === "mylibrary") return libraryAnilistIds.has(String(s.media.id));
         if (contentFilter === "new")       return !isReturningSeries(s.media);
         if (contentFilter === "returning") return  isReturningSeries(s.media);
@@ -336,7 +357,7 @@ export function Calendar() {
 
       return { date: day, entries };
     });
-  }, [schedules, weekMonday, langFilter, contentFilter, libraryAnilistIds]);
+  }, [schedules, weekMonday, langFilter, contentFilter, libraryAnilistIds, isAvailableInFR]);
 
   const visibleDays = byDay.slice(dayOffset, dayOffset + VISIBLE_DAYS);
   const canPrevDay  = dayOffset > 0;
@@ -361,9 +382,7 @@ export function Calendar() {
             >
               <ChevronLeft size={16} /> Retour
             </button>
-            <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">
-              {getSeasonLabel()}
-            </p>
+            <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">{getSeasonLabel()}</p>
             <h1 className="text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
               Calendrier
             </h1>
@@ -408,17 +427,13 @@ export function Calendar() {
           <FilterBtn active={langFilter === "vf"}  onClick={() => setLangFilter("vf")}>VF</FilterBtn>
         </div>
 
-        {/* ── Erreur ── */}
         {error && (
-          <div className="mb-6 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">
-            {error}
-          </div>
+          <div className="mb-6 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">{error}</div>
         )}
 
-        {/* ── Note VF ── */}
         {langFilter === "vf" && !loading && (
           <p className="text-[11px] text-violet-500 font-mono mb-4">
-            ℹ Les horaires sont ceux de la diffusion VO. La VF/VOSTFR est disponible sur ADN, Wakanim ou Crunchyroll FR peu après.
+            ℹ Les horaires sont ceux de la diffusion VO. La VF/VOSTFR est disponible sur ADN, Crunchyroll FR ou Netflix FR peu après.
           </p>
         )}
 
@@ -429,7 +444,6 @@ export function Calendar() {
           </div>
         ) : (
           <>
-            {/* ── Navigation jours ── */}
             <div className="flex items-center justify-between mb-3">
               <button
                 onClick={() => setDayOffset((d) => Math.max(0, d - 1))}
@@ -439,11 +453,9 @@ export function Calendar() {
                 <ChevronLeft size={15} />
                 <span className="hidden sm:inline text-xs">Préc.</span>
               </button>
-
               <p className="font-mono text-[11px] text-violet-500">
                 {totalVisible} épisode{totalVisible !== 1 ? "s" : ""} affichés
               </p>
-
               <button
                 onClick={() => setDayOffset((d) => Math.min(7 - VISIBLE_DAYS, d + 1))}
                 disabled={!canNextDay}
@@ -454,7 +466,6 @@ export function Calendar() {
               </button>
             </div>
 
-            {/* ── Grille 3 colonnes ── */}
             <div className="grid grid-cols-3 gap-4">
               {visibleDays.map(({ date, entries }, i) => {
                 const isToday   = date.getTime() === todayMidnight;
@@ -493,6 +504,8 @@ export function Calendar() {
                             schedule={s}
                             showVfBadge={langFilter === "all"}
                             onClick={() => setSelectedSchedule(s)}
+                            frTitle={tmdbTitles[s.media.id] ?? null}
+                            isFrench={isAvailableInFR(s.media)}
                           />
                         ))
                       )}
@@ -510,7 +523,6 @@ export function Calendar() {
               })}
             </div>
 
-            {/* ── Indicateur position dans la semaine ── */}
             <div className="flex justify-center gap-1.5 mt-4">
               {Array.from({ length: 7 - VISIBLE_DAYS + 1 }, (_, i) => (
                 <button
@@ -527,10 +539,11 @@ export function Calendar() {
         )}
       </div>
 
-      {/* ── Modal détail épisode ── */}
       {selectedSchedule && (
         <EpisodeDetailModal
           schedule={selectedSchedule}
+          initialFrTitle={tmdbTitles[selectedSchedule.media.id] ?? null}
+          hasFrFromTmdb={tmdbFrAvailable[selectedSchedule.media.id] ?? false}
           onClose={() => setSelectedSchedule(null)}
         />
       )}

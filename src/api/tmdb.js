@@ -1,9 +1,6 @@
 import { withCache } from "../services/cache";
 
-// TMDB — Jeton d'accès en lecture (themoviedb.org → Paramètres → API)
-// Défini dans .env.local (jamais commité sur git, voir .env.example)
 const TMDB_BEARER_TOKEN = import.meta.env.VITE_TMDB_TOKEN || "";
-
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
 function tmdbHeaders() {
@@ -14,10 +11,7 @@ export function hasTMDB() {
   return Boolean(TMDB_BEARER_TOKEN);
 }
 
-// Recherche une fiche série/anime sur TMDB (langue fr-FR).
-// Retourne le titre FR, l'id TMDB et le résumé FR.
-// Le résultat est mis en cache 30 min pour éviter les appels dupliqués
-// (ex : plusieurs épisodes du même anime ouverts dans le calendrier).
+// ── Recherche + titre FR ──────────────────────────────────────────────────────
 export async function searchTMDBShow(title) {
   if (!TMDB_BEARER_TOKEN) return null;
   return withCache(`tmdb:search:${title.toLowerCase()}`, CACHE_TTL, async () => {
@@ -33,7 +27,7 @@ export async function searchTMDBShow(title) {
       const overview = result.overview?.trim();
       return {
         id:       result.id,
-        name:     result.name?.trim()  || null,           // titre localisé (fr-FR)
+        name:     result.name?.trim() || null,
         overview: overview && overview.length > 10 ? overview : null,
       };
     } catch {
@@ -42,10 +36,33 @@ export async function searchTMDBShow(title) {
   });
 }
 
-// Récupère le nom français d'un épisode via TMDB.
-// Pour les animes en cours de diffusion, on essaie la saison 1 en premier
-// (c'est le mapping le plus courant), puis la saison "absolue" si besoin.
-// Résultat mis en cache 30 min.
+// ── Disponibilité sur les plateformes françaises ──────────────────────────────
+// Endpoint TMDB : GET /tv/{id}/watch/providers
+// results.FR contient les offres streaming disponibles en France
+// (flatrate = abonnement, free = gratuit, ads = avec pub).
+// C'est la source la plus fiable pour savoir si un anime est
+// streamable en VF/VOSTFR en France (ADN, Crunchyroll FR, Netflix FR…).
+export async function fetchTMDBWatchProvidersFR(tmdbId) {
+  if (!TMDB_BEARER_TOKEN || !tmdbId) return false;
+  return withCache(`tmdb:providers:fr:${tmdbId}`, CACHE_TTL, async () => {
+    try {
+      const res = await fetch(
+        `https://api.themoviedb.org/3/tv/${tmdbId}/watch/providers`,
+        { headers: tmdbHeaders() }
+      );
+      if (!res.ok) return false;
+      const json = await res.json();
+      const fr = json.results?.FR;
+      if (!fr) return false;
+      // On considère disponible si au moins une offre streaming existe
+      return !!(fr.flatrate?.length || fr.free?.length || fr.ads?.length);
+    } catch {
+      return false;
+    }
+  });
+}
+
+// ── Nom d'épisode en français ─────────────────────────────────────────────────
 export async function fetchTMDBEpisodeFR(tmdbId, episodeNumber) {
   if (!TMDB_BEARER_TOKEN || !tmdbId || !episodeNumber) return null;
   return withCache(`tmdb:ep:${tmdbId}:${episodeNumber}`, CACHE_TTL, async () => {
@@ -57,7 +74,6 @@ export async function fetchTMDBEpisodeFR(tmdbId, episodeNumber) {
       if (!res.ok) return null;
       const json = await res.json();
       const name = json.name?.trim();
-      // Ignorer les noms génériques type "Épisode 3" ou vides
       if (!name || name.length < 2 || /^[eé]pisode\s+\d+$/i.test(name)) return null;
       return name;
     } catch {
@@ -66,9 +82,7 @@ export async function fetchTMDBEpisodeFR(tmdbId, episodeNumber) {
   });
 }
 
-// Détail d'une saison précise : noms d'épisodes + total, mis à jour par TMDB
-// au fil de la diffusion — c'est la source la plus fiable pour une saison
-// en cours de parution.
+// ── Saison complète (noms d'épisodes + total) ─────────────────────────────────
 export async function fetchTMDBSeason(tmdbId, seasonNumber) {
   if (!TMDB_BEARER_TOKEN || !tmdbId || !seasonNumber) return null;
   try {
