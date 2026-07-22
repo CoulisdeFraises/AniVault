@@ -1,17 +1,29 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Plus, Film, Tv } from "lucide-react";
 import { Header } from "../components/Header/Header";
 import { Card } from "../components/Card/Card";
 import { TitleFormModal } from "../components/Modal/TitleFormModal";
 import { Confetti } from "../components/common/Confetti";
 import { useLibrary } from "../context/LibraryContext";
+import { useSync } from "../hooks/useSync";
 
 export function Home() {
   const { entries, loading, saveError, showConfetti } = useLibrary();
-  const [filter, setFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [showForm, setShowForm] = useState(false);
+  const { syncAll, syncing, progress } = useSync();
+
+  const [filter,       setFilter]       = useState("all");
+  const [typeFilter,   setTypeFilter]   = useState("all");
+  const [showForm,     setShowForm]     = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
+
+  // ── Sync automatique au premier chargement des entrées ──
+  useEffect(() => {
+    if (!loading && entries.length > 0) {
+      // Léger délai pour ne pas bloquer le rendu initial
+      const t = setTimeout(() => syncAll(), 1500);
+      return () => clearTimeout(t);
+    }
+  }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const byType = useMemo(
     () => (typeFilter === "all" ? entries : entries.filter((e) => e.type === typeFilter)),
@@ -36,12 +48,6 @@ export function Home() {
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <Confetti active={showConfetti} />
-      <style>{`
-        .font-mono { font-family: 'IBM Plex Mono', monospace; }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 8px; }
-        @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
-      `}</style>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         <Header
@@ -50,11 +56,14 @@ export function Home() {
           onFilterChange={setFilter}
           onTypeFilterChange={setTypeFilter}
           onAddClick={openNewForm}
+          syncing={syncing}
+          syncProgress={progress}
+          onSyncClick={() => syncAll(true)}
         />
 
         {saveError && (
           <div className="mb-4 text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">
-            La sauvegarde a échoué. Tes changements restent visibles ici mais pourraient ne pas persister.
+            La sauvegarde a échoué. Tes changements restent visibles mais pourraient ne pas persister.
           </div>
         )}
 
@@ -63,7 +72,9 @@ export function Home() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 rounded-2xl border border-dashed border-white/10">
             <p className="text-violet-300 mb-4">
-              {entries.length === 0 ? "C'est bien vide ici — Commence ton journal et ajoute donc une série !" : "Hello Darkness My Old Friend..."}
+              {entries.length === 0
+                ? "C'est bien vide ici — Commence ton journal et ajoute donc une série !"
+                : "Hello Darkness My Old Friend..."}
             </p>
             {entries.length === 0 && (
               <button onClick={openNewForm} className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-300 hover:text-amber-200">
@@ -81,7 +92,9 @@ export function Home() {
                   <span className="font-mono text-xs text-violet-600">({filteredAnime.length})</span>
                 </div>
                 <div className="grid grid-cols-1 gap-4">
-                  {filteredAnime.map((entry) => <Card key={entry.id} entry={entry} onEdit={openEditForm} />)}
+                  {filteredAnime.map((entry) => (
+                    <Card key={entry.id} entry={entry} onEdit={openEditForm} />
+                  ))}
                 </div>
               </section>
             )}
@@ -93,19 +106,25 @@ export function Home() {
                   <span className="font-mono text-xs text-violet-600">({filteredSerie.length})</span>
                 </div>
                 <div className="grid grid-cols-1 gap-4">
-                  {filteredSerie.map((entry) => <Card key={entry.id} entry={entry} onEdit={openEditForm} />)}
+                  {filteredSerie.map((entry) => (
+                    <Card key={entry.id} entry={entry} onEdit={openEditForm} />
+                  ))}
                 </div>
               </section>
             )}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
-            {filtered.map((entry) => <Card key={entry.id} entry={entry} onEdit={openEditForm} />)}
+            {filtered.map((entry) => (
+              <Card key={entry.id} entry={entry} onEdit={openEditForm} />
+            ))}
           </div>
         )}
       </div>
 
-      {showForm && <TitleFormModal editingEntry={editingEntry} onClose={() => setShowForm(false)} />}
+      {showForm && (
+        <TitleFormModal editingEntry={editingEntry} onClose={() => setShowForm(false)} />
+      )}
     </div>
   );
 }
