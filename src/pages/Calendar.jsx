@@ -5,6 +5,7 @@ import {
   ChevronLeft, ChevronRight, X,
 } from "lucide-react";
 import { fetchWeeklySchedule, hasFrenchVersion, isReturningSeries } from "../api/anilist";
+import { hasTMDB, searchTMDBShow, fetchTMDBEpisodeFR } from "../api/tmdb";
 import { useLibrary } from "../context/LibraryContext";
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -21,7 +22,6 @@ function getSeasonLabel() {
   return `Automne ${year}`;
 }
 
-// Index du jour courant (0 = lundi … 6 = dimanche)
 function todayIndex() {
   const dow = new Date().getDay();
   return dow === 0 ? 6 : dow - 1;
@@ -29,24 +29,69 @@ function todayIndex() {
 
 // ── Modal détail épisode ──────────────────────────────────────────────────────
 function EpisodeDetailModal({ schedule, onClose }) {
+  const [loading,      setLoading]      = useState(true);
+  const [frTitle,      setFrTitle]      = useState(null);
+  const [frSynopsis,   setFrSynopsis]   = useState(null);
   const [episodeName,  setEpisodeName]  = useState(null);
-  const [loadingName,  setLoadingName]  = useState(false);
 
-  const title   = schedule.media.title.english || schedule.media.title.romaji;
-  const synopsis = schedule.media.description || null;
-  const isFr    = hasFrenchVersion(schedule.media);
-  const airingDate = new Date(schedule.airingAt * 1000);
+  const rawTitle       = schedule.media.title.english || schedule.media.title.romaji;
+  const displayTitle   = frTitle    || rawTitle;
+  const displaySynopsis = frSynopsis || schedule.media.description || null;
+  const isFr           = hasFrenchVersion(schedule.media);
+  const airingDate     = new Date(schedule.airingAt * 1000);
+  const cover          = schedule.media.coverImage?.large || schedule.media.coverImage?.medium;
 
-  // Récupère le nom de l'épisode via Jikan (MAL)
+  // ── Fetch TMDB (FR) + Jikan (fallback nom épisode) en parallèle ──
   useEffect(() => {
-    if (!schedule.media.idMal) return;
-    setLoadingName(true);
-    fetch(`https://api.jikan.moe/v4/anime/${schedule.media.idMal}/episodes/${schedule.episode}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json) => setEpisodeName(json?.data?.title ?? null))
-      .catch(() => {})
-      .finally(() => setLoadingName(false));
-  }, [schedule.media.idMal, schedule.episode]);
+    let cancelled = false;
+    setLoading(true);
+    setFrTitle(null);
+    setFrSynopsis(null);
+    setEpisodeName(null);
+
+    async function load() {
+      const title = schedule.media.title.english || schedule.media.title.romaji;
+
+      // ── TMDB : titre FR + synopsis FR + nom d'épisode FR ──
+      const tmdbTask = hasTMDB()
+        ? searchTMDBShow(title)
+            .then(async (tmdb) => {
+              if (!tmdb) return { frTitle: null, frSynopsis: null, frEpName: null };
+              const frEpName = tmdb.id
+                ? await fetchTMDBEpisodeFR(tmdb.id, schedule.episode).catch(() => null)
+                : null;
+              return {
+                frTitle:    tmdb.name     ?? null,
+                frSynopsis: tmdb.overview ?? null,
+                frEpName,
+              };
+            })
+            .catch(() => ({ frTitle: null, frSynopsis: null, frEpName: null }))
+        : Promise.resolve({ frTitle: null, frSynopsis: null, frEpName: null });
+
+      // ── Jikan : nom d'épisode EN/romaji (fallback si TMDB n'a pas le nom FR) ──
+      const jikanTask = schedule.media.idMal
+        ? fetch(
+            `https://api.jikan.moe/v4/anime/${schedule.media.idMal}/episodes/${schedule.episode}`
+          )
+            .then((r) => (r.ok ? r.json() : null))
+            .then((json) => json?.data?.title ?? null)
+            .catch(() => null)
+        : Promise.resolve(null);
+
+      const [tmdb, jikanEpName] = await Promise.all([tmdbTask, jikanTask]);
+      if (cancelled) return;
+
+      if (tmdb.frTitle)    setFrTitle(tmdb.frTitle);
+      if (tmdb.frSynopsis) setFrSynopsis(tmdb.frSynopsis);
+      // Priorité : nom FR TMDB > nom EN Jikan
+      setEpisodeName(tmdb.frEpName || jikanEpName || null);
+      setLoading(false);
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, [schedule.media.id, schedule.episode]);
 
   // Fermeture sur Échap
   useEffect(() => {
@@ -54,8 +99,6 @@ function EpisodeDetailModal({ schedule, onClose }) {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
-
-  const cover = schedule.media.coverImage?.large || schedule.media.coverImage?.medium;
 
   return (
     <div
@@ -66,7 +109,7 @@ function EpisodeDetailModal({ schedule, onClose }) {
         className="relative max-w-sm w-full bg-violet-900 rounded-2xl border border-white/10 overflow-hidden shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Bannière cover */}
+        {/* ── Bannière cover ── */}
         {cover && (
           <div className="relative h-44 overflow-hidden bg-violet-950">
             <img
@@ -78,13 +121,13 @@ function EpisodeDetailModal({ schedule, onClose }) {
             />
             <img
               src={cover}
-              alt={title}
+              alt={displayTitle}
               className="relative mx-auto h-full w-auto object-contain drop-shadow-xl"
             />
           </div>
         )}
 
-        {/* Bouton fermer */}
+        {/* ── Bouton fermer ── */}
         <button
           onClick={onClose}
           className="absolute top-3 right-3 p-1.5 rounded-full bg-black/50 hover:bg-black/70 text-white/70 hover:text-white transition-colors motion-reduce:transition-none"
@@ -93,20 +136,36 @@ function EpisodeDetailModal({ schedule, onClose }) {
           <X size={15} />
         </button>
 
-        {/* Contenu */}
+        {/* ── Contenu ── */}
         <div className="p-4 space-y-3">
+
           {/* Titre + badges */}
           <div>
-            <h2 className="text-sm font-bold text-violet-100 leading-snug">{title}</h2>
+            <div className="flex items-start gap-2">
+              <h2 className="flex-1 text-sm font-bold text-violet-100 leading-snug">
+                {displayTitle}
+              </h2>
+              {/* Indicateur de chargement discret à côté du titre */}
+              {loading && hasTMDB() && (
+                <Loader2
+                  size={12}
+                  className="flex-shrink-0 mt-0.5 text-violet-500 animate-spin"
+                  aria-label="Chargement des infos en français…"
+                />
+              )}
+            </div>
+
             <div className="flex flex-wrap items-center gap-2 mt-1.5">
               <span className="font-mono text-[11px] text-amber-400 font-semibold">
                 Épisode {schedule.episode}
               </span>
-              {loadingName && (
-                <span className="font-mono text-[11px] text-violet-500">…</span>
+              {!loading && episodeName && (
+                <span className="font-mono text-[11px] text-violet-300 truncate max-w-[160px]">
+                  — {episodeName}
+                </span>
               )}
-              {!loadingName && episodeName && (
-                <span className="font-mono text-[11px] text-violet-300">— {episodeName}</span>
+              {loading && (
+                <span className="h-2 w-24 rounded bg-white/10 animate-pulse" />
               )}
               {isFr && (
                 <span className="font-mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/20">
@@ -117,17 +176,33 @@ function EpisodeDetailModal({ schedule, onClose }) {
           </div>
 
           {/* Synopsis */}
-          {synopsis ? (
-            <p className="text-xs text-violet-300 leading-relaxed line-clamp-6">{synopsis}</p>
+          {loading ? (
+            // Skeleton pendant le fetch
+            <div className="space-y-1.5 pt-0.5">
+              <div className="h-2 rounded bg-white/10 animate-pulse w-full"  />
+              <div className="h-2 rounded bg-white/10 animate-pulse w-11/12" />
+              <div className="h-2 rounded bg-white/10 animate-pulse w-4/5"   />
+              <div className="h-2 rounded bg-white/10 animate-pulse w-3/5"   />
+            </div>
+          ) : displaySynopsis ? (
+            <p className="text-xs text-violet-300 leading-relaxed line-clamp-6">
+              {displaySynopsis}
+            </p>
           ) : (
-            <p className="text-xs text-violet-500 font-mono italic">Aucun synopsis disponible.</p>
+            <p className="text-xs text-violet-500 font-mono italic">
+              Aucun synopsis disponible.
+            </p>
           )}
 
           {/* Horaire */}
           <p className="font-mono text-[10px] text-violet-500 pt-1 border-t border-white/5">
-            {airingDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+            {airingDate.toLocaleDateString("fr-FR", {
+              weekday: "long", day: "numeric", month: "long",
+            })}
             {" · "}
-            {airingDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+            {airingDate.toLocaleTimeString("fr-FR", {
+              hour: "2-digit", minute: "2-digit",
+            })}
           </p>
         </div>
       </div>
@@ -200,28 +275,18 @@ export function Calendar() {
   const [weekOffset,       setWeekOffset]        = useState(0);
   const [selectedSchedule, setSelectedSchedule]  = useState(null);
 
-  // Filtre contenu (une seule valeur active)
   const [contentFilter, setContentFilter] = useState("all");
-  // "all" | "mylibrary" | "new" | "returning"
+  const [langFilter,    setLangFilter]    = useState("all");
 
-  // Filtre langue (une seule valeur active)
-  const [langFilter, setLangFilter] = useState("all");
-  // "all" | "vf"
-
-  // Offset de la fenêtre de 3 jours (0–4)
   const [dayOffset, setDayOffset] = useState(() =>
     Math.max(0, Math.min(7 - VISIBLE_DAYS, todayIndex() - 1))
   );
 
-  // ── IDs AniList présents dans la bibliothèque ──
   const libraryAnilistIds = useMemo(
-    () => new Set(
-      libraryEntries.flatMap((e) => e.anilistIds || []).map(String)
-    ),
+    () => new Set(libraryEntries.flatMap((e) => e.anilistIds || []).map(String)),
     [libraryEntries]
   );
 
-  // ── Chargement ──
   const load = useCallback(async (offset, isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else           setLoading(true);
@@ -240,12 +305,10 @@ export function Calendar() {
 
   useEffect(() => { load(weekOffset); }, [weekOffset]);
 
-  // ── Navigation semaine ──
   function prevWeek() { setWeekOffset((w) => w - 1); setDayOffset(0); }
   function nextWeek() { setWeekOffset((w) => w + 1); setDayOffset(0); }
   function thisWeek() { setWeekOffset(0); setDayOffset(Math.max(0, Math.min(4, todayIndex() - 1))); }
 
-  // ── Label semaine ──
   const weekLabel = useMemo(() => {
     if (!weekMonday) return "";
     const end = new Date(weekMonday);
@@ -254,7 +317,6 @@ export function Calendar() {
     return `${fmt(weekMonday)} – ${fmt(end)}`;
   }, [weekMonday]);
 
-  // ── Découpage par jour ──
   const byDay = useMemo(() => {
     if (!weekMonday) return [];
     return Array.from({ length: 7 }, (_, i) => {
@@ -265,18 +327,10 @@ export function Calendar() {
 
       const entries = schedules.filter((s) => {
         if (s.airingAt < dayStart || s.airingAt >= dayEnd) return false;
-
-        // Filtre langue
-        if (langFilter === "vf" && !hasFrenchVersion(s.media)) return false;
-
-        // Filtre contenu
-        if (contentFilter === "mylibrary")
-          return libraryAnilistIds.has(String(s.media.id));
-        if (contentFilter === "new")
-          return !isReturningSeries(s.media);
-        if (contentFilter === "returning")
-          return isReturningSeries(s.media);
-
+        if (langFilter    === "vf"        && !hasFrenchVersion(s.media)) return false;
+        if (contentFilter === "mylibrary") return libraryAnilistIds.has(String(s.media.id));
+        if (contentFilter === "new")       return !isReturningSeries(s.media);
+        if (contentFilter === "returning") return  isReturningSeries(s.media);
         return true;
       });
 
@@ -284,24 +338,18 @@ export function Calendar() {
     });
   }, [schedules, weekMonday, langFilter, contentFilter, libraryAnilistIds]);
 
-  // ── Jours visibles (fenêtre de 3) ──
   const visibleDays = byDay.slice(dayOffset, dayOffset + VISIBLE_DAYS);
   const canPrevDay  = dayOffset > 0;
   const canNextDay  = dayOffset + VISIBLE_DAYS < 7;
 
-  // ── Aujourd'hui ──
   const todayMidnight = useMemo(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime();
   }, []);
 
-  // ── Compteur total visible ──
   const totalVisible = visibleDays.reduce((sum, d) => sum + d.entries.length, 0);
 
   return (
-    <div
-      className="min-h-screen bg-violet-950 text-violet-50"
-      style={{ fontFamily: "'Inter', sans-serif" }}
-    >
+    <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
 
         {/* ── En-tête ── */}
@@ -316,39 +364,24 @@ export function Calendar() {
             <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">
               {getSeasonLabel()}
             </p>
-            <h1
-              className="text-3xl font-bold tracking-tight"
-              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-            >
+            <h1 className="text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
               Calendrier
             </h1>
           </div>
 
-          {/* Navigation semaine */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={prevWeek}
-              className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 transition-colors motion-reduce:transition-none"
-              aria-label="Semaine précédente"
-            >
+            <button onClick={prevWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 transition-colors motion-reduce:transition-none" aria-label="Semaine précédente">
               <ArrowLeft size={15} className="text-violet-400" />
             </button>
             <div className="text-center min-w-[150px]">
               <p className="text-sm font-medium text-violet-100">{weekLabel}</p>
               {weekOffset !== 0 && (
-                <button
-                  onClick={thisWeek}
-                  className="text-[10px] font-mono text-amber-400 hover:text-amber-300 transition-colors motion-reduce:transition-none"
-                >
+                <button onClick={thisWeek} className="text-[10px] font-mono text-amber-400 hover:text-amber-300 transition-colors motion-reduce:transition-none">
                   Cette semaine
                 </button>
               )}
             </div>
-            <button
-              onClick={nextWeek}
-              className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 transition-colors motion-reduce:transition-none"
-              aria-label="Semaine suivante"
-            >
+            <button onClick={nextWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 transition-colors motion-reduce:transition-none" aria-label="Semaine suivante">
               <ArrowRight size={15} className="text-violet-400" />
             </button>
             <button
@@ -364,30 +397,15 @@ export function Calendar() {
 
         {/* ── Barre de filtres unifiée ── */}
         <div className="flex flex-wrap items-center gap-2 mb-6">
-          {/* Groupe : type de contenu */}
-          <FilterBtn active={contentFilter === "all"}       onClick={() => setContentFilter("all")}>
-            Tout
-          </FilterBtn>
-          <FilterBtn active={contentFilter === "mylibrary"} onClick={() => setContentFilter("mylibrary")}>
-            Ma liste
-          </FilterBtn>
-          <FilterBtn active={contentFilter === "new"}       onClick={() => setContentFilter("new")}>
-            Nouvelles séries
-          </FilterBtn>
-          <FilterBtn active={contentFilter === "returning"} onClick={() => setContentFilter("returning")}>
-            Séries qui reprennent
-          </FilterBtn>
+          <FilterBtn active={contentFilter === "all"}       onClick={() => setContentFilter("all")}>Tout</FilterBtn>
+          <FilterBtn active={contentFilter === "mylibrary"} onClick={() => setContentFilter("mylibrary")}>Ma liste</FilterBtn>
+          <FilterBtn active={contentFilter === "new"}       onClick={() => setContentFilter("new")}>Nouvelles séries</FilterBtn>
+          <FilterBtn active={contentFilter === "returning"} onClick={() => setContentFilter("returning")}>Séries qui reprennent</FilterBtn>
 
-          {/* Séparateur visuel */}
           <span className="w-px h-5 bg-white/20 mx-1 rounded-full" aria-hidden />
 
-          {/* Groupe : langue */}
-          <FilterBtn active={langFilter === "all"} onClick={() => setLangFilter("all")}>
-            VO
-          </FilterBtn>
-          <FilterBtn active={langFilter === "vf"}  onClick={() => setLangFilter("vf")}>
-            VF
-          </FilterBtn>
+          <FilterBtn active={langFilter === "all"} onClick={() => setLangFilter("all")}>VO</FilterBtn>
+          <FilterBtn active={langFilter === "vf"}  onClick={() => setLangFilter("vf")}>VF</FilterBtn>
         </div>
 
         {/* ── Erreur ── */}
@@ -446,17 +464,12 @@ export function Calendar() {
                   <div
                     key={globalIdx}
                     className={`rounded-2xl border overflow-hidden flex flex-col ${
-                      isToday
-                        ? "border-amber-400/40 bg-amber-400/5"
-                        : "border-white/5 bg-violet-900/20"
+                      isToday ? "border-amber-400/40 bg-amber-400/5" : "border-white/5 bg-violet-900/20"
                     }`}
                   >
-                    {/* En-tête jour */}
                     <div className={`px-4 py-3 border-b ${isToday ? "border-amber-400/20" : "border-white/5"}`}>
                       <div className="flex items-center justify-between">
-                        <p className={`font-mono text-xs uppercase tracking-widest font-semibold ${
-                          isToday ? "text-amber-400" : "text-violet-300"
-                        }`}>
+                        <p className={`font-mono text-xs uppercase tracking-widest font-semibold ${isToday ? "text-amber-400" : "text-violet-300"}`}>
                           {DAY_NAMES[globalIdx]}
                         </p>
                         {isToday && (
@@ -470,12 +483,9 @@ export function Calendar() {
                       </p>
                     </div>
 
-                    {/* Épisodes */}
                     <div className="p-3 flex-1 space-y-2 overflow-y-auto max-h-[70vh]">
                       {entries.length === 0 ? (
-                        <p className="text-[11px] text-violet-600 font-mono text-center py-8">
-                          Aucun épisode
-                        </p>
+                        <p className="text-[11px] text-violet-600 font-mono text-center py-8">Aucun épisode</p>
                       ) : (
                         entries.map((s) => (
                           <EpisodeCard
@@ -488,7 +498,6 @@ export function Calendar() {
                       )}
                     </div>
 
-                    {/* Compteur bas */}
                     {entries.length > 0 && (
                       <div className="px-4 py-2 border-t border-white/5">
                         <p className="font-mono text-[10px] text-violet-500">
