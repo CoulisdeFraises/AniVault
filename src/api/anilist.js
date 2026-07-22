@@ -175,14 +175,14 @@ export async function fetchNextAiringAniList(anilistId) {
 
 // ── Calcule les bornes Unix de la semaine (offsetWeeks = 0 → semaine courante) ──
 function getWeekBounds(offsetWeeks = 0) {
-  const now     = new Date();
-  const dow     = now.getDay(); // 0 = dimanche
-  const toMon   = dow === 0 ? -6 : 1 - dow;
-  const monday  = new Date(now);
+  const now   = new Date();
+  const dow   = now.getDay(); // 0 = dimanche
+  const toMon = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(now);
   monday.setDate(now.getDate() + toMon + offsetWeeks * 7);
   monday.setHours(0, 0, 0, 0);
 
-  const sunday  = new Date(monday);
+  const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 7);
   sunday.setHours(0, 0, 0, 0);
 
@@ -194,15 +194,25 @@ function getWeekBounds(offsetWeeks = 0) {
 }
 
 // ── Détection disponibilité française ─────────────────────────────────────────
-const FR_SITES = ["ADN", "Wakanim", "Crunchyroll", "Netflix", "Disney Plus"];
+// Sites exclusivement francophones → pas besoin de vérifier la langue
+const FR_ONLY_SITES = new Set(["ADN", "Wakanim", "Anime Digital Network"]);
+
+// Patterns d'URL associés aux plateformes françaises
+const FR_URL_PATTERNS = ["animedigitalnetwork.fr", "wakanim.tv/fr", "adn."];
 
 export function hasFrenchVersion(media) {
-  return (media.externalLinks || []).some(
-    (l) =>
-      l.site === "ADN" ||
-      l.site === "Wakanim" ||
-      (FR_SITES.includes(l.site) && l.language === "French")
-  );
+  return (media.externalLinks || []).some((l) => {
+    // Plateformes 100 % françaises → toujours VF/VOSTFR
+    if (FR_ONLY_SITES.has(l.site)) return true;
+
+    // Champ language renseigné (valeurs possibles : "French" ou "fr")
+    if (l.language === "French" || l.language === "fr") return true;
+
+    // Vérification par URL quand le champ language est absent
+    if (l.url && FR_URL_PATTERNS.some((p) => l.url.includes(p))) return true;
+
+    return false;
+  });
 }
 
 // ── Fetch du calendrier hebdomadaire ──────────────────────────────────────────
@@ -223,9 +233,11 @@ export async function fetchWeeklySchedule(offsetWeeks = 0) {
           episode
           media {
             id
+            idMal
             title { romaji english }
-            coverImage { medium }
-            externalLinks { site language type }
+            description(asHtml: false)
+            coverImage { medium large }
+            externalLinks { site language type url }
             countryOfOrigin
             isAdult
             format

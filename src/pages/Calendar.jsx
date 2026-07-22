@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, RefreshCw, Loader2,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, X,
 } from "lucide-react";
 import { fetchWeeklySchedule, hasFrenchVersion, isReturningSeries } from "../api/anilist";
 import { useLibrary } from "../context/LibraryContext";
@@ -27,14 +27,125 @@ function todayIndex() {
   return dow === 0 ? 6 : dow - 1;
 }
 
+// ── Modal détail épisode ──────────────────────────────────────────────────────
+function EpisodeDetailModal({ schedule, onClose }) {
+  const [episodeName,  setEpisodeName]  = useState(null);
+  const [loadingName,  setLoadingName]  = useState(false);
+
+  const title   = schedule.media.title.english || schedule.media.title.romaji;
+  const synopsis = schedule.media.description || null;
+  const isFr    = hasFrenchVersion(schedule.media);
+  const airingDate = new Date(schedule.airingAt * 1000);
+
+  // Récupère le nom de l'épisode via Jikan (MAL)
+  useEffect(() => {
+    if (!schedule.media.idMal) return;
+    setLoadingName(true);
+    fetch(`https://api.jikan.moe/v4/anime/${schedule.media.idMal}/episodes/${schedule.episode}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => setEpisodeName(json?.data?.title ?? null))
+      .catch(() => {})
+      .finally(() => setLoadingName(false));
+  }, [schedule.media.idMal, schedule.episode]);
+
+  // Fermeture sur Échap
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const cover = schedule.media.coverImage?.large || schedule.media.coverImage?.medium;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-w-sm w-full bg-violet-900 rounded-2xl border border-white/10 overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Bannière cover */}
+        {cover && (
+          <div className="relative h-44 overflow-hidden bg-violet-950">
+            <img
+              src={cover}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover opacity-30 scale-110"
+              style={{ filter: "blur(16px)" }}
+              aria-hidden
+            />
+            <img
+              src={cover}
+              alt={title}
+              className="relative mx-auto h-full w-auto object-contain drop-shadow-xl"
+            />
+          </div>
+        )}
+
+        {/* Bouton fermer */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 p-1.5 rounded-full bg-black/50 hover:bg-black/70 text-white/70 hover:text-white transition-colors motion-reduce:transition-none"
+          aria-label="Fermer"
+        >
+          <X size={15} />
+        </button>
+
+        {/* Contenu */}
+        <div className="p-4 space-y-3">
+          {/* Titre + badges */}
+          <div>
+            <h2 className="text-sm font-bold text-violet-100 leading-snug">{title}</h2>
+            <div className="flex flex-wrap items-center gap-2 mt-1.5">
+              <span className="font-mono text-[11px] text-amber-400 font-semibold">
+                Épisode {schedule.episode}
+              </span>
+              {loadingName && (
+                <span className="font-mono text-[11px] text-violet-500">…</span>
+              )}
+              {!loadingName && episodeName && (
+                <span className="font-mono text-[11px] text-violet-300">— {episodeName}</span>
+              )}
+              {isFr && (
+                <span className="font-mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/20">
+                  VF dispo
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Synopsis */}
+          {synopsis ? (
+            <p className="text-xs text-violet-300 leading-relaxed line-clamp-6">{synopsis}</p>
+          ) : (
+            <p className="text-xs text-violet-500 font-mono italic">Aucun synopsis disponible.</p>
+          )}
+
+          {/* Horaire */}
+          <p className="font-mono text-[10px] text-violet-500 pt-1 border-t border-white/5">
+            {airingDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+            {" · "}
+            {airingDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Carte épisode ─────────────────────────────────────────────────────────────
-function EpisodeCard({ schedule, showVfBadge }) {
+function EpisodeCard({ schedule, showVfBadge, onClick }) {
   const time  = new Date(schedule.airingAt * 1000);
   const title = schedule.media.title.english || schedule.media.title.romaji;
   const isFr  = hasFrenchVersion(schedule.media);
 
   return (
-    <div className="flex gap-2.5 p-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition-colors motion-reduce:transition-none">
+    <button
+      onClick={onClick}
+      className="w-full text-left flex gap-2.5 p-2.5 rounded-xl bg-white/5 hover:bg-white/10 active:bg-white/15 transition-colors motion-reduce:transition-none cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"
+    >
       {schedule.media.coverImage?.medium ? (
         <img
           src={schedule.media.coverImage.medium}
@@ -56,7 +167,7 @@ function EpisodeCard({ schedule, showVfBadge }) {
           </span>
         )}
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -81,12 +192,13 @@ export function Calendar() {
   const navigate = useNavigate();
   const { entries: libraryEntries } = useLibrary();
 
-  const [schedules,  setSchedules]  = useState([]);
-  const [weekMonday, setWeekMonday] = useState(null);
-  const [loading,    setLoading]    = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error,      setError]      = useState("");
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [schedules,        setSchedules]        = useState([]);
+  const [weekMonday,       setWeekMonday]        = useState(null);
+  const [loading,          setLoading]           = useState(true);
+  const [refreshing,       setRefreshing]        = useState(false);
+  const [error,            setError]             = useState("");
+  const [weekOffset,       setWeekOffset]        = useState(0);
+  const [selectedSchedule, setSelectedSchedule]  = useState(null);
 
   // Filtre contenu (une seule valeur active)
   const [contentFilter, setContentFilter] = useState("all");
@@ -250,8 +362,9 @@ export function Calendar() {
           </div>
         </div>
 
-        {/* ── Filtres ligne 1 : type de série ── */}
-        <div className="flex flex-wrap gap-2 mb-2">
+        {/* ── Barre de filtres unifiée ── */}
+        <div className="flex flex-wrap items-center gap-2 mb-6">
+          {/* Groupe : type de contenu */}
           <FilterBtn active={contentFilter === "all"}       onClick={() => setContentFilter("all")}>
             Tout
           </FilterBtn>
@@ -264,15 +377,16 @@ export function Calendar() {
           <FilterBtn active={contentFilter === "returning"} onClick={() => setContentFilter("returning")}>
             Séries qui reprennent
           </FilterBtn>
-        </div>
 
-        {/* ── Filtres ligne 2 : langue ── */}
-        <div className="flex flex-wrap gap-2 mb-6">
+          {/* Séparateur visuel */}
+          <span className="w-px h-5 bg-white/20 mx-1 rounded-full" aria-hidden />
+
+          {/* Groupe : langue */}
           <FilterBtn active={langFilter === "all"} onClick={() => setLangFilter("all")}>
-            Tout (VO)
+            VO
           </FilterBtn>
           <FilterBtn active={langFilter === "vf"}  onClick={() => setLangFilter("vf")}>
-            VF disponible
+            VF
           </FilterBtn>
         </div>
 
@@ -286,7 +400,7 @@ export function Calendar() {
         {/* ── Note VF ── */}
         {langFilter === "vf" && !loading && (
           <p className="text-[11px] text-violet-500 font-mono mb-4">
-            ℹ Les horaires sont ceux de la diffusion VO. La VF est disponible sur ADN, Wakanim ou Crunchyroll FR peu après.
+            ℹ Les horaires sont ceux de la diffusion VO. La VF/VOSTFR est disponible sur ADN, Wakanim ou Crunchyroll FR peu après.
           </p>
         )}
 
@@ -325,7 +439,7 @@ export function Calendar() {
             {/* ── Grille 3 colonnes ── */}
             <div className="grid grid-cols-3 gap-4">
               {visibleDays.map(({ date, entries }, i) => {
-                const isToday = date.getTime() === todayMidnight;
+                const isToday   = date.getTime() === todayMidnight;
                 const globalIdx = dayOffset + i;
 
                 return (
@@ -368,6 +482,7 @@ export function Calendar() {
                             key={s.id}
                             schedule={s}
                             showVfBadge={langFilter === "all"}
+                            onClick={() => setSelectedSchedule(s)}
                           />
                         ))
                       )}
@@ -402,6 +517,14 @@ export function Calendar() {
           </>
         )}
       </div>
+
+      {/* ── Modal détail épisode ── */}
+      {selectedSchedule && (
+        <EpisodeDetailModal
+          schedule={selectedSchedule}
+          onClose={() => setSelectedSchedule(null)}
+        />
+      )}
     </div>
   );
 }

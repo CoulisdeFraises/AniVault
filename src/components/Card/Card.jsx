@@ -1,6 +1,6 @@
-import { memo, useState, useEffect } from "react";
+import { memo, useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Pencil, Trash2, Film, Tv, Check, ChevronRight, Star } from "lucide-react";
+import { Pencil, Trash2, Film, Tv, Check, CheckCheck, ChevronRight, Star } from "lucide-react";
 import "./Card.css";
 import { ProgressBar } from "./ProgressBar";
 import { ConfirmDialog } from "../Modal/Modal";
@@ -19,9 +19,12 @@ export const Card = memo(function Card({ entry, onEdit }) {
     return idx === -1 ? seasons.length - 1 : idx;
   });
   const [showDeleteWarning, setShowDeleteWarning] = useState(false);
-  const [nextAiring, setNextAiring] = useState(null);
+  const [nextAiring,        setNextAiring]        = useState(null);
+  const [celebrating,       setCelebrating]       = useState(false);
+
   const s = STATUS[entry.status];
 
+  // ── Next airing ──
   useEffect(() => {
     if (entry.status === "termine" || entry.status === "abandonne") { setNextAiring(null); return; }
     if (!((entry.source === "anilist" && entry.anilistIds?.length) || (entry.source === "tvmaze" && entry.tvmazeId))) return;
@@ -38,15 +41,38 @@ export const Card = memo(function Card({ entry, onEdit }) {
 
   const current = seasons[Math.min(activeSeason, seasons.length - 1)];
   const { watched: totalWatched, total: totalAll } = seasonTotals(seasons);
-  const canFinish = entry.status === "en-cours" && totalAll != null && totalAll > 0 && totalWatched >= totalAll;
+  const canFinish  = entry.status === "en-cours" && totalAll != null && totalAll > 0 && totalWatched >= totalAll;
   const seasonDone = current.totalEpisodes != null && current.watchedEpisodes >= current.totalEpisodes;
-  const hasNext = activeSeason < seasons.length - 1;
+  const hasNext    = activeSeason < seasons.length - 1;
+
+  // ── Détection complétion de saison → animation ──
+  const prevRef = useRef({ watched: current.watchedEpisodes, seasonIdx: activeSeason });
+
+  useEffect(() => {
+    const prev = prevRef.current;
+    const justCompleted =
+      prev.seasonIdx === activeSeason &&           // même saison (pas un simple changement d'onglet)
+      current.totalEpisodes != null &&             // total connu
+      current.watchedEpisodes >= current.totalEpisodes && // maintenant complète
+      prev.watched < current.totalEpisodes;        // avant elle ne l'était pas
+
+    if (justCompleted) {
+      setCelebrating(false);
+      // Force un re-trigger si on déclenche deux fois de suite la même saison
+      requestAnimationFrame(() => setCelebrating(true));
+      const t = setTimeout(() => setCelebrating(false), 900);
+      prevRef.current = { watched: current.watchedEpisodes, seasonIdx: activeSeason };
+      return () => clearTimeout(t);
+    }
+
+    prevRef.current = { watched: current.watchedEpisodes, seasonIdx: activeSeason };
+  }, [current.watchedEpisodes, current.totalEpisodes, activeSeason]);
 
   return (
     <>
       <div
         onClick={() => navigate(`/details/${entry.id}`)}
-        className={`rounded-2xl bg-violet-900/30 border-l-4 ${s.border} border-t border-r border-b border-white/5 p-4 flex gap-3 transition-colors duration-200 hover:bg-violet-800/40 hover:border-white/10 cursor-pointer`}
+        className={`rounded-2xl bg-violet-900/30 border-l-4 ${s.border} border-t border-r border-b border-white/5 p-4 flex gap-3 transition-colors duration-200 hover:bg-violet-800/40 hover:border-white/10 cursor-pointer${celebrating ? " card-season-complete" : ""}`}
       >
         {(() => {
           const displayImage = current?.coverImage || (activeSeason === 0 ? entry.coverImage : null);
@@ -172,6 +198,16 @@ export const Card = memo(function Card({ entry, onEdit }) {
                     className="text-[10px] font-mono uppercase tracking-wide px-2 py-0.5 rounded-md bg-white/10 text-violet-200 hover:bg-white/20"
                   >
                     +1 ép.
+                  </button>
+                )}
+                {current.totalEpisodes != null && current.watchedEpisodes < current.totalEpisodes && (
+                  <button
+                    onClick={() => setEpisodeCount(entry.id, activeSeason, current.totalEpisodes)}
+                    aria-label="Tout cocher"
+                    title={`Cocher tous les épisodes (${current.totalEpisodes})`}
+                    className="text-[10px] font-mono uppercase tracking-wide px-2 py-0.5 rounded-md bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 flex items-center gap-1"
+                  >
+                    <CheckCheck size={11} /> tout
                   </button>
                 )}
               </div>

@@ -1,14 +1,24 @@
+/* ── Les @import EN PREMIER, avant tout le reste ── */
+@import "./styles/animations.css";
+@import "./styles/custom.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Styles custom extraits */
-@import "./styles/animations.css";
-@import "./styles/custom.css";
-
 /* ── Scrollbar ─────────────────────────────────────────────── */
-::-webkit-scrollbar       { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 8px; }
+
+/* Standard moderne (Firefox + futurs navigateurs) */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+/* WebKit/Blink (Chrome, Edge, Safari) */
+::-webkit-scrollbar              { width: 8px; height: 8px; }
+::-webkit-scrollbar-track        { background: transparent; }
+::-webkit-scrollbar-thumb        { background: rgba(255, 255, 255, 0.15); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover  { background: rgba(255, 255, 255, 0.30); }
 
 /* ── Accessibilité : réduction de mouvement ────────────────── */
 @media (prefers-reduced-motion: reduce) {

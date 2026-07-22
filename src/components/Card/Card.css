@@ -14,3 +14,8 @@
   background: var(--thumb-color, #fbbf24);
   cursor: pointer;
 }
+
+/* ── Animation saison complète ── */
+.card-season-complete {
+  animation: seasonComplete 0.85s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
