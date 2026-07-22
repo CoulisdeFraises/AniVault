@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { Plus, Film, Tv, User, LogOut, ChevronDown, Settings, RefreshCw } from "lucide-react";
+import { Plus, Film, Tv, LogOut, ChevronDown, Settings, User, Calendar, Menu } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Chip } from "../common/Chip";
 import { STATUS, STATUS_ORDER } from "../../utils/status";
 import { useLibrary } from "../../context/LibraryContext";
 import { useAuth } from "../../context/AuthContext";
+import { RefreshCw } from "lucide-react";
 
 function getInitials(name) {
   if (!name) return "?";
@@ -21,7 +22,7 @@ export function Header({
   const { entries, loading } = useLibrary();
   const { user, profile, logout } = useAuth();
   const navigate = useNavigate();
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const avatarColor = user?.user_metadata?.avatar_color || "#7c3aed";
 
@@ -34,73 +35,74 @@ export function Header({
     [byType]
   );
   const topGenres = useMemo(() => {
-    const genreTally = {};
-    entries.forEach((e) => e.genres.forEach((g) => { genreTally[g] = (genreTally[g] || 0) + 1; }));
-    return Object.entries(genreTally).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const tally = {};
+    entries.forEach((e) => e.genres.forEach((g) => { tally[g] = (tally[g] || 0) + 1; }));
+    return Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 3);
   }, [entries]);
 
-  function closeMenu() { setShowProfileMenu(false); }
+  function closeMenu() { setMenuOpen(false); }
+
+  function go(path) { closeMenu(); navigate(path); }
 
   return (
     <>
+      {/* ── Barre principale ── */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">
             Mon Journal de visionnage
           </p>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+          <h1
+            className="text-3xl sm:text-4xl font-bold tracking-tight"
+            style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+          >
             ANIVAULT
           </h1>
         </div>
 
         <div className="flex items-center gap-2">
 
-          {/* ── Indicateur de sync ── */}
+          {/* Sync */}
           <button
             onClick={onSyncClick}
             disabled={syncing}
             title={syncing ? `Sync en cours… ${syncProgress.current}/${syncProgress.total}` : "Actualiser les données"}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-70 transition-colors motion-reduce:transition-none"
           >
-            <RefreshCw
-              size={14}
-              className={`text-violet-400 ${syncing ? "animate-spin motion-reduce:animate-none" : ""}`}
-            />
-            {syncing ? (
-              <span className="text-xs font-mono text-violet-400 hidden sm:inline">
-                {syncProgress.current}/{syncProgress.total}
-              </span>
-            ) : (
-              <span className="text-xs font-mono text-violet-400 hidden sm:inline">Sync</span>
-            )}
+            <RefreshCw size={14} className={`text-violet-400 ${syncing ? "animate-spin motion-reduce:animate-none" : ""}`} />
+            {syncing
+              ? <span className="text-xs font-mono text-violet-400 hidden sm:inline">{syncProgress.current}/{syncProgress.total}</span>
+              : <span className="text-xs font-mono text-violet-400 hidden sm:inline">Sync</span>
+            }
           </button>
 
-          {/* ── Profil ── */}
+          {/* ── Burger menu ── */}
           <div className="relative">
             <button
-              onClick={() => setShowProfileMenu((v) => !v)}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 transition-colors motion-reduce:transition-none"
+              onClick={() => setMenuOpen((v) => !v)}
+              className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 transition-colors motion-reduce:transition-none"
+              aria-label="Menu"
             >
+              {/* Mini avatar */}
               <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
                 style={{ backgroundColor: avatarColor }}
               >
                 {getInitials(profile)}
               </div>
-              <span className="text-sm font-medium text-violet-100 hidden sm:inline pr-1">{profile}</span>
-              <ChevronDown
-                size={13}
-                className={`text-violet-400 transition-transform motion-reduce:transition-none ${showProfileMenu ? "rotate-180" : ""}`}
-              />
+              <Menu size={15} className="text-violet-400" />
             </button>
 
-            {showProfileMenu && (
+            {/* Dropdown */}
+            {menuOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={closeMenu} />
-                <div className="absolute right-0 top-full mt-2 w-52 rounded-xl bg-violet-900 border border-white/10 shadow-lg z-20 overflow-hidden">
+                <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-violet-900 border border-white/10 shadow-xl z-20 overflow-hidden">
+
+                  {/* Info utilisateur */}
                   <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
                     <div
-                      className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
                       style={{ backgroundColor: avatarColor }}
                     >
                       {getInitials(profile)}
@@ -110,34 +112,47 @@ export function Header({
                       <p className="text-[10px] text-violet-400 truncate">{user?.email}</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => { closeMenu(); navigate("/profile"); }}
-                    className="w-full flex items-center gap-2 px-4 py-3 text-sm text-violet-200 hover:bg-white/10 transition-colors motion-reduce:transition-none"
-                  >
-                    <User size={14} className="text-violet-400" />
-                    Mon profil
-                  </button>
-                  <button
-                    onClick={() => { closeMenu(); navigate("/settings"); }}
-                    className="w-full flex items-center gap-2 px-4 py-3 text-sm text-violet-200 hover:bg-white/10 transition-colors motion-reduce:transition-none"
-                  >
-                    <Settings size={14} className="text-violet-400" />
-                    Paramètres
-                  </button>
-                  <div className="border-t border-white/5" />
-                  <button
-                    onClick={() => { closeMenu(); logout(); }}
-                    className="w-full flex items-center gap-2 px-4 py-3 text-sm text-rose-300 hover:bg-rose-500/10 transition-colors motion-reduce:transition-none"
-                  >
-                    <LogOut size={14} />
-                    Se déconnecter
-                  </button>
+
+                  {/* Navigation */}
+                  <div className="py-1">
+                    <button
+                      onClick={() => go("/profile")}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-violet-200 hover:bg-white/10 transition-colors motion-reduce:transition-none"
+                    >
+                      <User size={15} className="text-violet-400 flex-shrink-0" />
+                      Mon profil
+                    </button>
+                    <button
+                      onClick={() => go("/calendar")}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-violet-200 hover:bg-white/10 transition-colors motion-reduce:transition-none"
+                    >
+                      <Calendar size={15} className="text-violet-400 flex-shrink-0" />
+                      Calendrier
+                    </button>
+                    <button
+                      onClick={() => go("/settings")}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-violet-200 hover:bg-white/10 transition-colors motion-reduce:transition-none"
+                    >
+                      <Settings size={15} className="text-violet-400 flex-shrink-0" />
+                      Paramètres
+                    </button>
+                  </div>
+
+                  <div className="border-t border-white/5 py-1">
+                    <button
+                      onClick={() => { closeMenu(); logout(); }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-rose-300 hover:bg-rose-500/10 transition-colors motion-reduce:transition-none"
+                    >
+                      <LogOut size={15} />
+                      Se déconnecter
+                    </button>
+                  </div>
                 </div>
               </>
             )}
           </div>
 
-          {/* ── Ajouter ── */}
+          {/* Ajouter */}
           <button
             onClick={onAddClick}
             className="flex items-center gap-1.5 bg-amber-400 text-violet-950 font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-amber-300 transition-colors motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-violet-950"

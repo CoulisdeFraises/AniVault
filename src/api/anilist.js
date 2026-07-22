@@ -172,3 +172,91 @@ export async function fetchNextAiringAniList(anilistId) {
     return null;
   }
 }
+
+// ── Calcule les bornes Unix de la semaine (offsetWeeks = 0 → semaine courante) ──
+function getWeekBounds(offsetWeeks = 0) {
+  const now     = new Date();
+  const dow     = now.getDay(); // 0 = dimanche
+  const toMon   = dow === 0 ? -6 : 1 - dow;
+  const monday  = new Date(now);
+  monday.setDate(now.getDate() + toMon + offsetWeeks * 7);
+  monday.setHours(0, 0, 0, 0);
+
+  const sunday  = new Date(monday);
+  sunday.setDate(monday.getDate() + 7);
+  sunday.setHours(0, 0, 0, 0);
+
+  return {
+    start:  Math.floor(monday.getTime() / 1000),
+    end:    Math.floor(sunday.getTime()  / 1000),
+    monday,
+  };
+}
+
+// ── Détection disponibilité française ─────────────────────────────────────────
+const FR_SITES = ["ADN", "Wakanim", "Crunchyroll", "Netflix", "Disney Plus"];
+
+export function hasFrenchVersion(media) {
+  return (media.externalLinks || []).some(
+    (l) =>
+      l.site === "ADN" ||
+      l.site === "Wakanim" ||
+      (FR_SITES.includes(l.site) && l.language === "French")
+  );
+}
+
+// ── Fetch du calendrier hebdomadaire ──────────────────────────────────────────
+export async function fetchWeeklySchedule(offsetWeeks = 0) {
+  const { start, end, monday } = getWeekBounds(offsetWeeks);
+
+  const query = `
+    query ($start: Int, $end: Int, $page: Int) {
+      Page(page: $page, perPage: 50) {
+        pageInfo { hasNextPage }
+        airingSchedules(
+          airingAt_greater: $start
+          airingAt_lesser:  $end
+          sort: TIME
+        ) {
+          id
+          airingAt
+          episode
+          media {
+            id
+            title { romaji english }
+            coverImage { medium }
+            externalLinks { site language type }
+            countryOfOrigin
+            isAdult
+            format
+          }
+        }
+      }
+    }
+  `;
+
+  const all = [];
+  let page = 1, hasNext = true;
+
+  while (hasNext && page <= 6) {
+    const res = await fetch("https://graphql.anilist.co", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body:    JSON.stringify({ query, variables: { start, end, page } }),
+    });
+    if (!res.ok) break;
+    const json     = await res.json();
+    const pageData = json.data?.Page;
+    if (!pageData) break;
+
+    // Garde uniquement les animes japonais non-adultes
+    all.push(...(pageData.airingSchedules || []).filter(
+      (s) => !s.media?.isAdult && s.media?.countryOfOrigin === "JP"
+    ));
+
+    hasNext = pageData.pageInfo?.hasNextPage;
+    page++;
+  }
+
+  return { schedules: all, monday };
+}

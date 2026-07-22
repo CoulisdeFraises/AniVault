@@ -8,6 +8,7 @@ import { Login }    from "./pages/Login";
 import { Settings } from "./pages/Settings";
 import { Header }   from "./components/Header/Header";
 import { Profile } from "./pages/Profile";
+import { Calendar } from "./pages/Calendar";
 
 // ── Spinner de chargement initial (vérification session Supabase) ─────────────
 const AppLoader = () => (
@@ -39,7 +40,10 @@ const AppRoutes = () => {
             path="/profile"
             element={<ProtectedRoute><Profile /></ProtectedRoute>}
         />
-
+        <Route
+          path="/calendar"
+          element={<ProtectedRoute><Calendar /></ProtectedRoute>}
+        />
         {/* Protégées */}
         <Route path="/"         element={<ProtectedRoute><Home /></ProtectedRoute>} />
         <Route path="/details/:id" element={<ProtectedRoute><Details /></ProtectedRoute>} />
