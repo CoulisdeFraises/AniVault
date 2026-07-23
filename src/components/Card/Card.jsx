@@ -71,7 +71,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
         className={`
           relative card-noise rounded-2xl bg-violet-900/30
           border-t border-r border-b border-white/5
-          p-4 flex gap-3 overflow-hidden h-44
+          p-4 flex gap-3
           transition-all duration-200 ease-out
           hover:-translate-y-0.5 hover:shadow-lg hover:shadow-violet-950/60 hover:bg-violet-800/40
           cursor-pointer
@@ -98,18 +98,18 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           const fallbackImage = entry.seasons[0]?.coverImage || entry.coverImage;
           const showFallback  = !displayImage && activeSeason > 0 && fallbackImage;
           return displayImage ? (
-            <div className="flex-shrink-0 h-full aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
+            <div className="flex-shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
               <img src={displayImage} alt="" className="w-full h-full object-cover" />
             </div>
           ) : showFallback ? (
-            <div className="relative flex-shrink-0 h-full aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
+            <div className="relative flex-shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
               <img src={fallbackImage} alt="" className="w-full h-full object-cover brightness-[0.25]" />
               <span className="absolute inset-0 flex items-center justify-center text-5xl font-bold text-white/50">?</span>
             </div>
           ) : null;
         })()}
 
-        <div className="flex-1 min-w-0 flex flex-col gap-2 overflow-hidden relative z-10">
+        <div className="flex-1 min-w-0 flex flex-col gap-2 relative z-10">
 
           {/* ── Titre + boutons ── */}
           <div className="flex items-start justify-between gap-2">
@@ -166,7 +166,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
 
           {/* ── Genres ── */}
           {entry.genres.length > 0 && (
-            <div className="flex flex-wrap gap-1 overflow-hidden max-h-5">
+            <div className="flex flex-wrap gap-1">
               {entry.genres.map((g) => (
                 <span key={g} className="px-2 py-0.5 rounded-full bg-white/5 text-[10px] text-violet-300 whitespace-nowrap">{g}</span>
               ))}
