@@ -44,7 +44,7 @@ export async function fetchAniListAllSeasons(startId) {
     if (!id || visited.has(id)) return [];
     visited.add(id);
     // coverImage.large pour chaque saison
-    const query = `query ($id: Int) { Media(id: $id, type: ANIME) { id episodes coverImage { large } relations { edges { relationType node { id type } } } } }`;
+    const query = `query ($id: Int) { Media(id: $id, type: ANIME) { id episodes nextAiringEpisode { episode } coverImage { large } relations { edges { relationType node { id type } } } } }`;
     let json;
     try {
       json = await anilistQuery(query, { id });
@@ -55,7 +55,11 @@ export async function fetchAniListAllSeasons(startId) {
     if (!media) return [];
     const sequel = media.relations?.edges?.find((e) => e.relationType === "SEQUEL" && e.node.type === "ANIME");
     const rest = await followSequels(sequel?.node?.id ?? null, visited);
-    return [{ anilistId: id, totalEpisodes: media.episodes ?? null, watchedEpisodes: 0, coverImage: media.coverImage?.large ?? null }, ...rest];
+    const totalEpisodes = media.episodes
+      ?? (media.nextAiringEpisode?.episode != null
+          ? media.nextAiringEpisode.episode - 1
+          : null);
+    return [{ anilistId: id, totalEpisodes, watchedEpisodes: 0, coverImage: media.coverImage?.large ?? null }, ...rest];
   }
 
   const rootId = await findRoot(startId);
@@ -94,10 +98,16 @@ export async function fetchAniListNextSeason(rootId, currentSeasonCount) {
 }
 
 export async function fetchAniListEpisodeTotal(anilistId) {
-  const query = `query ($id: Int) { Media(id: $id) { episodes } }`;
+  const query = `query ($id: Int) { Media(id: $id) { episodes nextAiringEpisode { episode } } }`;
   try {
     const json = await anilistQuery(query, { id: anilistId });
-    return json.data?.Media?.episodes ?? null;
+    const media = json.data?.Media;
+    // episodes = total confirmé (séries terminées)
+    // nextAiringEpisode.episode - 1 = épisodes déjà diffusés (séries en cours)
+    return media?.episodes
+      ?? (media?.nextAiringEpisode?.episode != null
+          ? media.nextAiringEpisode.episode - 1
+          : null);
   } catch {
     return null;
   }
