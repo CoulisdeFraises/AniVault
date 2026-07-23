@@ -20,23 +20,28 @@ export async function searchAniList(q) {
 }
 
 // -----------------------------------------------------------------------------
-// fetchAniListFranchise — Recupere TOUTE la franchise avec titres
+// fetchAniListFranchise
 //
-// Phase 1 : findRoot — remonte la chaine de PREQUELs TV pour trouver la
-//           racine de la franchise. On ignore les PREQUELs OVA/film pour
-//           eviter de tomber sur une entree sans SEQUEL retour vers la TV.
+// Recupere la franchise complete : saisons TV + OVA/ONA/Specials + Films.
 //
-// Phase 2 : followTVChain — suit recursivement les SEQUELs depuis la racine.
-//           On priorise les SEQUELs de format TV/TV_SHORT afin de ne pas
-//           s'engager dans une sous-chaine OVA ou film et perdre la suite.
-//           Les noeuds non-TV dans la chaine continuent quand meme d'etre
-//           explores (ex. film Mugen Train entre deux saisons TV).
+// Phase 1  findRoot     : remonte les PREQUELs TV pour trouver la vraie
+//                         racine. On ignore les PREQUELs OVA/film qui
+//                         n auraient pas de SEQUEL retour vers la TV.
 //
-// Phase 3 : collectExtras — BFS depuis les edges de chaque noeud TV pour
-//           collecter les extras (OVA/ONA/Films/Specials).
-//           edge.node.format peut etre null dans la reponse AniList : on
-//           laisse passer les null et on filtre apres fetch complet.
-//           Traitement par lots de 5 requetes en parallele.
+// Phase 2  followTVChain: suit la chaine SEQUEL depuis la racine en
+//                         privilegiant les SEQUELs TV/TV_SHORT. Les noeuds
+//                         non-TV intercales (ex. film Mugen Train) font
+//                         continuer la chaine sans etre comptes comme TV.
+//
+// Phase 3  collectExtras: BFS sur les edges de chaque noeud TV pour
+//                         collecter OVA/ONA/Films/Specials.
+//
+// BUG CORRIGE : enqueue utilisait extrasMap.set(id, null) pour reserver
+// les IDs AVANT que fetchOneExtra ne soit appele. fetchOneExtra verifiait
+// extrasMap.has(id) => true => retournait immediatement sans rien fetcher.
+// Tous les extras restaient null, filtres par .filter(Boolean) => 0 extras.
+// Fix : on utilise un Set "queued" separe pour tracker les IDs en attente.
+// extrasMap ne recoit une entree que lorsque la donnee est reellement fetchee.
 // -----------------------------------------------------------------------------
 export async function fetchAniListFranchise(startId) {
   const NON_TV     = new Set(["OVA", "ONA", "MOVIE", "SPECIAL", "MUSIC"]);
@@ -57,15 +62,13 @@ export async function fetchAniListFranchise(startId) {
   function parseTitle(m) {
     return m.title?.english || m.title?.romaji || null;
   }
-  // Un format est considere TV si c'est TV, TV_SHORT, ou null (inconnu -> on laisse passer)
   function isTVFormat(fmt) {
     return fmt == null || TV_FORMATS.has(fmt);
   }
 
   // -- Phase 1 : racine -------------------------------------------------------
   // On ne suit les PREQUELs que vers des entrees TV/TV_SHORT (ou format inconnu).
-  // Cela evite de remonter vers un OVA qui n'aurait pas de SEQUEL retour,
-  // ce qui viderait la chaine TV et ferait tomber sur le fallback 1 saison.
+  // Evite de remonter vers un OVA sans SEQUEL retour, ce qui viderait la chaine.
   async function findRoot(id, visited = new Set()) {
     if (visited.has(id)) return id;
     visited.add(id);
@@ -75,18 +78,16 @@ export async function fetchAniListFranchise(startId) {
       if (!m) return id;
       const prequel = m.relations?.edges?.find(
         (e) => e.relationType === "PREQUEL" &&
-               e.node.type === "ANIME" &&
-               isTVFormat(e.node.format)   // <- FIX : on ignore les PREQUELs OVA/film
+               e.node.type   === "ANIME"   &&
+               isTVFormat(e.node.format)
       );
       return prequel ? findRoot(prequel.node.id, visited) : id;
     } catch { return id; }
   }
 
   // -- Phase 2 : chaine TV recursive -----------------------------------------
-  // On priorise le SEQUEL de format TV/TV_SHORT/null pour ne pas s'engager
-  // dans une sous-chaine OVA ou film et perdre les saisons TV suivantes.
-  // Si aucun SEQUEL TV n'existe, on suit quand meme le premier SEQUEL anime
-  // (cas Demon Slayer ou un film est entre deux saisons TV).
+  // On priorise le SEQUEL TV/TV_SHORT/null. Si seul un SEQUEL non-TV existe
+  // (ex. film Mugen Train), on le suit quand meme : la chaine continue apres.
   async function followTVChain(id, visited = new Set()) {
     if (!id || visited.has(id)) return [];
     visited.add(id);
@@ -97,12 +98,10 @@ export async function fetchAniListFranchise(startId) {
     const m = json.data?.Media;
     if (!m) return [];
 
-    const fmt   = m.format ?? "TV";
-    const isTV  = TV_FORMATS.has(fmt);
+    const fmt  = m.format ?? "TV";
+    const isTV = TV_FORMATS.has(fmt);
     const edges = m.relations?.edges || [];
 
-    // FIX : on prefere un SEQUEL TV/TV_SHORT/null plutot que le premier SEQUEL
-    // de la liste (qui pourrait etre un OVA ou un film)
     const sequel =
       edges.find((e) => e.relationType === "SEQUEL" && e.node.type === "ANIME" && isTVFormat(e.node.format)) ??
       edges.find((e) => e.relationType === "SEQUEL" && e.node.type === "ANIME");
@@ -110,30 +109,24 @@ export async function fetchAniListFranchise(startId) {
     const rest = await followTVChain(sequel?.node?.id ?? null, visited);
 
     if (isTV) {
-      return [{
-        anilistId:     id,
-        format:        fmt,
-        title:         parseTitle(m),
-        totalEpisodes: parseEps(m),
-        coverImage:    m.coverImage?.large ?? null,
-        edges,
-      }, ...rest];
+      return [{ anilistId: id, format: fmt, title: parseTitle(m), totalEpisodes: parseEps(m), coverImage: m.coverImage?.large ?? null, edges }, ...rest];
     } else {
-      // Non-TV dans la chaine SEQUEL (ex. film Mugen Train) -> extras, mais la chaine continue
-      return rest;
+      return rest; // noeud non-TV intercale : chaine continue, sera capture par collectExtras
     }
   }
 
   // -- Phase 3 : BFS extras --------------------------------------------------
+  // FIX CRITIQUE : extrasMap ne stocke que les donnees reellement fetchees.
+  // Un Set separe "queued" empeche les doublons dans la queue SANS pre-reserver
+  // dans extrasMap, ce qui evitait a fetchOneExtra de sortir immediatement.
   const extrasMap = new Map();
 
   async function fetchOneExtra(id, formatHint) {
-    if (extrasMap.has(id)) return;
-    extrasMap.set(id, null);
+    if (extrasMap.has(id)) return; // deja fetche avec succes, on passe
     try {
       const json = await anilistQuery(FULL_QUERY, { id });
       const m    = json.data?.Media;
-      if (!m) { extrasMap.delete(id); return; }
+      if (!m) return;
       extrasMap.set(id, {
         anilistId:     id,
         format:        m.format ?? formatHint,
@@ -142,40 +135,43 @@ export async function fetchAniListFranchise(startId) {
         coverImage:    m.coverImage?.large ?? null,
         edges:         m.relations?.edges || [],
       });
-    } catch { extrasMap.delete(id); }
+    } catch { /* on ignore, l ID ne sera simplement pas dans extras */ }
   }
 
   async function collectExtras(tvChain, tvIds) {
-    const queue = [];
+    const queue  = [];
+    const queued = new Set(); // FIX : separe du extrasMap pour eviter le bug de pre-reservation
 
     function enqueue(id, formatHint) {
-      if (!id || tvIds.has(id) || extrasMap.has(id)) return;
-      extrasMap.set(id, null);
+      if (!id || tvIds.has(id) || extrasMap.has(id) || queued.has(id)) return;
+      queued.add(id);       // marque comme "en attente" SANS toucher extrasMap
       queue.push({ id, formatHint });
     }
 
+    // Seed initial : edges de chaque noeud TV
     for (const node of tvChain) {
       for (const edge of node.edges) {
         if (edge.node.type !== "ANIME") continue;
-        // FIX : edge.node.format peut etre null pour des OVA/MOVIE dans AniList.
-        // On laisse passer les null (le format reel sera obtenu via fetchOneExtra)
-        // et on ecarte uniquement les formats TV explicitement connus.
+        // FIX : edge.node.format peut etre null dans AniList meme pour des OVA/MOVIE.
+        // On laisse passer les null (le vrai format sera recupere via fetchOneExtra).
+        // On ecarte uniquement les formats TV explicitement connus.
         if (edge.node.format != null && !NON_TV.has(edge.node.format)) continue;
         if (!EXTRAS_REL.has(edge.relationType)) continue;
         enqueue(edge.node.id, edge.node.format);
       }
     }
 
-    while (queue.length > 0 && extrasMap.size <= MAX_EXTRAS) {
+    // BFS par lots de 5 requetes en parallele
+    while (queue.length > 0 && (extrasMap.size + queued.size) <= MAX_EXTRAS) {
       const batch = queue.splice(0, 5);
       await Promise.all(batch.map(({ id, formatHint }) => fetchOneExtra(id, formatHint)));
 
+      // Explorer les edges des extras fraichement recuperes
       for (const { id } of batch) {
         const data = extrasMap.get(id);
         if (!data) continue;
         for (const edge of data.edges) {
           if (edge.node.type !== "ANIME") continue;
-          // Meme FIX dans la boucle BFS des extras
           if (edge.node.format != null && !NON_TV.has(edge.node.format)) continue;
           if (!EXTRAS_REL.has(edge.relationType)) continue;
           enqueue(edge.node.id, edge.node.format);
@@ -191,9 +187,9 @@ export async function fetchAniListFranchise(startId) {
 
   await collectExtras(tvChain, tvIds);
 
-  // FIX : filtre de securite — exclut les entrees dont le format s'avere etre
-  // TV apres fetch (format etait null lors de l'enqueue en phase 3)
-  const extras = [...extrasMap.values()].filter(Boolean).filter((m) => NON_TV.has(m.format));
+  // Filtre de securite : exclut les entrees dont le format s avere etre TV
+  // apres fetch (format etait null lors de l enqueue)
+  const extras = [...extrasMap.values()].filter((m) => m != null && NON_TV.has(m.format));
   const ovas   = extras.filter((m) => m.format !== "MOVIE");
   const movies = extras.filter((m) => m.format === "MOVIE");
 
@@ -228,7 +224,6 @@ export async function fetchAniListFranchise(startId) {
     })),
   ];
 
-  // anilistIds = TV uniquement (pour nextAiring / fetchSeasonInfo - retrocompat)
   const anilistIds = tvChain.map((m) => m.anilistId);
   return { seasons, anilistIds };
 }
@@ -320,7 +315,7 @@ export function hasFrenchVersion(media) { return (media.externalLinks||[]).some(
 
 export async function fetchWeeklySchedule(o=0) {
   const {start,end,monday}=getWeekBounds(o);
-  const q=`query($start:Int,$end:Int,$page:Int){Page(page:$page,perPage:50){pageInfo{hasNextPage}airingSchedules(airingAt_greater:$start airingAt_lesser:$end sort:TIME){id airingAt episode media{id idMal title{romaji english}description(asHtml:false)coverImage{medium large}externalLinks{site language type url}countryOfOrigin isAdult format relations{edges{relationType node{type}}}}}}}}`;
+  const q=`query($start:Int,$end:Int,$page:Int){Page(page:$page,perPage:50){pageInfo{hasNextPage}airingSchedules(airingAt_greater:$start airingAt_lesser:$end sort:TIME){id airingAt episode media{id idMal title{romaji english}description(asHtml:false)coverImage{medium large}externalLinks{site language type url}countryOfOrigin isAdult format relations{edges{relationType node{type}}}}}}}}}`;
   const all=[]; let page=1,hasNext=true;
   while(hasNext&&page<=6){const res=await fetch("https://graphql.anilist.co",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({query:q,variables:{start,end,page}})});if(!res.ok)break;const j=await res.json();const pd=j.data?.Page;if(!pd)break;all.push(...(pd.airingSchedules||[]).filter((s)=>!s.media?.isAdult&&s.media?.countryOfOrigin==="JP"));hasNext=pd.pageInfo?.hasNextPage;page++;}
   return {schedules:all,monday};

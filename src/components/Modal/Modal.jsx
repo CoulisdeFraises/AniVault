@@ -3,12 +3,15 @@ import { createPortal } from "react-dom";
 
 // -----------------------------------------------------------------------------
 // Modal — rendu via createPortal directement dans document.body.
-// Cela garantit que la modale est toujours au-dessus de tout element sticky
-// (ex. header z-40 avec backdrop-blur), quels que soient les contextes
-// d empilement CSS crees par les conteneurs parents.
+//
+// Le sticky header utilise backdrop-blur-md qui cree un contexte d empilement
+// CSS independant. Meme avec z-50 sur la modale et z-40 sur le header, le
+// header pouvait rester visible au-dessus si les deux etaient dans le meme
+// sous-arbre DOM. createPortal place la modale directement sous <body>,
+// hors de tout contexte d empilement parent, et garantit qu elle recouvre
+// toujours l integralite de l ecran.
 // -----------------------------------------------------------------------------
 export function Modal({ onClose, maxWidth = "max-w-lg", zIndex = "z-50", children }) {
-  // Bloque le scroll du body pendant que la modale est ouverte
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -48,26 +51,17 @@ export function ConfirmDialog({
             {icon}
           </div>
           <div>
-            <h3
-              className="font-semibold text-violet-50 mb-1"
-              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-            >
+            <h3 className="font-semibold text-violet-50 mb-1" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
               {title}
             </h3>
             <p className="text-sm text-violet-300">{description}</p>
           </div>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={onCancel}
-            className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-white/10 text-violet-200 hover:bg-white/20"
-          >
+          <button onClick={onCancel} className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-white/10 text-violet-200 hover:bg-white/20">
             {cancelLabel}
           </button>
-          <button
-            onClick={onConfirm}
-            className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium ${toneClasses.btn}`}
-          >
+          <button onClick={onConfirm} className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium ${toneClasses.btn}`}>
             {confirmLabel}
           </button>
         </div>

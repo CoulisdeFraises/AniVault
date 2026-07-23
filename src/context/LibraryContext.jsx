@@ -44,21 +44,44 @@ export function LibraryProvider({ children }) {
     const forceAll = !editingId && form.status === "termine";
     const seasons  = form.seasons.map((s) => {
       const total   = s.totalEpisodes == null ? null : Math.max(0, Number(s.totalEpisodes) || 0);
-      const watched = total != null ? Math.min(total, forceAll && total != null ? total : Math.max(0, Number(s.watchedEpisodes) || 0)) : Math.max(0, Number(s.watchedEpisodes) || 0);
-      return { number: s.number, format: s.format ?? "TV", totalEpisodes: total, watchedEpisodes: watched, coverImage: s.coverImage ?? null };
+      const watched = total != null
+        ? Math.min(total, forceAll ? total : Math.max(0, Number(s.watchedEpisodes) || 0))
+        : Math.max(0, Number(s.watchedEpisodes) || 0);
+      return {
+        number:          s.number,
+        format:          s.format ?? "TV",
+        // FIX : title preserve (nom de l OVA / du film / de la saison TV)
+        title:           s.title ?? null,
+        totalEpisodes:   total,
+        watchedEpisodes: watched,
+        coverImage:      s.coverImage ?? null,
+      };
     });
-    const cleaned = { ...form, title: form.title.trim(), seasons, rating: Math.min(10, Math.max(0, Number(form.rating) || 0)), id: editingId || Date.now().toString(), watchHistory: editingId ? (entriesRef.current.find((e) => e.id === editingId)?.watchHistory || []) : [] };
-    persist(editingId ? entriesRef.current.map((e) => e.id === editingId ? cleaned : e) : [cleaned, ...entriesRef.current]);
+    const cleaned = {
+      ...form,
+      title:        form.title.trim(),
+      seasons,
+      rating:       Math.min(10, Math.max(0, Number(form.rating) || 0)),
+      id:           editingId || Date.now().toString(),
+      watchHistory: editingId ? (entriesRef.current.find((e) => e.id === editingId)?.watchHistory || []) : [],
+    };
+    persist(editingId
+      ? entriesRef.current.map((e) => e.id === editingId ? cleaned : e)
+      : [cleaned, ...entriesRef.current]);
   }, [user]);
 
   const setEntries   = useCallback((next) => persist(next), [user]);
-  const deleteEntry  = useCallback((id)  => persist(entriesRef.current.filter((e) => e.id !== id)), [user]);
+  const deleteEntry  = useCallback((id)   => persist(entriesRef.current.filter((e) => e.id !== id)), [user]);
 
   const incrementEpisode = useCallback((id, seasonIndex) => {
     const now  = Date.now();
     const next = entriesRef.current.map((e) => {
       if (e.id !== id) return e;
-      const seasons = e.seasons.map((s, i) => { if (i !== seasonIndex) return s; const n = s.watchedEpisodes + 1; return { ...s, watchedEpisodes: s.totalEpisodes != null ? Math.min(s.totalEpisodes, n) : n }; });
+      const seasons = e.seasons.map((s, i) => {
+        if (i !== seasonIndex) return s;
+        const n = s.watchedEpisodes + 1;
+        return { ...s, watchedEpisodes: s.totalEpisodes != null ? Math.min(s.totalEpisodes, n) : n };
+      });
       const history = [...(e.watchHistory || []), { seasonIndex, episode: seasons[seasonIndex].watchedEpisodes, watchedAt: now }];
       return { ...e, seasons, status: autoStatus(e, seasons), watchHistory: history };
     });
@@ -66,7 +89,11 @@ export function LibraryProvider({ children }) {
   }, [user]);
 
   const decrementEpisode = useCallback((id, seasonIndex) => {
-    persist(entriesRef.current.map((e) => { if (e.id !== id) return e; const seasons = e.seasons.map((s, i) => i !== seasonIndex ? s : { ...s, watchedEpisodes: Math.max(0, s.watchedEpisodes - 1) }); return { ...e, seasons, status: autoStatus(e, seasons) }; }));
+    persist(entriesRef.current.map((e) => {
+      if (e.id !== id) return e;
+      const seasons = e.seasons.map((s, i) => i !== seasonIndex ? s : { ...s, watchedEpisodes: Math.max(0, s.watchedEpisodes - 1) });
+      return { ...e, seasons, status: autoStatus(e, seasons) };
+    }));
   }, [user]);
 
   const setEpisodeCount = useCallback((id, seasonIndex, value) => {
@@ -74,35 +101,65 @@ export function LibraryProvider({ children }) {
     const next = entriesRef.current.map((e) => {
       if (e.id !== id) return e;
       const old     = e.seasons[seasonIndex]?.watchedEpisodes || 0;
-      const seasons = e.seasons.map((s, i) => { if (i !== seasonIndex) return s; const c = s.totalEpisodes != null ? Math.min(s.totalEpisodes, Math.max(0, value)) : Math.max(0, value); return { ...s, watchedEpisodes: c }; });
+      const seasons = e.seasons.map((s, i) => {
+        if (i !== seasonIndex) return s;
+        const c = s.totalEpisodes != null ? Math.min(s.totalEpisodes, Math.max(0, value)) : Math.max(0, value);
+        return { ...s, watchedEpisodes: c };
+      });
       const nw      = seasons[seasonIndex].watchedEpisodes;
-      const entries = nw > old ? Array.from({ length: nw - old }, (_, i) => ({ seasonIndex, episode: old + i + 1, watchedAt: now + i })) : [];
+      const entries = nw > old
+        ? Array.from({ length: nw - old }, (_, i) => ({ seasonIndex, episode: old + i + 1, watchedAt: now + i }))
+        : [];
       return { ...e, seasons, status: autoStatus(e, seasons), watchHistory: [...(e.watchHistory || []), ...entries] };
     });
     persist(next);
   }, [user]);
 
-  const markDone         = useCallback((id) => persist(entriesRef.current.map((e) => e.id === id ? { ...e, status: "termine" } : e)), [user]);
-  const updateRating     = useCallback((id, rating) => persist(entriesRef.current.map((e) => e.id === id ? { ...e, rating } : e)), [user]);
+  const markDone = useCallback((id) =>
+    persist(entriesRef.current.map((e) => e.id === id ? { ...e, status: "termine" } : e)), [user]);
+
+  const updateRating = useCallback((id, rating) =>
+    persist(entriesRef.current.map((e) => e.id === id ? { ...e, rating } : e)), [user]);
+
   const updateSeasonTotal = useCallback((id, seasonIndex, totalEpisodes) => {
-    persist(entriesRef.current.map((e) => { if (e.id !== id) return e; const seasons = e.seasons.map((s, i) => i === seasonIndex ? { ...s, totalEpisodes } : s); return { ...e, seasons, status: autoStatus(e, seasons) }; }));
+    persist(entriesRef.current.map((e) => {
+      if (e.id !== id) return e;
+      const seasons = e.seasons.map((s, i) => i === seasonIndex ? { ...s, totalEpisodes } : s);
+      return { ...e, seasons, status: autoStatus(e, seasons) };
+    }));
   }, [user]);
 
   const addSeason = useCallback((id, seasonData = {}) => {
     persist(entriesRef.current.map((e) => {
       if (e.id !== id) return e;
-      const newSeason = { number: e.seasons.length + 1, format: seasonData.format ?? "TV", totalEpisodes: seasonData.totalEpisodes ?? null, watchedEpisodes: 0, coverImage: seasonData.coverImage ?? null };
-      const newIds    = seasonData.anilistId ? [...(e.anilistIds || []), seasonData.anilistId] : (e.anilistIds || []);
+      const newSeason = {
+        number:          e.seasons.length + 1,
+        format:          seasonData.format ?? "TV",
+        title:           seasonData.title ?? null,
+        totalEpisodes:   seasonData.totalEpisodes ?? null,
+        watchedEpisodes: 0,
+        coverImage:      seasonData.coverImage ?? null,
+      };
+      const newIds = seasonData.anilistId ? [...(e.anilistIds || []), seasonData.anilistId] : (e.anilistIds || []);
       return { ...e, seasons: [...e.seasons, newSeason], anilistIds: newIds };
     }));
   }, [user]);
 
   const deleteSeason = useCallback((id, seasonIndex) => {
-    persist(entriesRef.current.map((e) => { if (e.id !== id || e.seasons.length <= 1) return e; const seasons = e.seasons.filter((_, i) => i !== seasonIndex).map((s, i) => ({ ...s, number: i + 1 })); return { ...e, seasons, status: autoStatus(e, seasons) }; }));
+    persist(entriesRef.current.map((e) => {
+      if (e.id !== id || e.seasons.length <= 1) return e;
+      const seasons = e.seasons.filter((_, i) => i !== seasonIndex).map((s, i) => ({ ...s, number: i + 1 }));
+      return { ...e, seasons, status: autoStatus(e, seasons) };
+    }));
   }, [user]);
 
   return (
-    <LibraryContext.Provider value={{ entries, setEntries, loading, saveError, showConfetti, findDuplicate, saveEntry, deleteEntry, incrementEpisode, decrementEpisode, setEpisodeCount, markDone, updateRating, updateSeasonTotal, addSeason, deleteSeason }}>
+    <LibraryContext.Provider value={{
+      entries, setEntries, loading, saveError, showConfetti,
+      findDuplicate, saveEntry, deleteEntry,
+      incrementEpisode, decrementEpisode, setEpisodeCount,
+      markDone, updateRating, updateSeasonTotal, addSeason, deleteSeason,
+    }}>
       {children}
     </LibraryContext.Provider>
   );
