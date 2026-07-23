@@ -13,13 +13,12 @@ export async function searchAniList(q) {
   const query = `query ($search: String) { Page(perPage: 20) { media(search: $search, type: ANIME, sort: POPULARITY_DESC) { id title { romaji english } episodes genres coverImage { large } seasonYear format relations { edges { relationType node { id type } } } } } }`;
   const json = await anilistQuery(query, { search: q });
   const media = json.data?.Page?.media || [];
-  const filtered = media.filter((m) => !m.relations.edges.some((e) => e.relationType === "PREQUEL" && e.node.type === "ANIME"));
-  return filtered.slice(0, 6).map((m) => ({
+  return media.slice(0, 6).map((m) => ({
     source: "anilist",
     id: m.id,
     title: m.title.english || m.title.romaji,
     year: m.seasonYear,
-    image: m.coverImage?.large,   // ← large au lieu de medium
+    image: m.coverImage?.large,
     episodes: m.episodes,
     genres: m.genres || [],
   }));
