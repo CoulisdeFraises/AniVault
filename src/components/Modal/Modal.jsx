@@ -1,5 +1,21 @@
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
+
+// -----------------------------------------------------------------------------
+// Modal — rendu via createPortal directement dans document.body.
+// Cela garantit que la modale est toujours au-dessus de tout element sticky
+// (ex. header z-40 avec backdrop-blur), quels que soient les contextes
+// d empilement CSS crees par les conteneurs parents.
+// -----------------------------------------------------------------------------
 export function Modal({ onClose, maxWidth = "max-w-lg", zIndex = "z-50", children }) {
-  return (
+  // Bloque le scroll du body pendant que la modale est ouverte
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  return createPortal(
     <div
       className={`fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 ${zIndex}`}
       onClick={onClose}
@@ -10,7 +26,8 @@ export function Modal({ onClose, maxWidth = "max-w-lg", zIndex = "z-50", childre
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
