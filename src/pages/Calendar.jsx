@@ -228,8 +228,8 @@ export function Calendar() {
       const { schedules: data, monday } = await fetchWeeklySchedule(offset);
       setSchedules(data);
       setWeekMonday(monday);
-    } catch {
-      setError("Impossible de charger le calendrier. Vérifie ta connexion et réessaie.");
+    } catch (err) {
+      setError(err?.message || "Impossible de charger le calendrier. Vérifie ta connexion et réessaie.");
     } finally {
       setLoading(false);
       setRefreshing(false);

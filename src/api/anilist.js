@@ -313,44 +313,74 @@ const FR_SITES = new Set(["ADN","Wakanim","Anime Digital Network"]);
 const FR_URLS  = ["animedigitalnetwork.fr","wakanim.tv/fr","adn."];
 export function hasFrenchVersion(media) { return (media.externalLinks||[]).some((l)=>FR_SITES.has(l.site)||(l.language==="French"||l.language==="fr")||(l.url&&FR_URLS.some((p)=>l.url.includes(p)))); }
 
-export async function fetchWeeklySchedule(o=0) {
-  const {start,end,monday}=getWeekBounds(o);
-  const q=`query($start:Int,$end:Int,$page:Int){Page(page:$page,perPage:50){pageInfo{hasNextPage}airingSchedules(airingAt_greater:$start airingAt_lesser:$end sort:TIME){id airingAt episode media{id idMal title{romaji english}description(asHtml:false)coverImage{medium large}externalLinks{site language type url}countryOfOrigin isAdult format relations{edges{relationType node{type}}}}}}}}}`;
-  const all=[]; let page=1,hasNext=true;
-  while(hasNext&&page<=6){
+export async function fetchWeeklySchedule(o = 0) {
+  const { start, end, monday } = getWeekBounds(o);
+
+  // Query multi-ligne : plus facile à maintenir, GraphQL ignore les espaces/retours
+  const q = `
+    query($start: Int, $end: Int, $page: Int) {
+      Page(page: $page, perPage: 50) {
+        pageInfo { hasNextPage }
+        airingSchedules(airingAt_greater: $start, airingAt_lesser: $end, sort: TIME) {
+          id airingAt episode
+          media {
+            id idMal
+            title { romaji english }
+            description(asHtml: false)
+            coverImage { medium large }
+            externalLinks { site language type url }
+            countryOfOrigin isAdult format
+            relations {
+              edges {
+                relationType
+                node { type }
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const all = [];
+  let page = 1, hasNext = true;
+
+  while (hasNext && page <= 6) {
     let res;
     try {
-      res=await fetch("https://graphql.anilist.co",{
-        method:"POST",
-        headers:{"Content-Type":"application/json",Accept:"application/json"},
-        body:JSON.stringify({query:q,variables:{start,end,page}})
+      res = await fetch("https://graphql.anilist.co", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ query: q, variables: { start, end, page } }),
       });
-    } catch(e) { throw new Error("Impossible de joindre AniList. Vérifie ta connexion."); }
+    } catch {
+      throw new Error("Impossible de joindre AniList. Vérifie ta connexion.");
+    }
 
-    // Gestion rate-limit : on attend et on réessaie
-    if(res.status===429){
-      await new Promise(r=>setTimeout(r,2500));
+    if (res.status === 429) {
+      await new Promise((r) => setTimeout(r, 2500));
       continue;
     }
-    if(!res.ok) throw new Error(`AniList a répondu avec une erreur (${res.status}).`);
+    if (!res.ok) throw new Error(`AniList a répondu avec une erreur (${res.status}).`);
 
-    const j=await res.json();
-    // Remonte les erreurs GraphQL
-    if(j.errors?.length) throw new Error(j.errors[0].message||"Erreur GraphQL AniList.");
+    const j = await res.json();
+    if (j.errors?.length) throw new Error(j.errors[0].message || "Erreur GraphQL AniList.");
 
-    const pd=j.data?.Page;
-    if(!pd) break;
+    const pd = j.data?.Page;
+    if (!pd) break;
 
-    all.push(...(pd.airingSchedules||[]).filter(s=>{
-      if(s.media?.isAdult) return false;
-      const co=s.media?.countryOfOrigin;
-      // Accepte JP ou inconnu (robustesse si AniList retourne null pour ce champ)
-      return !co||co==="JP";
-    }));
+    all.push(
+      ...(pd.airingSchedules || []).filter((s) => {
+        if (s.media?.isAdult) return false;
+        const co = s.media?.countryOfOrigin;
+        return !co || co === "JP";
+      })
+    );
 
-    hasNext=pd.pageInfo?.hasNextPage;
+    hasNext = pd.pageInfo?.hasNextPage;
     page++;
   }
-  return {schedules:all,monday};
+
+  return { schedules: all, monday };
 }
 export function isReturningSeries(media){return (media.relations?.edges||[]).some((e)=>e.relationType==="PREQUEL"&&e.node?.type==="ANIME");}
