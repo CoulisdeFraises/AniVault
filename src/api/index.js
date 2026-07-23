@@ -86,7 +86,8 @@ export async function importResult(result) {
 export async function fetchSeasonInfo(entry, seasonIndex) {
   const seasonNumber = entry.seasons[seasonIndex]?.number ?? seasonIndex + 1;
 
-  if (entry.tmdbId) {
+  // ✅ TMDB uniquement pour les séries (source tvmaze), pas pour les animes
+  if (entry.source === "tvmaze" && entry.tmdbId) {
     const tmdb = await fetchTMDBSeason(entry.tmdbId, seasonNumber);
     if (tmdb) return tmdb;
   }
