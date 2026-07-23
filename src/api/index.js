@@ -61,7 +61,7 @@ export async function importResult(result) {
     }
   }
 
-  // ── TVmaze (séries live-action) ───────────────────────────────────────────
+  // ── TVmaze ────────────────────────────────────────────────────────────────
   try {
     const [seasons, description] = await Promise.all([
       fetchTVMazeSeasons(result.id),
@@ -94,18 +94,17 @@ export async function importResult(result) {
 }
 
 // ── Épisodes + total pour une saison ─────────────────────────────────────────
-const SEASON_INFO_TTL = 60 * 60 * 1000; // 1 heure
+const SEASON_INFO_TTL = 60 * 60 * 1000;
 
 export async function fetchSeasonInfo(entry, seasonIndex) {
   const seasonNumber = entry.seasons[seasonIndex]?.number ?? seasonIndex + 1;
-  const cacheKey = `season-info:${entry.source}:${entry.id}:s${seasonIndex}`;
+  const cacheKey     = `season-info:${entry.source}:${entry.id}:s${seasonIndex}`;
 
   return withCache(cacheKey, SEASON_INFO_TTL, async () => {
     if (entry.source === "tvmaze" && entry.tmdbId) {
       const tmdb = await fetchTMDBSeason(entry.tmdbId, seasonNumber);
       if (tmdb) return tmdb;
     }
-
     if (entry.source === "tvmaze" && entry.tvmazeId) {
       const [epsBySeason, totalEpisodes] = await Promise.all([
         fetchTVMazeEpisodesBySeason(entry.tvmazeId),
@@ -113,7 +112,6 @@ export async function fetchSeasonInfo(entry, seasonIndex) {
       ]);
       return { episodes: epsBySeason[seasonNumber] || [], totalEpisodes };
     }
-
     if (entry.source === "anilist" && entry.anilistIds?.[seasonIndex]) {
       const anilistId = entry.anilistIds[seasonIndex];
       const [episodes, totalEpisodes] = await Promise.all([
@@ -122,7 +120,6 @@ export async function fetchSeasonInfo(entry, seasonIndex) {
       ]);
       return { episodes, totalEpisodes };
     }
-
     return { episodes: [], totalEpisodes: null };
   });
 }
@@ -131,21 +128,18 @@ export async function fetchSeasonInfo(entry, seasonIndex) {
 export async function findNextSeason(entry) {
   if (entry.source === "anilist" && entry.anilistIds?.length) {
     const rootId = entry.anilistIds[0];
-    const next = await fetchAniListNextSeason(rootId, entry.seasons.length);
-    return next
-      ? { totalEpisodes: next.episodes, anilistId: next.id, coverImage: next.coverImage }
-      : null;
+    const next   = await fetchAniListNextSeason(rootId, entry.seasons.length);
+    return next ? { totalEpisodes: next.episodes, anilistId: next.id, coverImage: next.coverImage } : null;
   }
   if (entry.source === "tvmaze" && entry.tvmazeId) {
-    const nextSeasonNum = entry.seasons.length + 1;
-    const next = await fetchTVMazeNextSeason(entry.tvmazeId, nextSeasonNum);
+    const next = await fetchTVMazeNextSeason(entry.tvmazeId, entry.seasons.length + 1);
     return next ? { totalEpisodes: next.episodeCount, coverImage: next.coverImage } : null;
   }
   return null;
 }
 
 // ── Prochain épisode à diffuser ───────────────────────────────────────────────
-const NEXT_AIRING_TTL = 5 * 60 * 1000; // 5 minutes
+const NEXT_AIRING_TTL = 5 * 60 * 1000;
 
 export async function fetchNextAiring(entry) {
   const key =

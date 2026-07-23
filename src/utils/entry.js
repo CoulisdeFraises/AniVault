@@ -5,25 +5,10 @@ export const emptyForm = {
   source: null, anilistIds: [], tvmazeId: null, tmdbId: null, description: null,
 };
 
-// Mapping format AniList → catégorie interne (conservé pour rétrocompat)
 export const FORMAT_TO_CATEGORY = {
-  TV:       "tv",
-  TV_SHORT: "tv",
-  MOVIE:    "movie",
-  OVA:      "ova",
-  ONA:      "ova",
-  SPECIAL:  "ova",
-  MUSIC:    "ova",
+  TV: "tv", TV_SHORT: "tv", MOVIE: "movie",
+  OVA: "ova", ONA: "ova", SPECIAL: "ova", MUSIC: "ova",
 };
 
-export const CATEGORY_LABELS = {
-  tv:    "Série principale",
-  ova:   "OAV",
-  movie: "Film",
-};
-
-export const CATEGORY_ICONS = {
-  tv:    "📺",
-  ova:   "📼",
-  movie: "🎬",
-};
+export const CATEGORY_LABELS = { tv: "Série principale", ova: "OAV", movie: "Film" };
+export const CATEGORY_ICONS  = { tv: "📺", ova: "📼", movie: "🎬" };

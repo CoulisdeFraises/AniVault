@@ -20,7 +20,6 @@ const FORMAT_ITEM_LABEL = {
   OVA: "OAV", ONA: "ONA", SPECIAL: "Spécial", MUSIC: "Musique", MOVIE: "Film",
 };
 
-// ── Statut de reprise ─────────────────────────────────────────────────────────
 function getResumeStatus(entry) {
   const { watched, total } = seasonTotals(entry.seasons);
   if (total != null && total > 0 && watched >= total) return "termine";
@@ -37,53 +36,37 @@ const FormatRow = memo(function FormatRow({ season, entryId, statusStyle, isAban
   const s = statusStyle;
 
   return (
-    <div
-      className="flex items-center gap-2 py-0.5"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {/* Label */}
+    <div className="flex items-center gap-2 py-0.5" onClick={(e) => e.stopPropagation()}>
       <span className="font-mono text-[10px] text-violet-400 w-14 flex-shrink-0 truncate">
         {label} {season.number}
       </span>
-
-      {/* Compteur */}
       <span className="font-mono text-[10px] text-violet-300 w-12 flex-shrink-0 text-right">
         {String(season.watchedEpisodes).padStart(2, "0")}
         {season.totalEpisodes != null ? `/${String(season.totalEpisodes).padStart(2, "0")}` : "/?"}
       </span>
-
-      {/* Boutons */}
       {!isAbandoned && (
         <div className="flex gap-1 flex-shrink-0">
           {season.watchedEpisodes > 0 && (
             <button
               onClick={() => decrementEpisode(entryId, gi)}
               className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform motion-reduce:transition-none"
-            >
-              -1
-            </button>
+            >-1</button>
           )}
           {(season.totalEpisodes == null || season.watchedEpisodes < season.totalEpisodes) && (
             <button
               onClick={() => incrementEpisode(entryId, gi)}
               className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform motion-reduce:transition-none"
-            >
-              +1
-            </button>
+            >+1</button>
           )}
           {season.totalEpisodes != null && !done && (
             <button
               onClick={() => setEpisodeCount(entryId, gi, season.totalEpisodes)}
               aria-label="Marquer comme vu"
               className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform motion-reduce:transition-none flex items-center gap-0.5"
-            >
-              <CheckCheck size={10} />
-            </button>
+            ><CheckCheck size={10} /></button>
           )}
         </div>
       )}
-
-      {/* ProgressBar */}
       <div className="flex-1 h-3 flex items-center min-w-0">
         {season.totalEpisodes != null ? (
           <ProgressBar
@@ -113,7 +96,6 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
 
   const seasons = entry.seasons;
 
-  // Grouper par format
   const tvSeasons = useMemo(
     () => seasons.map((s, i) => ({ ...s, globalIndex: i })).filter((s) => getFormatGroup(s.format) === "tv"),
     [seasons]
@@ -136,13 +118,11 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
   const cardRef = useRef(null);
 
   const isAbandoned = entry.status === "abandonne";
-  const s    = STATUS[entry.status];
+  const s      = STATUS[entry.status];
   const dimmed = isAbandoned ? "opacity-50 grayscale" : "";
 
-  // Saison TV active
   const currentTV = tvSeasons[Math.min(activeTVIdx, Math.max(0, tvSeasons.length - 1))] ?? null;
 
-  // Totaux
   const { watched: tvWatched, total: tvTotal }     = useMemo(() => seasonTotals(tvSeasons),  [tvSeasons]);
   const { watched: totalWatched, total: totalAll } = useMemo(() => seasonTotals(seasons),    [seasons]);
 
@@ -151,33 +131,28 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
   const hasNextTV    = activeTVIdx < tvSeasons.length - 1;
   const hasExtras    = extraSeasons.length > 0 || movieSeasons.length > 0;
 
-  // ── Animation d'entrée ────────────────────────────────────────────────────
+  // Animation d'entrée
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
     const delay = Math.min(index * 45, 350);
     el.style.animation = `fadeInUp 0.35s ease-out ${delay}ms both`;
-    const t = setTimeout(() => {
-      if (cardRef.current) cardRef.current.style.removeProperty("animation");
-    }, delay + 380);
+    const t = setTimeout(() => { if (cardRef.current) cardRef.current.style.removeProperty("animation"); }, delay + 380);
     return () => clearTimeout(t);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Prochain épisode ──────────────────────────────────────────────────────
+  // Prochain épisode
   useEffect(() => {
     if (entry.status === "termine" || entry.status === "abandonne") { setNextAiring(null); return; }
     if (!((entry.source === "anilist" && entry.anilistIds?.length) || (entry.source === "tvmaze" && entry.tvmazeId))) return;
     let cancelled = false;
     const t = setTimeout(async () => {
-      try {
-        const result = await fetchNextAiring(entry);
-        if (!cancelled) setNextAiring(result);
-      } catch (_) {}
+      try { const result = await fetchNextAiring(entry); if (!cancelled) setNextAiring(result); } catch (_) {}
     }, Math.random() * 800);
     return () => { cancelled = true; clearTimeout(t); };
   }, [entry.id, entry.source, entry.status, entry.anilistIds?.length, entry.tvmazeId]);
 
-  // ── Animation saison TV complète ──────────────────────────────────────────
+  // Animation saison TV complète
   const prevRef = useRef({ watched: currentTV?.watchedEpisodes ?? 0, seasonIdx: activeTVIdx });
   useEffect(() => {
     if (!currentTV) return;
@@ -193,16 +168,13 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
       el.style.animation = "none";
       void el.offsetWidth;
       el.style.animation = "seasonComplete 0.85s cubic-bezier(0.22, 0.61, 0.36, 1) both";
-      const t = setTimeout(() => {
-        if (cardRef.current) cardRef.current.style.removeProperty("animation");
-      }, 950);
+      const t = setTimeout(() => { if (cardRef.current) cardRef.current.style.removeProperty("animation"); }, 950);
       prevRef.current = { watched: currentTV.watchedEpisodes, seasonIdx: activeTVIdx };
       return () => clearTimeout(t);
     }
     prevRef.current = { watched: currentTV?.watchedEpisodes ?? 0, seasonIdx: activeTVIdx };
   }, [currentTV?.watchedEpisodes, currentTV?.totalEpisodes, activeTVIdx]);
 
-  // ── Reprendre ─────────────────────────────────────────────────────────────
   function handleResume(e) {
     e.stopPropagation();
     saveEntry({ ...entry, status: getResumeStatus(entry) }, entry.id);
@@ -222,13 +194,13 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           hover:-translate-y-0.5 hover:shadow-lg hover:shadow-violet-950/60 hover:bg-violet-800/40
         `}
       >
-        {/* Bordure gauche colorée selon statut */}
+        {/* Bordure gauche colorée */}
         <div
           className="absolute inset-y-0 left-0 w-[3px] rounded-l-2xl"
           style={{ background: `linear-gradient(to bottom, ${s.color}, ${s.color}70, ${s.color}10)` }}
         />
 
-        {/* Image de couverture — saison TV active */}
+        {/* Couverture */}
         {(() => {
           const displayImage  = currentTV?.coverImage || (activeTVIdx === 0 ? entry.coverImage : null);
           const fallbackImage = tvSeasons[0]?.coverImage || entry.coverImage;
@@ -245,10 +217,10 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           ) : null;
         })()}
 
-        {/* Contenu principal */}
+        {/* Contenu */}
         <div className="flex-1 min-w-0 flex flex-col gap-1.5 sm:gap-2 relative z-10">
 
-          {/* En-tête : type + statut + titre + boutons */}
+          {/* En-tête */}
           <div className="flex items-start justify-between gap-1">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
@@ -265,11 +237,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
                 className={`font-semibold text-sm sm:text-base text-violet-50 leading-tight truncate ${dimmed}`}
                 style={{ fontFamily: "'Space Grotesk', sans-serif" }}
                 title={entry.title}
-              >
-                {entry.title}
-              </h3>
-
-              {/* Countdown prochain épisode */}
+              >{entry.title}</h3>
               {nextAiring && (() => {
                 const countdown = formatCountdown(nextAiring.airingAt);
                 if (!countdown) return null;
@@ -282,21 +250,13 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
                 );
               })()}
             </div>
-
-            {/* Boutons edit / delete */}
             <div className="flex gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={() => onEdit(entry)}
-                aria-label="Modifier"
-                className="p-2 rounded-lg text-violet-300 hover:bg-white/10 hover:text-violet-50 active:scale-95 transition-transform motion-reduce:transition-none"
-              >
+              <button onClick={() => onEdit(entry)} aria-label="Modifier"
+                className="p-2 rounded-lg text-violet-300 hover:bg-white/10 hover:text-violet-50 active:scale-95 transition-transform motion-reduce:transition-none">
                 <Pencil size={13} />
               </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowDeleteWarning(true); }}
-                aria-label="Supprimer"
-                className="p-2 rounded-lg text-violet-300 hover:bg-rose-500/20 hover:text-rose-300 active:scale-95 transition-transform motion-reduce:transition-none"
-              >
+              <button onClick={(e) => { e.stopPropagation(); setShowDeleteWarning(true); }} aria-label="Supprimer"
+                className="p-2 rounded-lg text-violet-300 hover:bg-rose-500/20 hover:text-rose-300 active:scale-95 transition-transform motion-reduce:transition-none">
                 <Trash2 size={13} />
               </button>
             </div>
@@ -317,16 +277,9 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           {/* ── Section 📺 Saisons TV ──────────────────────────────────────── */}
           {tvSeasons.length > 0 && (
             <div className={isAbandoned ? "pointer-events-none " + dimmed : ""}>
-
-              {/* Onglets saisons TV */}
-              <div
-                className="flex items-center gap-1 overflow-x-auto flex-nowrap scrollbar-none mb-1"
-                onClick={(e) => e.stopPropagation()}
-              >
+              <div className="flex items-center gap-1 overflow-x-auto flex-nowrap scrollbar-none mb-1" onClick={(e) => e.stopPropagation()}>
                 {tvSeasons.length > 1 && (
-                  <span className="text-[9px] font-mono uppercase tracking-widest text-violet-500 mr-1 flex-shrink-0 select-none">
-                    📺
-                  </span>
+                  <span className="text-[9px] font-mono uppercase tracking-widest text-violet-500 mr-1 flex-shrink-0 select-none">📺</span>
                 )}
                 {tvSeasons.map((se, i) => (
                   <button
@@ -338,61 +291,41 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
                         ? `${s.border} ${s.text} bg-white/10`
                         : "border-white/10 text-violet-400 hover:bg-white/5"
                     }`}
-                  >
-                    S{se.number}
-                  </button>
+                  >S{se.number}</button>
                 ))}
                 {tvSeasonDone && hasNextTV && !isAbandoned && (
                   <button
                     onClick={(e) => { e.stopPropagation(); setActiveTVIdx(activeTVIdx + 1); }}
                     className="flex items-center gap-0.5 text-[10px] text-violet-400 hover:text-violet-200 flex-shrink-0 whitespace-nowrap active:scale-95 transition-transform motion-reduce:transition-none"
-                  >
-                    Suiv. <ChevronRight size={11} />
-                  </button>
+                  >Suiv. <ChevronRight size={11} /></button>
                 )}
               </div>
 
-              {/* Scrubber de la saison TV active */}
               {currentTV && (
                 <div onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-1">
-                    <span
-                      key={currentTV.watchedEpisodes}
-                      className={`font-mono text-[11px] text-violet-300 tracking-wider animate-countBounce motion-reduce:animate-none ${dimmed}`}
-                    >
+                    <span key={currentTV.watchedEpisodes} className={`font-mono text-[11px] text-violet-300 tracking-wider animate-countBounce motion-reduce:animate-none ${dimmed}`}>
                       S{currentTV.number} · {String(currentTV.watchedEpisodes).padStart(2, "0")}
                       {currentTV.totalEpisodes != null ? `/${String(currentTV.totalEpisodes).padStart(2, "0")}` : ""}
                     </span>
                     {!isAbandoned && (
                       <div className="flex gap-1">
-                        <button
-                          onClick={() => decrementEpisode(entry.id, currentTV.globalIndex)}
-                          className="font-mono text-[10px] uppercase px-2 py-1 rounded-md bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform motion-reduce:transition-none min-w-[36px] text-center"
-                        >
-                          -1
-                        </button>
+                        <button onClick={() => decrementEpisode(entry.id, currentTV.globalIndex)}
+                          className="font-mono text-[10px] uppercase px-2 py-1 rounded-md bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform motion-reduce:transition-none min-w-[36px] text-center">-1</button>
                         {(currentTV.totalEpisodes == null || currentTV.watchedEpisodes < currentTV.totalEpisodes) && (
-                          <button
-                            onClick={() => incrementEpisode(entry.id, currentTV.globalIndex)}
-                            className="font-mono text-[10px] uppercase px-2 py-1 rounded-md bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform motion-reduce:transition-none min-w-[36px] text-center"
-                          >
-                            +1
-                          </button>
+                          <button onClick={() => incrementEpisode(entry.id, currentTV.globalIndex)}
+                            className="font-mono text-[10px] uppercase px-2 py-1 rounded-md bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform motion-reduce:transition-none min-w-[36px] text-center">+1</button>
                         )}
                         {currentTV.totalEpisodes != null && currentTV.watchedEpisodes < currentTV.totalEpisodes && (
-                          <button
-                            onClick={() => setEpisodeCount(entry.id, currentTV.globalIndex, currentTV.totalEpisodes)}
+                          <button onClick={() => setEpisodeCount(entry.id, currentTV.globalIndex, currentTV.totalEpisodes)}
                             aria-label="Tout cocher"
-                            className="font-mono text-[10px] uppercase px-2 py-1 rounded-md bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform motion-reduce:transition-none flex items-center gap-1"
-                          >
-                            <CheckCheck size={11} />
-                            <span className="hidden sm:inline">tout</span>
+                            className="font-mono text-[10px] uppercase px-2 py-1 rounded-md bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform motion-reduce:transition-none flex items-center gap-1">
+                            <CheckCheck size={11} /><span className="hidden sm:inline">tout</span>
                           </button>
                         )}
                       </div>
                     )}
                   </div>
-
                   <div className="h-3.5 flex items-center" onClick={(e) => e.stopPropagation()}>
                     {currentTV.totalEpisodes != null ? (
                       <ProgressBar
@@ -415,17 +348,9 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           {/* ── Section 📼 OVA / ONA ──────────────────────────────────────── */}
           {extraSeasons.length > 0 && (
             <div className={`border-t border-white/5 pt-1.5 ${isAbandoned ? dimmed : ""}`}>
-              <p className="text-[9px] font-mono uppercase tracking-widest text-violet-500 mb-0.5">
-                📼 OVA / ONA
-              </p>
+              <p className="text-[9px] font-mono uppercase tracking-widest text-violet-500 mb-0.5">📼 OVA / ONA</p>
               {extraSeasons.map((se) => (
-                <FormatRow
-                  key={se.globalIndex}
-                  season={se}
-                  entryId={entry.id}
-                  statusStyle={s}
-                  isAbandoned={isAbandoned}
-                />
+                <FormatRow key={se.globalIndex} season={se} entryId={entry.id} statusStyle={s} isAbandoned={isAbandoned} />
               ))}
             </div>
           )}
@@ -433,36 +358,26 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           {/* ── Section 🎬 Films ──────────────────────────────────────────── */}
           {movieSeasons.length > 0 && (
             <div className={`border-t border-white/5 pt-1.5 ${isAbandoned ? dimmed : ""}`}>
-              <p className="text-[9px] font-mono uppercase tracking-widest text-violet-500 mb-0.5">
-                🎬 Films
-              </p>
+              <p className="text-[9px] font-mono uppercase tracking-widest text-violet-500 mb-0.5">🎬 Films</p>
               {movieSeasons.map((se) => (
-                <FormatRow
-                  key={se.globalIndex}
-                  season={se}
-                  entryId={entry.id}
-                  statusStyle={s}
-                  isAbandoned={isAbandoned}
-                />
+                <FormatRow key={se.globalIndex} season={se} entryId={entry.id} statusStyle={s} isAbandoned={isAbandoned} />
               ))}
             </div>
           )}
 
-          {/* Total global (si contenu mixte ou plusieurs saisons) */}
+          {/* Total global */}
           {(hasExtras || tvSeasons.length > 1) && (
             <p className={`text-[10px] font-mono text-violet-500 mt-0.5 ${dimmed}`}>
               {totalWatched}{totalAll != null ? `/${totalAll}` : ""} éps vus au total
             </p>
           )}
 
-          {/* Bouton "Série principale terminée" */}
+          {/* Bouton Terminé */}
           {canFinish && !isAbandoned && (
             <button
               onClick={(e) => { e.stopPropagation(); markDone(entry.id); }}
               className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg bg-teal-400/15 text-teal-300 hover:bg-teal-400/25 active:scale-95 transition-transform motion-reduce:transition-none"
-            >
-              <Check size={13} /> Série principale terminée
-            </button>
+            ><Check size={13} /> Série principale terminée</button>
           )}
         </div>
 
@@ -475,9 +390,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
             </span>
             {entry.rating > 0 && <Star size={13} fill="#fbbf24" strokeWidth={0} />}
           </div>
-          {getRatingEmoji(entry.rating) && (
-            <span className="text-xl sm:text-2xl">{getRatingEmoji(entry.rating)}</span>
-          )}
+          {getRatingEmoji(entry.rating) && <span className="text-xl sm:text-2xl">{getRatingEmoji(entry.rating)}</span>}
         </div>
 
         {/* Overlay Reprendre ? */}
@@ -487,8 +400,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
               onClick={handleResume}
               className="pointer-events-auto flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-900/95 border border-violet-500/40 text-violet-100 text-sm font-semibold hover:bg-violet-700/95 hover:border-violet-400/60 active:scale-95 transition-all duration-150 motion-reduce:transition-none shadow-xl shadow-violet-950/60 animate-fadeIn"
             >
-              <RotateCcw size={14} className="text-rose-400" />
-              Reprendre ?
+              <RotateCcw size={14} className="text-rose-400" /> Reprendre ?
             </button>
           </div>
         )}
@@ -500,8 +412,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           title="Supprimer ce titre ?"
           description={
             <>
-              <span className="text-violet-50 font-medium">« {entry.title} »</span> et toute sa progression seront
-              supprimés définitivement.
+              <span className="text-violet-50 font-medium">« {entry.title} »</span> et toute sa progression seront supprimés définitivement.
             </>
           }
           confirmLabel="Supprimer"

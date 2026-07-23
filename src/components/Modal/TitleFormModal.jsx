@@ -69,17 +69,15 @@ export function TitleFormModal({ editingEntry, onClose }) {
     commit();
   }
 
-  // Compteurs pour le feedback d'import
-  const tvCount    = form.seasons.filter(s => !s.format || s.format === "TV" || s.format === "TV_SHORT").length;
-  const ovaCount   = form.seasons.filter(s => s.format === "OVA" || s.format === "ONA" || s.format === "SPECIAL").length;
-  const filmCount  = form.seasons.filter(s => s.format === "MOVIE").length;
+  const tvCount   = form.seasons.filter(s => !s.format || s.format === "TV" || s.format === "TV_SHORT").length;
+  const ovaCount  = form.seasons.filter(s => s.format === "OVA" || s.format === "ONA" || s.format === "SPECIAL").length;
+  const filmCount = form.seasons.filter(s => s.format === "MOVIE").length;
 
   return (
     <>
       <Modal onClose={onClose}>
         <form onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit} className="p-6">
 
-          {/* ── En-tête ── */}
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
               {editingId ? "Modifier le titre" : "Nouveau titre"}
@@ -89,7 +87,6 @@ export function TitleFormModal({ editingEntry, onClose }) {
             </button>
           </div>
 
-          {/* ── Type : Anime / Série ── */}
           <div className="flex gap-2 mb-2">
             <Chip active={form.type === "anime"} onClick={() => handleTypeChange("anime")} colorClass="bg-white/20 border-white/30">Anime</Chip>
             <Chip active={form.type === "serie"} onClick={() => handleTypeChange("serie")} colorClass="bg-white/20 border-white/30">Série</Chip>
@@ -100,17 +97,10 @@ export function TitleFormModal({ editingEntry, onClose }) {
             )}
           </div>
 
-          {/* ── Barre de recherche ── */}
           {!editingId && searchOpen && (
-            <SearchBar
-              type={form.type}
-              query={searchQuery}
-              onQueryChange={setSearchQuery}
-              onSelect={handleSelectResult}
-            />
+            <SearchBar type={form.type} query={searchQuery} onQueryChange={setSearchQuery} onSelect={handleSelectResult} />
           )}
 
-          {/* ── Feedback import ── */}
           {importedFrom && (
             <p className="text-[11px] text-teal-300 mb-2 flex items-center gap-1 flex-wrap">
               <Check size={12} /> Importé depuis {importedFrom} —{" "}
@@ -119,9 +109,8 @@ export function TitleFormModal({ editingEntry, onClose }) {
               {filmCount > 0 && <span>· {filmCount} film{filmCount > 1 ? "s" : ""}</span>}
             </p>
           )}
-          {importing && <p className="text-[11px] text-violet-400 mb-2">Import en cours…</p>}
+          {importing && <p className="text-[11px] text-violet-400 mb-2">Import en cours… (récupération de toute la franchise)</p>}
 
-          {/* ── Titre ── */}
           <label className="block text-xs uppercase tracking-wide text-violet-400 mb-1">Titre</label>
           <input
             value={form.title}
@@ -131,7 +120,6 @@ export function TitleFormModal({ editingEntry, onClose }) {
           />
           {formError && <p className="text-rose-300 text-xs mb-2">{formError}</p>}
 
-          {/* ── Statut ── */}
           <div className="mt-3">
             <label className="block text-xs uppercase tracking-wide text-violet-400 mb-1">Statut</label>
             <select
@@ -149,7 +137,6 @@ export function TitleFormModal({ editingEntry, onClose }) {
             </p>
           )}
 
-          {/* ── Genres ── */}
           <div className="mt-3">
             <label className="block text-xs uppercase tracking-wide text-violet-400 mb-1">Genres</label>
             <div className="flex flex-wrap gap-1.5 mb-2">
@@ -168,13 +155,10 @@ export function TitleFormModal({ editingEntry, onClose }) {
                 placeholder="Ajouter un genre personnalisé…"
                 className="flex-1 px-3 py-1.5 rounded-lg bg-violet-950/60 border border-white/10 text-violet-50 placeholder-violet-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
               />
-              <button type="button" onClick={addCustomGenre} className="px-3 rounded-lg bg-white/10 text-sm hover:bg-white/20">
-                Ajouter
-              </button>
+              <button type="button" onClick={addCustomGenre} className="px-3 rounded-lg bg-white/10 text-sm hover:bg-white/20">Ajouter</button>
             </div>
           </div>
 
-          {/* ── Note + Avis : édition uniquement ── */}
           {editingId && (
             <>
               <div className="mt-3">
@@ -194,11 +178,8 @@ export function TitleFormModal({ editingEntry, onClose }) {
             </>
           )}
 
-          {/* ── Actions ── */}
           <div className="flex justify-end gap-2 mt-5">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-violet-300 hover:bg-white/10">
-              Annuler
-            </button>
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-violet-300 hover:bg-white/10">Annuler</button>
             <button type="submit" className="px-4 py-2 rounded-lg text-sm font-semibold bg-amber-400 text-violet-950 hover:bg-amber-300">
               {editingId ? "Enregistrer" : "Ajouter"}
             </button>
