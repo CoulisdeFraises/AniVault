@@ -21,34 +21,39 @@ export async function importResult(result) {
 
   if (result.source === "anilist") {
     try {
-      const [{ seasons, anilistIds }, description] = await Promise.all([
-        fetchAniListAllSeasons(result.id),
-        tmdb?.overview ? Promise.resolve(tmdb.overview) : fetchAniListDescription(result.id),
-      ]);
-      const importedSeasons = seasons.length
-        ? seasons
-        : [{ number: 1, totalEpisodes: result.episodes ?? null, watchedEpisodes: 0 }];
+      const description = await (
+       tmdb?.overview ? Promise.resolve(tmdb.overview) : fetchAniListDescription(result.id)
+     );
+     // On n'importe QUE la série sélectionnée en S1.
+     // Les séquelles (Shippuden, Boruto…) sont des séries distinctes,
+     // l'utilisateur peut les ajouter séparément ou via "Saison suivante".
+     const importedSeasons = [{
+       number:          1,
+       totalEpisodes:   result.episodes ?? null,
+       watchedEpisodes: 0,
+       coverImage:      result.image || null,
+     }];
       return {
-        title: result.title,
-        genres: translateGenres(result.genres).slice(0, 5),
-        coverImage: result.image || null,
-        seasons: importedSeasons,
-        source: "anilist",
-        anilistIds: anilistIds.length ? anilistIds : [result.id],
-        tmdbId: tmdb?.id ?? null,
+        title:       result.title,
+        genres:      translateGenres(result.genres).slice(0, 5),
+        coverImage:  result.image || null,
+        seasons:     importedSeasons,
+        source:      "anilist",
+       anilistIds:  [result.id],
+        tmdbId:      tmdb?.id ?? null,
         description: description || null,
       };
     } catch {
       return {
-        title: result.title,
-        genres: translateGenres(result.genres).slice(0, 5),
-        coverImage: result.image || null,
-        seasons: [{ number: 1, totalEpisodes: result.episodes ?? null, watchedEpisodes: 0 }],
-        source: "anilist",
-        anilistIds: [result.id],
-        tmdbId: tmdb?.id ?? null,
+        title:       result.title,
+        genres:      translateGenres(result.genres).slice(0, 5),
+        coverImage:  result.image || null,
+        seasons:     [{ number: 1, totalEpisodes: result.episodes ?? null, watchedEpisodes: 0 }],
+        source:      "anilist",
+        anilistIds:  [result.id],
+        tmdbId:      tmdb?.id ?? null,
         description: null,
-      };
+      }
     }
   }
 
