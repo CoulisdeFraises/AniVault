@@ -162,6 +162,13 @@ export const Card = memo(function Card({ entry, onEdit, index=0 }) {
   const filmSeen = movieSeasons.filter(m=>m.watchedEpisodes>=(m.totalEpisodes??1)).length;
   const canFinish = entry.status==="en-cours"&&tvT!=null&&tvT>0&&tvW>=tvT;
 
+  const showUpcoming = useMemo(() => {
+    if (entry.status === "termine" || entry.status === "abandonne") return false;
+    if (!tvSeasons.length) return false;
+    const lastTV = tvSeasons[tvSeasons.length - 1];
+    return lastTV.totalEpisodes == null || lastTV.totalEpisodes === 0;
+  }, [entry.status, tvSeasons]);
+
   // Animation d'entrée
   useEffect(()=>{ const el=cardRef.current; if(!el) return; const d=Math.min(index*45,350); el.style.animation=`fadeInUp 0.35s ease-out ${d}ms both`; const t=setTimeout(()=>{if(cardRef.current)cardRef.current.style.removeProperty("animation");},d+380); return()=>clearTimeout(t); },[]); // eslint-disable-line
 
@@ -189,7 +196,7 @@ export const Card = memo(function Card({ entry, onEdit, index=0 }) {
   return (
     <>
       <div ref={cardRef} onClick={()=>navigate(`/details/${entry.id}`,{state:{backgroundLocation:location}})}
-        className="relative card-noise rounded-2xl bg-violet-900/30 border-t border-r border-b border-white/5 p-3 sm:p-4 flex gap-2 sm:gap-3 transition-all duration-200 ease-out motion-reduce:transition-none cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:shadow-violet-950/60 hover:bg-violet-800/40">
+        className="relative card-noise rounded-2xl overflow-hidden bg-violet-900/30 border-t border-r border-b border-white/5 p-3 sm:p-4 flex gap-2 sm:gap-3 transition-all duration-200 ease-out motion-reduce:transition-none cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:shadow-violet-950/60 hover:bg-violet-800/40">
 
         <div className="absolute inset-y-0 left-0 w-[3px] rounded-l-2xl" style={{background:`linear-gradient(to bottom,${s.color},${s.color}70,${s.color}10)`}}/>
 
@@ -203,8 +210,20 @@ export const Card = memo(function Card({ entry, onEdit, index=0 }) {
           <div className="flex items-start justify-between gap-1">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-violet-300 whitespace-nowrap ${dimmed}`}>{entry.type==="anime"?<Film size={10}/>:<Tv size={10}/>}{entry.type==="anime"?"Anime":"Série"}</span>
-                <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/5 whitespace-nowrap ${s.text}`}><span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${s.dot}`}/>{s.label}</span>
+                <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-violet-300 whitespace-nowrap ${dimmed}`}>
+                  {entry.type==="anime"?<Film size={10}/>:<Tv size={10}/>}
+                  {entry.type==="anime"?"Anime":"Série"}
+                </span>
+                <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/5 whitespace-nowrap ${s.text}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${s.dot}`}/>
+                  {s.label}
+                </span>
+                {showUpcoming && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-indigo-400/15 border border-indigo-400/25 text-indigo-300 whitespace-nowrap">
+                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse flex-shrink-0" />
+                    À venir
+                  </span>
+                )}
               </div>
               <h3 className={`font-semibold text-sm sm:text-base text-violet-50 leading-tight truncate ${dimmed}`} style={{fontFamily:"'Space Grotesk',sans-serif"}} title={entry.title}>{entry.title}</h3>
               {nextAiring&&(()=>{ const cd=formatCountdown(nextAiring.airingAt); if(!cd) return null; return(<span className="inline-flex items-center gap-1 text-[10px] font-mono text-sky-300 mt-0.5"><span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse flex-shrink-0"/>{nextAiring.season?`S${nextAiring.season} · `:""}Ép.{nextAiring.episode}<span className="hidden sm:inline">{cd}</span></span>); })()}
