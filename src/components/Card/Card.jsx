@@ -122,7 +122,17 @@ const TVSection = memo(function TVSection({ tvSeasons, activeTVIdx, setActiveTVI
             <div className="flex gap-1">
               <button onClick={()=>decrementEpisode(entry.id,cur.globalIndex)} className="font-mono text-[10px] uppercase px-2 py-1 rounded-md bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform motion-reduce:transition-none min-w-[36px] text-center">-1</button>
               {(cur.totalEpisodes==null||cur.watchedEpisodes<cur.totalEpisodes)&&<button onClick={()=>incrementEpisode(entry.id,cur.globalIndex)} className="font-mono text-[10px] uppercase px-2 py-1 rounded-md bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform motion-reduce:transition-none min-w-[36px] text-center">+1</button>}
-              {cur.totalEpisodes!=null&&cur.watchedEpisodes<cur.totalEpisodes&&<button onClick={()=>setEpisodeCount(entry.id,cur.globalIndex,cur.totalEpisodes)} className="font-mono text-[10px] uppercase px-2 py-1 rounded-md bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform motion-reduce:transition-none flex items-center gap-1"><CheckCheck size={11}/><span className="hidden sm:inline">tout</span></button>}
+              {cur.totalEpisodes!=null&&cur.watchedEpisodes<cur.totalEpisodes&&(
+                <button
+                  onClick={()=>{
+                    setEpisodeCount(entry.id,cur.globalIndex,cur.totalEpisodes);
+                    if(hasNext) setTimeout(()=>setActiveTVIdx(activeTVIdx+1), 300);
+                  }}
+                  className="font-mono text-[10px] uppercase px-2 py-1 rounded-md bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform motion-reduce:transition-none flex items-center gap-1">
+                  <CheckCheck size={11}/>
+                  <span className="hidden sm:inline">{hasNext ? "Tout →" : "tout"}</span>
+                </button>
+              )}
             </div>
           )}
         </div>
