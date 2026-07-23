@@ -46,9 +46,9 @@ export function TitleFormModal({ editingEntry, onClose }) {
     commit();
   }
 
-  const tvCount    = form.seasons.filter(s => !s.format || s.format === "TV" || s.format === "TV_SHORT").length;
-  const ovaCount   = form.seasons.filter(s => s.format === "OVA" || s.format === "ONA" || s.format === "SPECIAL").length;
-  const filmCount  = form.seasons.filter(s => s.format === "MOVIE").length;
+  const tvCount   = form.seasons.filter(s => !s.format || s.format === "TV").length;
+  const ovaCount  = form.seasons.filter(s => ["OVA","ONA","SPECIAL","TV_SHORT"].includes(s.format)).length;
+  const filmCount = form.seasons.filter(s => s.format === "MOVIE").length;
 
   return (
     <>
@@ -75,7 +75,7 @@ export function TitleFormModal({ editingEntry, onClose }) {
             <p className="text-[11px] text-teal-300 mb-2 flex items-center gap-1 flex-wrap">
               <Check size={12} /> Importé depuis {importedFrom} —{" "}
               {tvCount > 0 && <span>{tvCount} saison{tvCount > 1 ? "s" : ""} TV</span>}
-              {ovaCount > 0 && <span>· {ovaCount} OVA/ONA</span>}
+              {ovaCount > 0 && <span>· {ovaCount} OVA/Spécial{ovaCount > 1 ? "s" : ""}</span>}
               {filmCount > 0 && <span>· {filmCount} film{filmCount > 1 ? "s" : ""}</span>}
             </p>
           )}

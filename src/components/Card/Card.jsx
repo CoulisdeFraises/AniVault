@@ -10,9 +10,9 @@ import { useLibrary } from "../../context/LibraryContext";
 import { fetchNextAiring } from "../../api";
 
 function getFormatGroup(f) {
-  if (!f || f === "TV" || f === "TV_SHORT") return "tv";
+  if (!f || f === "TV") return "tv";   // TV_SHORT retiré ici → va dans "extra"
   if (f === "MOVIE") return "movie";
-  return "extra";
+  return "extra"; // TV_SHORT, OVA, ONA, SPECIAL, MUSIC
 }
 function getResumeStatus(entry) {
   const { watched, total } = seasonTotals(entry.seasons);
@@ -41,7 +41,7 @@ const OvaRow = memo(function OvaRow({ season, entryId, statusStyle, isAbandoned 
   const { incrementEpisode, decrementEpisode, setEpisodeCount } = useLibrary();
   const gi   = season.globalIndex;
   const done = season.totalEpisodes != null && season.watchedEpisodes >= season.totalEpisodes;
-  const FMT  = { OVA:"OAV", ONA:"ONA", SPECIAL:"Spécial", MUSIC:"Musique" };
+  const FMT  = { OVA:"OAV", ONA:"ONA", SPECIAL:"Spécial", TV_SHORT:"Court", MUSIC:"Musique" };
   // Affiche le titre si disponible, sinon "OAV N"
   const label = season.title || `${FMT[season.format] ?? "Extra"} ${season.number}`;
   const s = statusStyle;
@@ -168,6 +168,18 @@ export const Card = memo(function Card({ entry, onEdit, index=0 }) {
   // Prochain épisode
   useEffect(()=>{ if(entry.status==="termine"||entry.status==="abandonne"){setNextAiring(null);return;} if(!((entry.source==="anilist"&&entry.anilistIds?.length)||(entry.source==="tvmaze"&&entry.tvmazeId)))return; let c=false; const t=setTimeout(async()=>{ try{const r=await fetchNextAiring(entry);if(!c)setNextAiring(r);}catch(_){} },Math.random()*800); return()=>{c=true;clearTimeout(t);}; },[entry.id,entry.source,entry.status,entry.anilistIds?.length,entry.tvmazeId]);
 
+  // Fermeture des accordéons au clic en dehors de la carte
+  useEffect(() => {
+    if (!hasMulti) return; // pas d'accordéon si une seule catégorie
+    function handleOutsideClick(e) {
+      if (cardRef.current && !cardRef.current.contains(e.target)) {
+        setOpen({ tv: false, extra: false, movie: false });
+      }
+    }
+    document.addEventListener("click", handleOutsideClick);
+    return () => document.removeEventListener("click", handleOutsideClick);
+  }, [hasMulti]);
+
   // Animation saison complète
   const prevRef=useRef({w:cur?.watchedEpisodes??0,idx:activeTVIdx});
   useEffect(()=>{ if(!cur)return; const p=prevRef.current; const done=p.idx===activeTVIdx&&cur.totalEpisodes!=null&&cur.watchedEpisodes>=cur.totalEpisodes&&p.w<cur.totalEpisodes; if(done&&cardRef.current){const el=cardRef.current;el.style.animation="none";void el.offsetWidth;el.style.animation="seasonComplete 0.85s cubic-bezier(0.22,0.61,0.36,1) both";const t=setTimeout(()=>{if(cardRef.current)cardRef.current.style.removeProperty("animation");},950);prevRef.current={w:cur.watchedEpisodes,idx:activeTVIdx};return()=>clearTimeout(t);}prevRef.current={w:cur?.watchedEpisodes??0,idx:activeTVIdx};},[cur?.watchedEpisodes,cur?.totalEpisodes,activeTVIdx]);
@@ -217,7 +229,7 @@ export const Card = memo(function Card({ entry, onEdit, index=0 }) {
               )}
               {extraSeasons.length>0&&(
                 <div className="rounded-lg bg-white/[0.03] border border-white/5 px-2.5 pt-1 pb-1">
-                  <AccordionHeader icon="📼" label="OVA / ONA" count={extraSeasons.length} summary={`${extW}${extT!=null?`/${extT}`:""} ép.`} isOpen={open.extra} onToggle={()=>setOpen(p=>({...p,extra:!p.extra}))}/>
+                  <AccordionHeader icon="📼" label="OVA / Specials" count={extraSeasons.length} summary={`${extW}${extT!=null?`/${extT}`:""} ép.`} isOpen={open.extra} onToggle={()=>setOpen(p=>({...p,extra:!p.extra}))}/>
                   {open.extra&&<div className="mt-0.5 pt-0.5 border-t border-white/5">{extraSeasons.map(se=><OvaRow key={se.globalIndex} season={se} entryId={entry.id} statusStyle={s} isAbandoned={isAbandoned}/>)}</div>}
                 </div>
               )}
