@@ -4,7 +4,6 @@ import { useAuth } from "./AuthContext";
 import { seasonTotals, autoStatus } from "../utils/status";
 
 const LibraryContext = createContext(null);
-
 const SAVE_DEBOUNCE_MS = 800;
 
 export function LibraryProvider({ children }) {
@@ -17,10 +16,8 @@ export function LibraryProvider({ children }) {
   const entriesRef = useRef([]);
   const saveTimer  = useRef(null);
 
-  // ── Chargement initial ────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) { setEntriesState([]); setLoading(false); return; }
-
     setLoading(true);
     supabase
       .from("libraries")
@@ -34,7 +31,6 @@ export function LibraryProvider({ children }) {
       });
   }, [user?.id]);
 
-  // ── Helpers internes ──────────────────────────────────────────────────────
   function applyEntries(next) {
     entriesRef.current = next;
     setEntriesState(next);
@@ -49,7 +45,6 @@ export function LibraryProvider({ children }) {
   }
 
   function persist(next) {
-    // Détection confetti (titre nouvellement terminé)
     const newlyDone = next.some((e) => {
       const old = entriesRef.current.find((p) => p.id === e.id);
       return old && old.status !== "termine" && e.status === "termine";
@@ -58,9 +53,7 @@ export function LibraryProvider({ children }) {
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 3000);
     }
-
     applyEntries(next);
-
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(
       () => saveToSupabase(entriesRef.current),
@@ -68,39 +61,31 @@ export function LibraryProvider({ children }) {
     );
   }
 
-  // ── findDuplicate ─────────────────────────────────────────────────────────
   const findDuplicate = useCallback((title, editingId) => {
     return entriesRef.current.find(
-      (e) =>
-        e.id !== editingId &&
+      (e) => e.id !== editingId &&
         e.title.toLowerCase().trim() === title.toLowerCase().trim()
     ) ?? null;
   }, []);
 
-  // ── saveEntry (création + modification) ───────────────────────────────────
   const saveEntry = useCallback((form, editingId) => {
-    // À la création avec statut "Terminé" : tous les épisodes connus → vus.
-    // Ce flag est évalué ICI (dans la transformation des données) pour être
-    // certain qu'il s'applique avant le clamping Math.min(total, watched).
     const forceAllWatched = !editingId && form.status === "termine";
-
     const seasons = form.seasons.map((s) => {
       const total      = s.totalEpisodes == null ? null : Math.max(0, Number(s.totalEpisodes) || 0);
-      const watchedRaw = forceAllWatched && total != null
-        ? total                                          // ← tous vus
-        : Math.max(0, Number(s.watchedEpisodes) || 0);  // ← valeur du formulaire
+      const watchedRaw = forceAllWatched && total != null ? total : Math.max(0, Number(s.watchedEpisodes) || 0);
       const watched    = total != null ? Math.min(total, watchedRaw) : watchedRaw;
       return { number: s.number, totalEpisodes: total, watchedEpisodes: watched, coverImage: s.coverImage ?? null };
     });
-
     const cleaned = {
       ...form,
-      title:   form.title.trim(),
+      title:        form.title.trim(),
       seasons,
-      rating:  Math.min(10, Math.max(0, Number(form.rating) || 0)),
-      id:      editingId || Date.now().toString(),
+      rating:       Math.min(10, Math.max(0, Number(form.rating) || 0)),
+      id:           editingId || Date.now().toString(),
+      watchHistory: editingId
+        ? (entriesRef.current.find((e) => e.id === editingId)?.watchHistory || [])
+        : [],
     };
-
     if (editingId) {
       persist(entriesRef.current.map((e) => e.id === editingId ? cleaned : e));
     } else {
@@ -108,16 +93,15 @@ export function LibraryProvider({ children }) {
     }
   }, [user]);
 
-  // ── setEntries (import / reset) ───────────────────────────────────────────
   const setEntries = useCallback((next) => persist(next), [user]);
 
-  // ── deleteEntry ───────────────────────────────────────────────────────────
   const deleteEntry = useCallback((id) => {
     persist(entriesRef.current.filter((e) => e.id !== id));
   }, [user]);
 
-  // ── incrementEpisode ──────────────────────────────────────────────────────
+  // ── incrementEpisode — enregistre l'épisode dans watchHistory ────────────
   const incrementEpisode = useCallback((id, seasonIndex) => {
+    const now  = Date.now();
     const next = entriesRef.current.map((e) => {
       if (e.id !== id) return e;
       const seasons = e.seasons.map((s, i) => {
@@ -125,7 +109,12 @@ export function LibraryProvider({ children }) {
         const n = s.watchedEpisodes + 1;
         return { ...s, watchedEpisodes: s.totalEpisodes != null ? Math.min(s.totalEpisodes, n) : n };
       });
-      return { ...e, seasons, status: autoStatus(e, seasons) };
+      const newEpisode = seasons[seasonIndex].watchedEpisodes;
+      const history    = [
+        ...(e.watchHistory || []),
+        { seasonIndex, episode: newEpisode, watchedAt: now },
+      ];
+      return { ...e, seasons, status: autoStatus(e, seasons), watchHistory: history };
     });
     persist(next);
   }, [user]);
@@ -142,37 +131,46 @@ export function LibraryProvider({ children }) {
     persist(next);
   }, [user]);
 
-  // ── setEpisodeCount ───────────────────────────────────────────────────────
+  // ── setEpisodeCount — enregistre les nouveaux épisodes dans watchHistory ──
   const setEpisodeCount = useCallback((id, seasonIndex, value) => {
+    const now  = Date.now();
     const next = entriesRef.current.map((e) => {
       if (e.id !== id) return e;
-      const seasons = e.seasons.map((s, i) => {
+      const oldWatched = e.seasons[seasonIndex]?.watchedEpisodes || 0;
+      const seasons    = e.seasons.map((s, i) => {
         if (i !== seasonIndex) return s;
         const clamped = s.totalEpisodes != null
           ? Math.min(s.totalEpisodes, Math.max(0, value))
           : Math.max(0, value);
         return { ...s, watchedEpisodes: clamped };
       });
-      return { ...e, seasons, status: autoStatus(e, seasons) };
+      const newWatched = seasons[seasonIndex].watchedEpisodes;
+      // Enregistre chaque nouvel épisode dans l'historique
+      const newEntries = newWatched > oldWatched
+        ? Array.from({ length: newWatched - oldWatched }, (_, i) => ({
+            seasonIndex,
+            episode:   oldWatched + i + 1,
+            watchedAt: now + i, // ms distincts pour préserver l'ordre
+          }))
+        : [];
+      const history = [...(e.watchHistory || []), ...newEntries];
+      return { ...e, seasons, status: autoStatus(e, seasons), watchHistory: history };
     });
     persist(next);
   }, [user]);
 
-  // ── markDone ──────────────────────────────────────────────────────────────
   const markDone = useCallback((id) => {
     persist(entriesRef.current.map((e) =>
       e.id === id ? { ...e, status: "termine" } : e
     ));
   }, [user]);
 
-  // ── updateRating ──────────────────────────────────────────────────────────
   const updateRating = useCallback((id, rating) => {
     persist(entriesRef.current.map((e) =>
       e.id === id ? { ...e, rating } : e
     ));
   }, [user]);
 
-  // ── updateSeasonTotal ─────────────────────────────────────────────────────
   const updateSeasonTotal = useCallback((id, seasonIndex, totalEpisodes) => {
     const next = entriesRef.current.map((e) => {
       if (e.id !== id) return e;
@@ -184,7 +182,6 @@ export function LibraryProvider({ children }) {
     persist(next);
   }, [user]);
 
-  // ── addSeason ─────────────────────────────────────────────────────────────
   const addSeason = useCallback((id, seasonData = {}) => {
     const next = entriesRef.current.map((e) => {
       if (e.id !== id) return e;
@@ -202,7 +199,6 @@ export function LibraryProvider({ children }) {
     persist(next);
   }, [user]);
 
-  // ── deleteSeason ──────────────────────────────────────────────────────────
   const deleteSeason = useCallback((id, seasonIndex) => {
     const next = entriesRef.current.map((e) => {
       if (e.id !== id || e.seasons.length <= 1) return e;

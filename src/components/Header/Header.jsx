@@ -1,12 +1,12 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Plus, Film, Tv, RefreshCw } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { Chip } from "../common/Chip";
 import { STATUS, STATUS_ORDER } from "../../utils/status";
 import { useLibrary } from "../../context/LibraryContext";
 import { useAuth } from "../../context/AuthContext";
 import { useCountUp } from "../../hooks/useCountUp";
 import { BurgerMenu } from "../common/BurgerMenu";
+import { calcWatchTime } from "../../utils/watchTime";
 
 export function Header({
   filter, typeFilter, onFilterChange, onTypeFilterChange, onAddClick,
@@ -14,7 +14,6 @@ export function Header({
 }) {
   const { entries, loading } = useLibrary();
   const { user, profile, logout } = useAuth();
-  const navigate = useNavigate();
 
   const byType = useMemo(
     () => (typeFilter === "all" ? entries : entries.filter((e) => e.type === typeFilter)),
@@ -38,7 +37,8 @@ export function Header({
     () => entries.reduce((sum, e) => sum + e.seasons.reduce((s2, s) => s2 + (s.totalEpisodes || 0), 0), 0),
     [entries]
   );
-  const globalPct = totalKnown > 0 ? Math.min(100, (totalWatched / totalKnown) * 100) : 0;
+  const globalPct  = totalKnown > 0 ? Math.min(100, (totalWatched / totalKnown) * 100) : 0;
+  const watchTime  = useMemo(() => calcWatchTime(entries), [entries]);
 
   const animatedTotal   = useCountUp(entries.length);
   const animatedEnCours = useCountUp(counts["en-cours"] ?? 0);
@@ -55,15 +55,8 @@ export function Header({
             Mon Journal de visionnage
           </p>
           <div className="flex items-center gap-3">
-            <img
-              src="/logo.png"
-              alt="AniVault"
-              className="h-10 w-10 rounded-xl flex-shrink-0"
-            />
-            <h1
-              className="text-3xl sm:text-4xl font-bold tracking-tight"
-              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-            >
+            <img src="/logo.png" alt="AniVault" className="h-10 w-10 rounded-xl flex-shrink-0" />
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
               ANIVAULT
             </h1>
           </div>
@@ -71,7 +64,6 @@ export function Header({
 
         {/* ── Boutons droite ── */}
         <div className="flex items-center gap-2">
-          {/* Sync */}
           <button
             onClick={onSyncClick}
             disabled={syncing}
@@ -85,10 +77,8 @@ export function Header({
             }
           </button>
 
-          {/* Burger */}
           <BurgerMenu />
 
-          {/* Ajouter */}
           <button
             onClick={onAddClick}
             className="flex items-center gap-1.5 bg-amber-400 text-violet-950 font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-amber-300 active:scale-95 transition-all motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-violet-950"
@@ -102,7 +92,9 @@ export function Header({
       {/* ── Stats + barre de progression globale ── */}
       {!loading && entries.length > 0 && (
         <div className="rounded-2xl bg-violet-900/30 border border-white/5 mb-6 overflow-hidden">
-          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
+
+          {/* ── 4 compteurs ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
             <div className="p-4">
               <p className="font-mono text-2xl font-medium">{animatedTotal}</p>
               <p className="text-[11px] text-violet-400 uppercase tracking-wide">Titres suivis</p>
@@ -110,6 +102,10 @@ export function Header({
             <div className="p-4">
               <p className="font-mono text-2xl font-medium">{animatedEnCours}</p>
               <p className="text-[11px] text-violet-400 uppercase tracking-wide">En cours</p>
+            </div>
+            <div className="p-4">
+              <p className="font-mono text-2xl font-medium text-amber-400">{watchTime}</p>
+              <p className="text-[11px] text-violet-400 uppercase tracking-wide">Temps total</p>
             </div>
             <div className="p-4">
               {topGenres.length > 0 ? (
@@ -126,6 +122,7 @@ export function Header({
             </div>
           </div>
 
+          {/* ── Barre de progression globale ── */}
           {totalKnown > 0 && (
             <div className="px-4 pt-3 pb-4 border-t border-white/5">
               <div className="flex items-center justify-between mb-2">
