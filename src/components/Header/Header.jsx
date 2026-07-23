@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Film, Tv, LogOut, Settings, User, Calendar, Menu, RefreshCw } from "lucide-react";
+import { Plus, Film, Tv, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Chip } from "../common/Chip";
 import { STATUS, STATUS_ORDER } from "../../utils/status";
@@ -8,16 +8,6 @@ import { useAuth } from "../../context/AuthContext";
 import { useCountUp } from "../../hooks/useCountUp";
 import { BurgerMenu } from "../common/BurgerMenu";
 
-function getInitials(name) {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  return parts.length >= 2
-    ? (parts[0][0] + parts[1][0]).toUpperCase()
-    : name.slice(0, 2).toUpperCase();
-}
-
-//test pour push et deploiement
-
 export function Header({
   filter, typeFilter, onFilterChange, onTypeFilterChange, onAddClick,
   syncing = false, syncProgress = { current: 0, total: 0 }, onSyncClick,
@@ -25,9 +15,6 @@ export function Header({
   const { entries, loading } = useLibrary();
   const { user, profile, logout } = useAuth();
   const navigate = useNavigate();
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const avatarColor = user?.user_metadata?.avatar_color || "#7c3aed";
 
   const byType = useMemo(
     () => (typeFilter === "all" ? entries : entries.filter((e) => e.type === typeFilter)),
@@ -43,7 +30,6 @@ export function Header({
     return Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 3);
   }, [entries]);
 
-  // ── Progression globale ──
   const totalWatched = useMemo(
     () => entries.reduce((sum, e) => sum + e.seasons.reduce((s2, s) => s2 + (s.watchedEpisodes || 0), 0), 0),
     [entries]
@@ -54,28 +40,26 @@ export function Header({
   );
   const globalPct = totalKnown > 0 ? Math.min(100, (totalWatched / totalKnown) * 100) : 0;
 
-  // ── Compteurs animés ──
-  const animatedTotal    = useCountUp(entries.length);
-  const animatedEnCours  = useCountUp(counts["en-cours"] ?? 0);
-  const animatedWatched  = useCountUp(totalWatched);
-
-  function closeMenu() { setMenuOpen(false); }
-  function go(path)    { closeMenu(); navigate(path); }
+  const animatedTotal   = useCountUp(entries.length);
+  const animatedEnCours = useCountUp(counts["en-cours"] ?? 0);
+  const animatedWatched = useCountUp(totalWatched);
 
   return (
     <>
       {/* ── Barre principale ── */}
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <img
-            src="/logo.png"
-            alt="AniVault"
-            className="h-12 w-12 rounded-xl flex-shrink-0"
-          />
-          <div>
-            <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">
-              Mon Journal de visionnage
-            </p>
+
+        {/* ── Logo + Titre ── */}
+        <div>
+          <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">
+            Mon Journal de visionnage
+          </p>
+          <div className="flex items-center gap-3">
+            <img
+              src="/logo.png"
+              alt="AniVault"
+              className="h-10 w-10 rounded-xl flex-shrink-0"
+            />
             <h1
               className="text-3xl sm:text-4xl font-bold tracking-tight"
               style={{ fontFamily: "'Space Grotesk', sans-serif" }}
@@ -85,6 +69,7 @@ export function Header({
           </div>
         </div>
 
+        {/* ── Boutons droite ── */}
         <div className="flex items-center gap-2">
           {/* Sync */}
           <button
@@ -117,7 +102,6 @@ export function Header({
       {/* ── Stats + barre de progression globale ── */}
       {!loading && entries.length > 0 && (
         <div className="rounded-2xl bg-violet-900/30 border border-white/5 mb-6 overflow-hidden">
-          {/* Compteurs */}
           <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
             <div className="p-4">
               <p className="font-mono text-2xl font-medium">{animatedTotal}</p>
@@ -142,7 +126,6 @@ export function Header({
             </div>
           </div>
 
-          {/* Barre de progression globale */}
           {totalKnown > 0 && (
             <div className="px-4 pt-3 pb-4 border-t border-white/5">
               <div className="flex items-center justify-between mb-2">
