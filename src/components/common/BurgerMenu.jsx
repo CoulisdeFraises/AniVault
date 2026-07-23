@@ -41,6 +41,10 @@ export function BurgerMenu() {
         <>
           <div className="fixed inset-0 z-10" onClick={closeMenu} />
           <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-violet-900 border border-white/10 shadow-xl z-20 overflow-hidden animate-fadeIn">
+            {/* Logo wide */}
+            <div className="flex items-center justify-center px-4 py-3 border-b border-white/5">
+                <img src="/logo-wide.png" alt="AniVault" className="h-6 object-contain" />
+            </div>
             {/* Avatar */}
             <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
               <div
