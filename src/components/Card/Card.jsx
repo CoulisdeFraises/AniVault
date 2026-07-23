@@ -6,6 +6,7 @@ import { ProgressBar } from "./ProgressBar";
 import { ConfirmDialog } from "../Modal/Modal";
 import { getRatingEmoji } from "../common/Rating";
 import { STATUS, seasonTotals, formatCountdown } from "../../utils/status";
+import { CATEGORY_LABELS, CATEGORY_ICONS } from "../../utils/entry";
 import { useLibrary } from "../../context/LibraryContext";
 import { fetchNextAiring } from "../../api";
 
@@ -25,7 +26,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
 
   const s = STATUS[entry.status];
 
-  // ── Animation d'entrée (une seule fois au montage, sans classe permanente) ──
+  // ── Animation d'entrée ───────────────────────────────────────────────────
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
@@ -37,7 +38,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
     return () => clearTimeout(t);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Next airing ──
+  // ── Prochain épisode ─────────────────────────────────────────────────────
   useEffect(() => {
     if (entry.status === "termine" || entry.status === "abandonne") { setNextAiring(null); return; }
     if (!((entry.source === "anilist" && entry.anilistIds?.length) || (entry.source === "tvmaze" && entry.tvmazeId))) return;
@@ -51,13 +52,16 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
     return () => { cancelled = true; clearTimeout(t); };
   }, [entry.id, entry.source, entry.status, entry.anilistIds?.length, entry.tvmazeId]);
 
-  const current    = seasons[Math.min(activeSeason, seasons.length - 1)];
+  const current   = seasons[Math.min(activeSeason, seasons.length - 1)];
   const { watched: totalWatched, total: totalAll } = seasonTotals(seasons);
   const canFinish  = entry.status === "en-cours" && totalAll != null && totalAll > 0 && totalWatched >= totalAll;
   const seasonDone = current.totalEpisodes != null && current.watchedEpisodes >= current.totalEpisodes;
   const hasNext    = activeSeason < seasons.length - 1;
 
-  // ── Animation saison complète ──
+  // Badge catégorie (affiché uniquement pour OAV et Film, pas pour TV qui est le défaut)
+  const showCategoryBadge = entry.type === "anime" && entry.category && entry.category !== "tv";
+
+  // ── Animation saison complète ────────────────────────────────────────────
   const prevRef = useRef({ watched: current.watchedEpisodes, seasonIdx: activeSeason });
   useEffect(() => {
     const prev = prevRef.current;
@@ -69,9 +73,8 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
 
     if (justCompleted && cardRef.current) {
       const el = cardRef.current;
-      // Inline style = priorité maximale, aucun conflit CSS possible
       el.style.animation = "none";
-      void el.offsetWidth; // Force reflow
+      void el.offsetWidth;
       el.style.animation = "seasonComplete 0.85s cubic-bezier(0.22, 0.61, 0.36, 1) both";
       const t = setTimeout(() => {
         if (cardRef.current) cardRef.current.style.removeProperty("animation");
@@ -97,7 +100,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           motion-reduce:transition-none
         `}
       >
-        {/* ── Bordure gauche ── */}
+        {/* ── Bordure gauche colorée selon statut ── */}
         <div
           className="absolute inset-y-0 left-0 w-[3px] rounded-l-2xl"
           style={{ background: `linear-gradient(to bottom, ${s.color}, ${s.color}70, ${s.color}10)` }}
@@ -127,12 +130,20 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           <div className="flex items-start justify-between gap-1">
             <div className="min-w-0 flex-1">
 
-              {/* Ligne 1 : type + statut */}
+              {/* Ligne 1 : type + catégorie + statut */}
               <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                 <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-violet-300 whitespace-nowrap">
                   {entry.type === "anime" ? <Film size={10} /> : <Tv size={10} />}
                   {entry.type === "anime" ? "Anime" : "Série"}
                 </span>
+
+                {/* Badge OAV / Film (TV masqué car c'est le défaut) */}
+                {showCategoryBadge && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-violet-700/40 text-violet-300 whitespace-nowrap border border-violet-600/30">
+                    {CATEGORY_ICONS[entry.category]} {CATEGORY_LABELS[entry.category]}
+                  </span>
+                )}
+
                 <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/5 whitespace-nowrap ${s.text}`}>
                   <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${s.dot} ${entry.status === "en-cours" ? "animate-pulse" : ""}`} />
                   {s.label}

@@ -1,11 +1,16 @@
 import { Search, Loader2 } from "lucide-react";
 import { useAnime } from "../../hooks/useAnime";
 import { useSeries } from "../../hooks/useSeries";
+import { FORMAT_TO_CATEGORY, CATEGORY_LABELS, CATEGORY_ICONS } from "../../utils/entry";
+
+const FORMAT_BADGE_COLOR = {
+  tv:    "bg-sky-500/20 text-sky-300",
+  ova:   "bg-purple-500/20 text-purple-300",
+  movie: "bg-amber-500/20 text-amber-300",
+};
 
 export function SearchBar({ type, query, onQueryChange, onSelect }) {
-  // Les deux hooks sont toujours appelés (règles des Hooks) ; celui qui ne
-  // correspond pas au type actif reçoit une requête vide et ne fait rien.
-  const anime = useAnime(type === "anime" ? query : "");
+  const anime  = useAnime(type === "anime" ? query : "");
   const series = useSeries(type === "serie" ? query : "");
   const { results, searching, error } = type === "anime" ? anime : series;
 
@@ -24,17 +29,35 @@ export function SearchBar({ type, query, onQueryChange, onSelect }) {
       {error && <p className="text-[11px] text-violet-400 mt-2">{error}</p>}
       {results.length > 0 && (
         <ul className="mt-2 space-y-1 max-h-56 overflow-y-auto">
-          {results.map((r) => (
-            <li key={`${r.source}-${r.id}`}>
-              <button type="button" onClick={() => onSelect(r)} className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/10 text-left">
-                {r.image ? <img src={r.image} alt="" className="w-8 h-11 object-cover rounded flex-shrink-0" /> : <div className="w-8 h-11 rounded bg-white/10 flex-shrink-0" />}
-                <span className="min-w-0">
-                  <span className="block text-sm text-violet-50 truncate">{r.title}</span>
-                  <span className="block text-[11px] text-violet-400">{r.year || "—"}</span>
-                </span>
-              </button>
-            </li>
-          ))}
+          {results.map((r) => {
+            const cat   = FORMAT_TO_CATEGORY[r.format] ?? "tv";
+            const badge = FORMAT_BADGE_COLOR[cat];
+            return (
+              <li key={`${r.source}-${r.id}`}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(r)}
+                  className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/10 text-left"
+                >
+                  {r.image
+                    ? <img src={r.image} alt="" className="w-8 h-11 object-cover rounded flex-shrink-0" />
+                    : <div className="w-8 h-11 rounded bg-white/10 flex-shrink-0" />
+                  }
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm text-violet-50 truncate">{r.title}</span>
+                    <span className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[11px] text-violet-400">{r.year || "—"}</span>
+                      {r.format && (
+                        <span className={`font-mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full ${badge}`}>
+                          {CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}
+                        </span>
+                      )}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
       <p className="text-[10px] text-violet-500 mt-2">

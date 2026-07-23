@@ -1,6 +1,29 @@
 export const emptyForm = {
-  title: "", type: "anime", genres: [], status: "a-voir",
+  title: "", type: "anime", category: "tv", genres: [], status: "a-voir",
   seasons: [{ number: 1, totalEpisodes: null, watchedEpisodes: 0 }],
   rating: 0, notes: "", coverImage: null,
   source: null, anilistIds: [], tvmazeId: null, tmdbId: null, description: null,
+};
+
+// Mapping format AniList → catégorie interne
+export const FORMAT_TO_CATEGORY = {
+  TV:       "tv",
+  TV_SHORT: "tv",
+  MOVIE:    "movie",
+  OVA:      "ova",
+  ONA:      "ova",
+  SPECIAL:  "ova",
+  MUSIC:    "ova",
+};
+
+export const CATEGORY_LABELS = {
+  tv:    "Série principale",
+  ova:   "OAV",
+  movie: "Film",
+};
+
+export const CATEGORY_ICONS = {
+  tv:    "📺",
+  ova:   "📼",
+  movie: "🎬",
 };

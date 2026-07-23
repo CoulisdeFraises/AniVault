@@ -20,6 +20,7 @@ export async function searchAniList(q) {
     image: m.coverImage?.large,
     episodes: m.episodes,
     genres: m.genres || [],
+    format:   m.format ?? null,
   }));
 }
 
@@ -42,31 +43,36 @@ export async function fetchAniListAllSeasons(startId) {
   async function followSequels(id, visited = new Set()) {
     if (!id || visited.has(id)) return [];
     visited.add(id);
-    const query = `query ($id: Int) { Media(id: $id, type: ANIME) { id episodes nextAiringEpisode { episode } coverImage { large } relations { edges { relationType node { id type } } } } }`;
+
+    const query = `query ($id: Int) { Media(id: $id, type: ANIME) {
+      id format episodes nextAiringEpisode { episode }
+      coverImage { large }
+      relations { edges { relationType node { id type } } }
+    } }`;
+
     let json;
-    try {
-      json = await anilistQuery(query, { id });
-    } catch {
-      return [];
-    }
+    try { json = await anilistQuery(query, { id }); } catch { return []; }
+
     const media = json.data?.Media;
     if (!media) return [];
+
+    // ✅ On s'arrête si l'entrée n'est pas un format TV
+    const isTV = media.format === "TV" || media.format === "TV_SHORT" || media.format == null;
+    if (!isTV) return [];
+
     const sequel = media.relations?.edges?.find(
       (e) => e.relationType === "SEQUEL" && e.node.type === "ANIME"
     );
     const rest = await followSequels(sequel?.node?.id ?? null, visited);
+
     const totalEpisodes =
       media.episodes ??
       (media.nextAiringEpisode?.episode != null
         ? media.nextAiringEpisode.episode - 1
         : null);
+
     return [
-      {
-        anilistId: id,
-        totalEpisodes,
-        watchedEpisodes: 0,
-        coverImage: media.coverImage?.large ?? null,
-      },
+      { anilistId: id, totalEpisodes, watchedEpisodes: 0, coverImage: media.coverImage?.large ?? null },
       ...rest,
     ];
   }

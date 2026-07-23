@@ -9,41 +9,53 @@ import {
 } from "./tvmaze";
 import { withCache } from "../services/cache";
 import { translateGenres } from "../utils/genres";
+import { FORMAT_TO_CATEGORY } from "../utils/entry";
 
 export function search(type, query) {
   return type === "anime" ? searchAniList(query) : searchTVMaze(query);
 }
 
 // ── Import d'un résultat de recherche ─────────────────────────────────────────
-// Construit le payload complet (saisons, genres, description, tmdbId)
-// à préremplir dans le formulaire quand l'utilisateur choisit un résultat.
-export async function importResult(result) {
+// importAllSeasons : true  → suit la chaîne TV de séquelles (AoT S1→S2→S3)
+//                   false → importe uniquement le titre sélectionné (Naruto seul)
+export async function importResult(result, importAllSeasons = true) {
   const tmdb = await searchTMDBShow(result.title);
+
+  // Catégorie déduite du format AniList (tv / ova / movie)
+  const category = FORMAT_TO_CATEGORY[result.format] ?? "tv";
 
   if (result.source === "anilist") {
     try {
-      // Toutes les saisons (chaîne de séquelles) + description en parallèle
-      const [{ seasons, anilistIds }, description] = await Promise.all([
-        fetchAniListAllSeasons(result.id),
+      const [seasonsData, description] = await Promise.all([
+        // On suit la chaîne uniquement pour les séries TV et si le toggle est ON
+        importAllSeasons && category === "tv"
+          ? fetchAniListAllSeasons(result.id)
+          : Promise.resolve({
+              seasons:   [{ number: 1, totalEpisodes: result.episodes ?? null, watchedEpisodes: 0, coverImage: result.image || null }],
+              anilistIds: [result.id],
+            }),
         tmdb?.overview
           ? Promise.resolve(tmdb.overview)
           : fetchAniListDescription(result.id),
       ]);
+
       return {
         title:       result.title,
+        category,
         genres:      translateGenres(result.genres).slice(0, 5),
         coverImage:  result.image || null,
-        seasons:     seasons.length
-          ? seasons
+        seasons:     seasonsData.seasons.length
+          ? seasonsData.seasons
           : [{ number: 1, totalEpisodes: result.episodes ?? null, watchedEpisodes: 0, coverImage: result.image || null }],
         source:      "anilist",
-        anilistIds,
+        anilistIds:  seasonsData.anilistIds,
         tmdbId:      tmdb?.id ?? null,
         description: description || null,
       };
     } catch {
       return {
         title:       result.title,
+        category,
         genres:      translateGenres(result.genres).slice(0, 5),
         coverImage:  result.image || null,
         seasons:     [{ number: 1, totalEpisodes: result.episodes ?? null, watchedEpisodes: 0, coverImage: result.image || null }],
@@ -55,7 +67,7 @@ export async function importResult(result) {
     }
   }
 
-  // ── TVmaze ──
+  // ── TVmaze → toujours "tv" ────────────────────────────────────────────────
   try {
     const [seasons, description] = await Promise.all([
       fetchTVMazeSeasons(result.id),
@@ -63,6 +75,7 @@ export async function importResult(result) {
     ]);
     return {
       title:       result.title,
+      category:    "tv",
       genres:      translateGenres(result.genres).slice(0, 5),
       coverImage:  result.image || null,
       seasons:     seasons.length ? seasons : [{ number: 1, totalEpisodes: null, watchedEpisodes: 0 }],
@@ -73,12 +86,13 @@ export async function importResult(result) {
     };
   } catch {
     return {
-      title:    result.title,
-      genres:   translateGenres(result.genres).slice(0, 5),
-      coverImage: result.image || null,
-      source:   "tvmaze",
-      tvmazeId: result.id,
-      tmdbId:   tmdb?.id ?? null,
+      title:       result.title,
+      category:    "tv",
+      genres:      translateGenres(result.genres).slice(0, 5),
+      coverImage:  result.image || null,
+      source:      "tvmaze",
+      tvmazeId:    result.id,
+      tmdbId:      tmdb?.id ?? null,
     };
   }
 }
