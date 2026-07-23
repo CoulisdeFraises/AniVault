@@ -4,6 +4,7 @@ import { Header } from "../components/Header/Header";
 import { Card } from "../components/Card/Card";
 import { TitleFormModal } from "../components/Modal/TitleFormModal";
 import { Confetti } from "../components/common/Confetti";
+import { Footer } from "../components/common/Footer";
 import { useLibrary } from "../context/LibraryContext";
 import { useSync } from "../hooks/useSync";
 
@@ -11,10 +12,11 @@ export function Home() {
   const { entries, loading, saveError, showConfetti } = useLibrary();
   const { syncAll, syncing, progress } = useSync();
 
-  const [filter,       setFilter]       = useState("all");
-  const [typeFilter,   setTypeFilter]   = useState("all");
-  const [showForm,     setShowForm]     = useState(false);
-  const [editingEntry, setEditingEntry] = useState(null);
+  const [filter,         setFilter]         = useState("all");
+  const [typeFilter,     setTypeFilter]     = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [showForm,       setShowForm]       = useState(false);
+  const [editingEntry,   setEditingEntry]   = useState(null);
 
   useEffect(() => {
     if (!loading && entries.length > 0) {
@@ -23,33 +25,51 @@ export function Home() {
     }
   }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Remettre la catégorie à "all" quand on change de type
+  function handleTypeFilterChange(type) {
+    setTypeFilter(type);
+    setCategoryFilter("all");
+  }
+
   const byType = useMemo(
-    () => (typeFilter === "all" ? entries : entries.filter((e) => e.type === typeFilter)),
+    () => typeFilter === "all" ? entries : entries.filter((e) => e.type === typeFilter),
     [entries, typeFilter]
   );
+
+  // Filtre catégorie (uniquement sur les animes)
+  const byCategory = useMemo(() => {
+    if (categoryFilter === "all") return byType;
+    return byType.filter((e) => {
+      if (e.type !== "anime") return true; // les séries ne sont jamais filtrées par catégorie
+      return (e.category ?? "tv") === categoryFilter;
+    });
+  }, [byType, categoryFilter]);
+
   const filtered = useMemo(
-    () => (filter === "all" ? byType : byType.filter((e) => e.status === filter)),
-    [byType, filter]
+    () => filter === "all" ? byCategory : byCategory.filter((e) => e.status === filter),
+    [byCategory, filter]
   );
+
   const filteredAnime = useMemo(() => filtered.filter((e) => e.type === "anime"), [filtered]);
   const filteredSerie = useMemo(() => filtered.filter((e) => e.type === "serie"), [filtered]);
 
-  function openNewForm()      { setEditingEntry(null);  setShowForm(true); }
-  function openEditForm(entry){ setEditingEntry(entry); setShowForm(true); }
+  function openNewForm()       { setEditingEntry(null);  setShowForm(true); }
+  function openEditForm(entry) { setEditingEntry(entry); setShowForm(true); }
 
-  // Clé qui change quand un filtre change → remonte la grille → stagger des cartes
-  const gridKey = `${filter}-${typeFilter}`;
+  const gridKey = `${filter}-${typeFilter}-${categoryFilter}`;
 
   return (
-    <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen bg-violet-950 text-violet-50 flex flex-col" style={{ fontFamily: "'Inter', sans-serif" }}>
       <Confetti active={showConfetti} />
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-8">
         <Header
           filter={filter}
           typeFilter={typeFilter}
+          categoryFilter={categoryFilter}
           onFilterChange={setFilter}
-          onTypeFilterChange={setTypeFilter}
+          onTypeFilterChange={handleTypeFilterChange}
+          onCategoryFilterChange={setCategoryFilter}
           onAddClick={openNewForm}
           syncing={syncing}
           syncProgress={progress}
@@ -81,10 +101,6 @@ export function Home() {
             )}
           </div>
         ) : typeFilter === "all" ? (
-          /*
-            key={gridKey} : quand un filtre change, toute la section remonte.
-            Les cartes reçoivent leur index pour le stagger fadeInUp.
-          */
           <div key={gridKey} className="space-y-8 animate-fadeIn motion-reduce:animate-none">
             {filteredAnime.length > 0 && (
               <section>
@@ -123,6 +139,8 @@ export function Home() {
           </div>
         )}
       </div>
+
+      <Footer />
 
       {showForm && (
         <TitleFormModal editingEntry={editingEntry} onClose={() => setShowForm(false)} />

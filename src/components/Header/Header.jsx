@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Plus, Film, Tv, RefreshCw } from "lucide-react";
 import { Chip } from "../common/Chip";
 import { STATUS, STATUS_ORDER } from "../../utils/status";
+import { CATEGORY_LABELS, CATEGORY_ICONS } from "../../utils/entry";
 import { useLibrary } from "../../context/LibraryContext";
 import { useAuth } from "../../context/AuthContext";
 import { useCountUp } from "../../hooks/useCountUp";
@@ -9,14 +10,15 @@ import { BurgerMenu } from "../common/BurgerMenu";
 import { calcWatchTime } from "../../utils/watchTime";
 
 export function Header({
-  filter, typeFilter, onFilterChange, onTypeFilterChange, onAddClick,
-  syncing = false, syncProgress = { current: 0, total: 0 }, onSyncClick,
+  filter, typeFilter, categoryFilter = "all",
+  onFilterChange, onTypeFilterChange, onCategoryFilterChange,
+  onAddClick, syncing = false, syncProgress = { current: 0, total: 0 }, onSyncClick,
 }) {
   const { entries, loading } = useLibrary();
   const { user, profile, logout } = useAuth();
 
   const byType = useMemo(
-    () => (typeFilter === "all" ? entries : entries.filter((e) => e.type === typeFilter)),
+    () => typeFilter === "all" ? entries : entries.filter((e) => e.type === typeFilter),
     [entries, typeFilter]
   );
   const counts = useMemo(
@@ -37,12 +39,15 @@ export function Header({
     () => entries.reduce((sum, e) => sum + e.seasons.reduce((s2, s) => s2 + (s.totalEpisodes || 0), 0), 0),
     [entries]
   );
-  const globalPct  = totalKnown > 0 ? Math.min(100, (totalWatched / totalKnown) * 100) : 0;
-  const watchTime  = useMemo(() => calcWatchTime(entries), [entries]);
+  const globalPct = totalKnown > 0 ? Math.min(100, (totalWatched / totalKnown) * 100) : 0;
+  const watchTime = useMemo(() => calcWatchTime(entries), [entries]);
 
   const animatedTotal   = useCountUp(entries.length);
   const animatedEnCours = useCountUp(counts["en-cours"] ?? 0);
   const animatedWatched = useCountUp(totalWatched);
+
+  // Le filtre catégorie n'est visible que quand on est sur "Animes"
+  const showCategoryFilter = typeFilter === "anime";
 
   return (
     <>
@@ -96,7 +101,7 @@ export function Header({
       {!loading && entries.length > 0 && (
         <div className="rounded-2xl bg-violet-900/30 border border-white/5 mb-6 overflow-hidden">
 
-          {/* ── 4 compteurs ── */}
+          {/* 4 compteurs */}
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
             <div className="p-4">
               <p className="font-mono text-2xl font-medium">{animatedTotal}</p>
@@ -125,7 +130,7 @@ export function Header({
             </div>
           </div>
 
-          {/* ── Barre de progression globale ── */}
+          {/* Barre de progression globale */}
           {totalKnown > 0 && (
             <div className="px-4 pt-3 pb-4 border-t border-white/5">
               <div className="flex items-center justify-between mb-2">
@@ -147,8 +152,8 @@ export function Header({
         </div>
       )}
 
-      {/* ── Filtre type ── */}
-      <div className="flex justify-center mb-5">
+      {/* ── Filtre type : Tout / Animes / Séries ── */}
+      <div className="flex justify-center mb-4">
         <div className="inline-flex rounded-full bg-white/5 border border-white/10 p-0.5">
           {[
             { key: "all",   label: "Tout",   icon: null },
@@ -167,6 +172,33 @@ export function Header({
           ))}
         </div>
       </div>
+
+      {/* ── Filtre catégorie : visible uniquement sur "Animes" ── */}
+      {showCategoryFilter && (
+        <div className="flex justify-center mb-4">
+          <div className="inline-flex rounded-full bg-white/5 border border-white/10 p-0.5">
+            <button
+              onClick={() => onCategoryFilterChange("all")}
+              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors active:scale-95 motion-reduce:transition-none ${
+                categoryFilter === "all" ? "bg-violet-600 text-white font-semibold" : "text-violet-300 hover:text-violet-100"
+              }`}
+            >
+              Tout
+            </button>
+            {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => onCategoryFilterChange(key)}
+                className={`flex items-center gap-1 px-4 py-1.5 rounded-full text-xs font-medium transition-colors active:scale-95 motion-reduce:transition-none ${
+                  categoryFilter === key ? "bg-violet-600 text-white font-semibold" : "text-violet-300 hover:text-violet-100"
+                }`}
+              >
+                {CATEGORY_ICONS[key]} {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="border-b border-white/10 mb-5" />
 
