@@ -54,12 +54,7 @@ export function Header({
           <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">
             Mon Journal de visionnage
           </p>
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="AniVault" className="h-10 w-10 rounded-xl flex-shrink-0" />
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-              ANIVAULT
-            </h1>
-          </div>
+          <img src="/logo-wide.png" alt="AniVault" className="h-10 object-contain" />
         </div>
 
         {/* ── Boutons droite ── */}
