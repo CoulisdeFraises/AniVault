@@ -93,11 +93,11 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           const fallbackImage = entry.seasons[0]?.coverImage || entry.coverImage;
           const showFallback  = !displayImage && activeSeason > 0 && fallbackImage;
           return displayImage ? (
-            <div className="flex-shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
+            <div className="flex-shrink-0 aspect-[2/3] max-h-36 self-start rounded-lg overflow-hidden bg-white/5">
               <img src={displayImage} alt="" className="w-full h-full object-cover" />
             </div>
           ) : showFallback ? (
-            <div className="relative flex-shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
+            <div className="relative flex-shrink-0 aspect-[2/3] max-h-36 self-start rounded-lg overflow-hidden bg-white/5">
               <img src={fallbackImage} alt="" className="w-full h-full object-cover brightness-[0.25]" />
               <span className="absolute inset-0 flex items-center justify-center text-5xl font-bold text-white/50">?</span>
             </div>
