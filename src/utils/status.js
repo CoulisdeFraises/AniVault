@@ -14,9 +14,27 @@ export function seasonTotals(seasons) {
   return { watched, total };
 }
 
+// Une saison est "TV" si elle n'a pas de format renseigné (données existantes)
+// ou si son format est TV ou TV_SHORT.
+function isTVSeason(season) {
+  const fmt = season.format;
+  return !fmt || fmt === "TV" || fmt === "TV_SHORT";
+}
+
+/**
+ * Calcule le statut automatique d'une entrée.
+ * Règle : "terminé" = toutes les saisons TV (série principale) sont vues.
+ * Les OVA/ONA/Films non vus ne bloquent PAS le passage à "terminé".
+ */
 export function autoStatus(entry, updatedSeasons) {
-  const { watched, total } = seasonTotals(updatedSeasons);
-  if (total != null && total > 0 && watched >= total) return "termine";
+  const tvSeasons  = updatedSeasons.filter(isTVSeason);
+  // Fallback : si pas de saison TV (franchise 100 % OVA/Films), on compte tout
+  const refSeasons = tvSeasons.length ? tvSeasons : updatedSeasons;
+
+  const { watched: tvWatched, total: tvTotal } = seasonTotals(refSeasons);
+  const { watched }                             = seasonTotals(updatedSeasons);
+
+  if (tvTotal != null && tvTotal > 0 && tvWatched >= tvTotal) return "termine";
   if (entry.status === "termine") return watched > 0 ? "en-cours" : "a-voir";
   if (watched > 0 && entry.status === "a-voir") return "en-cours";
   if (watched === 0 && entry.status === "en-cours") return "a-voir";

@@ -20,10 +20,98 @@ export async function searchAniList(q) {
     image: m.coverImage?.large,
     episodes: m.episodes,
     genres: m.genres || [],
-    format:   m.format ?? null,
+    format: m.format ?? null,
   }));
 }
 
+/**
+ * Récupère TOUTE la franchise : saisons TV + OVA/ONA + Films,
+ * en suivant la chaîne de séquelles depuis la racine.
+ *
+ * Retourne :
+ *   - seasons    : tableau unifié { number, format, totalEpisodes, watchedEpisodes, coverImage, anilistId }
+ *   - anilistIds : IDs TV uniquement (pour nextAiring / fetchSeasonInfo – rétrocompat)
+ */
+export async function fetchAniListFranchise(startId) {
+  async function findRoot(id, visited = new Set()) {
+    if (visited.has(id)) return id;
+    visited.add(id);
+    const query = `query ($id: Int) { Media(id: $id, type: ANIME) { id relations { edges { relationType node { id type } } } } }`;
+    try {
+      const json = await anilistQuery(query, { id });
+      const prequel = json.data?.Media?.relations?.edges?.find(
+        (e) => e.relationType === "PREQUEL" && e.node.type === "ANIME"
+      );
+      return prequel ? findRoot(prequel.node.id, visited) : id;
+    } catch {
+      return id;
+    }
+  }
+
+  async function followSequels(id, visited = new Set()) {
+    if (!id || visited.has(id)) return [];
+    visited.add(id);
+
+    const query = `query ($id: Int) { Media(id: $id, type: ANIME) {
+      id format episodes
+      nextAiringEpisode { episode }
+      coverImage { large }
+      relations { edges { relationType node { id type } } }
+    } }`;
+
+    let json;
+    try { json = await anilistQuery(query, { id }); } catch { return []; }
+
+    const media = json.data?.Media;
+    if (!media) return [];
+
+    const format = media.format ?? "TV";
+    const sequel = media.relations?.edges?.find(
+      (e) => e.relationType === "SEQUEL" && e.node.type === "ANIME"
+    );
+    const rest = await followSequels(sequel?.node?.id ?? null, visited);
+
+    const totalEpisodes =
+      media.episodes ??
+      (media.nextAiringEpisode?.episode != null
+        ? media.nextAiringEpisode.episode - 1
+        : null);
+
+    return [
+      { anilistId: id, format, totalEpisodes, watchedEpisodes: 0, coverImage: media.coverImage?.large ?? null },
+      ...rest,
+    ];
+  }
+
+  const rootId = await findRoot(startId);
+  const raw    = await followSequels(rootId);
+
+  // Numérotation indépendante par groupe de format
+  let tvN = 0, ovaN = 0, movieN = 0;
+  const seasons = raw.map((item) => {
+    const fmt     = item.format ?? "TV";
+    const isTV    = fmt === "TV" || fmt === "TV_SHORT";
+    const isMovie = fmt === "MOVIE";
+    const number  = isTV ? ++tvN : isMovie ? ++movieN : ++ovaN;
+    return {
+      number,
+      format:          fmt,
+      totalEpisodes:   item.totalEpisodes,
+      watchedEpisodes: 0,
+      coverImage:      item.coverImage ?? null,
+      anilistId:       item.anilistId,
+    };
+  });
+
+  // anilistIds = TV seulement (rétrocompat fetchSeasonInfo / nextAiring)
+  const anilistIds = raw
+    .filter((item) => { const f = item.format ?? "TV"; return f === "TV" || f === "TV_SHORT"; })
+    .map((item) => item.anilistId);
+
+  return { seasons, anilistIds };
+}
+
+// Conservé pour rétrocompatibilité (vue Détails – bouton + Saison suivante)
 export async function fetchAniListAllSeasons(startId) {
   async function findRoot(id, visited = new Set()) {
     if (visited.has(id)) return id;
@@ -58,13 +146,11 @@ export async function fetchAniListAllSeasons(startId) {
 
     const isTV = media.format === "TV" || media.format === "TV_SHORT" || media.format == null;
 
-    // On cherche toujours le sequel, qu'on soit TV ou pas
     const sequel = media.relations?.edges?.find(
       (e) => e.relationType === "SEQUEL" && e.node.type === "ANIME"
     );
     const rest = await followSequels(sequel?.node?.id ?? null, visited);
 
-    // Si c'est un OVA/Film : on skip cette entrée MAIS on continue la chaîne
     if (!isTV) return rest;
 
     const totalEpisodes =
@@ -84,6 +170,7 @@ export async function fetchAniListAllSeasons(startId) {
   return {
     seasons: raw.map((s, i) => ({
       number: i + 1,
+      format: "TV",
       totalEpisodes: s.totalEpisodes,
       watchedEpisodes: 0,
       coverImage: s.coverImage ?? null,
@@ -135,8 +222,6 @@ export async function fetchAniListEpisodeTotal(anilistId) {
   try {
     const json = await anilistQuery(query, { id: anilistId });
     const media = json.data?.Media;
-    // episodes = total confirmé (séries terminées)
-    // nextAiringEpisode.episode - 1 = nombre d'épisodes déjà diffusés (en cours)
     return (
       media?.episodes ??
       (media?.nextAiringEpisode?.episode != null
@@ -148,19 +233,12 @@ export async function fetchAniListEpisodeTotal(anilistId) {
   }
 }
 
-// ── MAL ID (pont AniList → Jikan) ────────────────────────────────────────────
 async function fetchAniListIdMal(anilistId) {
   const query = `query ($id: Int) { Media(id: $id) { idMal } }`;
   const json = await anilistQuery(query, { id: anilistId });
   return json.data?.Media?.idMal ?? null;
 }
 
-// ── Épisodes depuis Jikan (MyAnimeList) ──────────────────────────────────────
-// - Numérotation exacte via e.mal_id (pas l'index positionnel)
-// - Gestion du rate-limit 429 : retry automatique après 1s
-// - Délai de 350ms entre pages pour rester sous les 3 req/s
-// - Max 10 pages (~250 épisodes) : couvre 99% des animes.
-//   Pour les très longues séries (One Piece…), le reste s'affiche en "Épisode N".
 async function fetchJikanEpisodes(malId) {
   const episodes = [];
   let page = 1;
@@ -173,7 +251,6 @@ async function fetchJikanEpisodes(malId) {
         `https://api.jikan.moe/v4/anime/${malId}/episodes?page=${page}`
       );
 
-      // Rate-limit : on attend 1s et on retente la même page
       if (res.status === 429) {
         await new Promise((r) => setTimeout(r, 1000));
         continue;
@@ -184,15 +261,14 @@ async function fetchJikanEpisodes(malId) {
       const json = await res.json();
       (json.data || []).forEach((e) =>
         episodes.push({
-          number: e.mal_id,                          // vrai numéro MAL
-          name:   e.title || e.title_romanji || null, // nom propre, sans préfixe
+          number: e.mal_id,
+          name:   e.title || e.title_romanji || null,
         })
       );
 
       hasNext = Boolean(json.pagination?.has_next_page);
       page++;
 
-      // Délai inter-pages pour respecter le rate-limit Jikan
       if (hasNext) await new Promise((r) => setTimeout(r, 350));
     } catch {
       break;
@@ -202,10 +278,6 @@ async function fetchJikanEpisodes(malId) {
   return episodes;
 }
 
-// ── Épisodes d'une saison (par ID AniList) ────────────────────────────────────
-// Jikan est la seule source utilisée : numéros et noms fiables.
-// fetchAniListStreamingEpisodes supprimé : numérotation positionnelle incorrecte
-// et titres mal formatés ("Episode N - Titre").
 export async function fetchAniListEpisodesBySeasonId(anilistId) {
   try {
     const malId = await fetchAniListIdMal(anilistId);
@@ -257,8 +329,8 @@ function getWeekBounds(offsetWeeks = 0) {
   };
 }
 
-const FR_ONLY_SITES    = new Set(["ADN", "Wakanim", "Anime Digital Network"]);
-const FR_URL_PATTERNS  = ["animedigitalnetwork.fr", "wakanim.tv/fr", "adn."];
+const FR_ONLY_SITES   = new Set(["ADN", "Wakanim", "Anime Digital Network"]);
+const FR_URL_PATTERNS = ["animedigitalnetwork.fr", "wakanim.tv/fr", "adn."];
 
 export function hasFrenchVersion(media) {
   return (media.externalLinks || []).some((l) => {

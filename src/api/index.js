@@ -1,39 +1,33 @@
 import { searchTMDBShow, fetchTMDBSeason } from "./tmdb";
 import {
-  searchAniList, fetchAniListAllSeasons, fetchAniListNextSeason, fetchAniListEpisodeTotal,
-  fetchAniListEpisodesBySeasonId, fetchAniListDescription, fetchNextAiringAniList,
+  searchAniList,
+  fetchAniListFranchise,
+  fetchAniListNextSeason,
+  fetchAniListEpisodeTotal,
+  fetchAniListEpisodesBySeasonId,
+  fetchAniListDescription,
+  fetchNextAiringAniList,
 } from "./anilist";
 import {
   searchTVMaze, fetchTVMazeSeasons, fetchTVMazeSeasonTotal, fetchTVMazeNextSeason,
   fetchTVMazeEpisodesBySeason, fetchTVMazeDescription, fetchNextAiringTVMaze,
 } from "./tvmaze";
-import { withCache } from "../services/cache";
+import { withCache }       from "../services/cache";
 import { translateGenres } from "../utils/genres";
-import { FORMAT_TO_CATEGORY } from "../utils/entry";
 
 export function search(type, query) {
   return type === "anime" ? searchAniList(query) : searchTVMaze(query);
 }
 
 // ── Import d'un résultat de recherche ─────────────────────────────────────────
-// importAllSeasons : true  → suit la chaîne TV de séquelles (AoT S1→S2→S3)
-//                   false → importe uniquement le titre sélectionné (Naruto seul)
-export async function importResult(result, importAllSeasons = true) {
+// Importe toujours la franchise complète : TV + OVA/ONA + Films.
+export async function importResult(result) {
   const tmdb = await searchTMDBShow(result.title);
-
-  // Catégorie déduite du format AniList (tv / ova / movie)
-  const category = FORMAT_TO_CATEGORY[result.format] ?? "tv";
 
   if (result.source === "anilist") {
     try {
-      const [seasonsData, description] = await Promise.all([
-        // On suit la chaîne uniquement pour les séries TV et si le toggle est ON
-        importAllSeasons && category === "tv"
-          ? fetchAniListAllSeasons(result.id)
-          : Promise.resolve({
-              seasons:   [{ number: 1, totalEpisodes: result.episodes ?? null, watchedEpisodes: 0, coverImage: result.image || null }],
-              anilistIds: [result.id],
-            }),
+      const [franchiseData, description] = await Promise.all([
+        fetchAniListFranchise(result.id),
         tmdb?.overview
           ? Promise.resolve(tmdb.overview)
           : fetchAniListDescription(result.id),
@@ -41,24 +35,24 @@ export async function importResult(result, importAllSeasons = true) {
 
       return {
         title:       result.title,
-        category,
+        category:    "tv",
         genres:      translateGenres(result.genres).slice(0, 5),
         coverImage:  result.image || null,
-        seasons:     seasonsData.seasons.length
-          ? seasonsData.seasons
-          : [{ number: 1, totalEpisodes: result.episodes ?? null, watchedEpisodes: 0, coverImage: result.image || null }],
+        seasons:     franchiseData.seasons.length
+          ? franchiseData.seasons
+          : [{ number: 1, format: "TV", totalEpisodes: result.episodes ?? null, watchedEpisodes: 0, coverImage: result.image || null }],
         source:      "anilist",
-        anilistIds:  seasonsData.anilistIds,
+        anilistIds:  franchiseData.anilistIds,
         tmdbId:      tmdb?.id ?? null,
         description: description || null,
       };
     } catch {
       return {
         title:       result.title,
-        category,
+        category:    "tv",
         genres:      translateGenres(result.genres).slice(0, 5),
         coverImage:  result.image || null,
-        seasons:     [{ number: 1, totalEpisodes: result.episodes ?? null, watchedEpisodes: 0, coverImage: result.image || null }],
+        seasons:     [{ number: 1, format: "TV", totalEpisodes: result.episodes ?? null, watchedEpisodes: 0, coverImage: result.image || null }],
         source:      "anilist",
         anilistIds:  [result.id],
         tmdbId:      tmdb?.id ?? null,
@@ -67,18 +61,19 @@ export async function importResult(result, importAllSeasons = true) {
     }
   }
 
-  // ── TVmaze → toujours "tv" ────────────────────────────────────────────────
+  // ── TVmaze (séries live-action) ───────────────────────────────────────────
   try {
     const [seasons, description] = await Promise.all([
       fetchTVMazeSeasons(result.id),
       tmdb?.overview ? Promise.resolve(tmdb.overview) : fetchTVMazeDescription(result.id),
     ]);
+    const tvSeasons = seasons.map((s) => ({ ...s, format: "TV" }));
     return {
       title:       result.title,
       category:    "tv",
       genres:      translateGenres(result.genres).slice(0, 5),
       coverImage:  result.image || null,
-      seasons:     seasons.length ? seasons : [{ number: 1, totalEpisodes: null, watchedEpisodes: 0 }],
+      seasons:     tvSeasons.length ? tvSeasons : [{ number: 1, format: "TV", totalEpisodes: null, watchedEpisodes: 0 }],
       source:      "tvmaze",
       tvmazeId:    result.id,
       tmdbId:      tmdb?.id ?? null,
@@ -90,6 +85,7 @@ export async function importResult(result, importAllSeasons = true) {
       category:    "tv",
       genres:      translateGenres(result.genres).slice(0, 5),
       coverImage:  result.image || null,
+      seasons:     [{ number: 1, format: "TV", totalEpisodes: null, watchedEpisodes: 0 }],
       source:      "tvmaze",
       tvmazeId:    result.id,
       tmdbId:      tmdb?.id ?? null,
@@ -98,9 +94,6 @@ export async function importResult(result, importAllSeasons = true) {
 }
 
 // ── Épisodes + total pour une saison ─────────────────────────────────────────
-// Résultat mis en cache 1h pour éviter de re-fetcher à chaque ouverture de fiche.
-// TMDB utilisé uniquement pour les séries (tvmaze) : son découpage en saisons
-// est incompatible avec la structure AniList des animes.
 const SEASON_INFO_TTL = 60 * 60 * 1000; // 1 heure
 
 export async function fetchSeasonInfo(entry, seasonIndex) {
@@ -108,7 +101,6 @@ export async function fetchSeasonInfo(entry, seasonIndex) {
   const cacheKey = `season-info:${entry.source}:${entry.id}:s${seasonIndex}`;
 
   return withCache(cacheKey, SEASON_INFO_TTL, async () => {
-    // TMDB en priorité pour les séries uniquement
     if (entry.source === "tvmaze" && entry.tmdbId) {
       const tmdb = await fetchTMDBSeason(entry.tmdbId, seasonNumber);
       if (tmdb) return tmdb;

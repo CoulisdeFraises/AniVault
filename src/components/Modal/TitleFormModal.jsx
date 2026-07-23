@@ -26,8 +26,6 @@ export function TitleFormModal({ editingEntry, onClose }) {
   const [importing,        setImporting]        = useState(false);
   const [importedFrom,     setImportedFrom]     = useState(null);
   const [duplicateWarning, setDuplicateWarning] = useState(null);
-  // false par défaut → Naruto et Shippuden séparés ; cocher pour AoT, Demon Slayer…
-  const [importAllSeasons, setImportAllSeasons] = useState(false);
 
   function handleTypeChange(type) {
     setForm((f) => ({ ...f, type, category: "tv" }));
@@ -38,7 +36,7 @@ export function TitleFormModal({ editingEntry, onClose }) {
   async function handleSelectResult(result) {
     setImporting(true);
     try {
-      const imported = await importResult(result, importAllSeasons);
+      const imported = await importResult(result);
       setForm((f) => ({ ...f, ...imported }));
       setImportedFrom(result.source === "anilist" ? "AniList" : "TVmaze");
     } finally {
@@ -71,7 +69,10 @@ export function TitleFormModal({ editingEntry, onClose }) {
     commit();
   }
 
-  const isTVAnime = form.type === "anime" && (form.category ?? "tv") === "tv";
+  // Compteurs pour le feedback d'import
+  const tvCount    = form.seasons.filter(s => !s.format || s.format === "TV" || s.format === "TV_SHORT").length;
+  const ovaCount   = form.seasons.filter(s => s.format === "OVA" || s.format === "ONA" || s.format === "SPECIAL").length;
+  const filmCount  = form.seasons.filter(s => s.format === "MOVIE").length;
 
   return (
     <>
@@ -99,24 +100,6 @@ export function TitleFormModal({ editingEntry, onClose }) {
             )}
           </div>
 
-          {/* ── Toggle "importer toutes les saisons" (TV, ajout uniquement) ── */}
-          {isTVAnime && !editingId && (
-            <label className="flex items-start gap-2 text-xs text-violet-300 cursor-pointer mb-2 select-none">
-              <input
-                type="checkbox"
-                checked={importAllSeasons}
-                onChange={(e) => setImportAllSeasons(e.target.checked)}
-                className="mt-0.5 rounded accent-amber-400 flex-shrink-0"
-              />
-              <span>
-                Importer toutes les saisons de la franchise automatiquement
-                <span className="block text-violet-500 mt-0.5">
-                  Cocher pour AoT, Demon Slayer… Laisser décoché pour Naruto, Shippuden, Boruto…
-                </span>
-              </span>
-            </label>
-          )}
-
           {/* ── Barre de recherche ── */}
           {!editingId && searchOpen && (
             <SearchBar
@@ -129,9 +112,11 @@ export function TitleFormModal({ editingEntry, onClose }) {
 
           {/* ── Feedback import ── */}
           {importedFrom && (
-            <p className="text-[11px] text-teal-300 mb-2 flex items-center gap-1">
-              <Check size={12} /> Importé depuis {importedFrom} — {form.seasons.length} saison
-              {form.seasons.length > 1 ? "s" : ""} détectée{form.seasons.length > 1 ? "s" : ""}.
+            <p className="text-[11px] text-teal-300 mb-2 flex items-center gap-1 flex-wrap">
+              <Check size={12} /> Importé depuis {importedFrom} —{" "}
+              {tvCount > 0 && <span>{tvCount} saison{tvCount > 1 ? "s" : ""} TV</span>}
+              {ovaCount > 0 && <span>· {ovaCount} OVA/ONA</span>}
+              {filmCount > 0 && <span>· {filmCount} film{filmCount > 1 ? "s" : ""}</span>}
             </p>
           )}
           {importing && <p className="text-[11px] text-violet-400 mb-2">Import en cours…</p>}

@@ -74,7 +74,13 @@ export function LibraryProvider({ children }) {
       const total      = s.totalEpisodes == null ? null : Math.max(0, Number(s.totalEpisodes) || 0);
       const watchedRaw = forceAllWatched && total != null ? total : Math.max(0, Number(s.watchedEpisodes) || 0);
       const watched    = total != null ? Math.min(total, watchedRaw) : watchedRaw;
-      return { number: s.number, totalEpisodes: total, watchedEpisodes: watched, coverImage: s.coverImage ?? null };
+      return {
+        number:          s.number,
+        format:          s.format ?? "TV",   // ← préserve le format (TV / OVA / ONA / MOVIE…)
+        totalEpisodes:   total,
+        watchedEpisodes: watched,
+        coverImage:      s.coverImage ?? null,
+      };
     });
     const cleaned = {
       ...form,
@@ -99,7 +105,7 @@ export function LibraryProvider({ children }) {
     persist(entriesRef.current.filter((e) => e.id !== id));
   }, [user]);
 
-  // ── incrementEpisode — enregistre l'épisode dans watchHistory ────────────
+  // ── incrementEpisode ──────────────────────────────────────────────────────
   const incrementEpisode = useCallback((id, seasonIndex) => {
     const now  = Date.now();
     const next = entriesRef.current.map((e) => {
@@ -131,7 +137,7 @@ export function LibraryProvider({ children }) {
     persist(next);
   }, [user]);
 
-  // ── setEpisodeCount — enregistre les nouveaux épisodes dans watchHistory ──
+  // ── setEpisodeCount ───────────────────────────────────────────────────────
   const setEpisodeCount = useCallback((id, seasonIndex, value) => {
     const now  = Date.now();
     const next = entriesRef.current.map((e) => {
@@ -145,12 +151,11 @@ export function LibraryProvider({ children }) {
         return { ...s, watchedEpisodes: clamped };
       });
       const newWatched = seasons[seasonIndex].watchedEpisodes;
-      // Enregistre chaque nouvel épisode dans l'historique
       const newEntries = newWatched > oldWatched
         ? Array.from({ length: newWatched - oldWatched }, (_, i) => ({
             seasonIndex,
             episode:   oldWatched + i + 1,
-            watchedAt: now + i, // ms distincts pour préserver l'ordre
+            watchedAt: now + i,
           }))
         : [];
       const history = [...(e.watchHistory || []), ...newEntries];
@@ -187,6 +192,7 @@ export function LibraryProvider({ children }) {
       if (e.id !== id) return e;
       const newSeason = {
         number:          e.seasons.length + 1,
+        format:          seasonData.format ?? "TV",   // ← préserve le format
         totalEpisodes:   seasonData.totalEpisodes ?? null,
         watchedEpisodes: 0,
         coverImage:      seasonData.coverImage ?? null,
