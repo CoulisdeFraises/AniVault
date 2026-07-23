@@ -44,7 +44,7 @@ export function Details() {
 
   if (!entry) {
     return (
-      <div className="min-h-screen bg-violet-950 text-violet-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm text-violet-50 flex items-center justify-center p-4 z-50">
         <div className="text-center">
           <p className="text-violet-300 mb-4">Ce titre n'existe plus (ou a été supprimé).</p>
           <button onClick={() => navigate("/")} className="text-amber-300 hover:text-amber-200 text-sm font-medium">Retour à l'accueil</button>
@@ -73,8 +73,16 @@ export function Details() {
   const showFallback = !displayImage && activeSeason > 0 && fallbackImage;
 
   return (
-    <div className="min-h-screen bg-violet-950 text-violet-50 flex items-center justify-center p-4" style={{ fontFamily: "'Inter', sans-serif" }} onClick={() => navigate("/")}>
-      <div onClick={(e) => e.stopPropagation()} className="bg-violet-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+    /* Fond transparent avec flou — la page d'avant reste visible derrière */
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm text-violet-50 flex items-center justify-center p-4 z-50"
+      style={{ fontFamily: "'Inter', sans-serif" }}
+      onClick={() => navigate("/")}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-violet-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+      >
         <div className="flex gap-4 p-6 border-b border-white/5 flex-shrink-0">
           {displayImage ? (
             <img src={displayImage} alt="" className="w-24 h-36 object-cover rounded-xl flex-shrink-0" />

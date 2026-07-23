@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, Trash2, Download, Upload, Info, Film, Tv, RotateCcw } from "lucide-react";
+import { ChevronRight, Trash2, Download, Upload, Info, Film, Tv, RotateCcw, ArrowLeft } from "lucide-react";
 import { useAuth }    from "../context/AuthContext";
 import { useLibrary } from "../context/LibraryContext";
+import { BurgerMenu } from "../components/common/BurgerMenu";
 
 const STORAGE_KEY = "playlog-entries";
 
@@ -52,7 +53,6 @@ const Toggle = ({ checked, onChange }) => (
 export function Settings() {
   const navigate     = useNavigate();
   const { profile, logout } = useAuth();
-  // Si LibraryContext expose les entries, sinon on lit directement localStorage
   const libraryCtx   = useLibrary?.() ?? {};
   const entries      = libraryCtx.entries ?? (() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
@@ -107,10 +107,9 @@ export function Settings() {
         const parsed = JSON.parse(ev.target.result);
         if (!Array.isArray(parsed)) throw new Error();
         localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-        // Si LibraryContext a un setter, l'utiliser
         libraryCtx.setEntries?.(parsed);
         setImportError("");
-        navigate("/"); // retour à l'accueil après import
+        navigate("/");
       } catch {
         setImportError("Fichier invalide. Vérifie qu'il s'agit d'un export ANIVAULT.");
       }
@@ -129,12 +128,24 @@ export function Settings() {
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6">
 
-      {/* ── Titre ── */}
-      <div className="mb-2">
-        <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">Configuration</p>
-        <h1 className="text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-          Paramètres
-        </h1>
+      {/* ── Titre + navigation ── */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
+            aria-label="Retour"
+          >
+            <ArrowLeft size={16} className="text-violet-400" />
+          </button>
+          <div>
+            <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">Configuration</p>
+            <h1 className="text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+              Paramètres
+            </h1>
+          </div>
+        </div>
+        <BurgerMenu />
       </div>
 
       {/* ── Statistiques ── */}

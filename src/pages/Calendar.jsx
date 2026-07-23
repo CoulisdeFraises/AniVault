@@ -7,6 +7,7 @@ import {
 import { fetchWeeklySchedule, hasFrenchVersion, isReturningSeries } from "../api/anilist";
 import { hasTMDB, searchTMDBShow, fetchTMDBEpisodeFR, fetchTMDBWatchProvidersFR } from "../api/tmdb";
 import { useLibrary } from "../context/LibraryContext";
+import { BurgerMenu } from "../components/common/BurgerMenu";
 
 const DAY_NAMES    = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 const VISIBLE_DAYS = 3;

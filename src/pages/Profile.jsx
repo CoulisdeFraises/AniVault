@@ -4,6 +4,7 @@ import { Loader2, Check, Lock, Trash2, ArrowLeft } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth }    from "../context/AuthContext";
 import { useLibrary } from "../context/LibraryContext";
+import { BurgerMenu } from "../components/common/BurgerMenu";
 
 // ── Couleurs disponibles pour l'avatar ───────────────────────────────────────
 const AVATAR_COLORS = [

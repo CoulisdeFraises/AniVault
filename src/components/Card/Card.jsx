@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Pencil, Trash2, Film, Tv, Check, CheckCheck, ChevronRight, Star } from "lucide-react";
 import "./Card.css";
 import { ProgressBar } from "./ProgressBar";
@@ -12,6 +12,7 @@ import { fetchNextAiring } from "../../api";
 export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
   const { incrementEpisode, decrementEpisode, setEpisodeCount, markDone, deleteEntry } = useLibrary();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const seasons = entry.seasons;
   const [activeSeason,      setActiveSeason]      = useState(() => {
@@ -65,19 +66,12 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
 
   return (
     <>
-      {/*
-        ─ hover:-translate-y-0.5 : légère élévation au survol
-        ─ hover:shadow-lg        : ombre portée qui renforce la profondeur
-        ─ card-noise             : texture de bruit subtile (custom.css)
-        ─ animate-fadeInUp       : entrée en fondu + remontée
-        ─ animationDelay stagger : décalage selon l'index dans la liste
-      */}
       <div
-        onClick={() => navigate(`/details/${entry.id}`)}
+        onClick={() => navigate(`/details/${entry.id}`, { state: { backgroundLocation: location } })}
         className={`
           relative card-noise rounded-2xl bg-violet-900/30
           border-t border-r border-b border-white/5
-          p-4 flex gap-3 overflow-hidden
+          p-4 flex gap-3 overflow-hidden h-44
           transition-all duration-200 ease-out
           hover:-translate-y-0.5 hover:shadow-lg hover:shadow-violet-950/60 hover:bg-violet-800/40
           cursor-pointer
@@ -90,7 +84,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           animationFillMode: "both",
         }}
       >
-        {/* ── Bordure gauche en dégradé (remplace border-l-4 plat) ── */}
+        {/* ── Bordure gauche en dégradé ── */}
         <div
           className="absolute inset-y-0 left-0 w-[3px] rounded-l-2xl"
           style={{
@@ -98,35 +92,35 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           }}
         />
 
-        {/* ── Image ── */}
+        {/* ── Image pleine hauteur, ratio 2:3 ── */}
         {(() => {
           const displayImage  = current?.coverImage || (activeSeason === 0 ? entry.coverImage : null);
           const fallbackImage = entry.seasons[0]?.coverImage || entry.coverImage;
           const showFallback  = !displayImage && activeSeason > 0 && fallbackImage;
           return displayImage ? (
-            <div className="w-[72px] h-[108px] flex-shrink-0 rounded-lg overflow-hidden bg-white/5">
+            <div className="flex-shrink-0 h-full aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
               <img src={displayImage} alt="" className="w-full h-full object-cover" />
             </div>
           ) : showFallback ? (
-            <div className="relative w-[72px] h-[108px] flex-shrink-0 rounded-lg overflow-hidden bg-white/5">
+            <div className="relative flex-shrink-0 h-full aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
               <img src={fallbackImage} alt="" className="w-full h-full object-cover brightness-[0.25]" />
               <span className="absolute inset-0 flex items-center justify-center text-5xl font-bold text-white/50">?</span>
             </div>
           ) : null;
         })()}
 
-        <div className="flex-1 min-w-0 flex flex-col gap-3 relative z-10">
+        <div className="flex-1 min-w-0 flex flex-col gap-2 overflow-hidden relative z-10">
 
           {/* ── Titre + boutons ── */}
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-violet-300">
                   {entry.type === "anime" ? <Film size={11} /> : <Tv size={11} />}
                   {entry.type === "anime" ? "Anime" : "Série"}
                 </span>
 
-                {/* Badge statut – glassmorphism + dot pulsant pour En cours */}
+                {/* Badge statut */}
                 <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest backdrop-blur-sm px-1.5 py-0.5 rounded-full bg-white/5 ${s.text}`}>
                   <span className={`h-1.5 w-1.5 rounded-full ${s.dot} ${entry.status === "en-cours" ? "animate-pulse" : ""}`} />
                   {s.label}
@@ -172,9 +166,9 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
 
           {/* ── Genres ── */}
           {entry.genres.length > 0 && (
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1 overflow-hidden max-h-5">
               {entry.genres.map((g) => (
-                <span key={g} className="px-2 py-0.5 rounded-full bg-white/5 text-[10px] text-violet-300">{g}</span>
+                <span key={g} className="px-2 py-0.5 rounded-full bg-white/5 text-[10px] text-violet-300 whitespace-nowrap">{g}</span>
               ))}
             </div>
           )}
@@ -210,10 +204,6 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           {/* ── Progression épisodes ── */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              {/*
-                key={current.watchedEpisodes} : force un remontage quand le
-                compteur change → déclenche animate-countBounce à chaque +1/-1
-              */}
               <span
                 key={current.watchedEpisodes}
                 className="font-mono text-[11px] text-violet-300 tracking-wider inline-block animate-countBounce motion-reduce:animate-none"
@@ -296,10 +286,6 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
             <span className="text-2xl">{getRatingEmoji(entry.rating)}</span>
           )}
         </div>
-
-        {entry.notes && (
-          <p className="text-xs text-violet-300/80 italic line-clamp-2 relative z-10">{entry.notes}</p>
-        )}
       </div>
 
       {showDeleteWarning && (
@@ -308,7 +294,8 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           title="Supprimer ce titre ?"
           description={
             <>
-              <span className="text-violet-50 font-medium">« {entry.title} »</span> et toute sa progression seront supprimés définitivement.
+              <span className="text-violet-50 font-medium">« {entry.title} »</span> et toute sa progression seront
+              supprimés définitivement.
             </>
           }
           confirmLabel="Supprimer"
