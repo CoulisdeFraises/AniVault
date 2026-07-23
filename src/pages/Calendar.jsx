@@ -39,6 +39,10 @@ function useVisibleDays() {
   return days;
 }
 
+function stripHtml(html) {
+  return html?.replace(/<[^>]*>/g, "") ?? "";
+}
+
 // ── Modal détail épisode ──────────────────────────────────────────────────────
 function EpisodeDetailModal({ schedule, initialFrTitle, hasFrFromTmdb, onClose }) {
   const [loading,     setLoading]     = useState(true);
@@ -48,7 +52,7 @@ function EpisodeDetailModal({ schedule, initialFrTitle, hasFrFromTmdb, onClose }
 
   const rawTitle        = schedule.media.title.english || schedule.media.title.romaji;
   const displayTitle    = frTitle    || rawTitle;
-  const displaySynopsis = frSynopsis || schedule.media.description || null;
+  const displaySynopsis = frSynopsis || stripHtml(schedule.media.description) || null;
   const isFr            = hasFrFromTmdb || hasFrenchVersion(schedule.media);
   const airingDate      = new Date(schedule.airingAt * 1000);
   const cover           = schedule.media.coverImage?.large || schedule.media.coverImage?.medium;
