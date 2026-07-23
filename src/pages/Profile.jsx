@@ -11,13 +11,13 @@ import { BurgerMenu }      from "../components/common/BurgerMenu";
 import { useAchievements } from "../hooks/useAchievements";
 import { ACHIEVEMENT_CATEGORIES } from "../utils/achievements";
 
-// ── Couleurs disponibles pour l'avatar ───────────────────────────────────────
+// -- Couleurs disponibles pour l avatar -------------------------------------------
 const AVATAR_COLORS = [
   "#7c3aed", "#f59e0b", "#0ea5e9", "#10b981",
   "#f43f5e", "#8b5cf6", "#06b6d4", "#f97316",
 ];
 
-// ── Initiales à partir d'un nom ───────────────────────────────────────────────
+// -- Initiales a partir d un nom ---------------------------------------------------
 function getInitials(name) {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/);
@@ -26,7 +26,7 @@ function getInitials(name) {
     : name.slice(0, 2).toUpperCase();
 }
 
-// ── Section card réutilisable ─────────────────────────────────────────────────
+// -- Section card reutilisable -----------------------------------------------------
 const Section = ({ title, children }) => (
   <div className="rounded-2xl bg-violet-900/30 border border-white/5 overflow-hidden animate-fadeInUp">
     <div className="px-5 py-3 border-b border-white/5">
@@ -36,7 +36,7 @@ const Section = ({ title, children }) => (
   </div>
 );
 
-// ── Message inline ────────────────────────────────────────────────────────────
+// -- Message inline ----------------------------------------------------------------
 const Msg = ({ type, text }) => {
   if (!text) return null;
   return (
@@ -50,7 +50,7 @@ const Msg = ({ type, text }) => {
   );
 };
 
-// ── Indicateur de force du mot de passe ──────────────────────────────────────
+// -- Indicateur de force du mot de passe ------------------------------------------
 function PasswordStrength({ password }) {
   if (!password) return null;
   const score = [
@@ -62,11 +62,11 @@ function PasswordStrength({ password }) {
   ].filter(Boolean).length;
 
   const levels = [
-    { label: "Très faible", color: "bg-rose-500",   text: "text-rose-400"   },
+    { label: "Tres faible", color: "bg-rose-500",   text: "text-rose-400"   },
     { label: "Faible",      color: "bg-orange-500",  text: "text-orange-400" },
     { label: "Moyen",       color: "bg-yellow-500",  text: "text-yellow-400" },
     { label: "Fort",        color: "bg-teal-500",    text: "text-teal-400"   },
-    { label: "Très fort",   color: "bg-emerald-400", text: "text-emerald-400"},
+    { label: "Tres fort",   color: "bg-emerald-400", text: "text-emerald-400"},
   ];
   const lvl = levels[Math.min(score - 1, 4)] ?? levels[0];
 
@@ -87,7 +87,7 @@ function PasswordStrength({ password }) {
   );
 }
 
-// ── Modale de confirmation changement de mot de passe ────────────────────────
+// -- Modale de confirmation changement de mot de passe ---------------------------
 function PasswordConfirmModal({ onConfirm, onCancel, loading }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
@@ -101,7 +101,7 @@ function PasswordConfirmModal({ onConfirm, onCancel, loading }) {
               Confirmer le changement
             </p>
             <p className="text-sm text-violet-400 mt-1">
-              Tu es sur le point de modifier ton mot de passe. Cette action est immédiate et irréversible.
+              Tu es sur le point de modifier ton mot de passe. Cette action est immediate et irreversible.
             </p>
           </div>
         </div>
@@ -127,7 +127,7 @@ function PasswordConfirmModal({ onConfirm, onCancel, loading }) {
   );
 }
 
-// ── Section mot de passe (auto-contenue) ──────────────────────────────────────
+// -- Section mot de passe (auto-contenue) ----------------------------------------
 function PasswordSection({ userEmail }) {
   const [open,            setOpen]            = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -156,7 +156,6 @@ function PasswordSection({ userEmail }) {
     setOpen(false);
   }
 
-  // Validation avant d'afficher la modale
   function handleRequestChange() {
     setMsg({ type: "", text: "" });
 
@@ -165,11 +164,11 @@ function PasswordSection({ userEmail }) {
       return;
     }
     if (newPassword.length < 8) {
-      setMsg({ type: "error", text: "Le nouveau mot de passe doit faire au moins 8 caractères." });
+      setMsg({ type: "error", text: "Le nouveau mot de passe doit faire au moins 8 caracteres." });
       return;
     }
     if (newPassword === currentPassword) {
-      setMsg({ type: "error", text: "Le nouveau mot de passe doit être différent de l'actuel." });
+      setMsg({ type: "error", text: "Le nouveau mot de passe doit etre different de l actuel." });
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -179,11 +178,9 @@ function PasswordSection({ userEmail }) {
     setShowConfirmModal(true);
   }
 
-  // Appel effectif après confirmation dans la modale
   async function handleConfirmChange() {
     setSaving(true);
 
-    // 1. Vérification du mot de passe actuel via re-auth
     const { error: authError } = await supabase.auth.signInWithPassword({
       email:    userEmail,
       password: currentPassword,
@@ -195,15 +192,14 @@ function PasswordSection({ userEmail }) {
       return;
     }
 
-    // 2. Mise à jour
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setSaving(false);
     setShowConfirmModal(false);
 
     if (error) {
-      setMsg({ type: "error", text: "Impossible de changer le mot de passe. Réessaie." });
+      setMsg({ type: "error", text: "Impossible de changer le mot de passe. Reessaie." });
     } else {
-      setMsg({ type: "success", text: "Mot de passe modifié avec succès !" });
+      setMsg({ type: "success", text: "Mot de passe modifie avec succes !" });
       setTimeout(() => handleClose(), 2000);
     }
   }
@@ -220,7 +216,6 @@ function PasswordSection({ userEmail }) {
 
       <Section title="Mot de passe">
         {!open ? (
-          /* ── État fermé : juste le bouton ── */
           <div className="px-5 py-4">
             <button
               onClick={() => setOpen(true)}
@@ -230,14 +225,12 @@ function PasswordSection({ userEmail }) {
               Modifier mon mot de passe
             </button>
             <p className="text-[11px] text-violet-500 mt-1">
-              Une vérification de ton mot de passe actuel sera demandée.
+              Une verification de ton mot de passe actuel sera demandee.
             </p>
           </div>
         ) : (
-          /* ── État ouvert : formulaire complet ── */
           <div className="px-5 py-5 space-y-4 animate-fadeInUp">
 
-            {/* Mot de passe actuel */}
             <div>
               <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">
                 Mot de passe actuel
@@ -262,7 +255,6 @@ function PasswordSection({ userEmail }) {
               </div>
             </div>
 
-            {/* Nouveau mot de passe */}
             <div>
               <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">
                 Nouveau mot de passe
@@ -272,7 +264,7 @@ function PasswordSection({ userEmail }) {
                   type={showNew ? "text" : "password"}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Au moins 8 caractères"
+                  placeholder="Au moins 8 caracteres"
                   autoComplete="new-password"
                   className="w-full px-4 py-2.5 pr-10 rounded-xl bg-violet-950/60 border border-white/10 text-violet-50 placeholder-violet-500 focus:outline-none focus:ring-2 focus:ring-amber-400"
                 />
@@ -290,7 +282,6 @@ function PasswordSection({ userEmail }) {
               </div>
             </div>
 
-            {/* Confirmer le nouveau */}
             <div>
               <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">
                 Confirmer le nouveau mot de passe
@@ -300,7 +291,7 @@ function PasswordSection({ userEmail }) {
                   type={showConfirm ? "text" : "password"}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Répète le nouveau mot de passe"
+                  placeholder="Repete le nouveau mot de passe"
                   autoComplete="new-password"
                   className={`w-full px-4 py-2.5 pr-10 rounded-xl bg-violet-950/60 border text-violet-50 placeholder-violet-500 focus:outline-none focus:ring-2 focus:ring-amber-400 transition-colors motion-reduce:transition-none ${
                     confirmPassword && confirmPassword !== newPassword
@@ -326,7 +317,6 @@ function PasswordSection({ userEmail }) {
 
             <Msg {...msg} />
 
-            {/* Actions */}
             <div className="flex gap-2 pt-1">
               <button
                 onClick={handleClose}
@@ -350,7 +340,7 @@ function PasswordSection({ userEmail }) {
   );
 }
 
-// ── Couleurs par tier ─────────────────────────────────────────────────────────
+// -- Couleurs par tier ---------------------------------------------------------------
 const TIER_TEXT = {
   bronze: "text-amber-700",
   silver: "text-slate-400",
@@ -362,7 +352,7 @@ const TIER_BORDER = {
   gold:   "border-amber-400/60",
 };
 
-// ── Ligne individuelle d'un succès ────────────────────────────────────────────
+// -- Ligne individuelle d un succes --------------------------------------------------
 function AchievementRow({ achievement, unlocked }) {
   return (
     <div
@@ -398,7 +388,7 @@ function AchievementRow({ achievement, unlocked }) {
   );
 }
 
-// ── Groupe accordéon d'une catégorie ─────────────────────────────────────────
+// -- Groupe accordeon d une categorie ------------------------------------------------
 function CategoryAccordion({ category, achievements, unlockedIds, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen ?? false);
 
@@ -444,7 +434,7 @@ function CategoryAccordion({ category, achievements, unlockedIds, defaultOpen })
   );
 }
 
-// ── Panneau achievements ──────────────────────────────────────────────────────
+// -- Panneau achievements -----------------------------------------------------------
 function AchievementsPanel({ allAchievements, unlockedIds }) {
   const unlockedCount = unlockedIds.size;
   const total         = allAchievements.length;
@@ -468,7 +458,6 @@ function AchievementsPanel({ allAchievements, unlockedIds }) {
 
   return (
     <div className="flex flex-col">
-      {/* Barre de progression globale */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
         <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
           <div
@@ -481,7 +470,6 @@ function AchievementsPanel({ allAchievements, unlockedIds }) {
         </span>
       </div>
 
-      {/* Accordéons scrollables */}
       <div className="overflow-y-auto max-h-[420px]">
         {ACHIEVEMENT_CATEGORIES.map((cat) => {
           const items = grouped[cat.id];
@@ -501,7 +489,7 @@ function AchievementsPanel({ allAchievements, unlockedIds }) {
   );
 }
 
-// ── Page principale ───────────────────────────────────────────────────────────
+// -- Page principale ----------------------------------------------------------------
 export function Profile() {
   const navigate = useNavigate();
   const { user, profile, logout } = useAuth();
@@ -516,8 +504,14 @@ export function Profile() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMsg,    setProfileMsg]    = useState({ type: "", text: "" });
 
+  // Suppression de compte
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting,      setDeleting]      = useState(false);
+
+  // Reset de la liste
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting,    setResetting]    = useState(false);
+  const [resetMsg,     setResetMsg]     = useState({ type: "", text: "" });
 
   const { allAchievements, unlockedIds } = useAchievements();
   const unlockedCount = unlockedIds.size;
@@ -533,7 +527,7 @@ export function Profile() {
     setProfileMsg(
       error
         ? { type: "error",   text: "Impossible de sauvegarder le profil." }
-        : { type: "success", text: "Profil mis à jour !" }
+        : { type: "success", text: "Profil mis a jour !" }
     );
     setTimeout(() => setProfileMsg({ type: "", text: "" }), 3000);
   }
@@ -547,12 +541,30 @@ export function Profile() {
     navigate("/login");
   }
 
+  // Vide toute la bibliotheque sans supprimer le compte
+  async function handleResetLibrary() {
+    setResetting(true);
+    setResetMsg({ type: "", text: "" });
+    try {
+      await setEntries([]);
+      setResetMsg({ type: "success", text: "Liste reinitalisee avec succes !" });
+      setTimeout(() => {
+        setResetMsg({ type: "", text: "" });
+        setConfirmReset(false);
+      }, 2500);
+    } catch {
+      setResetMsg({ type: "error", text: "Une erreur est survenue. Reessaie." });
+    } finally {
+      setResetting(false);
+    }
+  }
+
   return (
     <div
       className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6"
       style={{ fontFamily: "'Inter', sans-serif" }}
     >
-      {/* En-tête */}
+      {/* En-tete */}
       <div className="animate-fadeInUp">
         <button
           onClick={() => navigate(-1)}
@@ -567,8 +579,8 @@ export function Profile() {
         </h1>
       </div>
 
-      {/* Identité */}
-      <Section title="Identité">
+      {/* Identite */}
+      <Section title="Identite">
         <div className="flex flex-col items-center gap-5 px-5 pt-6 pb-4">
           <div
             className="w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold text-white shadow-lg select-none transition-colors motion-reduce:transition-none"
@@ -578,7 +590,7 @@ export function Profile() {
           </div>
           <div className="text-center">
             <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400 mb-2">
-              Couleur de l'avatar
+              Couleur de l avatar
             </p>
             <div className="flex gap-2 justify-center">
               {AVATAR_COLORS.map((c) => (
@@ -603,7 +615,7 @@ export function Profile() {
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Ton pseudo…"
+              placeholder="Ton pseudo..."
               className="w-full px-4 py-2.5 rounded-xl bg-violet-950/60 border border-white/10 text-violet-50 placeholder-violet-500 focus:outline-none focus:ring-2 focus:ring-amber-400"
             />
           </div>
@@ -627,53 +639,107 @@ export function Profile() {
         </div>
       </Section>
 
-      {/* Mot de passe (composant auto-contenu) */}
+      {/* Mot de passe */}
       <PasswordSection userEmail={user?.email || ""} />
 
-      {/* Succès */}
-      <Section title={`Succès — ${unlockedCount} / ${allAchievements.length}`}>
+      {/* Succes */}
+      <Section title={`Succes — ${unlockedCount} / ${allAchievements.length}`}>
         <AchievementsPanel allAchievements={allAchievements} unlockedIds={unlockedIds} />
       </Section>
 
       {/* Zone de danger */}
       <Section title="Zone de danger">
-        {!confirmDelete ? (
+        <div className="divide-y divide-white/5">
+
+          {/* Reset de la liste */}
           <div className="px-5 py-4">
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-2 text-sm font-medium text-rose-300 hover:text-rose-200 transition-colors motion-reduce:transition-none"
-            >
-              <Trash2 size={15} />
-              Supprimer mon compte
-            </button>
-            <p className="text-[11px] text-violet-500 mt-1">
-              Supprime définitivement ton compte et toutes tes données. Irréversible.
-            </p>
+            {!confirmReset ? (
+              <>
+                <button
+                  onClick={() => setConfirmReset(true)}
+                  className="flex items-center gap-2 text-sm font-medium text-amber-400 hover:text-amber-300 transition-colors motion-reduce:transition-none"
+                >
+                  <Trash2 size={15} />
+                  Reinitialiser ma liste
+                </button>
+                <p className="text-[11px] text-violet-500 mt-1">
+                  Efface tous les animes et series ajoutes. Ton compte et tes succes sont conserves.
+                </p>
+              </>
+            ) : (
+              <div className="space-y-3 animate-fadeIn">
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-400/10 border border-amber-400/20">
+                  <AlertTriangle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-violet-200">
+                    Toute ta bibliotheque sera{" "}
+                    <span className="text-amber-300 font-semibold">definitivement effacee</span>.
+                    Ton compte et tes succes seront conserves.
+                  </p>
+                </div>
+                <Msg {...resetMsg} />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setConfirmReset(false); setResetMsg({ type: "", text: "" }); }}
+                    disabled={resetting}
+                    className="flex-1 px-4 py-2 rounded-xl text-sm font-medium bg-white/10 text-violet-200 hover:bg-white/20 disabled:opacity-50 transition-colors motion-reduce:transition-none"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleResetLibrary}
+                    disabled={resetting}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-amber-400 text-violet-950 hover:bg-amber-300 disabled:opacity-60 transition-colors motion-reduce:transition-none"
+                  >
+                    {resetting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                    Vider la liste
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="px-5 py-4 space-y-3 animate-fadeIn">
-            <p className="text-sm text-violet-200">
-              Es-tu sûr ? Ton compte et toute ta bibliothèque seront{" "}
-              <span className="text-rose-300 font-semibold">définitivement supprimés</span>.
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setConfirmDelete(false)}
-                className="flex-1 px-4 py-2 rounded-xl text-sm font-medium bg-white/10 text-violet-200 hover:bg-white/20 transition-colors motion-reduce:transition-none"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handleDeleteAccount}
-                disabled={deleting}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-rose-500 text-white hover:bg-rose-400 disabled:opacity-60 transition-colors motion-reduce:transition-none"
-              >
-                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                Supprimer définitivement
-              </button>
-            </div>
+
+          {/* Suppression du compte */}
+          <div className="px-5 py-4">
+            {!confirmDelete ? (
+              <>
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="flex items-center gap-2 text-sm font-medium text-rose-300 hover:text-rose-200 transition-colors motion-reduce:transition-none"
+                >
+                  <Trash2 size={15} />
+                  Supprimer mon compte
+                </button>
+                <p className="text-[11px] text-violet-500 mt-1">
+                  Supprime definitivement ton compte et toutes tes donnees. Irreversible.
+                </p>
+              </>
+            ) : (
+              <div className="space-y-3 animate-fadeIn">
+                <p className="text-sm text-violet-200">
+                  Es-tu sur ? Ton compte et toute ta bibliotheque seront{" "}
+                  <span className="text-rose-300 font-semibold">definitivement supprimes</span>.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    className="flex-1 px-4 py-2 rounded-xl text-sm font-medium bg-white/10 text-violet-200 hover:bg-white/20 transition-colors motion-reduce:transition-none"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleting}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-rose-500 text-white hover:bg-rose-400 disabled:opacity-60 transition-colors motion-reduce:transition-none"
+                  >
+                    {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                    Supprimer definitivement
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+
+        </div>
       </Section>
     </div>
   );
