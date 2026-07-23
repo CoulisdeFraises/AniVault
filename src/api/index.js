@@ -20,42 +20,39 @@ export async function importResult(result) {
   const tmdb = await searchTMDBShow(result.title);
 
   if (result.source === "anilist") {
-    try {
-      const description = await (
-       tmdb?.overview ? Promise.resolve(tmdb.overview) : fetchAniListDescription(result.id)
-     );
-     // On n'importe QUE la série sélectionnée en S1.
-     // Les séquelles (Shippuden, Boruto…) sont des séries distinctes,
-     // l'utilisateur peut les ajouter séparément ou via "Saison suivante".
-     const importedSeasons = [{
-       number:          1,
-       totalEpisodes:   result.episodes ?? null,
-       watchedEpisodes: 0,
-       coverImage:      result.image || null,
-     }];
-      return {
-        title:       result.title,
-        genres:      translateGenres(result.genres).slice(0, 5),
-        coverImage:  result.image || null,
-        seasons:     importedSeasons,
-        source:      "anilist",
-       anilistIds:  [result.id],
-        tmdbId:      tmdb?.id ?? null,
-        description: description || null,
-      };
-    } catch {
-      return {
-        title:       result.title,
-        genres:      translateGenres(result.genres).slice(0, 5),
-        coverImage:  result.image || null,
-        seasons:     [{ number: 1, totalEpisodes: result.episodes ?? null, watchedEpisodes: 0 }],
-        source:      "anilist",
-        anilistIds:  [result.id],
-        tmdbId:      tmdb?.id ?? null,
-        description: null,
-      }
-    }
+  try {
+    // ✅ On récupère TOUTES les saisons + la description en parallèle
+    const [{ seasons, anilistIds }, description] = await Promise.all([
+      fetchAniListAllSeasons(result.id),
+      tmdb?.overview
+        ? Promise.resolve(tmdb.overview)
+        : fetchAniListDescription(result.id),
+    ]);
+    return {
+      title:       result.title,
+      genres:      translateGenres(result.genres).slice(0, 5),
+      coverImage:  result.image || null,
+      seasons:     seasons.length
+        ? seasons
+        : [{ number: 1, totalEpisodes: result.episodes ?? null, watchedEpisodes: 0, coverImage: result.image || null }],
+      source:      "anilist",
+      anilistIds,
+      tmdbId:      tmdb?.id ?? null,
+      description: description || null,
+    };
+  } catch {
+    return {
+      title:      result.title,
+      genres:     translateGenres(result.genres).slice(0, 5),
+      coverImage: result.image || null,
+      seasons:    [{ number: 1, totalEpisodes: result.episodes ?? null, watchedEpisodes: 0, coverImage: result.image || null }],
+      source:     "anilist",
+      anilistIds: [result.id],
+      tmdbId:     tmdb?.id ?? null,
+      description: null,
+    };
   }
+}
 
   try {
     const [seasons, description] = await Promise.all([
