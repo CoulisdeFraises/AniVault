@@ -15,6 +15,8 @@ function getInitials(name) {
     : name.slice(0, 2).toUpperCase();
 }
 
+//test pour push et deploiement
+
 export function Header({
   filter, typeFilter, onFilterChange, onTypeFilterChange, onAddClick,
   syncing = false, syncProgress = { current: 0, total: 0 }, onSyncClick,
