@@ -5,6 +5,8 @@ import { supabase } from "../lib/supabase";
 import { useAuth }    from "../context/AuthContext";
 import { useLibrary } from "../context/LibraryContext";
 import { BurgerMenu } from "../components/common/BurgerMenu";
+import { Trophy } from "lucide-react";
+import { useAchievements } from "../hooks/useAchievements";
 
 // ── Couleurs disponibles pour l'avatar ───────────────────────────────────────
 const AVATAR_COLORS = [
@@ -45,6 +47,51 @@ const Msg = ({ type, text }) => {
   );
 };
 
+// ── Carte succès ──────────────────────────────────────────────────────────────
+const TIER_RING = {
+  bronze: "ring-amber-700/50",
+  silver: "ring-slate-400/50",
+  gold:   "ring-amber-400/70",
+};
+const TIER_LABEL = {
+  bronze: "text-amber-700",
+  silver: "text-slate-400",
+  gold:   "text-amber-400",
+};
+
+function AchievementCard({ achievement, unlocked }) {
+  return (
+    <div
+      className={`
+        flex flex-col items-center gap-2 p-3 rounded-2xl border text-center
+        transition-all motion-reduce:transition-none
+        ${unlocked
+          ? `bg-violet-900/50 border-white/10 ring-1 ${TIER_RING[achievement.tier]}`
+          : "bg-violet-950/40 border-white/5 opacity-40 grayscale"
+        }
+      `}
+    >
+      <span className="text-2xl select-none">{achievement.icon}</span>
+      <div>
+        <p
+          className="text-xs font-bold text-violet-50 leading-tight"
+          style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+        >
+          {achievement.name}
+        </p>
+        <p className="text-[10px] text-violet-400 mt-0.5 leading-snug">
+          {achievement.description}
+        </p>
+      </div>
+      {unlocked && (
+        <span className={`font-mono text-[9px] uppercase tracking-widest ${TIER_LABEL[achievement.tier]}`}>
+          {achievement.tier}
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ── Page principale ───────────────────────────────────────────────────────────
 export function Profile() {
   const navigate = useNavigate();
@@ -70,6 +117,10 @@ export function Profile() {
   // ── État suppression ──
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting,      setDeleting]      = useState(false);
+
+  // ── Succès ──
+  const { allAchievements, unlockedIds } = useAchievements();
+  const unlockedCount = unlockedIds.size;
 
   // ── Sauvegarder pseudo + couleur ─────────────────────────────────────────
   async function handleSaveProfile() {
@@ -267,6 +318,35 @@ export function Profile() {
             }
             Changer le mot de passe
           </button>
+        </div>
+      </Section>
+
+      {/* ── Succès ── */}
+      <Section title={`Succès — ${unlockedCount} / ${allAchievements.length}`}>
+        <div className="p-4">
+          {/* Barre de progression globale */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex-1 h-2 rounded-full bg-white/5 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-amber-400 transition-all duration-700 motion-reduce:transition-none"
+                style={{ width: `${Math.round((unlockedCount / allAchievements.length) * 100)}%` }}
+              />
+            </div>
+            <span className="font-mono text-[11px] text-violet-400 flex-shrink-0">
+              {Math.round((unlockedCount / allAchievements.length) * 100)} %
+            </span>
+          </div>
+
+          {/* Grille des succès */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            {allAchievements.map((a) => (
+              <AchievementCard
+                key={a.id}
+                achievement={a}
+                unlocked={unlockedIds.has(a.id)}
+              />
+            ))}
+          </div>
         </div>
       </Section>
 

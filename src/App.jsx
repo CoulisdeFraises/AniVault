@@ -10,6 +10,8 @@ import { Profile }         from "./pages/Profile";
 import { Calendar }        from "./pages/Calendar";
 import { History }         from "./pages/History";
 import { Recommendations } from "./pages/Recommendations";
+import { AchievementToast } from "./components/common/AchievementToast";
+import { useAchievements }  from "./hooks/useAchievements";
 
 const AppLoader = () => (
   <div className="min-h-screen bg-violet-950 flex items-center justify-center">
@@ -22,6 +24,14 @@ const ProtectedRoute = ({ children }) => {
   if (loading) return <AppLoader />;
   return user ? children : <Navigate to="/login" replace />;
 };
+
+// ── Wrapper séparé pour accéder à useAchievements (nécessite LibraryProvider) ─
+function AchievementLayer() {
+  const { currentToast, dismissToast } = useAchievements();
+  return (
+    <AchievementToast achievement={currentToast} onDone={dismissToast} />
+  );
+}
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
@@ -47,6 +57,9 @@ const AppRoutes = () => {
           <Route path="/details/:id" element={<ProtectedRoute><Details /></ProtectedRoute>} />
         </Routes>
       )}
+
+      {/* Toast de succès — visible sur toutes les pages ✅ */}
+      <AchievementLayer />
     </div>
   );
 };
