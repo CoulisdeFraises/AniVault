@@ -21,7 +21,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
   });
   const [showDeleteWarning, setShowDeleteWarning] = useState(false);
   const [nextAiring,        setNextAiring]        = useState(null);
-  const [celebrating,       setCelebrating]       = useState(false);
+  const cardRef = useRef(null);
 
   const s = STATUS[entry.status];
 
@@ -44,6 +44,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
   const seasonDone = current.totalEpisodes != null && current.watchedEpisodes >= current.totalEpisodes;
   const hasNext    = activeSeason < seasons.length - 1;
 
+  // ── Animation saison complète ──
   const prevRef = useRef({ watched: current.watchedEpisodes, seasonIdx: activeSeason });
   useEffect(() => {
     const prev = prevRef.current;
@@ -52,10 +53,12 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
       current.totalEpisodes != null &&
       current.watchedEpisodes >= current.totalEpisodes &&
       prev.watched < current.totalEpisodes;
-    if (justCompleted) {
-      setCelebrating(false);
-      requestAnimationFrame(() => setCelebrating(true));
-      const t = setTimeout(() => setCelebrating(false), 900);
+    if (justCompleted && cardRef.current) {
+      const el = cardRef.current;
+      el.classList.remove("card-season-complete");
+      void el.offsetWidth; // Force reflow
+      el.classList.add("card-season-complete");
+      const t = setTimeout(() => el.classList.remove("card-season-complete"), 900);
       prevRef.current = { watched: current.watchedEpisodes, seasonIdx: activeSeason };
       return () => clearTimeout(t);
     }
@@ -65,6 +68,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
   return (
     <>
       <div
+        ref={cardRef}
         onClick={() => navigate(`/details/${entry.id}`, { state: { backgroundLocation: location } })}
         className={`
           relative card-noise rounded-2xl bg-violet-900/30
@@ -74,7 +78,6 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           hover:-translate-y-0.5 hover:shadow-lg hover:shadow-violet-950/60 hover:bg-violet-800/40
           cursor-pointer animate-fadeInUp
           motion-reduce:animate-none motion-reduce:transition-none
-          ${celebrating ? "card-season-complete" : ""}
         `}
         style={{
           animationDelay:    `${Math.min(index * 45, 350)}ms`,
