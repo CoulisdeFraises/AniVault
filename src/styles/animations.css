@@ -66,6 +66,14 @@
   to   { opacity: 1; transform: translateX(0);     }
 }
 
+/* ── Pop élastique (bouton clear recherche, badges) ────────── */
+@keyframes popIn {
+  0%   { transform: scale(0);    opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  80%  { transform: scale(0.92); }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
 /* ── Classes utilitaires ───────────────────────────────────── */
 .animate-fadeInUp    { animation: fadeInUp     0.35s ease-out both; }
 .animate-fadeIn      { animation: fadeIn       0.20s ease-out both; }
@@ -73,3 +81,4 @@
 .animate-glowPulse   { animation: glowPulse    2s    ease-in-out infinite; }
 .animate-slideFromRight { animation: slideFromRight 0.22s ease-out both; }
 .animate-slideFromLeft  { animation: slideFromLeft  0.22s ease-out both; }
+.animate-popIn          { animation: popIn          0.30s cubic-bezier(0.34, 1.56, 0.64, 1) both; }

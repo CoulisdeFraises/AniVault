@@ -1,11 +1,11 @@
-import { useMemo } from "react";
-import { Plus, Film, Tv, RefreshCw, X } from "lucide-react";
+import { useMemo, useRef, useEffect, useState } from "react";
+import { Plus, Film, Tv, RefreshCw, X, Search } from "lucide-react";
 import { STATUS, STATUS_ORDER } from "../../utils/status";
 import { CATEGORY_LABELS, CATEGORY_ICONS } from "../../utils/entry";
-import { useLibrary } from "../../context/LibraryContext";
-import { useAuth } from "../../context/AuthContext";
-import { useCountUp } from "../../hooks/useCountUp";
-import { BurgerMenu } from "../common/BurgerMenu";
+import { useLibrary }  from "../../context/LibraryContext";
+import { useAuth }     from "../../context/AuthContext";
+import { useCountUp }  from "../../hooks/useCountUp";
+import { BurgerMenu }  from "../common/BurgerMenu";
 import { calcWatchTime } from "../../utils/watchTime";
 
 // ── Chip multi-sélection ──────────────────────────────────────────────────────
@@ -18,7 +18,7 @@ function FilterChip({ active, onClick, children, colorClass }) {
         border transition-all active:scale-95 motion-reduce:transition-none whitespace-nowrap
         ${active
           ? colorClass || "bg-violet-600 border-violet-500 text-white"
-          : "bg-white/5 border-white/10 text-violet-300 hover:bg-white/10 hover:text-violet-100"
+          : "bg-white/5 border-white/10 text-violet-300 hover:bg-white/10 hover:text-violet-100 hover:scale-[1.03]"
         }
       `}
     >
@@ -44,17 +44,37 @@ export function Header({
   typeFilter,
   selectedStatuses  = [],
   selectedFormats   = [],
+  searchQuery       = "",
   onTypeFilterChange,
   onToggleStatus,
   onToggleFormat,
   onClearFilters,
+  onSearchChange,
   onAddClick,
-  syncing = false,
-  syncProgress = { current: 0, total: 0 },
+  syncing       = false,
+  syncProgress  = { current: 0, total: 0 },
   onSyncClick,
 }) {
   const { entries, loading } = useLibrary();
   const { profile } = useAuth();
+  const searchRef = useRef(null);
+  const [searchFocused, setSearchFocused] = useState(false);
+
+  // Raccourci clavier : "/" pour focus la recherche
+  useEffect(() => {
+    function handleKey(e) {
+      if (
+        e.key === "/" &&
+        document.activeElement?.tagName !== "INPUT" &&
+        document.activeElement?.tagName !== "TEXTAREA"
+      ) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   const byType = useMemo(
     () => typeFilter === "all" ? entries : entries.filter((e) => e.type === typeFilter),
@@ -75,8 +95,8 @@ export function Header({
     () => entries.reduce((sum, e) => sum + e.seasons.reduce((s2, s) => s2 + (s.totalEpisodes || 0), 0), 0),
     [entries]
   );
-  const globalPct = totalKnown > 0 ? Math.min(100, (totalWatched / totalKnown) * 100) : 0;
-  const watchTime = useMemo(() => calcWatchTime(entries), [entries]);
+  const globalPct  = totalKnown > 0 ? Math.min(100, (totalWatched / totalKnown) * 100) : 0;
+  const watchTime  = useMemo(() => calcWatchTime(entries), [entries]);
 
   const animatedTotal   = useCountUp(entries.length);
   const animatedEnCours = useCountUp(byType.filter((e) => e.status === "en-cours").length);
@@ -84,11 +104,12 @@ export function Header({
 
   const hasActiveFilters = selectedStatuses.length > 0 || selectedFormats.length > 0;
   const showFormatFilter = typeFilter === "anime";
+  const isSearchActive   = searchQuery.trim().length > 0;
 
   return (
     <>
-      {/* ── Barre principale ── */}
-      <div className="flex items-center justify-between mb-6">
+      {/* ── Barre principale ─────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between mb-6 animate-fadeInUp">
         <div>
           <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">
             Mon Journal de visionnage
@@ -125,9 +146,9 @@ export function Header({
         </div>
       </div>
 
-      {/* ── Stats ── */}
+      {/* ── Stats ─────────────────────────────────────────────────────────── */}
       {!loading && entries.length > 0 && (
-        <div className="rounded-2xl bg-violet-900/30 border border-white/5 mb-6 overflow-hidden">
+        <div className="rounded-2xl bg-violet-900/30 border border-white/5 mb-6 overflow-hidden animate-fadeInUp" style={{ animationDelay: "60ms" }}>
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
             <div className="p-4">
               <p className="font-mono text-2xl font-medium">{animatedTotal}</p>
@@ -172,8 +193,55 @@ export function Header({
         </div>
       )}
 
-      {/* ── Filtre type : Tout / Animes / Séries ── */}
-      <div className="flex justify-center mb-5">
+      {/* ── Barre de recherche ────────────────────────────────────────────── */}
+      <div className="mb-5 animate-fadeInUp" style={{ animationDelay: "120ms" }}>
+        <div
+          className={`
+            flex items-center gap-2 px-4 py-2.5 rounded-2xl border
+            transition-all duration-200 motion-reduce:transition-none
+            ${searchFocused
+              ? "bg-violet-900/60 border-violet-500/60 shadow-[0_0_0_3px_rgba(139,92,246,0.15)]"
+              : "bg-violet-900/30 border-white/5 hover:border-white/10"
+            }
+          `}
+        >
+          <Search
+            size={15}
+            className={`flex-shrink-0 transition-colors duration-200 motion-reduce:transition-none ${
+              searchFocused || isSearchActive ? "text-violet-300" : "text-violet-500"
+            }`}
+          />
+          <input
+            ref={searchRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            placeholder="Rechercher par titre, genre, note… (ou appuie sur /)"
+            className="flex-1 bg-transparent text-sm text-violet-50 placeholder-violet-500 focus:outline-none"
+          />
+          {/* Bouton clear animé */}
+          {isSearchActive && (
+            <button
+              onClick={() => { onSearchChange(""); searchRef.current?.focus(); }}
+              aria-label="Effacer la recherche"
+              className="flex-shrink-0 p-0.5 rounded-full text-violet-400 hover:text-violet-200 hover:bg-white/10 active:scale-90 transition-all motion-reduce:transition-none animate-popIn"
+            >
+              <X size={14} />
+            </button>
+          )}
+          {/* Hint raccourci clavier (masqué si actif) */}
+          {!isSearchActive && !searchFocused && (
+            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded border border-white/10 font-mono text-[10px] text-violet-500 select-none">
+              /
+            </kbd>
+          )}
+        </div>
+      </div>
+
+      {/* ── Filtre type : Tout / Animes / Séries ─────────────────────────── */}
+      <div className="flex justify-center mb-5 animate-fadeInUp" style={{ animationDelay: "160ms" }}>
         <div className="inline-flex rounded-full bg-white/5 border border-white/10 p-0.5">
           {[
             { key: "all",   label: "Tout",   icon: null },
@@ -183,8 +251,10 @@ export function Header({
             <button
               key={key}
               onClick={() => onTypeFilterChange(key)}
-              className={`flex items-center gap-1.5 px-6 py-1.5 rounded-full text-xs font-medium transition-colors active:scale-95 motion-reduce:transition-none ${
-                typeFilter === key ? "bg-amber-400 text-violet-950 font-semibold" : "text-violet-300 hover:text-violet-100"
+              className={`flex items-center gap-1.5 px-6 py-1.5 rounded-full text-xs font-medium transition-all duration-200 active:scale-95 motion-reduce:transition-none ${
+                typeFilter === key
+                  ? "bg-amber-400 text-violet-950 font-semibold shadow-sm"
+                  : "text-violet-300 hover:text-violet-100"
               }`}
             >
               {icon}{label}
@@ -193,10 +263,11 @@ export function Header({
         </div>
       </div>
 
-      {/* ── Filtres multi-sélection ── */}
-      <div className="rounded-2xl bg-violet-900/20 border border-white/5 p-4 mb-5 space-y-3">
-
-        {/* En-tête filtres + bouton reset */}
+      {/* ── Filtres multi-sélection ───────────────────────────────────────── */}
+      <div
+        className="rounded-2xl bg-violet-900/20 border border-white/5 p-4 mb-5 space-y-3 animate-fadeInUp"
+        style={{ animationDelay: "200ms" }}
+      >
         <div className="flex items-center justify-between">
           <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500">Filtres</p>
           {hasActiveFilters && (
@@ -227,7 +298,7 @@ export function Header({
           </div>
         </div>
 
-        {/* Format (anime uniquement) */}
+        {/* Format anime */}
         {showFormatFilter && (
           <div>
             <p className="font-mono text-[10px] uppercase tracking-wider text-violet-500 mb-2">Format</p>
