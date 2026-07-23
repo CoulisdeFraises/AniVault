@@ -56,11 +56,10 @@ export function Header({
   onSyncClick,
 }) {
   const { entries, loading } = useLibrary();
-  const { profile } = useAuth();
-  const searchRef = useRef(null);
+  const searchRef    = useRef(null);
   const [searchFocused, setSearchFocused] = useState(false);
 
-  // Raccourci clavier : "/" pour focus la recherche
+  // Raccourci clavier "/" → focus barre de recherche
   useEffect(() => {
     function handleKey(e) {
       if (
@@ -107,7 +106,10 @@ export function Header({
   const isSearchActive   = searchQuery.trim().length > 0;
 
   return (
-    <>
+    // "isolate" crée un contexte d'empilement propre pour tout le Header,
+    // sans interférer avec le z-50 du BurgerMenu qui est dans ce même flux.
+    <div className="isolate">
+
       {/* ── Barre principale ─────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-6 animate-fadeInUp">
         <div>
@@ -122,6 +124,7 @@ export function Header({
           </div>
         </div>
 
+        {/* Les boutons de droite sont dans un contexte z élevé grâce au BurgerMenu lui-même */}
         <div className="flex items-center gap-2">
           <button
             onClick={onSyncClick}
@@ -148,7 +151,7 @@ export function Header({
 
       {/* ── Stats ─────────────────────────────────────────────────────────── */}
       {!loading && entries.length > 0 && (
-        <div className="rounded-2xl bg-violet-900/30 border border-white/5 mb-6 overflow-hidden animate-fadeInUp" style={{ animationDelay: "60ms" }}>
+        <div className="rounded-2xl bg-violet-900/30 border border-white/5 mb-6 overflow-hidden animate-fadeInUp">
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
             <div className="p-4">
               <p className="font-mono text-2xl font-medium">{animatedTotal}</p>
@@ -194,7 +197,7 @@ export function Header({
       )}
 
       {/* ── Barre de recherche ────────────────────────────────────────────── */}
-      <div className="mb-5 animate-fadeInUp" style={{ animationDelay: "120ms" }}>
+      <div className="mb-5 animate-fadeInUp">
         <div
           className={`
             flex items-center gap-2 px-4 py-2.5 rounded-2xl border
@@ -221,7 +224,6 @@ export function Header({
             placeholder="Rechercher par titre, genre, note… (ou appuie sur /)"
             className="flex-1 bg-transparent text-sm text-violet-50 placeholder-violet-500 focus:outline-none"
           />
-          {/* Bouton clear animé */}
           {isSearchActive && (
             <button
               onClick={() => { onSearchChange(""); searchRef.current?.focus(); }}
@@ -231,7 +233,6 @@ export function Header({
               <X size={14} />
             </button>
           )}
-          {/* Hint raccourci clavier (masqué si actif) */}
           {!isSearchActive && !searchFocused && (
             <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded border border-white/10 font-mono text-[10px] text-violet-500 select-none">
               /
@@ -241,7 +242,7 @@ export function Header({
       </div>
 
       {/* ── Filtre type : Tout / Animes / Séries ─────────────────────────── */}
-      <div className="flex justify-center mb-5 animate-fadeInUp" style={{ animationDelay: "160ms" }}>
+      <div className="flex justify-center mb-5 animate-fadeInUp">
         <div className="inline-flex rounded-full bg-white/5 border border-white/10 p-0.5">
           {[
             { key: "all",   label: "Tout",   icon: null },
@@ -264,10 +265,7 @@ export function Header({
       </div>
 
       {/* ── Filtres multi-sélection ───────────────────────────────────────── */}
-      <div
-        className="rounded-2xl bg-violet-900/20 border border-white/5 p-4 mb-5 space-y-3 animate-fadeInUp"
-        style={{ animationDelay: "200ms" }}
-      >
+      <div className="rounded-2xl bg-violet-900/20 border border-white/5 p-4 mb-5 space-y-3 animate-fadeInUp">
         <div className="flex items-center justify-between">
           <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500">Filtres</p>
           {hasActiveFilters && (
@@ -280,7 +278,6 @@ export function Header({
           )}
         </div>
 
-        {/* Statut */}
         <div>
           <p className="font-mono text-[10px] uppercase tracking-wider text-violet-500 mb-2">Statut</p>
           <div className="flex flex-wrap gap-1.5">
@@ -298,7 +295,6 @@ export function Header({
           </div>
         </div>
 
-        {/* Format anime */}
         {showFormatFilter && (
           <div>
             <p className="font-mono text-[10px] uppercase tracking-wider text-violet-500 mb-2">Format</p>
@@ -317,6 +313,6 @@ export function Header({
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }
