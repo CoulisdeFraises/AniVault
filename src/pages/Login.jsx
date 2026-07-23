@@ -61,16 +61,23 @@ export function Login() {
       <div className="w-full max-w-sm">
 
         {/* ── Logo ── */}
-        <div className="text-center mb-8">
-          <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">
-            Mon Journal de visionnage
-          </p>
-          <h1
-            className="text-3xl font-bold tracking-tight"
-            style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-          >
-            ANIVAULT
-          </h1>
+        <div className="flex flex-col items-center mb-8 gap-3">
+          <img
+            src="/logo.png"
+            alt="AniVault"
+            className="h-16 w-16 rounded-2xl shadow-lg shadow-violet-900/50"
+          />
+          <div className="text-center">
+            <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">
+              Mon Journal de visionnage
+            </p>
+            <h1
+              className="text-3xl font-bold tracking-tight"
+              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+            >
+              ANIVAULT
+            </h1>
+          </div>
         </div>
 
         {/* ── Onglets ── */}

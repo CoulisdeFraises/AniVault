@@ -25,6 +25,19 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
 
   const s = STATUS[entry.status];
 
+  // ── Animation d'entrée (une seule fois au montage, sans classe permanente) ──
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const delay = Math.min(index * 45, 350);
+    el.style.animation = `fadeInUp 0.35s ease-out ${delay}ms both`;
+    const t = setTimeout(() => {
+      if (cardRef.current) cardRef.current.style.removeProperty("animation");
+    }, delay + 380);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Next airing ──
   useEffect(() => {
     if (entry.status === "termine" || entry.status === "abandonne") { setNextAiring(null); return; }
     if (!((entry.source === "anilist" && entry.anilistIds?.length) || (entry.source === "tvmaze" && entry.tvmazeId))) return;
@@ -53,12 +66,16 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
       current.totalEpisodes != null &&
       current.watchedEpisodes >= current.totalEpisodes &&
       prev.watched < current.totalEpisodes;
+
     if (justCompleted && cardRef.current) {
       const el = cardRef.current;
-      el.classList.remove("card-season-complete");
+      // Inline style = priorité maximale, aucun conflit CSS possible
+      el.style.animation = "none";
       void el.offsetWidth; // Force reflow
-      el.classList.add("card-season-complete");
-      const t = setTimeout(() => el.classList.remove("card-season-complete"), 900);
+      el.style.animation = "seasonComplete 0.85s cubic-bezier(0.22, 0.61, 0.36, 1) both";
+      const t = setTimeout(() => {
+        if (cardRef.current) cardRef.current.style.removeProperty("animation");
+      }, 950);
       prevRef.current = { watched: current.watchedEpisodes, seasonIdx: activeSeason };
       return () => clearTimeout(t);
     }
@@ -76,13 +93,9 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           p-3 sm:p-4 flex gap-2 sm:gap-3
           transition-all duration-200 ease-out
           hover:-translate-y-0.5 hover:shadow-lg hover:shadow-violet-950/60 hover:bg-violet-800/40
-          cursor-pointer animate-fadeInUp
-          motion-reduce:animate-none motion-reduce:transition-none
+          cursor-pointer
+          motion-reduce:transition-none
         `}
-        style={{
-          animationDelay:    `${Math.min(index * 45, 350)}ms`,
-          animationFillMode: "both",
-        }}
       >
         {/* ── Bordure gauche ── */}
         <div
@@ -90,7 +103,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           style={{ background: `linear-gradient(to bottom, ${s.color}, ${s.color}70, ${s.color}10)` }}
         />
 
-        {/* ── Image ratio 2:3, s'étire avec la carte ── */}
+        {/* ── Image ratio 2:3 ── */}
         {(() => {
           const displayImage  = current?.coverImage || (activeSeason === 0 ? entry.coverImage : null);
           const fallbackImage = entry.seasons[0]?.coverImage || entry.coverImage;
@@ -135,7 +148,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
                 {entry.title}
               </h3>
 
-              {/* Ligne 2 : countdown prochain épisode (séparé pour ne pas écraser le titre) */}
+              {/* Countdown prochain épisode */}
               {nextAiring && (() => {
                 const countdown = formatCountdown(nextAiring.airingAt);
                 if (!countdown) return null;
@@ -143,14 +156,13 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
                   <span className="inline-flex items-center gap-1 text-[10px] font-mono text-sky-300 mt-0.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse flex-shrink-0" />
                     {nextAiring.season ? `S${nextAiring.season} · ` : ""}Ép.{nextAiring.episode}
-                    {/* Countdown masqué sur très petit écran, visible à partir de sm */}
                     <span className="hidden sm:inline">{countdown}</span>
                   </span>
                 );
               })()}
             </div>
 
-            {/* Boutons edit / delete — zone de tap agrandie */}
+            {/* Boutons edit / delete */}
             <div className="flex gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={() => onEdit(entry)}
@@ -169,7 +181,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
             </div>
           </div>
 
-          {/* ── Genres — ligne unique tronquée ── */}
+          {/* ── Genres ── */}
           {entry.genres.length > 0 && (
             <div className="flex gap-1 overflow-hidden">
               {entry.genres.slice(0, 3).map((g) => (
@@ -220,7 +232,6 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
                 {current.totalEpisodes != null ? `/${String(current.totalEpisodes).padStart(2, "0")}` : ""}
               </span>
 
-              {/* Boutons épisodes — tap targets agrandis */}
               <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={() => decrementEpisode(entry.id, activeSeason)}
@@ -282,7 +293,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           )}
         </div>
 
-        {/* ── Note (masquée sur très petit écran, visible dès sm) ── */}
+        {/* ── Note ── */}
         <div className="hidden xs:flex flex-col items-center justify-center gap-0.5 pl-2 sm:pl-3 border-l border-white/5 min-w-[40px] sm:min-w-[48px] relative z-10 flex-shrink-0">
           <p className="font-mono text-[9px] uppercase tracking-widest text-violet-400 hidden sm:block">Note</p>
           <div className="flex items-center gap-0.5">
