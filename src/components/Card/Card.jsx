@@ -52,13 +52,13 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
     return () => { cancelled = true; clearTimeout(t); };
   }, [entry.id, entry.source, entry.status, entry.anilistIds?.length, entry.tvmazeId]);
 
-  const current   = seasons[Math.min(activeSeason, seasons.length - 1)];
+  const current    = seasons[Math.min(activeSeason, seasons.length - 1)];
   const { watched: totalWatched, total: totalAll } = seasonTotals(seasons);
   const canFinish  = entry.status === "en-cours" && totalAll != null && totalAll > 0 && totalWatched >= totalAll;
   const seasonDone = current.totalEpisodes != null && current.watchedEpisodes >= current.totalEpisodes;
   const hasNext    = activeSeason < seasons.length - 1;
 
-  // Badge catégorie (affiché uniquement pour OAV et Film, pas pour TV qui est le défaut)
+  // Badge catégorie uniquement pour OAV et Film (TV = défaut, pas de badge)
   const showCategoryBadge = entry.type === "anime" && entry.category && entry.category !== "tv";
 
   // ── Animation saison complète ────────────────────────────────────────────
@@ -137,7 +137,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
                   {entry.type === "anime" ? "Anime" : "Série"}
                 </span>
 
-                {/* Badge OAV / Film (TV masqué car c'est le défaut) */}
+                {/* Badge OAV / Film */}
                 {showCategoryBadge && (
                   <span className="inline-flex items-center gap-0.5 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-violet-700/40 text-violet-300 whitespace-nowrap border border-violet-600/30">
                     {CATEGORY_ICONS[entry.category]} {CATEGORY_LABELS[entry.category]}
@@ -305,7 +305,8 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
         </div>
 
         {/* ── Note ── */}
-        <div className="hidden xs:flex flex-col items-center justify-center gap-0.5 pl-2 sm:pl-3 border-l border-white/5 min-w-[40px] sm:min-w-[48px] relative z-10 flex-shrink-0">
+        {/* FIX : "hidden xs:flex" remplacé par "flex" — breakpoint xs inexistant dans Tailwind */}
+        <div className="flex flex-col items-center justify-center gap-0.5 pl-2 sm:pl-3 border-l border-white/5 min-w-[40px] sm:min-w-[48px] relative z-10 flex-shrink-0">
           <p className="font-mono text-[9px] uppercase tracking-widest text-violet-400 hidden sm:block">Note</p>
           <div className="flex items-center gap-0.5">
             <span className="text-lg sm:text-xl font-bold text-violet-50" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>

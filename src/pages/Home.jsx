@@ -12,11 +12,11 @@ export function Home() {
   const { entries, loading, saveError, showConfetti } = useLibrary();
   const { syncAll, syncing, progress } = useSync();
 
-  const [filter,         setFilter]         = useState("all");
-  const [typeFilter,     setTypeFilter]     = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [showForm,       setShowForm]       = useState(false);
-  const [editingEntry,   setEditingEntry]   = useState(null);
+  const [typeFilter,        setTypeFilter]        = useState("all");
+  const [selectedStatuses,  setSelectedStatuses]  = useState([]); // [] = tous
+  const [selectedFormats,   setSelectedFormats]   = useState([]); // [] = tous
+  const [showForm,          setShowForm]          = useState(false);
+  const [editingEntry,      setEditingEntry]      = useState(null);
 
   useEffect(() => {
     if (!loading && entries.length > 0) {
@@ -25,10 +25,22 @@ export function Home() {
     }
   }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Remettre la catégorie à "all" quand on change de type
+  // Réinitialise les formats quand on quitte la vue anime
   function handleTypeFilterChange(type) {
     setTypeFilter(type);
-    setCategoryFilter("all");
+    if (type !== "anime") setSelectedFormats([]);
+  }
+
+  function toggleStatus(status) {
+    setSelectedStatuses((prev) =>
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+    );
+  }
+
+  function toggleFormat(format) {
+    setSelectedFormats((prev) =>
+      prev.includes(format) ? prev.filter((f) => f !== format) : [...prev, format]
+    );
   }
 
   const byType = useMemo(
@@ -36,19 +48,19 @@ export function Home() {
     [entries, typeFilter]
   );
 
-  // Filtre catégorie (uniquement sur les animes)
-  const byCategory = useMemo(() => {
-    if (categoryFilter === "all") return byType;
+  const filtered = useMemo(() => {
     return byType.filter((e) => {
-      if (e.type !== "anime") return true; // les séries ne sont jamais filtrées par catégorie
-      return (e.category ?? "tv") === categoryFilter;
+      // Filtre statut : si aucun sélectionné → tout passe
+      const statusOk =
+        selectedStatuses.length === 0 || selectedStatuses.includes(e.status);
+      // Filtre format : uniquement sur les animes, si aucun sélectionné → tout passe
+      const formatOk =
+        selectedFormats.length === 0 ||
+        e.type !== "anime" ||
+        selectedFormats.includes(e.category ?? "tv");
+      return statusOk && formatOk;
     });
-  }, [byType, categoryFilter]);
-
-  const filtered = useMemo(
-    () => filter === "all" ? byCategory : byCategory.filter((e) => e.status === filter),
-    [byCategory, filter]
-  );
+  }, [byType, selectedStatuses, selectedFormats]);
 
   const filteredAnime = useMemo(() => filtered.filter((e) => e.type === "anime"), [filtered]);
   const filteredSerie = useMemo(() => filtered.filter((e) => e.type === "serie"), [filtered]);
@@ -56,7 +68,7 @@ export function Home() {
   function openNewForm()       { setEditingEntry(null);  setShowForm(true); }
   function openEditForm(entry) { setEditingEntry(entry); setShowForm(true); }
 
-  const gridKey = `${filter}-${typeFilter}-${categoryFilter}`;
+  const gridKey = `${typeFilter}-${selectedStatuses.join(",")}-${selectedFormats.join(",")}`;
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50 flex flex-col" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -64,12 +76,13 @@ export function Home() {
 
       <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-8">
         <Header
-          filter={filter}
           typeFilter={typeFilter}
-          categoryFilter={categoryFilter}
-          onFilterChange={setFilter}
+          selectedStatuses={selectedStatuses}
+          selectedFormats={selectedFormats}
           onTypeFilterChange={handleTypeFilterChange}
-          onCategoryFilterChange={setCategoryFilter}
+          onToggleStatus={toggleStatus}
+          onToggleFormat={toggleFormat}
+          onClearFilters={() => { setSelectedStatuses([]); setSelectedFormats([]); }}
           onAddClick={openNewForm}
           syncing={syncing}
           syncProgress={progress}

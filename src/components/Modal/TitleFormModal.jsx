@@ -6,7 +6,7 @@ import { Chip } from "../common/Chip";
 import { RatingMeter } from "../common/Rating";
 import { STATUS, STATUS_ORDER, seasonTotals } from "../../utils/status";
 import { GENRE_SUGGESTIONS } from "../../utils/genres";
-import { emptyForm, CATEGORY_LABELS, CATEGORY_ICONS } from "../../utils/entry";
+import { emptyForm } from "../../utils/entry";
 import { useLibrary } from "../../context/LibraryContext";
 import { importResult } from "../../api";
 
@@ -26,11 +26,11 @@ export function TitleFormModal({ editingEntry, onClose }) {
   const [importing,        setImporting]        = useState(false);
   const [importedFrom,     setImportedFrom]     = useState(null);
   const [duplicateWarning, setDuplicateWarning] = useState(null);
-  // Par défaut false → chaque anime importé séparément (Naruto ≠ Shippuden)
+  // false par défaut → Naruto et Shippuden séparés ; cocher pour AoT, Demon Slayer…
   const [importAllSeasons, setImportAllSeasons] = useState(false);
 
   function handleTypeChange(type) {
-    setForm((f) => ({ ...f, type, category: type === "anime" ? (f.category || "tv") : "tv" }));
+    setForm((f) => ({ ...f, type, category: "tv" }));
     setSearchQuery("");
     setImportedFrom(null);
   }
@@ -71,8 +71,7 @@ export function TitleFormModal({ editingEntry, onClose }) {
     commit();
   }
 
-  const isAnime   = form.type === "anime";
-  const isTVAnime = isAnime && (form.category ?? "tv") === "tv";
+  const isTVAnime = form.type === "anime" && (form.category ?? "tv") === "tv";
 
   return (
     <>
@@ -100,24 +99,8 @@ export function TitleFormModal({ editingEntry, onClose }) {
             )}
           </div>
 
-          {/* ── Catégorie (anime uniquement) ── */}
-          {isAnime && (
-            <div className="flex gap-2 mb-2">
-              {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-                <Chip
-                  key={key}
-                  active={form.category === key}
-                  onClick={() => setForm((f) => ({ ...f, category: key }))}
-                  colorClass="bg-white/20 border-white/30"
-                >
-                  {CATEGORY_ICONS[key]} {label}
-                </Chip>
-              ))}
-            </div>
-          )}
-
           {/* ── Toggle "importer toutes les saisons" (TV, ajout uniquement) ── */}
-          {isAnime && isTVAnime && !editingId && (
+          {isTVAnime && !editingId && (
             <label className="flex items-start gap-2 text-xs text-violet-300 cursor-pointer mb-2 select-none">
               <input
                 type="checkbox"
@@ -177,7 +160,7 @@ export function TitleFormModal({ editingEntry, onClose }) {
 
           {!importedFrom && !editingId && (
             <p className="text-[11px] text-violet-500 mt-2">
-              Les saisons se gèrent depuis la fiche une fois le titre ajouté (bouton "+ Saison").
+              Les saisons se gèrent depuis la fiche une fois le titre ajouté (bouton + Saison).
             </p>
           )}
 
@@ -206,26 +189,24 @@ export function TitleFormModal({ editingEntry, onClose }) {
             </div>
           </div>
 
-          {/* ── Note : uniquement en mode édition ── */}
+          {/* ── Note + Avis : édition uniquement ── */}
           {editingId && (
-            <div className="mt-3">
-              <label className="block text-xs uppercase tracking-wide text-violet-400 mb-1">Note</label>
-              <RatingMeter value={form.rating} onChange={(v) => setForm((f) => ({ ...f, rating: v }))} size="lg" />
-            </div>
-          )}
-
-          {/* ── Avis / notes : uniquement en mode édition ── */}
-          {editingId && (
-            <div className="mt-3">
-              <label className="block text-xs uppercase tracking-wide text-violet-400 mb-1">Avis / notes</label>
-              <textarea
-                value={form.notes}
-                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                rows={3}
-                placeholder="Ce que tu en as pensé…"
-                className="w-full px-3 py-2 rounded-lg bg-violet-950/60 border border-white/10 text-violet-50 placeholder-violet-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-              />
-            </div>
+            <>
+              <div className="mt-3">
+                <label className="block text-xs uppercase tracking-wide text-violet-400 mb-1">Note</label>
+                <RatingMeter value={form.rating} onChange={(v) => setForm((f) => ({ ...f, rating: v }))} size="lg" />
+              </div>
+              <div className="mt-3">
+                <label className="block text-xs uppercase tracking-wide text-violet-400 mb-1">Avis / notes</label>
+                <textarea
+                  value={form.notes}
+                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  rows={3}
+                  placeholder="Ce que tu en as pensé…"
+                  className="w-full px-3 py-2 rounded-lg bg-violet-950/60 border border-white/10 text-violet-50 placeholder-violet-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
+            </>
           )}
 
           {/* ── Actions ── */}

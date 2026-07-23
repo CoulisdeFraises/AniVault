@@ -14,7 +14,7 @@ const ratedCount = (entries) =>
 const abandonedCount = (entries) =>
   entries.filter((e) => e.status === "abandonne").length;
 
-/** Vérifie si au moins N épisodes ont été regardés entre minuit et 4h du matin */
+/** Vérifie si au moins un épisode a été regardé entre minuit et 4h du matin */
 const hasNightOwlEp = (entries) =>
   entries.some((e) =>
     (e.watchHistory || []).some((h) => {
@@ -39,9 +39,24 @@ const maxEpsInOneDay = (entries) => {
 const totalSeasons = (entries) =>
   entries.reduce((sum, e) => sum + (e.seasons?.length || 0), 0);
 
-/** Entrée avec le plus de saisons */
+/** Nombre max de saisons sur un même titre */
 const maxSeasonsOnEntry = (entries) =>
   entries.reduce((max, e) => Math.max(max, e.seasons?.length || 0), 0);
+
+// ── Catégories ────────────────────────────────────────────────────────────────
+// Utilisées par l'UI pour grouper les succès en accordéon
+export const ACHIEVEMENT_CATEGORIES = [
+  { id: "library",   label: "Bibliothèque",      icon: "📚" },
+  { id: "episodes",  label: "Épisodes",           icon: "🎬" },
+  { id: "finished",  label: "Titres terminés",    icon: "🏆" },
+  { id: "ratings",   label: "Notes & Avis",       icon: "⭐" },
+  { id: "abandoned", label: "Abandons",           icon: "💔" },
+  { id: "watching",  label: "En cours & Backlog", icon: "📺" },
+  { id: "diversity", label: "Diversité",          icon: "🎭" },
+  { id: "seasons",   label: "Saisons",            icon: "🗓️" },
+  { id: "habits",    label: "Habitudes",          icon: "🦉" },
+  { id: "special",   label: "Spéciaux",           icon: "🎲" },
+];
 
 // ── Définition des succès ─────────────────────────────────────────────────────
 // tier : "bronze" | "silver" | "gold"
@@ -50,6 +65,7 @@ export const ACHIEVEMENTS = [
   // ── Bibliothèque ─────────────────────────────────────────────────────────
   {
     id: "first_title",
+    category: "library",
     icon: "🎬",
     name: "Premier pas",
     description: "Ajouter ton premier titre",
@@ -58,6 +74,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "library_10",
+    category: "library",
     icon: "📚",
     name: "Bibliophile",
     description: "10 titres dans ta bibliothèque",
@@ -66,6 +83,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "library_25",
+    category: "library",
     icon: "📖",
     name: "Collectionneur",
     description: "25 titres dans ta bibliothèque",
@@ -74,6 +92,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "library_50",
+    category: "library",
     icon: "🏛️",
     name: "Archiviste",
     description: "50 titres dans ta bibliothèque",
@@ -82,6 +101,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "library_100",
+    category: "library",
     icon: "🗂️",
     name: "Encyclopédiste",
     description: "100 titres dans ta bibliothèque",
@@ -90,6 +110,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "library_200",
+    category: "library",
     icon: "🏰",
     name: "Seigneur des archives",
     description: "200 titres dans ta bibliothèque",
@@ -100,6 +121,7 @@ export const ACHIEVEMENTS = [
   // ── Épisodes ─────────────────────────────────────────────────────────────
   {
     id: "eps_100",
+    category: "episodes",
     icon: "🎯",
     name: "Centurion",
     description: "100 épisodes visionnés",
@@ -108,6 +130,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "eps_500",
+    category: "episodes",
     icon: "🚀",
     name: "Marathon",
     description: "500 épisodes visionnés",
@@ -116,6 +139,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "eps_1000",
+    category: "episodes",
     icon: "🔥",
     name: "Légende",
     description: "1 000 épisodes visionnés",
@@ -124,6 +148,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "eps_2500",
+    category: "episodes",
     icon: "🌌",
     name: "Transcendance",
     description: "2 500 épisodes visionnés",
@@ -132,6 +157,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "eps_5000",
+    category: "episodes",
     icon: "💀",
     name: "Tu n'as plus de vie",
     description: "5 000 épisodes visionnés — vraiment ?",
@@ -140,6 +166,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "eps_10000",
+    category: "episodes",
     icon: "👁️",
     name: "L'Éveillé",
     description: "10 000 épisodes visionnés. Tu es au-delà.",
@@ -148,6 +175,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "binge_10",
+    category: "episodes",
     icon: "🍿",
     name: "Soirée Netflix",
     description: "10 épisodes regardés en une seule journée",
@@ -156,14 +184,16 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "binge_25",
+    category: "episodes",
     icon: "🛋️",
-    name: "Canapé-world-class",
+    name: "Canapé world-class",
     description: "25 épisodes regardés en une seule journée",
     tier: "silver",
     check: (e) => maxEpsInOneDay(e) >= 25,
   },
   {
     id: "binge_50",
+    category: "episodes",
     icon: "🚑",
     name: "Appelle un médecin",
     description: "50 épisodes regardés en une seule journée",
@@ -174,6 +204,7 @@ export const ACHIEVEMENTS = [
   // ── Titres terminés ───────────────────────────────────────────────────────
   {
     id: "first_finish",
+    category: "finished",
     icon: "🏆",
     name: "Première victoire",
     description: "Terminer un titre",
@@ -182,6 +213,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "finish_5",
+    category: "finished",
     icon: "💪",
     name: "Persévérant",
     description: "Terminer 5 titres",
@@ -190,6 +222,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "finish_10",
+    category: "finished",
     icon: "🌟",
     name: "Expert",
     description: "Terminer 10 titres",
@@ -198,6 +231,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "finish_25",
+    category: "finished",
     icon: "🎓",
     name: "Maître",
     description: "Terminer 25 titres",
@@ -206,6 +240,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "finish_50",
+    category: "finished",
     icon: "🧙",
     name: "Grand Maître",
     description: "Terminer 50 titres",
@@ -214,6 +249,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "finish_100",
+    category: "finished",
     icon: "👑",
     name: "Centurion du Finish",
     description: "Terminer 100 titres",
@@ -221,9 +257,10 @@ export const ACHIEVEMENTS = [
     check: (e) => finishedCount(e) >= 100,
   },
 
-  // ── Notes ─────────────────────────────────────────────────────────────────
+  // ── Notes & Avis ──────────────────────────────────────────────────────────
   {
     id: "first_rating",
+    category: "ratings",
     icon: "⭐",
     name: "Critique",
     description: "Noter un premier titre",
@@ -232,6 +269,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "rated_10",
+    category: "ratings",
     icon: "🎖️",
     name: "Juré",
     description: "Noter 10 titres",
@@ -240,6 +278,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "rated_25",
+    category: "ratings",
     icon: "🏅",
     name: "Grand Critique",
     description: "Noter 25 titres",
@@ -248,6 +287,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "rated_50",
+    category: "ratings",
     icon: "📝",
     name: "Ebert",
     description: "Noter 50 titres",
@@ -256,6 +296,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "perfect_score",
+    category: "ratings",
     icon: "🤩",
     name: "Chef-d'œuvre",
     description: "Donner un 10/10 à un titre",
@@ -264,6 +305,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "perfect_5",
+    category: "ratings",
     icon: "✨",
     name: "Perfectionniste",
     description: "Donner un 10/10 à 5 titres",
@@ -272,6 +314,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "low_rater",
+    category: "ratings",
     icon: "💩",
     name: "Difficile à satisfaire",
     description: "Donner un 1/10 à un titre",
@@ -280,6 +323,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "harsh_jury",
+    category: "ratings",
     icon: "🔪",
     name: "Impitoyable",
     description: "Donner un 1/10 à 5 titres",
@@ -288,6 +332,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "no_rating",
+    category: "ratings",
     icon: "🙈",
     name: "Je juge pas",
     description: "50 titres sans jamais avoir noté quoi que ce soit",
@@ -296,9 +341,10 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "average_joe",
+    category: "ratings",
     icon: "😐",
     name: "Monsieur Moyen",
-    description: "Moyenne de bibliothèque exactement à 5/10 (sur ≥ 10 titres notés)",
+    description: "Moyenne de bibliothèque à 5/10 (sur ≥ 10 titres notés)",
     tier: "silver",
     check: (e) => {
       const rated = e.filter((x) => x.rating > 0);
@@ -307,10 +353,39 @@ export const ACHIEVEMENTS = [
       return avg >= 4.95 && avg <= 5.05;
     },
   },
+  {
+    id: "first_note",
+    category: "ratings",
+    icon: "📓",
+    name: "Journaliste",
+    description: "Écrire une note sur un titre",
+    tier: "bronze",
+    check: (e) => e.some((x) => x.notes && x.notes.trim().length > 0),
+  },
+  {
+    id: "notes_10",
+    category: "ratings",
+    icon: "📔",
+    name: "Chroniqueur",
+    description: "Écrire des notes sur 10 titres",
+    tier: "silver",
+    check: (e) =>
+      e.filter((x) => x.notes && x.notes.trim().length > 0).length >= 10,
+  },
+  {
+    id: "notes_essayist",
+    category: "ratings",
+    icon: "✍️",
+    name: "Essayiste",
+    description: "Écrire une note de plus de 300 caractères",
+    tier: "silver",
+    check: (e) => e.some((x) => x.notes && x.notes.trim().length > 300),
+  },
 
   // ── Abandons ──────────────────────────────────────────────────────────────
   {
     id: "abandoned_3",
+    category: "abandoned",
     icon: "💔",
     name: "Pas pour moi",
     description: "Abandonner 3 titres",
@@ -319,6 +394,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "abandoned_10",
+    category: "abandoned",
     icon: "🚮",
     name: "Sans pitié",
     description: "Abandonner 10 titres",
@@ -327,6 +403,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "abandoned_25",
+    category: "abandoned",
     icon: "☠️",
     name: "Bourreau de séries",
     description: "Abandonner 25 titres",
@@ -335,6 +412,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "abandon_more_than_finish",
+    category: "abandoned",
     icon: "🤡",
     name: "Quel gâchis",
     description: "Plus d'abandons que de titres terminés (min. 3 abandons)",
@@ -342,9 +420,10 @@ export const ACHIEVEMENTS = [
     check: (e) => abandonedCount(e) >= 3 && abandonedCount(e) > finishedCount(e),
   },
 
-  // ── En cours ──────────────────────────────────────────────────────────────
+  // ── En cours & Backlog ────────────────────────────────────────────────────
   {
     id: "watching_5",
+    category: "watching",
     icon: "📺",
     name: "Jongleur",
     description: "5 titres en cours simultanément",
@@ -353,16 +432,16 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "watching_10",
+    category: "watching",
     icon: "🌀",
     name: "Chaos organisé",
     description: "10 titres en cours simultanément",
     tier: "gold",
     check: (e) => e.filter((x) => x.status === "en-cours").length >= 10,
   },
-
-  // ── Watchlist ─────────────────────────────────────────────────────────────
   {
     id: "watchlist_5",
+    category: "watching",
     icon: "⚡",
     name: "Liste d'attente",
     description: "5 titres « À voir »",
@@ -371,6 +450,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "watchlist_20",
+    category: "watching",
     icon: "📋",
     name: "La liste sans fin",
     description: "20 titres « À voir »",
@@ -379,6 +459,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "watchlist_50",
+    category: "watching",
     icon: "😰",
     name: "Panique de backlog",
     description: "50 titres « À voir » — tu n'y arriveras jamais",
@@ -389,6 +470,7 @@ export const ACHIEVEMENTS = [
   // ── Diversité ─────────────────────────────────────────────────────────────
   {
     id: "eclectic",
+    category: "diversity",
     icon: "🎭",
     name: "Éclectique",
     description: "Avoir des animes et des séries",
@@ -398,6 +480,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "genres_5",
+    category: "diversity",
     icon: "🌈",
     name: "Touche-à-tout",
     description: "Explorer 5 genres différents",
@@ -406,6 +489,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "genres_10",
+    category: "diversity",
     icon: "🔭",
     name: "Explorateur",
     description: "Explorer 10 genres différents",
@@ -414,16 +498,16 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "genres_15",
+    category: "diversity",
     icon: "🗺️",
     name: "Cartographe du divertissement",
     description: "Explorer 15 genres différents",
     tier: "gold",
     check: (e) => new Set(e.flatMap((x) => x.genres)).size >= 15,
   },
-
-  // ── Animes ────────────────────────────────────────────────────────────────
   {
     id: "anime_50",
+    category: "diversity",
     icon: "🇯🇵",
     name: "Weeb assumé",
     description: "50 animes dans ta bibliothèque",
@@ -432,6 +516,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "ova_collector",
+    category: "diversity",
     icon: "📼",
     name: "Collectionneur de OAV",
     description: "10 OAV / ONA / Specials dans ta bibliothèque",
@@ -441,6 +526,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "movie_buff",
+    category: "diversity",
     icon: "🎥",
     name: "Cinéphile",
     description: "10 films d'animation dans ta bibliothèque",
@@ -450,6 +536,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "movie_buff_25",
+    category: "diversity",
     icon: "🎞️",
     name: "Grand Cinéphile",
     description: "25 films d'animation dans ta bibliothèque",
@@ -457,10 +544,9 @@ export const ACHIEVEMENTS = [
     check: (e) =>
       e.filter((x) => x.type === "anime" && x.category === "movie").length >= 25,
   },
-
-  // ── Séries ────────────────────────────────────────────────────────────────
   {
     id: "series_buff",
+    category: "diversity",
     icon: "📡",
     name: "Sériephile",
     description: "50 séries dans ta bibliothèque",
@@ -471,6 +557,7 @@ export const ACHIEVEMENTS = [
   // ── Saisons ───────────────────────────────────────────────────────────────
   {
     id: "seasons_50",
+    category: "seasons",
     icon: "🗓️",
     name: "Marathonien des saisons",
     description: "50 saisons au total dans ta bibliothèque",
@@ -479,6 +566,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "seasons_100",
+    category: "seasons",
     icon: "📆",
     name: "Encyclopédie des saisons",
     description: "100 saisons au total dans ta bibliothèque",
@@ -487,6 +575,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "long_runner",
+    category: "seasons",
     icon: "🏗️",
     name: "Long-courrier",
     description: "Un titre avec au moins 5 saisons",
@@ -495,6 +584,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "ultra_long_runner",
+    category: "seasons",
     icon: "⛰️",
     name: "Saga sans fin",
     description: "Un titre avec au moins 10 saisons",
@@ -502,35 +592,10 @@ export const ACHIEVEMENTS = [
     check: (e) => maxSeasonsOnEntry(e) >= 10,
   },
 
-  // ── Notes / Avis ──────────────────────────────────────────────────────────
-  {
-    id: "first_note",
-    icon: "📓",
-    name: "Journaliste",
-    description: "Écrire une note sur un titre",
-    tier: "bronze",
-    check: (e) => e.some((x) => x.notes && x.notes.trim().length > 0),
-  },
-  {
-    id: "notes_10",
-    icon: "📔",
-    name: "Chroniqueur",
-    description: "Écrire des notes sur 10 titres",
-    tier: "silver",
-    check: (e) => e.filter((x) => x.notes && x.notes.trim().length > 0).length >= 10,
-  },
-  {
-    id: "notes_essayist",
-    icon: "✍️",
-    name: "Essayiste",
-    description: "Écrire une note de plus de 300 caractères",
-    tier: "silver",
-    check: (e) => e.some((x) => x.notes && x.notes.trim().length > 300),
-  },
-
-  // ── Habitudes nocturnes (via watchHistory) ────────────────────────────────
+  // ── Habitudes ─────────────────────────────────────────────────────────────
   {
     id: "night_owl",
+    category: "habits",
     icon: "🦉",
     name: "Hibou",
     description: "Regarder un épisode entre minuit et 4h du matin",
@@ -539,6 +604,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "binge_night",
+    category: "habits",
     icon: "🌙",
     name: "Nuit blanche",
     description: "10 épisodes regardés lors d'une même nuit (0h–4h)",
@@ -561,6 +627,7 @@ export const ACHIEVEMENTS = [
   // ── Spéciaux / Easter eggs ────────────────────────────────────────────────
   {
     id: "the_one",
+    category: "special",
     icon: "🕶️",
     name: "L'Élu",
     description: "Exactement 1 titre noté 10/10 et 1 noté 1/10",
@@ -571,18 +638,20 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "symmetric_library",
+    category: "special",
     icon: "⚖️",
     name: "Équilibriste",
     description: "Autant d'animes que de séries (min. 5 de chaque)",
     tier: "silver",
     check: (e) => {
-      const animes  = e.filter((x) => x.type === "anime").length;
-      const series  = e.filter((x) => x.type === "serie").length;
+      const animes = e.filter((x) => x.type === "anime").length;
+      const series = e.filter((x) => x.type === "serie").length;
       return animes >= 5 && animes === series;
     },
   },
   {
     id: "all_statuses",
+    category: "special",
     icon: "🎲",
     name: "Touche à tout",
     description: "Avoir au moins 1 titre dans chaque statut",
@@ -594,6 +663,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "no_abandon",
+    category: "special",
     icon: "🛡️",
     name: "Sans faiblesse",
     description: "Terminer 10 titres sans jamais en avoir abandonné",
@@ -602,6 +672,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "cover_collector",
+    category: "special",
     icon: "🖼️",
     name: "Galerie d'art",
     description: "25 titres avec une image de couverture",
@@ -610,15 +681,19 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "anilist_fan",
+    category: "special",
     icon: "🔗",
     name: "Fan d'AniList",
     description: "10 titres importés depuis AniList",
     tier: "silver",
     check: (e) =>
-      e.filter((x) => x.source === "anilist" || (x.anilistIds && x.anilistIds.length > 0)).length >= 10,
+      e.filter(
+        (x) => x.source === "anilist" || (x.anilistIds && x.anilistIds.length > 0)
+      ).length >= 10,
   },
   {
     id: "tvmaze_fan",
+    category: "special",
     icon: "📻",
     name: "Fan de TVmaze",
     description: "10 titres importés depuis TVmaze",
@@ -627,6 +702,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: "pure_manual",
+    category: "special",
     icon: "⌨️",
     name: "À l'ancienne",
     description: "10 titres ajoutés manuellement (sans import)",

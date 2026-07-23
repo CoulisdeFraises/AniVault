@@ -56,14 +56,16 @@ export async function fetchAniListAllSeasons(startId) {
     const media = json.data?.Media;
     if (!media) return [];
 
-    // ✅ On s'arrête si l'entrée n'est pas un format TV
     const isTV = media.format === "TV" || media.format === "TV_SHORT" || media.format == null;
-    if (!isTV) return [];
 
+    // On cherche toujours le sequel, qu'on soit TV ou pas
     const sequel = media.relations?.edges?.find(
       (e) => e.relationType === "SEQUEL" && e.node.type === "ANIME"
     );
     const rest = await followSequels(sequel?.node?.id ?? null, visited);
+
+    // Si c'est un OVA/Film : on skip cette entrée MAIS on continue la chaîne
+    if (!isTV) return rest;
 
     const totalEpisodes =
       media.episodes ??

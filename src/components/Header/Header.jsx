@@ -1,6 +1,5 @@
 import { useMemo } from "react";
-import { Plus, Film, Tv, RefreshCw } from "lucide-react";
-import { Chip } from "../common/Chip";
+import { Plus, Film, Tv, RefreshCw, X } from "lucide-react";
 import { STATUS, STATUS_ORDER } from "../../utils/status";
 import { CATEGORY_LABELS, CATEGORY_ICONS } from "../../utils/entry";
 import { useLibrary } from "../../context/LibraryContext";
@@ -9,22 +8,59 @@ import { useCountUp } from "../../hooks/useCountUp";
 import { BurgerMenu } from "../common/BurgerMenu";
 import { calcWatchTime } from "../../utils/watchTime";
 
+// ── Chip multi-sélection ──────────────────────────────────────────────────────
+function FilterChip({ active, onClick, children, colorClass }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+        border transition-all active:scale-95 motion-reduce:transition-none whitespace-nowrap
+        ${active
+          ? colorClass || "bg-violet-600 border-violet-500 text-white"
+          : "bg-white/5 border-white/10 text-violet-300 hover:bg-white/10 hover:text-violet-100"
+        }
+      `}
+    >
+      {children}
+    </button>
+  );
+}
+
+const STATUS_CHIP_COLOR = {
+  "en-cours":  "bg-amber-400/90 border-amber-400 text-violet-950",
+  "termine":   "bg-teal-400/90 border-teal-400 text-violet-950",
+  "a-voir":    "bg-sky-400/90 border-sky-400 text-violet-950",
+  "abandonne": "bg-rose-400/90 border-rose-400 text-violet-950",
+};
+
+const FORMAT_CHIP_COLOR = {
+  tv:    "bg-violet-600 border-violet-500 text-white",
+  ova:   "bg-purple-600 border-purple-500 text-white",
+  movie: "bg-amber-600 border-amber-500 text-white",
+};
+
 export function Header({
-  filter, typeFilter, categoryFilter = "all",
-  onFilterChange, onTypeFilterChange, onCategoryFilterChange,
-  onAddClick, syncing = false, syncProgress = { current: 0, total: 0 }, onSyncClick,
+  typeFilter,
+  selectedStatuses  = [],
+  selectedFormats   = [],
+  onTypeFilterChange,
+  onToggleStatus,
+  onToggleFormat,
+  onClearFilters,
+  onAddClick,
+  syncing = false,
+  syncProgress = { current: 0, total: 0 },
+  onSyncClick,
 }) {
   const { entries, loading } = useLibrary();
-  const { user, profile, logout } = useAuth();
+  const { profile } = useAuth();
 
   const byType = useMemo(
     () => typeFilter === "all" ? entries : entries.filter((e) => e.type === typeFilter),
     [entries, typeFilter]
   );
-  const counts = useMemo(
-    () => STATUS_ORDER.reduce((acc, k) => ({ ...acc, [k]: byType.filter((e) => e.status === k).length }), {}),
-    [byType]
-  );
+
   const topGenres = useMemo(() => {
     const tally = {};
     entries.forEach((e) => e.genres.forEach((g) => { tally[g] = (tally[g] || 0) + 1; }));
@@ -43,34 +79,28 @@ export function Header({
   const watchTime = useMemo(() => calcWatchTime(entries), [entries]);
 
   const animatedTotal   = useCountUp(entries.length);
-  const animatedEnCours = useCountUp(counts["en-cours"] ?? 0);
+  const animatedEnCours = useCountUp(byType.filter((e) => e.status === "en-cours").length);
   const animatedWatched = useCountUp(totalWatched);
 
-  // Le filtre catégorie n'est visible que quand on est sur "Animes"
-  const showCategoryFilter = typeFilter === "anime";
+  const hasActiveFilters = selectedStatuses.length > 0 || selectedFormats.length > 0;
+  const showFormatFilter = typeFilter === "anime";
 
   return (
     <>
       {/* ── Barre principale ── */}
       <div className="flex items-center justify-between mb-6">
-
-        {/* ── Logo + Titre ── */}
         <div>
           <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">
             Mon Journal de visionnage
           </p>
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="" className="h-10 w-10 rounded-xl flex-shrink-0" aria-hidden />
-            <h1
-              className="text-3xl sm:text-4xl font-bold tracking-tight"
-              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-            >
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
               ANIVAULT
             </h1>
           </div>
         </div>
 
-        {/* ── Boutons droite ── */}
         <div className="flex items-center gap-2">
           <button
             onClick={onSyncClick}
@@ -84,9 +114,7 @@ export function Header({
               : <span className="text-xs font-mono text-violet-400 hidden sm:inline">Sync</span>
             }
           </button>
-
           <BurgerMenu />
-
           <button
             onClick={onAddClick}
             className="flex items-center gap-1.5 bg-amber-400 text-violet-950 font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-amber-300 active:scale-95 transition-all motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-violet-950"
@@ -97,11 +125,9 @@ export function Header({
         </div>
       </div>
 
-      {/* ── Stats + barre de progression globale ── */}
+      {/* ── Stats ── */}
       {!loading && entries.length > 0 && (
         <div className="rounded-2xl bg-violet-900/30 border border-white/5 mb-6 overflow-hidden">
-
-          {/* 4 compteurs */}
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
             <div className="p-4">
               <p className="font-mono text-2xl font-medium">{animatedTotal}</p>
@@ -129,17 +155,11 @@ export function Header({
               )}
             </div>
           </div>
-
-          {/* Barre de progression globale */}
           {totalKnown > 0 && (
             <div className="px-4 pt-3 pb-4 border-t border-white/5">
               <div className="flex items-center justify-between mb-2">
-                <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">
-                  Progression globale
-                </p>
-                <p className="font-mono text-[11px] text-violet-300">
-                  {animatedWatched} / {totalKnown} épisodes
-                </p>
+                <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">Progression globale</p>
+                <p className="font-mono text-[11px] text-violet-300">{animatedWatched} / {totalKnown} épisodes</p>
               </div>
               <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
                 <div
@@ -153,7 +173,7 @@ export function Header({
       )}
 
       {/* ── Filtre type : Tout / Animes / Séries ── */}
-      <div className="flex justify-center mb-4">
+      <div className="flex justify-center mb-5">
         <div className="inline-flex rounded-full bg-white/5 border border-white/10 p-0.5">
           {[
             { key: "all",   label: "Tout",   icon: null },
@@ -173,55 +193,58 @@ export function Header({
         </div>
       </div>
 
-      {/* ── Filtre catégorie : visible uniquement sur "Animes" ── */}
-      {showCategoryFilter && (
-        <div className="flex justify-center mb-4">
-          <div className="inline-flex rounded-full bg-white/5 border border-white/10 p-0.5">
+      {/* ── Filtres multi-sélection ── */}
+      <div className="rounded-2xl bg-violet-900/20 border border-white/5 p-4 mb-5 space-y-3">
+
+        {/* En-tête filtres + bouton reset */}
+        <div className="flex items-center justify-between">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500">Filtres</p>
+          {hasActiveFilters && (
             <button
-              onClick={() => onCategoryFilterChange("all")}
-              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors active:scale-95 motion-reduce:transition-none ${
-                categoryFilter === "all" ? "bg-violet-600 text-white font-semibold" : "text-violet-300 hover:text-violet-100"
-              }`}
+              onClick={onClearFilters}
+              className="flex items-center gap-1 text-[10px] font-mono text-violet-400 hover:text-violet-200 transition-colors motion-reduce:transition-none"
             >
-              Tout
+              <X size={10} /> Réinitialiser
             </button>
-            {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => onCategoryFilterChange(key)}
-                className={`flex items-center gap-1 px-4 py-1.5 rounded-full text-xs font-medium transition-colors active:scale-95 motion-reduce:transition-none ${
-                  categoryFilter === key ? "bg-violet-600 text-white font-semibold" : "text-violet-300 hover:text-violet-100"
-                }`}
+          )}
+        </div>
+
+        {/* Statut */}
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-wider text-violet-500 mb-2">Statut</p>
+          <div className="flex flex-wrap gap-1.5">
+            {STATUS_ORDER.map((k) => (
+              <FilterChip
+                key={k}
+                active={selectedStatuses.includes(k)}
+                onClick={() => onToggleStatus(k)}
+                colorClass={STATUS_CHIP_COLOR[k]}
               >
-                {CATEGORY_ICONS[key]} {label}
-              </button>
+                <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${STATUS[k].dot}`} />
+                {STATUS[k].label}
+              </FilterChip>
             ))}
           </div>
         </div>
-      )}
 
-      <div className="border-b border-white/10 mb-5" />
-
-      {/* ── Filtre statut ── */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        <Chip active={filter === "all"} onClick={() => onFilterChange("all")}>
-          Tous <span className="font-mono opacity-70">({byType.length})</span>
-        </Chip>
-        {STATUS_ORDER.map((k) => (
-          <Chip
-            key={k}
-            active={filter === k}
-            onClick={() => onFilterChange(k)}
-            colorClass={
-              k === "en-cours" ? "bg-amber-400/90 border-amber-400 text-violet-950" :
-              k === "termine"  ? "bg-teal-400/90 border-teal-400 text-violet-950"   :
-              k === "a-voir"   ? "bg-sky-400/90 border-sky-400 text-violet-950"     :
-                                 "bg-rose-400/90 border-rose-400 text-violet-950"
-            }
-          >
-            {STATUS[k].label} <span className="font-mono opacity-70">({counts[k]})</span>
-          </Chip>
-        ))}
+        {/* Format (anime uniquement) */}
+        {showFormatFilter && (
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-wider text-violet-500 mb-2">Format</p>
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                <FilterChip
+                  key={key}
+                  active={selectedFormats.includes(key)}
+                  onClick={() => onToggleFormat(key)}
+                  colorClass={FORMAT_CHIP_COLOR[key]}
+                >
+                  {CATEGORY_ICONS[key]} {label}
+                </FilterChip>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

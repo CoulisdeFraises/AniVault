@@ -1,12 +1,12 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Loader2, Check, Lock, Trash2, ArrowLeft } from "lucide-react";
-import { supabase } from "../lib/supabase";
-import { useAuth }    from "../context/AuthContext";
-import { useLibrary } from "../context/LibraryContext";
-import { BurgerMenu } from "../components/common/BurgerMenu";
-import { Trophy } from "lucide-react";
+import { useState, useMemo } from "react";
+import { useNavigate }     from "react-router-dom";
+import { Loader2, Check, Lock, Trash2, ArrowLeft, ChevronDown, ChevronRight } from "lucide-react";
+import { supabase }        from "../lib/supabase";
+import { useAuth }         from "../context/AuthContext";
+import { useLibrary }      from "../context/LibraryContext";
+import { BurgerMenu }      from "../components/common/BurgerMenu";
 import { useAchievements } from "../hooks/useAchievements";
+import { ACHIEVEMENT_CATEGORIES } from "../utils/achievements";
 
 // ── Couleurs disponibles pour l'avatar ───────────────────────────────────────
 const AVATAR_COLORS = [
@@ -47,47 +47,182 @@ const Msg = ({ type, text }) => {
   );
 };
 
-// ── Carte succès ──────────────────────────────────────────────────────────────
-const TIER_RING = {
-  bronze: "ring-amber-700/50",
-  silver: "ring-slate-400/50",
-  gold:   "ring-amber-400/70",
-};
-const TIER_LABEL = {
+// ── Couleurs par tier ─────────────────────────────────────────────────────────
+const TIER_TEXT = {
   bronze: "text-amber-700",
   silver: "text-slate-400",
   gold:   "text-amber-400",
 };
+const TIER_BORDER = {
+  bronze: "border-amber-700/60",
+  silver: "border-slate-400/60",
+  gold:   "border-amber-400/60",
+};
 
-function AchievementCard({ achievement, unlocked }) {
+// ── Ligne individuelle d'un succès ────────────────────────────────────────────
+function AchievementRow({ achievement, unlocked }) {
   return (
     <div
       className={`
-        flex flex-col items-center gap-2 p-3 rounded-2xl border text-center
-        transition-all motion-reduce:transition-none
-        ${unlocked
-          ? `bg-violet-900/50 border-white/10 ring-1 ${TIER_RING[achievement.tier]}`
-          : "bg-violet-950/40 border-white/5 opacity-40 grayscale"
-        }
+        flex items-center gap-3 px-4 py-2.5
+        border-b border-white/5 last:border-0
+        transition-opacity motion-reduce:transition-none
+        ${unlocked ? "opacity-100" : "opacity-35"}
       `}
     >
-      <span className="text-2xl select-none">{achievement.icon}</span>
-      <div>
+      {/* Icône */}
+      <span className={`text-lg select-none flex-shrink-0 ${!unlocked ? "grayscale" : ""}`}>
+        {achievement.icon}
+      </span>
+
+      {/* Nom + description */}
+      <div className="flex-1 min-w-0">
         <p
-          className="text-xs font-bold text-violet-50 leading-tight"
+          className="text-xs font-semibold text-violet-50 leading-tight truncate"
           style={{ fontFamily: "'Space Grotesk', sans-serif" }}
         >
           {achievement.name}
         </p>
-        <p className="text-[10px] text-violet-400 mt-0.5 leading-snug">
+        <p className="text-[10px] text-violet-400 leading-snug mt-0.5 line-clamp-1">
           {achievement.description}
         </p>
       </div>
-      {unlocked && (
-        <span className={`font-mono text-[9px] uppercase tracking-widest ${TIER_LABEL[achievement.tier]}`}>
+
+      {/* Badge tier si débloqué, sinon point neutre */}
+      {unlocked ? (
+        <span
+          className={`
+            flex-shrink-0 font-mono text-[9px] uppercase tracking-widest
+            px-1.5 py-0.5 rounded-full border
+            ${TIER_TEXT[achievement.tier]} ${TIER_BORDER[achievement.tier]}
+          `}
+        >
           {achievement.tier}
         </span>
+      ) : (
+        <span className="flex-shrink-0 w-2 h-2 rounded-full bg-white/10" />
       )}
+    </div>
+  );
+}
+
+// ── Groupe accordéon d'une catégorie ─────────────────────────────────────────
+function CategoryAccordion({ category, achievements, unlockedIds, defaultOpen }) {
+  const [open, setOpen] = useState(defaultOpen ?? false);
+
+  const total    = achievements.length;
+  const unlocked = achievements.filter((a) => unlockedIds.has(a.id)).length;
+  const pct      = total > 0 ? Math.round((unlocked / total) * 100) : 0;
+  const allDone  = unlocked === total;
+
+  return (
+    <div className="border-b border-white/5 last:border-0">
+      {/* En-tête cliquable */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors motion-reduce:transition-none text-left"
+      >
+        <span className="text-violet-500 flex-shrink-0">
+          {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </span>
+
+        <span className="text-base select-none flex-shrink-0">{category.icon}</span>
+
+        <span
+          className="flex-1 text-xs font-semibold text-violet-100 truncate"
+          style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+        >
+          {category.label}
+        </span>
+
+        {/* Mini barre de progression + compteur */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="w-16 h-1.5 rounded-full bg-white/10 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 motion-reduce:transition-none ${
+                allDone ? "bg-amber-400" : "bg-violet-500"
+              }`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <span className={`font-mono text-[10px] tabular-nums ${allDone ? "text-amber-400" : "text-violet-400"}`}>
+            {unlocked}/{total}
+          </span>
+        </div>
+      </button>
+
+      {/* Contenu déroulé */}
+      {open && (
+        <div className="bg-violet-950/30">
+          {achievements.map((a) => (
+            <AchievementRow
+              key={a.id}
+              achievement={a}
+              unlocked={unlockedIds.has(a.id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Panneau achievements complet ──────────────────────────────────────────────
+function AchievementsPanel({ allAchievements, unlockedIds }) {
+  const unlockedCount = unlockedIds.size;
+  const total         = allAchievements.length;
+  const globalPct     = total > 0 ? Math.round((unlockedCount / total) * 100) : 0;
+
+  // Grouper par catégorie
+  const grouped = useMemo(() => {
+    const map = {};
+    allAchievements.forEach((a) => {
+      const cat = a.category ?? "special";
+      if (!map[cat]) map[cat] = [];
+      map[cat].push(a);
+    });
+    return map;
+  }, [allAchievements]);
+
+  // Première catégorie ayant au moins un succès débloqué → ouverte par défaut
+  const firstUnlockedCat = useMemo(() =>
+    ACHIEVEMENT_CATEGORIES.find((cat) =>
+      (grouped[cat.id] || []).some((a) => unlockedIds.has(a.id))
+    )?.id ?? null,
+    [grouped, unlockedIds]
+  );
+
+  return (
+    <div className="flex flex-col">
+      {/* Barre de progression globale */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
+        <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-amber-400 transition-all duration-700 motion-reduce:transition-none"
+            style={{ width: `${globalPct}%` }}
+          />
+        </div>
+        <span className="font-mono text-[11px] text-violet-400 flex-shrink-0 tabular-nums">
+          {unlockedCount}/{total} · {globalPct} %
+        </span>
+      </div>
+
+      {/* Accordéons scrollables */}
+      <div className="overflow-y-auto max-h-[420px]">
+        {ACHIEVEMENT_CATEGORIES.map((cat) => {
+          const items = grouped[cat.id];
+          if (!items || items.length === 0) return null;
+          return (
+            <CategoryAccordion
+              key={cat.id}
+              category={cat}
+              achievements={items}
+              unlockedIds={unlockedIds}
+              defaultOpen={cat.id === firstUnlockedCat}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -191,7 +326,7 @@ export function Profile() {
       className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6"
       style={{ fontFamily: "'Inter', sans-serif" }}
     >
-      {/* ── En-tête avec bouton retour ── */}
+      {/* En-tête avec bouton retour */}
       <div>
         <button
           onClick={() => navigate(-1)}
@@ -206,7 +341,7 @@ export function Profile() {
         </h1>
       </div>
 
-      {/* ── Avatar + Pseudo ── */}
+      {/* Avatar + Pseudo */}
       <Section title="Identité">
         <div className="flex flex-col items-center gap-5 px-5 pt-6 pb-4">
           <div
@@ -277,7 +412,7 @@ export function Profile() {
         </div>
       </Section>
 
-      {/* ── Mot de passe ── */}
+      {/* Mot de passe */}
       <Section title="Mot de passe">
         <div className="px-5 py-5 space-y-3">
           <div>
@@ -321,36 +456,15 @@ export function Profile() {
         </div>
       </Section>
 
-      {/* ── Succès ── */}
+      {/* Succès */}
       <Section title={`Succès — ${unlockedCount} / ${allAchievements.length}`}>
-        <div className="p-4">
-          {/* Barre de progression globale */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex-1 h-2 rounded-full bg-white/5 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-amber-400 transition-all duration-700 motion-reduce:transition-none"
-                style={{ width: `${Math.round((unlockedCount / allAchievements.length) * 100)}%` }}
-              />
-            </div>
-            <span className="font-mono text-[11px] text-violet-400 flex-shrink-0">
-              {Math.round((unlockedCount / allAchievements.length) * 100)} %
-            </span>
-          </div>
-
-          {/* Grille des succès */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            {allAchievements.map((a) => (
-              <AchievementCard
-                key={a.id}
-                achievement={a}
-                unlocked={unlockedIds.has(a.id)}
-              />
-            ))}
-          </div>
-        </div>
+        <AchievementsPanel
+          allAchievements={allAchievements}
+          unlockedIds={unlockedIds}
+        />
       </Section>
 
-      {/* ── Zone de danger ── */}
+      {/* Zone de danger */}
       <Section title="Zone de danger">
         {!confirmDelete ? (
           <div className="px-5 py-4">
