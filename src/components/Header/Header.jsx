@@ -2,10 +2,9 @@ import { useMemo, useRef, useEffect, useState } from "react";
 import { Plus, Film, Tv, RefreshCw, X, Search } from "lucide-react";
 import { STATUS, STATUS_ORDER } from "../../utils/status";
 import { CATEGORY_LABELS, CATEGORY_ICONS } from "../../utils/entry";
-import { useLibrary }  from "../../context/LibraryContext";
-import { useAuth }     from "../../context/AuthContext";
-import { useCountUp }  from "../../hooks/useCountUp";
-import { BurgerMenu }  from "../common/BurgerMenu";
+import { useLibrary }    from "../../context/LibraryContext";
+import { useCountUp }    from "../../hooks/useCountUp";
+import { BurgerMenu }    from "../common/BurgerMenu";
 import { calcWatchTime } from "../../utils/watchTime";
 
 // ── Chip multi-sélection ──────────────────────────────────────────────────────
@@ -56,7 +55,7 @@ export function Header({
   onSyncClick,
 }) {
   const { entries, loading } = useLibrary();
-  const searchRef    = useRef(null);
+  const searchRef = useRef(null);
   const [searchFocused, setSearchFocused] = useState(false);
 
   // Raccourci clavier "/" → focus barre de recherche
@@ -105,13 +104,17 @@ export function Header({
   const showFormatFilter = typeFilter === "anime";
   const isSearchActive   = searchQuery.trim().length > 0;
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // IMPORTANT : aucune classe animate-* sur les éléments du Header.
+  // Toute propriété CSS `animation` crée un stacking context qui passe
+  // AU-DESSUS du dropdown du BurgerMenu (maintenant en Portal).
+  // L'animation globale se fait uniquement sur le wrapper extérieur,
+  // dans Home.jsx ou via la classe animate-fadeInUp sur le conteneur parent.
+  // ─────────────────────────────────────────────────────────────────────────
   return (
-    // "isolate" crée un contexte d'empilement propre pour tout le Header,
-    // sans interférer avec le z-50 du BurgerMenu qui est dans ce même flux.
-    <div className="isolate">
-
+    <>
       {/* ── Barre principale ─────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-6 animate-fadeInUp">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">
             Mon Journal de visionnage
@@ -124,7 +127,6 @@ export function Header({
           </div>
         </div>
 
-        {/* Les boutons de droite sont dans un contexte z élevé grâce au BurgerMenu lui-même */}
         <div className="flex items-center gap-2">
           <button
             onClick={onSyncClick}
@@ -138,6 +140,7 @@ export function Header({
               : <span className="text-xs font-mono text-violet-400 hidden sm:inline">Sync</span>
             }
           </button>
+          {/* BurgerMenu utilise createPortal → son dropdown échappe à tout stacking context */}
           <BurgerMenu />
           <button
             onClick={onAddClick}
@@ -151,7 +154,7 @@ export function Header({
 
       {/* ── Stats ─────────────────────────────────────────────────────────── */}
       {!loading && entries.length > 0 && (
-        <div className="rounded-2xl bg-violet-900/30 border border-white/5 mb-6 overflow-hidden animate-fadeInUp">
+        <div className="rounded-2xl bg-violet-900/30 border border-white/5 mb-6 overflow-hidden">
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
             <div className="p-4">
               <p className="font-mono text-2xl font-medium">{animatedTotal}</p>
@@ -197,11 +200,11 @@ export function Header({
       )}
 
       {/* ── Barre de recherche ────────────────────────────────────────────── */}
-      <div className="mb-5 animate-fadeInUp">
+      <div className="mb-5">
         <div
           className={`
             flex items-center gap-2 px-4 py-2.5 rounded-2xl border
-            transition-all duration-200 motion-reduce:transition-none
+            transition-colors duration-200 motion-reduce:transition-none
             ${searchFocused
               ? "bg-violet-900/60 border-violet-500/60 shadow-[0_0_0_3px_rgba(139,92,246,0.15)]"
               : "bg-violet-900/30 border-white/5 hover:border-white/10"
@@ -228,7 +231,7 @@ export function Header({
             <button
               onClick={() => { onSearchChange(""); searchRef.current?.focus(); }}
               aria-label="Effacer la recherche"
-              className="flex-shrink-0 p-0.5 rounded-full text-violet-400 hover:text-violet-200 hover:bg-white/10 active:scale-90 transition-all motion-reduce:transition-none animate-popIn"
+              className="flex-shrink-0 p-0.5 rounded-full text-violet-400 hover:text-violet-200 hover:bg-white/10 active:scale-90 transition-all motion-reduce:transition-none"
             >
               <X size={14} />
             </button>
@@ -242,7 +245,7 @@ export function Header({
       </div>
 
       {/* ── Filtre type : Tout / Animes / Séries ─────────────────────────── */}
-      <div className="flex justify-center mb-5 animate-fadeInUp">
+      <div className="flex justify-center mb-5">
         <div className="inline-flex rounded-full bg-white/5 border border-white/10 p-0.5">
           {[
             { key: "all",   label: "Tout",   icon: null },
@@ -265,7 +268,7 @@ export function Header({
       </div>
 
       {/* ── Filtres multi-sélection ───────────────────────────────────────── */}
-      <div className="rounded-2xl bg-violet-900/20 border border-white/5 p-4 mb-5 space-y-3 animate-fadeInUp">
+      <div className="rounded-2xl bg-violet-900/20 border border-white/5 p-4 mb-5 space-y-3">
         <div className="flex items-center justify-between">
           <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500">Filtres</p>
           {hasActiveFilters && (
@@ -313,6 +316,6 @@ export function Header({
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }
