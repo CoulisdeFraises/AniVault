@@ -9,9 +9,11 @@ import { hasTMDB, searchTMDBShow, fetchTMDBEpisodeFR, fetchTMDBWatchProvidersFR 
 import { useLibrary } from "../context/LibraryContext";
 import { BurgerMenu } from "../components/common/BurgerMenu";
 
-const DAY_NAMES    = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-const VISIBLE_DAYS = 3;
-const TMDB_CHUNK   = 5;
+const DAY_NAMES = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+// Nombre de jours visibles : 1 sur mobile, 3 sur desktop
+const VISIBLE_DAYS_MOBILE  = 1;
+const VISIBLE_DAYS_DESKTOP = 3;
+const TMDB_CHUNK = 5;
 
 function getSeasonLabel() {
   const now = new Date(), month = now.getMonth() + 1, year = now.getFullYear();
@@ -21,6 +23,21 @@ function getSeasonLabel() {
   return `Automne ${year}`;
 }
 function todayIndex() { const d = new Date().getDay(); return d === 0 ? 6 : d - 1; }
+
+// ── Hook responsive ───────────────────────────────────────────────────────────
+function useVisibleDays() {
+  const [days, setDays] = useState(
+    typeof window !== "undefined" && window.innerWidth < 640
+      ? VISIBLE_DAYS_MOBILE
+      : VISIBLE_DAYS_DESKTOP
+  );
+  useEffect(() => {
+    const handler = () => setDays(window.innerWidth < 640 ? VISIBLE_DAYS_MOBILE : VISIBLE_DAYS_DESKTOP);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return days;
+}
 
 // ── Modal détail épisode ──────────────────────────────────────────────────────
 function EpisodeDetailModal({ schedule, initialFrTitle, hasFrFromTmdb, onClose }) {
@@ -143,7 +160,6 @@ function EpisodeCard({ schedule, showVfBadge, onClick, frTitle, isFrench, isLoad
         <p className={`text-xs font-medium text-violet-100 leading-snug line-clamp-3 transition-opacity duration-300 ${isLoadingTitle ? "opacity-60" : "opacity-100"}`}>
           {title}
         </p>
-        {/* Shimmer discret pendant le pre-fetch du titre FR */}
         {isLoadingTitle && (
           <div className="h-0.5 w-2/3 mt-1 rounded-full shimmer" />
         )}
@@ -163,7 +179,7 @@ function FilterBtn({ active, onClick, children }) {
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-1.5 rounded-full text-xs font-medium border transition-all active:scale-95 motion-reduce:transition-none whitespace-nowrap ${
+      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all active:scale-95 motion-reduce:transition-none whitespace-nowrap ${
         active ? "bg-amber-400 text-violet-950 border-amber-400" : "bg-white/5 border-white/10 text-violet-300 hover:bg-white/10"
       }`}
     >
@@ -174,8 +190,9 @@ function FilterBtn({ active, onClick, children }) {
 
 // ── Page principale ───────────────────────────────────────────────────────────
 export function Calendar() {
-  const navigate = useNavigate();
+  const navigate    = useNavigate();
   const { entries: libraryEntries } = useLibrary();
+  const VISIBLE_DAYS = useVisibleDays(); // 1 mobile / 3 desktop
 
   const [schedules,        setSchedules]        = useState([]);
   const [weekMonday,       setWeekMonday]        = useState(null);
@@ -188,13 +205,10 @@ export function Calendar() {
   const [tmdbFrAvailable,  setTmdbFrAvailable]   = useState({});
   const [contentFilter,    setContentFilter]     = useState("all");
   const [langFilter,       setLangFilter]        = useState("all");
-
-  // ── Slide directionnel pour les animations de grille ──
-  const [gridKey,   setGridKey]   = useState(0);
-  const [slideDir,  setSlideDir]  = useState("none");
-
-  const [dayOffset, setDayOffset] = useState(() =>
-    Math.max(0, Math.min(7 - VISIBLE_DAYS, todayIndex() - 1))
+  const [gridKey,          setGridKey]           = useState(0);
+  const [slideDir,         setSlideDir]          = useState("none");
+  const [dayOffset,        setDayOffset]         = useState(() =>
+    Math.max(0, Math.min(7 - VISIBLE_DAYS_DESKTOP, todayIndex() - 1))
   );
 
   const libraryAnilistIds = useMemo(
@@ -220,7 +234,7 @@ export function Calendar() {
 
   useEffect(() => { load(weekOffset); }, [weekOffset]);
 
-  // ── Pre-fetch TMDB (titres FR + disponibilité FR) ──
+  // ── Pre-fetch TMDB ──
   useEffect(() => {
     if (!hasTMDB() || schedules.length === 0) { setTmdbTitles({}); setTmdbFrAvailable({}); return; }
     let cancelled = false;
@@ -255,35 +269,11 @@ export function Calendar() {
     return () => { cancelled = true; };
   }, [schedules]);
 
-  // ── Navigation avec direction pour le slide ──
-  function prevWeek() {
-    setSlideDir("from-right");
-    setGridKey((k) => k + 1);
-    setWeekOffset((w) => w - 1);
-    setDayOffset(0);
-  }
-  function nextWeek() {
-    setSlideDir("from-left");
-    setGridKey((k) => k + 1);
-    setWeekOffset((w) => w + 1);
-    setDayOffset(0);
-  }
-  function thisWeek() {
-    setSlideDir("from-right");
-    setGridKey((k) => k + 1);
-    setWeekOffset(0);
-    setDayOffset(Math.max(0, Math.min(4, todayIndex() - 1)));
-  }
-  function handlePrevDay() {
-    setSlideDir("from-right");
-    setGridKey((k) => k + 1);
-    setDayOffset((d) => Math.max(0, d - 1));
-  }
-  function handleNextDay() {
-    setSlideDir("from-left");
-    setGridKey((k) => k + 1);
-    setDayOffset((d) => Math.min(7 - VISIBLE_DAYS, d + 1));
-  }
+  function prevWeek() { setSlideDir("from-right"); setGridKey((k) => k + 1); setWeekOffset((w) => w - 1); setDayOffset(0); }
+  function nextWeek() { setSlideDir("from-left");  setGridKey((k) => k + 1); setWeekOffset((w) => w + 1); setDayOffset(0); }
+  function thisWeek() { setSlideDir("from-right"); setGridKey((k) => k + 1); setWeekOffset(0); setDayOffset(Math.max(0, Math.min(7 - VISIBLE_DAYS, todayIndex() - 1))); }
+  function handlePrevDay() { setSlideDir("from-right"); setGridKey((k) => k + 1); setDayOffset((d) => Math.max(0, d - 1)); }
+  function handleNextDay() { setSlideDir("from-left");  setGridKey((k) => k + 1); setDayOffset((d) => Math.min(7 - VISIBLE_DAYS, d + 1)); }
 
   const weekLabel = useMemo(() => {
     if (!weekMonday) return "";
@@ -322,69 +312,76 @@ export function Calendar() {
   const canNextDay    = dayOffset + VISIBLE_DAYS < 7;
   const todayMidnight = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); }, []);
   const totalVisible  = visibleDays.reduce((sum, d) => sum + d.entries.length, 0);
-
-  // Classe de slide selon la direction
-  const slideClass = slideDir === "from-left"  ? "animate-slideFromLeft"
-                   : slideDir === "from-right" ? "animate-slideFromRight"
-                   : "";
+  const slideClass    = slideDir === "from-left" ? "animate-slideFromLeft" : slideDir === "from-right" ? "animate-slideFromRight" : "";
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+      <div className="max-w-5xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
 
         {/* ── En-tête ── */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+        <div className="flex items-start justify-between gap-3 mb-5">
           <div>
-            <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-violet-400 hover:text-violet-200 active:scale-95 transition-all motion-reduce:transition-none mb-3">
+            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 active:scale-95 transition-all motion-reduce:transition-none mb-2">
               <ChevronLeft size={16} /> Retour
             </button>
-            <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">{getSeasonLabel()}</p>
-            <h1 className="text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Calendrier</h1>
+            <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-0.5">{getSeasonLabel()}</p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Calendrier</h1>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button onClick={prevWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none" aria-label="Semaine précédente">
-              <ArrowLeft size={15} className="text-violet-400" />
-            </button>
-            <div className="text-center min-w-[150px]">
-              <p className="text-sm font-medium text-violet-100">{weekLabel}</p>
-              {weekOffset !== 0 && (
-                <button onClick={thisWeek} className="text-[10px] font-mono text-amber-400 hover:text-amber-300 transition-colors motion-reduce:transition-none">
-                  Cette semaine
-                </button>
-              )}
+          {/* Navigation semaine + BurgerMenu */}
+          <div className="flex flex-col items-end gap-2">
+            <BurgerMenu />
+            <div className="flex items-center gap-1.5">
+              <button onClick={prevWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none" aria-label="Semaine précédente">
+                <ArrowLeft size={14} className="text-violet-400" />
+              </button>
+              <div className="text-center">
+                <p className="text-xs sm:text-sm font-medium text-violet-100 whitespace-nowrap">{weekLabel}</p>
+                {weekOffset !== 0 && (
+                  <button onClick={thisWeek} className="text-[10px] font-mono text-amber-400 hover:text-amber-300 transition-colors motion-reduce:transition-none">
+                    Cette semaine
+                  </button>
+                )}
+              </div>
+              <button onClick={nextWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none" aria-label="Semaine suivante">
+                <ArrowRight size={14} className="text-violet-400" />
+              </button>
+              <button
+                onClick={() => load(weekOffset, true)}
+                disabled={refreshing}
+                className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-50 active:scale-95 transition-all motion-reduce:transition-none"
+                aria-label="Actualiser"
+              >
+                <RefreshCw size={14} className={`text-violet-300 ${refreshing ? "animate-spin motion-reduce:animate-none" : ""}`} />
+              </button>
             </div>
-            <button onClick={nextWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none" aria-label="Semaine suivante">
-              <ArrowRight size={15} className="text-violet-400" />
-            </button>
-            <button
-              onClick={() => load(weekOffset, true)}
-              disabled={refreshing}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-50 active:scale-95 text-sm text-violet-300 transition-all motion-reduce:transition-none"
-            >
-              <RefreshCw size={14} className={refreshing ? "animate-spin motion-reduce:animate-none" : ""} />
-              <span className="hidden sm:inline">Actualiser</span>
-            </button>
           </div>
         </div>
 
-        {/* ── Filtres ── */}
-        <div className="flex flex-wrap items-center gap-2 mb-6">
+        {/* ── Filtres — scroll horizontal sur mobile ── */}
+        <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1 scrollbar-none">
           <FilterBtn active={contentFilter === "all"}       onClick={() => setContentFilter("all")}>Tout</FilterBtn>
           <FilterBtn active={contentFilter === "mylibrary"} onClick={() => setContentFilter("mylibrary")}>Ma liste</FilterBtn>
-          <FilterBtn active={contentFilter === "new"}       onClick={() => setContentFilter("new")}>Nouvelles séries</FilterBtn>
-          <FilterBtn active={contentFilter === "returning"} onClick={() => setContentFilter("returning")}>Séries qui reprennent</FilterBtn>
-          <span className="w-px h-5 bg-white/20 mx-1 rounded-full" aria-hidden />
+          {/* Labels raccourcis sur mobile */}
+          <FilterBtn active={contentFilter === "new"}       onClick={() => setContentFilter("new")}>
+            <span className="sm:hidden">Nouvelles</span>
+            <span className="hidden sm:inline">Nouvelles séries</span>
+          </FilterBtn>
+          <FilterBtn active={contentFilter === "returning"} onClick={() => setContentFilter("returning")}>
+            <span className="sm:hidden">Reprises</span>
+            <span className="hidden sm:inline">Séries qui reprennent</span>
+          </FilterBtn>
+          <span className="w-px h-4 bg-white/20 flex-shrink-0" aria-hidden />
           <FilterBtn active={langFilter === "all"} onClick={() => setLangFilter("all")}>VO</FilterBtn>
           <FilterBtn active={langFilter === "vf"}  onClick={() => setLangFilter("vf")}>VF</FilterBtn>
         </div>
 
         {error && (
-          <div className="mb-6 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">{error}</div>
+          <div className="mb-5 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">{error}</div>
         )}
         {langFilter === "vf" && !loading && (
           <p className="text-[11px] text-violet-500 font-mono mb-4">
-            ℹ Les horaires sont ceux de la diffusion VO. La VF/VOSTFR est disponible sur ADN, Crunchyroll FR ou Netflix FR peu après.
+            ℹ Les horaires sont ceux de la diffusion VO.
           </p>
         )}
 
@@ -400,31 +397,33 @@ export function Calendar() {
               <button
                 onClick={handlePrevDay}
                 disabled={!canPrevDay}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 text-sm text-violet-300 transition-all motion-reduce:transition-none"
+                className="flex items-center gap-1 px-3 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 text-sm text-violet-300 transition-all motion-reduce:transition-none"
               >
                 <ChevronLeft size={15} />
                 <span className="hidden sm:inline text-xs">Préc.</span>
               </button>
 
               <p className="font-mono text-[11px] text-violet-500">
-                {totalVisible} épisode{totalVisible !== 1 ? "s" : ""} affichés
+                {totalVisible} épisode{totalVisible !== 1 ? "s" : ""}
               </p>
 
               <button
                 onClick={handleNextDay}
                 disabled={!canNextDay}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 text-sm text-violet-300 transition-all motion-reduce:transition-none"
+                className="flex items-center gap-1 px-3 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 text-sm text-violet-300 transition-all motion-reduce:transition-none"
               >
                 <span className="hidden sm:inline text-xs">Suiv.</span>
                 <ChevronRight size={15} />
               </button>
             </div>
 
-            {/*
-              key={gridKey} : force le remontage de la grille à chaque navigation.
-              slideClass     : slide depuis la gauche ou la droite selon la direction.
-            */}
-            <div key={gridKey} className={`grid grid-cols-3 gap-4 motion-reduce:animate-none ${slideClass}`}>
+            {/* ── Grille jours : 1 col mobile, 3 col desktop ── */}
+            <div
+              key={gridKey}
+              className={`grid gap-3 motion-reduce:animate-none ${slideClass} ${
+                VISIBLE_DAYS === 1 ? "grid-cols-1" : "grid-cols-3"
+              }`}
+            >
               {visibleDays.map(({ date, entries }, i) => {
                 const isToday   = date.getTime() === todayMidnight;
                 const globalIdx = dayOffset + i;
@@ -436,13 +435,13 @@ export function Calendar() {
                       isToday ? "border-amber-400/40 bg-amber-400/5" : "border-white/5 bg-violet-900/20"
                     }`}
                   >
-                    <div className={`px-4 py-3 border-b ${isToday ? "border-amber-400/20" : "border-white/5"}`}>
+                    {/* En-tête du jour */}
+                    <div className={`px-3 sm:px-4 py-3 border-b ${isToday ? "border-amber-400/20" : "border-white/5"}`}>
                       <div className="flex items-center justify-between">
                         <p className={`font-mono text-xs uppercase tracking-widest font-semibold ${isToday ? "text-amber-400" : "text-violet-300"}`}>
                           {DAY_NAMES[globalIdx]}
                         </p>
                         {isToday && (
-                          /* animate-glowPulse : halo amber pulsant sur le badge du jour courant */
                           <span className="font-mono text-[8px] bg-amber-400 text-violet-950 px-1.5 py-0.5 rounded-full font-bold animate-glowPulse motion-reduce:animate-none">
                             Aujourd'hui
                           </span>
@@ -453,7 +452,8 @@ export function Calendar() {
                       </p>
                     </div>
 
-                    <div className="p-3 flex-1 space-y-2 overflow-y-auto max-h-[70vh]">
+                    {/* Liste épisodes */}
+                    <div className="p-2.5 sm:p-3 flex-1 space-y-2 overflow-y-auto max-h-[60vh] sm:max-h-[70vh]">
                       {entries.length === 0 ? (
                         <p className="text-[11px] text-violet-600 font-mono text-center py-8">Aucun épisode</p>
                       ) : (
@@ -472,7 +472,7 @@ export function Calendar() {
                     </div>
 
                     {entries.length > 0 && (
-                      <div className="px-4 py-2 border-t border-white/5">
+                      <div className="px-3 sm:px-4 py-2 border-t border-white/5">
                         <p className="font-mono text-[10px] text-violet-500">
                           {entries.length} épisode{entries.length > 1 ? "s" : ""}
                         </p>
@@ -483,13 +483,14 @@ export function Calendar() {
               })}
             </div>
 
+            {/* ── Pagination jours ── */}
             <div className="flex justify-center gap-1.5 mt-4">
               {Array.from({ length: 7 - VISIBLE_DAYS + 1 }, (_, i) => (
                 <button
                   key={i}
                   onClick={() => { setSlideDir(i > dayOffset ? "from-left" : "from-right"); setGridKey((k) => k + 1); setDayOffset(i); }}
                   className={`w-2 h-2 rounded-full transition-colors active:scale-90 motion-reduce:transition-none ${dayOffset === i ? "bg-amber-400" : "bg-white/20 hover:bg-white/40"}`}
-                  aria-label={`Voir à partir de ${DAY_NAMES[i]}`}
+                  aria-label={`Voir ${DAY_NAMES[i]}`}
                 />
               ))}
             </div>
