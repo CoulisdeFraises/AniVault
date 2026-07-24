@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Menu, Home, User, Calendar, Settings, LogOut, Clock, Sparkles, Users, ListPlus } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
@@ -15,13 +15,15 @@ function getInitials(name) {
 export function BurgerMenu() {
   const { user, profile, logout } = useAuth();
   const navigate    = useNavigate();
+  const location    = useLocation();
   const buttonRef   = useRef(null);
   const dropdownRef = useRef(null);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, right: 0 });
 
-  const avatarColor = user?.user_metadata?.avatar_color || "#7c3aed";
+  const avatarColor  = user?.user_metadata?.avatar_color || "#7c3aed";
+  const isOnHomePage = location.pathname === "/";
 
   function openMenu() {
     const rect = buttonRef.current?.getBoundingClientRect();
@@ -82,19 +84,28 @@ export function BurgerMenu() {
       {/* Navigation */}
       <nav className="py-1">
         {[
-          { path: "/",                icon: <Home      size={15} />, label: "Accueil"          },
-          { path: "/profile",         icon: <User      size={15} />, label: "Mon profil"       },
-          { path: "/lists",           icon: <ListPlus  size={15} />, label: "Mes Listes"       },
-          { path: "/calendar",        icon: <Calendar  size={15} />, label: "Calendrier"       },
-          { path: "/history",         icon: <Clock     size={15} />, label: "Historique"       },
-          { path: "/recommendations", icon: <Sparkles  size={15} />, label: "Recommandations"  },
-          { path: "/community",       icon: <Users     size={15} />, label: "Communauté"       },
-          { path: "/settings",        icon: <Settings  size={15} />, label: "Paramètres"       },
+          { path: "/",                icon: <Home      size={15} />, label: "Accueil"         },
+          { path: "/profile",         icon: <User      size={15} />, label: "Mon profil"      },
+          { path: "/lists",           icon: <ListPlus  size={15} />, label: "Mes Listes"      },
+          { path: "/calendar",        icon: <Calendar  size={15} />, label: "Calendrier"      },
+          { path: "/history",         icon: <Clock     size={15} />, label: "Historique"      },
+          { path: "/recommendations", icon: <Sparkles  size={15} />, label: "Recommandations" },
+          { path: "/community",       icon: <Users     size={15} />, label: "Communauté"      },
+          { path: "/settings",        icon: <Settings  size={15} />, label: "Paramètres"      },
         ].map(({ path, icon, label }) => (
           <button key={path} onClick={() => go(path)}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-violet-200 hover:bg-white/10 active:bg-white/20 transition-colors motion-reduce:transition-none">
-            <span className="text-violet-400 flex-shrink-0">{icon}</span>
+            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors motion-reduce:transition-none ${
+              location.pathname === path
+                ? "text-amber-300 bg-amber-400/10"
+                : "text-violet-200 hover:bg-white/10 active:bg-white/20"
+            }`}>
+            <span className={`flex-shrink-0 ${location.pathname === path ? "text-amber-400" : "text-violet-400"}`}>
+              {icon}
+            </span>
             {label}
+            {location.pathname === path && (
+              <span className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+            )}
           </button>
         ))}
       </nav>
@@ -112,19 +123,38 @@ export function BurgerMenu() {
   );
 
   return (
-    <>
+    <div className="flex items-center gap-2">
+
+      {/* ── Bouton Home ── toujours visible, grisé sur la homepage ── */}
+      <button
+        onClick={() => navigate("/")}
+        aria-label="Accueil"
+        disabled={isOnHomePage}
+        className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all motion-reduce:transition-none ${
+          isOnHomePage
+            ? "bg-amber-400/15 border-amber-400/30 text-amber-400 cursor-default"
+            : "bg-violet-900/40 border-white/10 text-violet-300 hover:bg-violet-800/50 hover:text-violet-50 hover:border-white/20 active:scale-95"
+        }`}
+      >
+        <Home size={15} />
+      </button>
+
+      {/* ── Burger Menu ── */}
       <button
         ref={buttonRef}
         onClick={() => (menuOpen ? closeMenu() : openMenu())}
+        aria-label="Menu"
         className="h-9 flex items-center gap-2 px-2.5 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
       >
-        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+        <div
+          className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
           style={{ backgroundColor: avatarColor }}>
           {getInitials(profile)}
         </div>
         <Menu size={15} className="text-violet-300" />
       </button>
+
       {menuOpen && createPortal(dropdown, document.body)}
-    </>
+    </div>
   );
 }
