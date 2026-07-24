@@ -567,6 +567,15 @@ export function Details() {
         </div>
       </div>
 
+      <div className="flex justify-center pt-2 pb-0 flex-shrink-0 cursor-grab"
+        onTouchStart={e => e.currentTarget._ty = e.touches[0].clientY}
+        onTouchEnd={e => {
+          const delta = e.changedTouches[0].clientY - (e.currentTarget._ty || 0);
+          if (delta > 90) navigate("/");
+        }}>
+        <div className="w-10 h-1 rounded-full bg-white/20" />
+      </div>
+
       {synopsisRec && (
         <SynopsisModal rec={synopsisRec} onClose={() => setSynopsisRec(null)}
           onAdd={handleAddRec} adding={addingId === synopsisRec.id}

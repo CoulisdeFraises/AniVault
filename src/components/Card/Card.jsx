@@ -110,7 +110,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
             <div className="relative flex-shrink-0 self-start">
               {img ? (
                 <div className={`aspect-[2/3] max-h-36 rounded-lg overflow-hidden bg-white/5 ${dimmed}`}>
-                  <img src={img} alt="" className="w-full h-full object-cover" />
+                  <img src={img} alt="" loading="lazy" className="w-full h-full object-cover" />
                 </div>
               ) : (
                 <div className={`relative aspect-[2/3] max-h-36 rounded-lg overflow-hidden bg-white/5 ${dimmed}`}>
