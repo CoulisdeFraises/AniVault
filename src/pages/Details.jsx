@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { X, Pencil, Star, Loader2, RefreshCw, Film, Tv, CheckCheck, ChevronRight, Check } from "lucide-react";
+import { X, Pencil, Star, Loader2, RefreshCw, Film, Tv, CheckCheck, ChevronRight, Check, Heart, ListPlus } from "lucide-react";
 import { EpisodeList }             from "../components/EpisodeList/EpisodeList";
 import { StarRating, getRatingEmoji } from "../components/common/Rating";
 import { TitleFormModal }          from "../components/Modal/TitleFormModal";
@@ -8,6 +8,9 @@ import { STATUS, seasonTotals }    from "../utils/status";
 import { useLibrary }              from "../context/LibraryContext";
 import { fetchSeasonInfo, importResult } from "../api";
 import { fetchAniListRecommendations }   from "../api/recommendations";
+import { SynopsisModal }  from "../components/common/SynopsisModal";
+import { AddToListModal } from "../components/common/AddToListModal";
+import { useLists }       from "../context/ListsContext";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function getFormatGroup(f) {
@@ -43,29 +46,26 @@ function AccordionHeader({ icon, label, count, summary, isOpen, onToggle }) {
 }
 
 // ── Carte recommandation (compacte, scroll horizontal) ────────────────────────
-function RecCard({ rec, onAdd, adding, alreadyInLib }) {
+function RecCard({ rec, onAdd, adding, alreadyInLib, onClick }) {
   return (
-    <div className="relative flex-shrink-0 w-24 rounded-xl overflow-hidden bg-white/[0.04] border border-white/5 group">
-      {/* Image */}
+    <div
+      onClick={onClick}
+      className="relative flex-shrink-0 w-24 rounded-xl overflow-hidden bg-white/[0.04] border border-white/5 group cursor-pointer active:scale-[0.97] transition-transform"
+    >
       <div className="aspect-[2/3] w-full overflow-hidden">
         {rec.image
           ? <img src={rec.image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none" />
           : <div className="w-full h-full bg-violet-900/50 flex items-center justify-center text-2xl">🎬</div>
         }
       </div>
-      {/* Fade bas + titre + bouton en overlay */}
       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-1.5 pt-5">
-        <p className="font-mono text-[9px] text-white leading-tight line-clamp-2 mb-1" title={rec.title}>
-          {rec.title}
-        </p>
-        {rec.score > 0 && (
-          <p className="font-mono text-[8px] text-amber-400 mb-1">★ {(rec.score / 10).toFixed(1)}</p>
-        )}
+        <p className="font-mono text-[9px] text-white leading-tight line-clamp-2 mb-1" title={rec.title}>{rec.title}</p>
+        {rec.score > 0 && <p className="font-mono text-[8px] text-amber-400 mb-1">★ {(rec.score / 10).toFixed(1)}</p>}
         {alreadyInLib ? (
           <span className="font-mono text-[8px] text-violet-400 block text-center">✓ Dans ta liste</span>
         ) : (
           <button
-            onClick={() => onAdd(rec)}
+            onClick={e => { e.stopPropagation(); onAdd(rec); }}
             disabled={adding}
             className="w-full font-mono text-[8px] py-0.5 rounded-md bg-amber-400/25 text-amber-300 hover:bg-amber-400/40 active:scale-95 transition-all disabled:opacity-50 text-center">
             {adding ? "…" : "+ Ajouter"}
@@ -81,6 +81,7 @@ export function Details() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { entries, saveEntry, updateRating, setEpisodeCount, updateSeasonTotal, incrementEpisode, decrementEpisode, markDone } = useLibrary();
+  const { isInFavorites, toggleFavorite } = useLists();
   const entry = entries.find((e) => e.id === id);
 
   const tvSeasons    = useMemo(() => (entry?.seasons || []).map((s, i) => ({ ...s, globalIndex: i })).filter(s => getFormatGroup(s.format) === "tv"),    [entry?.seasons]);
@@ -98,6 +99,8 @@ export function Details() {
   const [recs,         setRecs]         = useState([]);
   const [loadingRecs,  setLoadingRecs]  = useState(false);
   const [addingId,     setAddingId]     = useState(null);
+  const [synopsisRec,   setSynopsisRec]   = useState(null);
+  const [addToListOpen, setAddToListOpen] = useState(false);
 
   // Reset complet à chaque changement d'entrée
   useEffect(() => {
@@ -254,6 +257,18 @@ export function Details() {
                 </h2>
               </div>
               <div className="flex gap-1 flex-shrink-0">
+                <button
+                  onClick={() => toggleFavorite(entry)}
+                  aria-label={isInFavorites(entry.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
+                  className={`p-1.5 rounded-lg transition-colors ${isInFavorites(entry.id) ? "text-pink-400 hover:bg-pink-500/10" : "text-violet-300 hover:bg-white/10 hover:text-pink-300"}`}>
+                  <Heart size={14} fill={isInFavorites(entry.id) ? "currentColor" : "none"} />
+                </button>
+                <button
+                  onClick={() => setAddToListOpen(true)}
+                  aria-label="Ajouter à une liste"
+                  className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-amber-300 transition-colors">
+                  <ListPlus size={14} />
+                </button>
                 <button onClick={() => setEditing(true)} className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-violet-50"><Pencil size={14} /></button>
                 <button onClick={() => navigate("/")} className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10"><X size={14} /></button>
               </div>
@@ -558,6 +573,7 @@ export function Details() {
                       onAdd={handleAddRec}
                       adding={addingId === rec.id}
                       alreadyInLib={libraryAnilistIds.has(rec.id)}
+                      onClick={() => setSynopsisRec(rec)}
                     />
                   ))}
                 </div>
@@ -566,7 +582,18 @@ export function Details() {
           )}
         </div>
       </div>
-
+      {synopsisRec && (
+        <SynopsisModal
+          rec={synopsisRec}
+          onClose={() => setSynopsisRec(null)}
+          onAdd={handleAddRec}
+          adding={addingId === synopsisRec.id}
+          alreadyInLib={libraryAnilistIds.has(synopsisRec.id)}
+        />
+      )}
+      {addToListOpen && (
+        <AddToListModal entry={entry} onClose={() => setAddToListOpen(false)} />
+      )}
       {editing && <TitleFormModal editingEntry={entry} onClose={() => setEditing(false)} />}
     </div>
   );

@@ -8,10 +8,17 @@ import { BurgerMenu } from "../components/common/BurgerMenu";
 
 const STORAGE_KEY = "playlog-entries";
 
-const Section = ({ title, children }) => (
-  <div className="rounded-2xl bg-violet-900/30 border border-white/5 overflow-hidden">
-    <div className="px-5 py-3 border-b border-white/5">
-      <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">{title}</p>
+// ── Section — prop `heartbeat` pour le mode culture ──────────────────────────
+const Section = ({ title, children, heartbeat = false }) => (
+  <div className={`rounded-2xl border overflow-hidden transition-all duration-500 motion-reduce:transition-none ${
+    heartbeat
+      ? "bg-pink-950/40 border-pink-500/25 animate-heartbeat"
+      : "bg-violet-900/30 border-white/5"
+  }`}>
+    <div className={`px-5 py-3 border-b ${heartbeat ? "border-pink-500/15" : "border-white/5"}`}>
+      <p className={`font-mono text-[10px] uppercase tracking-widest ${heartbeat ? "text-pink-300/70" : "text-violet-400"}`}>
+        {title}
+      </p>
     </div>
     <div className="divide-y divide-white/5">{children}</div>
   </div>
@@ -46,10 +53,9 @@ const Toggle = ({ checked, onChange }) => (
   </button>
 );
 
-// ── Toggle Culture Mode (animation rose au clic) ───────────────────────────────
+// ── Toggle Culture Mode ───────────────────────────────────────────────────────
 const CultureToggle = ({ checked, onChange }) => (
   <div className="relative flex items-center justify-center">
-    {/* Halo pulsant rose quand activé */}
     {checked && (
       <span
         className="absolute w-12 h-7 rounded-full animate-pulse motion-reduce:hidden pointer-events-none"
@@ -61,19 +67,10 @@ const CultureToggle = ({ checked, onChange }) => (
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative w-9 h-5 rounded-full transition-colors duration-300 motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 ${
-        checked ? "bg-pink-300" : "bg-white/20"
-      }`}
-      style={
-        checked
-          ? { boxShadow: "0 0 0 2px rgba(249,168,212,0.4), 0 0 10px 2px rgba(249,168,212,0.25)" }
-          : {}
-      }
+      className={`relative w-9 h-5 rounded-full transition-colors duration-300 motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 ${checked ? "bg-pink-300" : "bg-white/20"}`}
+      style={checked ? { boxShadow: "0 0 0 2px rgba(249,168,212,0.4), 0 0 10px 2px rgba(249,168,212,0.25)" } : {}}
     >
-      <span
-        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow transition-transform duration-300 motion-reduce:transition-none ${checked ? "translate-x-4" : "translate-x-0"}`}
-        style={{ backgroundColor: checked ? "#fff" : "#fff" }}
-      />
+      <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-300 motion-reduce:transition-none ${checked ? "translate-x-4" : "translate-x-0"}`} />
     </button>
   </div>
 );
@@ -217,8 +214,8 @@ export function Settings() {
         </Row>
       </Section>
 
-      {/* ── Contenu ── */}
-      <Section title="Contenu">
+      {/* ── Contenu — heartbeat quand Culture Mode est ON ── */}
+      <Section title="Contenu" heartbeat={cultureMode}>
         <Row
           label="Mode Culture 🌸"
           sublabel={

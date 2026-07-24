@@ -2,7 +2,8 @@ import { Loader2 } from "lucide-react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth }     from "./context/AuthContext";
 import { LibraryProvider }           from "./context/LibraryContext";
-import { PrefsProvider, usePrefs }   from "./context/PrefsContext";
+import { PrefsProvider }             from "./context/PrefsContext";
+import { ListsProvider }             from "./context/ListsContext";
 import { Home }            from "./pages/Home";
 import { Details }         from "./pages/Details";
 import { Login }           from "./pages/Login";
@@ -12,6 +13,7 @@ import { Calendar }        from "./pages/Calendar";
 import { History }         from "./pages/History";
 import { Recommendations } from "./pages/Recommendations";
 import { Community }       from "./pages/Community";
+import { Lists }           from "./pages/Lists";
 import { AchievementToast } from "./components/common/AchievementToast";
 import { useAchievements }  from "./hooks/useAchievements";
 
@@ -34,13 +36,12 @@ function AchievementLayer() {
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
-  const { cultureMode }   = usePrefs();
-  const location          = useLocation();
+  const location           = useLocation();
   const backgroundLocation = location.state?.backgroundLocation;
 
   return (
     <div
-      className={`min-h-screen ${cultureMode ? "bg-pink-950" : "bg-violet-950"} text-violet-50 transition-colors duration-700`}
+      className="min-h-screen bg-violet-950 text-violet-50"
       style={{ fontFamily: "'Inter', sans-serif" }}
     >
       <Routes location={backgroundLocation || location}>
@@ -50,6 +51,7 @@ const AppRoutes = () => {
         <Route path="/history"         element={<ProtectedRoute><History /></ProtectedRoute>} />
         <Route path="/recommendations" element={<ProtectedRoute><Recommendations /></ProtectedRoute>} />
         <Route path="/community"       element={<ProtectedRoute><Community /></ProtectedRoute>} />
+        <Route path="/lists"           element={<ProtectedRoute><Lists /></ProtectedRoute>} />
         <Route path="/"                element={<ProtectedRoute><Home /></ProtectedRoute>} />
         <Route path="/details/:id"     element={<ProtectedRoute><Details /></ProtectedRoute>} />
         <Route path="/settings"        element={<ProtectedRoute><Settings /></ProtectedRoute>} />
@@ -70,9 +72,11 @@ const AppRoutes = () => {
 const App = () => (
   <AuthProvider>
     <LibraryProvider>
-      <PrefsProvider>
-        <AppRoutes />
-      </PrefsProvider>
+      <ListsProvider>
+        <PrefsProvider>
+          <AppRoutes />
+        </PrefsProvider>
+      </ListsProvider>
     </LibraryProvider>
   </AuthProvider>
 );

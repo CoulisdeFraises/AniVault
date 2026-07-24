@@ -6,16 +6,58 @@ import { Confetti }       from "../components/common/Confetti";
 import { Footer }         from "../components/common/Footer";
 import { useLibrary }     from "../context/LibraryContext";
 import { useSync }        from "../hooks/useSync";
+import { Film, Tv, ListPlus, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+// ── Modal de choix "Ajouter quoi ?" ──────────────────────────────────────────
+function AddChoiceModal({ onAddTitle, onCreateList, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
+      onClick={onClose}>
+      <div className="w-full max-w-xs bg-violet-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl animate-fadeInUp"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+          <p className="font-mono text-[11px] uppercase tracking-widest text-violet-400">Ajouter</p>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/10 text-violet-400"><X size={14} /></button>
+        </div>
+        <div className="p-3 space-y-2">
+          <button onClick={onAddTitle}
+            className="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/5 hover:bg-white/10 active:scale-[0.98] transition-all text-left">
+            <div className="w-9 h-9 rounded-xl bg-violet-700/40 flex items-center justify-center flex-shrink-0">
+              <Film size={18} className="text-violet-300" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-violet-100" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>Anime ou Série</p>
+              <p className="text-[11px] text-violet-400 mt-0.5">Ajouter un titre à ta bibliothèque</p>
+            </div>
+          </button>
+          <button onClick={onCreateList}
+            className="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl bg-white/[0.04] border border-white/5 hover:bg-white/10 active:scale-[0.98] transition-all text-left">
+            <div className="w-9 h-9 rounded-xl bg-amber-400/15 flex items-center justify-center flex-shrink-0">
+              <ListPlus size={18} className="text-amber-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-violet-100" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>Créer une liste</p>
+              <p className="text-[11px] text-violet-400 mt-0.5">Organise tes titres en collections</p>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function Home() {
   const { entries, loading, saveError, showConfetti } = useLibrary();
   const { syncAll, syncing, progress } = useSync();
+  const navigate = useNavigate();
 
   const [typeFilter,       setTypeFilter]       = useState("all");
   const [selectedStatuses, setSelectedStatuses] = useState([]);
   const [searchQuery,      setSearchQuery]      = useState("");
   const [showForm,         setShowForm]         = useState(false);
   const [editingEntry,     setEditingEntry]     = useState(null);
+  const [showAddChoice,    setShowAddChoice]    = useState(false);
 
   useEffect(() => {
     if (!loading && entries.length > 0) {
@@ -30,22 +72,16 @@ export function Home() {
     );
   }
 
-  // ── Filtrage type ────────────────────────────────────────────────────────
   const byType = useMemo(
     () => typeFilter === "all" ? entries : entries.filter((e) => e.type === typeFilter),
     [entries, typeFilter]
   );
 
-  // ── Filtrage complet (statut + recherche) ────────────────────────────────
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return byType.filter((e) => {
       const statusOk = selectedStatuses.length === 0 || selectedStatuses.includes(e.status);
-      const searchOk =
-        !q ||
-        e.title.toLowerCase().includes(q) ||
-        (e.genres || []).some((g) => g.toLowerCase().includes(q)) ||
-        (e.notes  || "").toLowerCase().includes(q);
+      const searchOk = !q || e.title.toLowerCase().includes(q) || (e.genres || []).some((g) => g.toLowerCase().includes(q)) || (e.notes || "").toLowerCase().includes(q);
       return statusOk && searchOk;
     });
   }, [byType, selectedStatuses, searchQuery]);
@@ -53,8 +89,10 @@ export function Home() {
   const filteredAnime = useMemo(() => filtered.filter((e) => e.type === "anime"), [filtered]);
   const filteredSerie = useMemo(() => filtered.filter((e) => e.type === "serie"),  [filtered]);
 
-  function openNewForm()       { setEditingEntry(null);  setShowForm(true); }
-  function openEditForm(entry) { setEditingEntry(entry); setShowForm(true); }
+  function openAddChoice()      { setShowAddChoice(true); }
+  function openNewForm()        { setShowAddChoice(false); setEditingEntry(null); setShowForm(true); }
+  function openEditForm(entry)  { setEditingEntry(entry); setShowForm(true); }
+  function handleCreateList()   { setShowAddChoice(false); navigate("/lists"); }
 
   const isSearchActive = searchQuery.trim().length > 0;
   const gridKey = `${typeFilter}-${selectedStatuses.join(",")}-${searchQuery}`;
@@ -72,7 +110,7 @@ export function Home() {
           onToggleStatus={toggleStatus}
           onClearFilters={() => setSelectedStatuses([])}
           onSearchChange={setSearchQuery}
-          onAddClick={openNewForm}
+          onAddClick={openAddChoice}
           syncing={syncing}
           syncProgress={progress}
           onSyncClick={() => syncAll(true)}
@@ -92,9 +130,7 @@ export function Home() {
             {isSearchActive ? (
               <>
                 <p className="text-4xl mb-4 animate-popIn">🔍</p>
-                <p className="text-violet-300 mb-1">
-                  Aucun résultat pour <span className="text-violet-100 font-semibold">« {searchQuery} »</span>
-                </p>
+                <p className="text-violet-300 mb-1">Aucun résultat pour <span className="text-violet-100 font-semibold">« {searchQuery} »</span></p>
                 <p className="text-violet-500 text-sm">Essaie un autre terme ou ajoute ce titre.</p>
               </>
             ) : (
@@ -143,6 +179,14 @@ export function Home() {
       </div>
 
       <Footer />
+
+      {showAddChoice && (
+        <AddChoiceModal
+          onAddTitle={openNewForm}
+          onCreateList={handleCreateList}
+          onClose={() => setShowAddChoice(false)}
+        />
+      )}
 
       {showForm && (
         <TitleFormModal

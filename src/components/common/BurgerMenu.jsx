@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { Menu, Home, User, Calendar, Settings, LogOut, Clock, Sparkles, Users } from "lucide-react";
+import { Menu, Home, User, Calendar, Settings, LogOut, Clock, Sparkles, Users, ListPlus } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 function getInitials(name) {
@@ -84,6 +84,7 @@ export function BurgerMenu() {
         {[
           { path: "/",                icon: <Home      size={15} />, label: "Accueil"          },
           { path: "/profile",         icon: <User      size={15} />, label: "Mon profil"       },
+          { path: "/lists",           icon: <ListPlus  size={15} />, label: "Mes Listes"       },
           { path: "/calendar",        icon: <Calendar  size={15} />, label: "Calendrier"       },
           { path: "/history",         icon: <Clock     size={15} />, label: "Historique"       },
           { path: "/recommendations", icon: <Sparkles  size={15} />, label: "Recommandations"  },
@@ -116,18 +117,13 @@ export function BurgerMenu() {
         ref={buttonRef}
         onClick={() => (menuOpen ? closeMenu() : openMenu())}
         className="h-9 flex items-center gap-2 px-2.5 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
-        aria-label="Menu"
-        aria-expanded={menuOpen}
-        aria-haspopup="true"
       >
-        <div
-          className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
           style={{ backgroundColor: avatarColor }}>
           {getInitials(profile)}
         </div>
-        <Menu size={15} className="text-violet-400" />
+        <Menu size={15} className="text-violet-300" />
       </button>
-
       {menuOpen && createPortal(dropdown, document.body)}
     </>
   );

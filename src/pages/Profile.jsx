@@ -11,6 +11,7 @@ import { BurgerMenu }      from "../components/common/BurgerMenu";
 import { useAchievements } from "../hooks/useAchievements";
 import { ACHIEVEMENT_CATEGORIES } from "../utils/achievements";
 import { updateProfileMeta, changeUsername, syncProfileStats } from "../services/community";
+import { useLists, fetchUserFavorites } from "../context/ListsContext";
 
 const AVATAR_COLORS = [
   "#7c3aed", "#f59e0b", "#0ea5e9", "#10b981",
@@ -325,6 +326,8 @@ export function Profile() {
   const { user, profile, userProfile, refreshProfile, logout } = useAuth();
   const { entries, setEntries } = useLibrary();
   const { allAchievements, unlockedIds } = useAchievements();
+  const { lists } = useLists();
+  const favoritesList = lists.find(l => l.isFavorites);
   const unlockedCount = unlockedIds.size;
 
   const [username,      setUsername]      = useState(userProfile?.username || profile || "");
@@ -498,6 +501,37 @@ export function Profile() {
       <Section title={`Succès — ${unlockedCount} / ${allAchievements.length}`}>
         <AchievementsPanel allAchievements={allAchievements} unlockedIds={unlockedIds} />
       </Section>
+
+      {/* Favoris */}
+      {favoritesList && (
+        <Section title={`Favoris · ${favoritesList.entries.length}`}>
+          {favoritesList.entries.length === 0 ? (
+            <div className="px-5 py-6 text-center">
+              <p className="text-2xl mb-2">♡</p>
+              <p className="text-sm text-violet-500">Aucun favori pour l'instant.</p>
+              <p className="text-[11px] text-violet-600 mt-1">Utilise le ♡ dans les détails d'une série pour l'ajouter ici.</p>
+            </div>
+          ) : (
+            <div className="p-4">
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                {favoritesList.entries.map(item => (
+                  <div key={item.entryId} className="relative rounded-xl overflow-hidden bg-violet-950 aspect-[2/3]">
+                    {item.coverImage
+                      ? <img src={item.coverImage} alt="" className="w-full h-full object-cover" />
+                      : <div className="w-full h-full bg-violet-900 flex items-center justify-center text-lg">
+                          {item.type === "anime" ? "🎌" : "📺"}
+                        </div>
+                    }
+                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-1">
+                      <p className="font-mono text-[8px] text-white leading-tight line-clamp-2">{item.title}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Section>
+      )}
 
       {/* Zone de danger */}
       <Section title="Zone de danger">

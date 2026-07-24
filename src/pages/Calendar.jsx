@@ -8,6 +8,7 @@ import { fetchWeeklySchedule, hasFrenchVersion, isReturningSeries } from "../api
 import { hasTMDB, searchTMDBShow, fetchTMDBEpisodeFR, fetchTMDBWatchProvidersFR } from "../api/tmdb";
 import { useLibrary } from "../context/LibraryContext";
 import { BurgerMenu } from "../components/common/BurgerMenu";
+import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
 
 const DAY_NAMES = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 // Nombre de jours visibles : 1 sur mobile, 3 sur desktop
@@ -221,15 +222,39 @@ export function Calendar() {
   );
 
   const load = useCallback(async (offset, isRefresh = false) => {
+    const cacheKey = `calendar_week_${offset}`;
+
+    // Cache valide → affichage immédiat (sauf si refresh forcé)
+    if (!isRefresh) {
+      const cached = getCached(cacheKey);
+      if (cached) {
+        setSchedules(cached.schedules);
+        setWeekMonday(cached.monday);
+        setLoading(false);
+        return;
+      }
+    }
+
     if (isRefresh) setRefreshing(true);
     else           setLoading(true);
     setError("");
+
     try {
       const { schedules: data, monday } = await fetchWeeklySchedule(offset);
+      // Stocker en cache (30 min)
+      setCached(cacheKey, { schedules: data, monday }, TTL.CALENDAR);
       setSchedules(data);
       setWeekMonday(monday);
     } catch (err) {
-      setError(err?.message || "Impossible de charger le calendrier. Vérifie ta connexion et réessaie.");
+      // Fallback : cache périmé si réseau indisponible
+      const stale = getStaleCached(cacheKey);
+      if (stale) {
+        setSchedules(stale.schedules);
+        setWeekMonday(stale.monday);
+        setError("⚠️ Connexion indisponible — données hors-ligne affichées.");
+      } else {
+        setError(err?.message || "Impossible de charger le calendrier. Vérifie ta connexion et réessaie.");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
