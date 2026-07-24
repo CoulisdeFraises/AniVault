@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { Menu, Home, User, Calendar, Settings, LogOut, Clock, Sparkles } from "lucide-react";
+import { Menu, Home, User, Calendar, Settings, LogOut, Clock, Sparkles, Users } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 function getInitials(name) {
@@ -14,38 +14,27 @@ function getInitials(name) {
 
 export function BurgerMenu() {
   const { user, profile, logout } = useAuth();
-  const navigate   = useNavigate();
-  const buttonRef  = useRef(null);
+  const navigate    = useNavigate();
+  const buttonRef   = useRef(null);
   const dropdownRef = useRef(null);
 
   const [menuOpen, setMenuOpen] = useState(false);
-  // Position fixe calculée depuis le bouton pour le portal
   const [pos, setPos] = useState({ top: 0, right: 0 });
 
   const avatarColor = user?.user_metadata?.avatar_color || "#7c3aed";
 
-  // Calcule la position du dropdown depuis le bouton et ouvre le menu
   function openMenu() {
     const rect = buttonRef.current?.getBoundingClientRect();
-    if (rect) {
-      setPos({
-        top:   rect.bottom + 8,
-        right: window.innerWidth - rect.right,
-      });
-    }
+    if (rect) setPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
     setMenuOpen(true);
   }
-
   function closeMenu() { setMenuOpen(false); }
   function go(path)    { closeMenu(); navigate(path); }
 
-  // Fermeture au clic en dehors (mousedown sur document)
   useEffect(() => {
     if (!menuOpen) return;
     function handleOutside(e) {
-      const clickedButton   = buttonRef.current?.contains(e.target);
-      const clickedDropdown = dropdownRef.current?.contains(e.target);
-      if (!clickedButton && !clickedDropdown) closeMenu();
+      if (!buttonRef.current?.contains(e.target) && !dropdownRef.current?.contains(e.target)) closeMenu();
     }
     function handleKey(e) { if (e.key === "Escape") closeMenu(); }
     document.addEventListener("mousedown", handleOutside);
@@ -56,7 +45,6 @@ export function BurgerMenu() {
     };
   }, [menuOpen]);
 
-  // Recalcule la position si la fenêtre est redimensionnée menu ouvert
   useEffect(() => {
     if (!menuOpen) return;
     function handleResize() {
@@ -70,13 +58,7 @@ export function BurgerMenu() {
   const dropdown = (
     <div
       ref={dropdownRef}
-      style={{
-        position: "fixed",
-        top:      pos.top,
-        right:    pos.right,
-        zIndex:   9999,           // au-dessus de TOUT, hors de tout stacking context
-        width:    "14rem",        // w-56
-      }}
+      style={{ position: "fixed", top: pos.top, right: pos.right, zIndex: 9999, width: "14rem" }}
       className="rounded-2xl bg-violet-900 border border-white/10 shadow-2xl overflow-hidden animate-fadeIn"
     >
       {/* Logo */}
@@ -88,8 +70,7 @@ export function BurgerMenu() {
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
         <div
           className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-          style={{ backgroundColor: avatarColor }}
-        >
+          style={{ backgroundColor: avatarColor }}>
           {getInitials(profile)}
         </div>
         <div className="min-w-0">
@@ -101,18 +82,16 @@ export function BurgerMenu() {
       {/* Navigation */}
       <nav className="py-1">
         {[
-          { path: "/",                icon: <Home      size={15} />, label: "Accueil"         },
-          { path: "/profile",         icon: <User      size={15} />, label: "Mon profil"      },
-          { path: "/calendar",        icon: <Calendar  size={15} />, label: "Calendrier"      },
-          { path: "/history",         icon: <Clock     size={15} />, label: "Historique"      },
-          { path: "/recommendations", icon: <Sparkles  size={15} />, label: "Recommandations" },
-          { path: "/settings",        icon: <Settings  size={15} />, label: "Paramètres"      },
+          { path: "/",                icon: <Home      size={15} />, label: "Accueil"          },
+          { path: "/profile",         icon: <User      size={15} />, label: "Mon profil"       },
+          { path: "/calendar",        icon: <Calendar  size={15} />, label: "Calendrier"       },
+          { path: "/history",         icon: <Clock     size={15} />, label: "Historique"       },
+          { path: "/recommendations", icon: <Sparkles  size={15} />, label: "Recommandations"  },
+          { path: "/community",       icon: <Users     size={15} />, label: "Communauté"       },
+          { path: "/settings",        icon: <Settings  size={15} />, label: "Paramètres"       },
         ].map(({ path, icon, label }) => (
-          <button
-            key={path}
-            onClick={() => go(path)}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-violet-200 hover:bg-white/10 active:bg-white/20 transition-colors motion-reduce:transition-none"
-          >
+          <button key={path} onClick={() => go(path)}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-violet-200 hover:bg-white/10 active:bg-white/20 transition-colors motion-reduce:transition-none">
             <span className="text-violet-400 flex-shrink-0">{icon}</span>
             {label}
           </button>
@@ -136,21 +115,19 @@ export function BurgerMenu() {
       <button
         ref={buttonRef}
         onClick={() => (menuOpen ? closeMenu() : openMenu())}
-        className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
+        className="h-9 flex items-center gap-2 px-2.5 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
         aria-label="Menu"
         aria-expanded={menuOpen}
         aria-haspopup="true"
       >
         <div
           className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-          style={{ backgroundColor: avatarColor }}
-        >
+          style={{ backgroundColor: avatarColor }}>
           {getInitials(profile)}
         </div>
         <Menu size={15} className="text-violet-400" />
       </button>
 
-      {/* Rendu dans document.body via Portal → échappe à tous les stacking contexts */}
       {menuOpen && createPortal(dropdown, document.body)}
     </>
   );

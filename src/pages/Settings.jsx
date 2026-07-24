@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { ChevronRight, Trash2, Download, Upload, Info, Film, Tv, RotateCcw, ArrowLeft } from "lucide-react";
 import { useAuth }    from "../context/AuthContext";
 import { useLibrary } from "../context/LibraryContext";
+import { usePrefs }   from "../context/PrefsContext";
 import { BurgerMenu } from "../components/common/BurgerMenu";
 
 const STORAGE_KEY = "playlog-entries";
 
-// ─── Bloc de section réutilisable ────────────────────────────────────────────
 const Section = ({ title, children }) => (
   <div className="rounded-2xl bg-violet-900/30 border border-white/5 overflow-hidden">
     <div className="px-5 py-3 border-b border-white/5">
@@ -17,7 +17,6 @@ const Section = ({ title, children }) => (
   </div>
 );
 
-// ─── Ligne de setting avec label + contenu droit ─────────────────────────────
 const Row = ({ label, sublabel, children, onClick, danger = false }) => (
   <div
     onClick={onClick}
@@ -34,38 +33,33 @@ const Row = ({ label, sublabel, children, onClick, danger = false }) => (
   </div>
 );
 
-// ─── Toggle switch ────────────────────────────────────────────────────────────
-const Toggle = ({ checked, onChange }) => (
+const Toggle = ({ checked, onChange, colorClass }) => (
   <button
     type="button"
     role="switch"
     aria-checked={checked}
     onClick={() => onChange(!checked)}
-    className={`relative w-9 h-5 rounded-full transition-colors motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${checked ? "bg-amber-400" : "bg-white/20"}`}
+    className={`relative w-9 h-5 rounded-full transition-colors motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${checked ? (colorClass || "bg-amber-400") : "bg-white/20"}`}
   >
-    <span
-      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform motion-reduce:transition-none ${checked ? "translate-x-4" : "translate-x-0"}`}
-    />
+    <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform motion-reduce:transition-none ${checked ? "translate-x-4" : "translate-x-0"}`} />
   </button>
 );
 
-// ─── Page principale ─────────────────────────────────────────────────────────
 export function Settings() {
-  const navigate     = useNavigate();
+  const navigate = useNavigate();
   const { profile, logout } = useAuth();
-  const libraryCtx   = useLibrary?.() ?? {};
-  const entries      = libraryCtx.entries ?? (() => {
+  const { cultureMode, setCultureMode } = usePrefs();
+  const libraryCtx = useLibrary?.() ?? {};
+  const entries = libraryCtx.entries ?? (() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
   })();
 
-  // ── Préférences locales ──
   const [prefs, setPrefs] = useState({
     defaultFilter: localStorage.getItem("pref_defaultFilter") || "all",
     showProgress:  localStorage.getItem("pref_showProgress") !== "false",
     autoStatus:    localStorage.getItem("pref_autoStatus")   !== "false",
   });
 
-  // ── États de confirmation ──
   const [confirmClear, setConfirmClear] = useState(false);
   const [exportDone,   setExportDone]   = useState(false);
   const [importError,  setImportError]  = useState("");
@@ -75,14 +69,12 @@ export function Settings() {
     localStorage.setItem(`pref_${key}`, String(value));
   }
 
-  // ── Stats rapides ──
-  const animeCount  = entries.filter((e) => e.type === "anime").length;
-  const serieCount  = entries.filter((e) => e.type === "serie").length;
-  const totalEps    = entries.reduce(
+  const animeCount = entries.filter((e) => e.type === "anime").length;
+  const serieCount = entries.filter((e) => e.type === "serie").length;
+  const totalEps   = entries.reduce(
     (sum, e) => sum + e.seasons.reduce((s2, s) => s2 + (s.watchedEpisodes || 0), 0), 0
   );
 
-  // ── Export JSON ──
   function handleExport() {
     try {
       const blob = new Blob([JSON.stringify(entries, null, 2)], { type: "application/json" });
@@ -97,7 +89,6 @@ export function Settings() {
     } catch { /* silencieux */ }
   }
 
-  // ── Import JSON ──
   function handleImport(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -117,7 +108,6 @@ export function Settings() {
     reader.readAsText(file);
   }
 
-  // ── Vider la bibliothèque ──
   function handleClear() {
     localStorage.removeItem(STORAGE_KEY);
     libraryCtx.setEntries?.([]);
@@ -128,7 +118,7 @@ export function Settings() {
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6">
 
-      {/* ── Titre + navigation ── */}
+      {/* ── Titre ── */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
           <button
@@ -148,7 +138,7 @@ export function Settings() {
         <BurgerMenu />
       </div>
 
-      {/* ── Statistiques ── */}
+      {/* ── Stats ── */}
       <Section title="Ma bibliothèque">
         <div className="grid grid-cols-3 divide-x divide-white/5">
           <div className="px-5 py-4 text-center">
@@ -172,23 +162,11 @@ export function Settings() {
 
       {/* ── Affichage ── */}
       <Section title="Affichage">
-        <Row
-          label="Barre de progression"
-          sublabel="Afficher le scrubber d'épisodes sur les cartes"
-        >
-          <Toggle
-            checked={prefs.showProgress}
-            onChange={(v) => setPref("showProgress", v)}
-          />
+        <Row label="Barre de progression" sublabel="Afficher le scrubber d'épisodes sur les cartes">
+          <Toggle checked={prefs.showProgress} onChange={(v) => setPref("showProgress", v)} />
         </Row>
-        <Row
-          label="Changement de statut automatique"
-          sublabel="Passe à « En cours » / « Terminé » selon les épisodes cochés"
-        >
-          <Toggle
-            checked={prefs.autoStatus}
-            onChange={(v) => setPref("autoStatus", v)}
-          />
+        <Row label="Changement de statut automatique" sublabel="Passe à « En cours » / « Terminé » selon les épisodes cochés">
+          <Toggle checked={prefs.autoStatus} onChange={(v) => setPref("autoStatus", v)} />
         </Row>
         <Row label="Filtre par défaut" sublabel="Vue affichée à l'ouverture de l'app">
           <select
@@ -206,17 +184,30 @@ export function Settings() {
         </Row>
       </Section>
 
+      {/* ── Contenu ── */}
+      <Section title="Contenu">
+        <Row
+          label="Mode Culture 🌸"
+          sublabel={
+            cultureMode
+              ? "Activé — le contenu adulte (Hentai) est accessible. Fond rose."
+              : "Désactivé (défaut) — le contenu Hentai est masqué des recherches."
+          }
+        >
+          <Toggle
+            checked={cultureMode}
+            onChange={setCultureMode}
+            colorClass="bg-pink-500"
+          />
+        </Row>
+      </Section>
+
       {/* ── Données ── */}
       <Section title="Données">
-        <Row
-          label="Exporter la bibliothèque"
-          sublabel="Télécharge un fichier JSON de sauvegarde"
-          onClick={handleExport}
-        >
+        <Row label="Exporter la bibliothèque" sublabel="Télécharge un fichier JSON de sauvegarde" onClick={handleExport}>
           {exportDone
             ? <span className="text-[11px] text-teal-300 font-mono">Téléchargé ✓</span>
-            : <Download size={15} className="text-violet-400" />
-          }
+            : <Download size={15} className="text-violet-400" />}
         </Row>
         <label className="flex items-center justify-between gap-4 px-5 py-4 cursor-pointer hover:bg-white/5 transition-colors motion-reduce:transition-none">
           <div>
@@ -259,16 +250,12 @@ export function Settings() {
               Es-tu sûr ? Cette action est <span className="text-rose-300 font-semibold">irréversible</span>.
             </p>
             <div className="flex gap-2">
-              <button
-                onClick={() => setConfirmClear(false)}
-                className="flex-1 px-4 py-2 rounded-xl text-sm font-medium bg-white/10 text-violet-200 hover:bg-white/20 transition-colors motion-reduce:transition-none"
-              >
+              <button onClick={() => setConfirmClear(false)}
+                className="flex-1 px-4 py-2 rounded-xl text-sm font-medium bg-white/10 text-violet-200 hover:bg-white/20 transition-colors motion-reduce:transition-none">
                 Annuler
               </button>
-              <button
-                onClick={handleClear}
-                className="flex-1 px-4 py-2 rounded-xl text-sm font-medium bg-rose-500 text-white hover:bg-rose-400 transition-colors motion-reduce:transition-none"
-              >
+              <button onClick={handleClear}
+                className="flex-1 px-4 py-2 rounded-xl text-sm font-medium bg-rose-500 text-white hover:bg-rose-400 transition-colors motion-reduce:transition-none">
                 Tout supprimer
               </button>
             </div>
@@ -282,7 +269,7 @@ export function Settings() {
           <Info size={15} className="text-violet-400" />
         </Row>
         <Row label="Sources de données" sublabel="AniList · TVmaze · Jikan (MyAnimeList) · TMDB" />
-        <Row label="Stockage" sublabel="100 % local — aucune donnée envoyée sur un serveur" />
+        <Row label="Stockage" sublabel="Supabase — données synchronisées sur ton compte" />
       </Section>
 
       {/* ── Déconnexion ── */}

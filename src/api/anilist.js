@@ -9,14 +9,13 @@ async function anilistQuery(query, variables) {
 }
 
 export async function searchAniList(q) {
+  const cultureMode = localStorage.getItem("pref_culture_mode") === "true";
   const query = `query ($search: String) { Page(perPage: 20) { media(search: $search, type: ANIME, sort: POPULARITY_DESC) { id title { romaji english } episodes genres coverImage { large } seasonYear format relations { edges { relationType node { id type } } } } } }`;
   const json  = await anilistQuery(query, { search: q });
-  return (json.data?.Page?.media || []).slice(0, 6).map((m) => ({
-    source: "anilist", id: m.id,
-    title:  m.title.english || m.title.romaji,
-    year:   m.seasonYear, image: m.coverImage?.large,
-    episodes: m.episodes, genres: m.genres || [], format: m.format ?? null,
-  }));
+  return (json.data?.Page?.media || [])
+    .filter(m => cultureMode || !m.genres?.includes("Hentai"))  // ← filtre Hentai
+    .slice(0, 6)
+    .map((m) => ({source: "anilist", id: m.id, title:  m.title.english || m.title.romaji, year:   m.seasonYear, image: m.coverImage?.large, episodes: m.episodes, genres: m.genres || [], format: m.format ?? null,}));
 }
 
 // -----------------------------------------------------------------------------

@@ -67,11 +67,11 @@ export function Header({
               <h1 className="text-lg font-bold tracking-tight leading-none" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>ANIVAULT</h1>
             </div>
           </div>
-          {/* Actions */}
+          {/* Actions — hauteur unifiée h-9 sur tous les boutons */}
           <div className="flex items-center gap-2">
             <button onClick={onSyncClick} disabled={syncing}
-              title={syncing ? `Sync en cours… ${syncProgress.current}/${syncProgress.total}` : "Actualiser les données"}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-70 active:scale-95 transition-all motion-reduce:transition-none">
+              title={syncing ? `Sync… ${syncProgress.current}/${syncProgress.total}` : "Actualiser les données"}
+              className="h-9 flex items-center gap-1.5 px-3 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-70 active:scale-95 transition-all motion-reduce:transition-none">
               <RefreshCw size={14} className={`text-violet-400 ${syncing ? "animate-spin motion-reduce:animate-none" : ""}`} />
               {syncing
                 ? <span className="text-xs font-mono text-violet-400 hidden sm:inline">{syncProgress.current}/{syncProgress.total}</span>
@@ -79,7 +79,7 @@ export function Header({
             </button>
             <BurgerMenu />
             <button onClick={onAddClick}
-              className="flex items-center gap-1.5 bg-amber-400 text-violet-950 font-semibold text-sm px-4 py-2 rounded-xl hover:bg-amber-300 active:scale-95 transition-all motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
+              className="h-9 flex items-center gap-1.5 bg-amber-400 text-violet-950 font-semibold text-sm px-4 rounded-xl hover:bg-amber-300 active:scale-95 transition-all motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
               <Plus size={16} />
               <span className="hidden sm:inline">Ajouter</span>
             </button>

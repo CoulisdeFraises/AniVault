@@ -1,24 +1,34 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase }     from "../lib/supabase";
+import { initProfile, fetchMyProfile } from "../services/community";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user,    setUser]    = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user,        setUser]        = useState(null);
+  const [loading,     setLoading]     = useState(true);
+  const [userProfile, setUserProfile] = useState(null);
+
+  async function loadProfile(u) {
+    if (!u) { setUserProfile(null); return; }
+    try {
+      await initProfile(u);
+      const p = await fetchMyProfile(u.id);
+      setUserProfile(p);
+    } catch (_) {}
+  }
 
   useEffect(() => {
-    // Récupère la session existante (ex : rechargement de page)
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
+      const u = session?.user ?? null;
+      setUser(u);
+      loadProfile(u).finally(() => setLoading(false));
     });
-
-    // Écoute les changements de session (login / logout / OAuth callback)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => setUser(session?.user ?? null)
-    );
-
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      const u = session?.user ?? null;
+      setUser(u);
+      loadProfile(u);
+    });
     return () => subscription.unsubscribe();
   }, []);
 
@@ -42,18 +52,29 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
+    setUserProfile(null);
   }, []);
 
-  // Nom affiché dans l'UI
+  const refreshProfile = useCallback(async () => {
+    if (!user) return;
+    const p = await fetchMyProfile(user.id);
+    setUserProfile(p);
+  }, [user]);
+
+  // Nom affiché — priorité : profil public > user_metadata
   const profile =
-    user?.user_metadata?.username   ||   // ← pseudo choisi par l'utilisateur
-    user?.user_metadata?.full_name  ||   // ← nom Google OAuth
-    user?.user_metadata?.name       ||
-    user?.email?.split("@")[0]      ||
+    userProfile?.username ||
+    user?.user_metadata?.username ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email?.split("@")[0] ||
     null;
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, loginWithEmail, signUpWithEmail, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{
+      user, profile, userProfile, loading,
+      loginWithEmail, signUpWithEmail, loginWithGoogle, logout, refreshProfile,
+    }}>
       {children}
     </AuthContext.Provider>
   );
