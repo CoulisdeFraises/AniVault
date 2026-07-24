@@ -1,29 +1,31 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { Loader2 }           from "lucide-react";
-import { AuthProvider, useAuth }     from "./context/AuthContext";
+import { Loader2 }             from "lucide-react";
+import { AuthProvider, useAuth }       from "./context/AuthContext";
 import { LibraryProvider, useLibrary } from "./context/LibraryContext";
-import { PrefsProvider }             from "./context/PrefsContext";
-import { ListsProvider }             from "./context/ListsContext";
-import { ErrorBoundary }             from "./components/common/ErrorBoundary";
-import { InstallPrompt }             from "./components/common/InstallPrompt";
-import { AchievementToast }          from "./components/common/AchievementToast";
-import { useAchievements }           from "./hooks/useAchievements";
-import { useNotifications }          from "./hooks/useNotifications";
+import { PrefsProvider }               from "./context/PrefsContext";
+import { ListsProvider }               from "./context/ListsContext";
+import { ErrorBoundary }               from "./components/common/ErrorBoundary";
+import { InstallPrompt }               from "./components/common/InstallPrompt";
+import { AchievementToast }            from "./components/common/AchievementToast";
+import { useAchievements }             from "./hooks/useAchievements";
+import { useNotifications }            from "./hooks/useNotifications";
 
-// ── Code splitting : chaque page est chargée à la demande ────────────────────
-const Home            = lazy(() => import("./pages/Home"));
-const Details         = lazy(() => import("./pages/Details"));
-const Login           = lazy(() => import("./pages/Login"));
-const Settings        = lazy(() => import("./pages/Settings"));
-const Profile         = lazy(() => import("./pages/Profile"));
-const Calendar        = lazy(() => import("./pages/Calendar"));
-const History         = lazy(() => import("./pages/History"));
-const Recommendations = lazy(() => import("./pages/Recommendations"));
-const Community       = lazy(() => import("./pages/Community"));
-const Lists           = lazy(() => import("./pages/Lists"));
+// ── Code splitting ────────────────────────────────────────────────────────────
+// Toutes les pages utilisent des exports NOMMÉS (export function X).
+// React.lazy nécessite un export DEFAULT → on le mappe avec .then().
+const Home            = lazy(() => import("./pages/Home")           .then(m => ({ default: m.Home })));
+const Details         = lazy(() => import("./pages/Details")        .then(m => ({ default: m.Details })));
+const Login           = lazy(() => import("./pages/Login")          .then(m => ({ default: m.Login })));
+const Settings        = lazy(() => import("./pages/Settings")       .then(m => ({ default: m.Settings })));
+const Profile         = lazy(() => import("./pages/Profile")        .then(m => ({ default: m.Profile })));
+const Calendar        = lazy(() => import("./pages/Calendar")       .then(m => ({ default: m.Calendar })));
+const History         = lazy(() => import("./pages/History")        .then(m => ({ default: m.History })));
+const Recommendations = lazy(() => import("./pages/Recommendations").then(m => ({ default: m.Recommendations })));
+const Community       = lazy(() => import("./pages/Community")      .then(m => ({ default: m.Community })));
+const Lists           = lazy(() => import("./pages/Lists")          .then(m => ({ default: m.Lists })));
 
-// ── Loaders ──────────────────────────────────────────────────────────────────
+// ── Loaders ───────────────────────────────────────────────────────────────────
 const AppLoader = () => (
   <div className="min-h-screen bg-violet-950 flex items-center justify-center">
     <Loader2 size={28} className="animate-spin text-violet-400" />
@@ -49,7 +51,7 @@ function AchievementLayer() {
   return <AchievementToast achievement={currentToast} onDone={dismissToast} />;
 }
 
-// ── Notifications épisodes (actif dès que connecté) ───────────────────────────
+// ── Notifications épisodes ────────────────────────────────────────────────────
 function NotificationLayer() {
   const { entries } = useLibrary();
   useNotifications(entries);
@@ -70,22 +72,34 @@ const AppRoutes = () => {
 
       <Suspense fallback={<PageLoader />}>
         <Routes location={backgroundLocation || location}>
-          <Route path="/login"           element={loading ? <AppLoader /> : user ? <Navigate to="/" replace /> : <Login />} />
-          <Route path="/profile"         element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/calendar"        element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
-          <Route path="/history"         element={<ProtectedRoute><History /></ProtectedRoute>} />
-          <Route path="/recommendations" element={<ProtectedRoute><Recommendations /></ProtectedRoute>} />
-          <Route path="/community"       element={<ProtectedRoute><Community /></ProtectedRoute>} />
-          <Route path="/lists"           element={<ProtectedRoute><Lists /></ProtectedRoute>} />
-          <Route path="/"                element={<ProtectedRoute><Home /></ProtectedRoute>} />
-          <Route path="/details/:id"     element={<ProtectedRoute><Details /></ProtectedRoute>} />
-          <Route path="/settings"        element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          <Route path="*"                element={<Navigate to="/" replace />} />
+          <Route path="/login"
+            element={loading ? <AppLoader /> : user ? <Navigate to="/" replace /> : <Login />} />
+          <Route path="/profile"
+            element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/calendar"
+            element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
+          <Route path="/history"
+            element={<ProtectedRoute><History /></ProtectedRoute>} />
+          <Route path="/recommendations"
+            element={<ProtectedRoute><Recommendations /></ProtectedRoute>} />
+          <Route path="/community"
+            element={<ProtectedRoute><Community /></ProtectedRoute>} />
+          <Route path="/lists"
+            element={<ProtectedRoute><Lists /></ProtectedRoute>} />
+          <Route path="/"
+            element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/details/:id"
+            element={<ProtectedRoute><Details /></ProtectedRoute>} />
+          <Route path="/settings"
+            element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          <Route path="*"
+            element={<Navigate to="/" replace />} />
         </Routes>
 
         {backgroundLocation && (
           <Routes>
-            <Route path="/details/:id" element={<ProtectedRoute><Details /></ProtectedRoute>} />
+            <Route path="/details/:id"
+              element={<ProtectedRoute><Details /></ProtectedRoute>} />
           </Routes>
         )}
       </Suspense>
