@@ -11,9 +11,20 @@ import { fetchAniListRecommendations }   from "../api/recommendations";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function getFormatGroup(f) {
-  if (!f || f === "TV") return "tv";   // TV_SHORT → extra
+  if (!f || f === "TV") return "tv";
   if (f === "MOVIE") return "movie";
   return "extra";
+}
+
+// Normalisation du titre pour déduplication des saisons (Mashle S1 + S2 → Mashle)
+function normalizeSeriesTitle(title) {
+  return (title || "")
+    .replace(/\s*:?\s*(season|saison|part|cour)\s*\d+/gi, "")
+    .replace(/\s+\d+(st|nd|rd|th)\s+season/gi, "")
+    .replace(/\s+s\d+$/i, "")
+    .replace(/\s+\d+$/, "")
+    .trim()
+    .toLowerCase();
 }
 
 function AccordionHeader({ icon, label, count, summary, isOpen, onToggle }) {
@@ -31,30 +42,35 @@ function AccordionHeader({ icon, label, count, summary, isOpen, onToggle }) {
   );
 }
 
-// ── Carte suggestion ──────────────────────────────────────────────────────────
+// ── Carte recommandation (compacte, scroll horizontal) ────────────────────────
 function RecCard({ rec, onAdd, adding, alreadyInLib }) {
   return (
-    <div className="rounded-xl bg-white/[0.04] border border-white/5 overflow-hidden flex flex-col">
-      {rec.image && (
-        <div className="aspect-[2/3] w-full overflow-hidden">
-          <img src={rec.image} alt="" className="w-full h-full object-cover" />
-        </div>
-      )}
-      <div className="p-2 flex-1 flex flex-col gap-1">
-        <p className="text-[11px] font-medium text-violet-100 leading-snug line-clamp-2" title={rec.title}>{rec.title}</p>
-        <div className="flex items-center gap-1 mt-auto pt-1.5">
-          {rec.score > 0 && (
-            <span className="font-mono text-[9px] text-amber-400 shrink-0">★ {(rec.score / 10).toFixed(1)}</span>
-          )}
-          {alreadyInLib ? (
-            <span className="font-mono text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 text-violet-500 ml-auto">Dans ta liste</span>
-          ) : (
-            <button onClick={() => onAdd(rec)} disabled={adding}
-              className="font-mono text-[9px] px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 hover:bg-amber-400/25 active:scale-95 transition-all disabled:opacity-50 ml-auto whitespace-nowrap">
-              {adding ? "…" : "+ Ajouter"}
-            </button>
-          )}
-        </div>
+    <div className="relative flex-shrink-0 w-24 rounded-xl overflow-hidden bg-white/[0.04] border border-white/5 group">
+      {/* Image */}
+      <div className="aspect-[2/3] w-full overflow-hidden">
+        {rec.image
+          ? <img src={rec.image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none" />
+          : <div className="w-full h-full bg-violet-900/50 flex items-center justify-center text-2xl">🎬</div>
+        }
+      </div>
+      {/* Fade bas + titre + bouton en overlay */}
+      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-1.5 pt-5">
+        <p className="font-mono text-[9px] text-white leading-tight line-clamp-2 mb-1" title={rec.title}>
+          {rec.title}
+        </p>
+        {rec.score > 0 && (
+          <p className="font-mono text-[8px] text-amber-400 mb-1">★ {(rec.score / 10).toFixed(1)}</p>
+        )}
+        {alreadyInLib ? (
+          <span className="font-mono text-[8px] text-violet-400 block text-center">✓ Dans ta liste</span>
+        ) : (
+          <button
+            onClick={() => onAdd(rec)}
+            disabled={adding}
+            className="w-full font-mono text-[8px] py-0.5 rounded-md bg-amber-400/25 text-amber-300 hover:bg-amber-400/40 active:scale-95 transition-all disabled:opacity-50 text-center">
+            {adding ? "…" : "+ Ajouter"}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -74,7 +90,7 @@ export function Details() {
 
   // ── État ───────────────────────────────────────────────────────────────────
   const [activeTVIdx,  setActiveTVIdx]  = useState(0);
-  const [open,         setOpen]         = useState({ tv: false, extra: false, movie: false }); // ← tous fermés
+  const [open,         setOpen]         = useState({ tv: false, extra: false, movie: false });
   const [seasonCache,  setSeasonCache]  = useState({});
   const [loadingEps,   setLoadingEps]   = useState(false);
   const [refreshing,   setRefreshing]   = useState(false);
@@ -110,7 +126,7 @@ export function Details() {
     return () => { cancelled = true; };
   }, [entry?.id, activeTVIdx]); // eslint-disable-line
 
-  // Chargement des suggestions (anime AniList uniquement)
+  // Chargement des recommandations (anime AniList uniquement)
   useEffect(() => {
     if (!entry || entry.type !== "anime" || !entry.genres?.length) { setRecs([]); return; }
     let cancelled = false;
@@ -118,7 +134,7 @@ export function Details() {
     setRecs([]);
     const excludeIds = entries.flatMap(e => e.anilistIds || []);
     fetchAniListRecommendations(entry.genres, excludeIds).then(results => {
-      if (!cancelled) { setRecs(results.slice(0, 6)); setLoadingRecs(false); }
+      if (!cancelled) { setRecs(results.slice(0, 20)); setLoadingRecs(false); }
     });
     return () => { cancelled = true; };
   }, [entry?.id]); // eslint-disable-line
@@ -149,6 +165,17 @@ export function Details() {
     [entries]
   );
 
+  // Déduplication des recommandations par titre de série
+  const dedupedRecs = useMemo(() => {
+    const seen = new Set();
+    return recs.filter(rec => {
+      const key = normalizeSeriesTitle(rec.title);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [recs]);
+
   const displayImage  = curTV?.coverImage || (activeTVIdx === 0 ? entry.coverImage : null);
   const fallbackImage = tvSeasons[0]?.coverImage || entry.coverImage;
   const showFallback  = !displayImage && activeTVIdx > 0 && fallbackImage;
@@ -156,7 +183,6 @@ export function Details() {
   const FMT_LABEL = { OVA: "OAV", ONA: "ONA", SPECIAL: "Spécial", TV_SHORT: "Court", MUSIC: "Musique" };
 
   // ── Actions ────────────────────────────────────────────────────────────────
-  // "Tout" : marque tous les épisodes vus, avance automatiquement sur la saison suivante
   function handleMarkAllWatched() {
     if (!curTV || curTV.totalEpisodes == null) return;
     setEpisodeCount(entry.id, curTV.globalIndex, curTV.totalEpisodes);
@@ -341,6 +367,25 @@ export function Details() {
                         </div>
                       )}
 
+                      {/* Slider épisodes TV */}
+                      {curTV && curTV.totalEpisodes != null && curTV.totalEpisodes > 0 && (
+                        <div className="mb-3">
+                          <input
+                            type="range"
+                            min={0}
+                            max={curTV.totalEpisodes}
+                            value={curTV.watchedEpisodes}
+                            onChange={e => setEpisodeCount(entry.id, curTV.globalIndex, Number(e.target.value))}
+                            className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-violet-400"
+                          />
+                          <div className="flex justify-between font-mono text-[10px] text-violet-600 mt-0.5">
+                            <span>0</span>
+                            <span className="text-violet-400 font-medium">{curTV.watchedEpisodes} / {curTV.totalEpisodes} ép.</span>
+                            <span>{curTV.totalEpisodes}</span>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Liste épisodes */}
                       {loadingEps
                         ? <div className="flex items-center gap-2 text-violet-400 text-sm py-4"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
@@ -364,14 +409,14 @@ export function Details() {
                         const label = se.title || `${FMT_LABEL[se.format] ?? se.format} ${se.number}`;
                         const done  = se.totalEpisodes != null && se.watchedEpisodes >= se.totalEpisodes;
                         return (
-                          <div key={se.globalIndex} className="flex items-center gap-2 py-1.5 border-b border-white/5 last:border-0">
+                          <div key={se.globalIndex} className="flex items-start gap-2 py-1.5 border-b border-white/5 last:border-0">
                             <div className="flex-1 min-w-0">
-                              <p className="font-mono text-xs text-violet-200 truncate" title={label}>{label}</p>
-                              <p className="font-mono text-[10px] text-violet-500">
+                              <p className="font-mono text-xs text-violet-200 break-words leading-tight">{label}</p>
+                              <p className="font-mono text-[10px] text-violet-500 mt-0.5">
                                 {String(se.watchedEpisodes).padStart(2, "0")}{se.totalEpisodes != null ? `/${String(se.totalEpisodes).padStart(2, "0")}` : "/?"} ép.
                               </p>
                             </div>
-                            <div className="flex gap-1 flex-shrink-0">
+                            <div className="flex gap-1 flex-shrink-0 pt-0.5">
                               {se.watchedEpisodes > 0 && (
                                 <button onClick={() => decrementEpisode(entry.id, se.globalIndex)}
                                   className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95">-1</button>
@@ -409,15 +454,15 @@ export function Details() {
                         const label = se.title || `Film ${se.number}`;
                         const seen  = se.watchedEpisodes >= (se.totalEpisodes ?? 1);
                         return (
-                          <div key={se.globalIndex} className="flex items-center justify-between gap-2 py-1.5 border-b border-white/5 last:border-0">
+                          <div key={se.globalIndex} className="flex items-start gap-2 py-1.5 border-b border-white/5 last:border-0">
                             <div className="flex-1 min-w-0">
-                              <p className="font-mono text-xs text-violet-200 truncate" title={label}>{label}</p>
+                              <p className="font-mono text-xs text-violet-200 break-words leading-tight">{label}</p>
                               {se.totalEpisodes != null && se.totalEpisodes > 1 && (
-                                <p className="font-mono text-[10px] text-violet-500">{se.totalEpisodes} épisodes</p>
+                                <p className="font-mono text-[10px] text-violet-500 mt-0.5">{se.totalEpisodes} épisodes</p>
                               )}
                             </div>
                             <button onClick={() => setEpisodeCount(entry.id, se.globalIndex, seen ? 0 : (se.totalEpisodes ?? 1))}
-                              className={`font-mono text-[10px] px-2.5 py-1 rounded-full border transition-all active:scale-95 flex-shrink-0 ${seen ? "bg-teal-500/20 border-teal-500/40 text-teal-300 hover:bg-teal-500/30" : "bg-white/5 border-white/10 text-violet-400 hover:bg-white/10 hover:text-violet-200"}`}>
+                              className={`font-mono text-[10px] px-2.5 py-1 rounded-full border transition-all active:scale-95 flex-shrink-0 mt-0.5 ${seen ? "bg-teal-500/20 border-teal-500/40 text-teal-300 hover:bg-teal-500/30" : "bg-white/5 border-white/10 text-violet-400 hover:bg-white/10 hover:text-violet-200"}`}>
                               {seen ? "✓ Vu" : "Pas vu"}
                             </button>
                           </div>
@@ -459,6 +504,26 @@ export function Details() {
                   )}
                 </div>
               </div>
+
+              {/* Slider épisodes TV (mode simple) */}
+              {curTV && curTV.totalEpisodes != null && curTV.totalEpisodes > 0 && (
+                <div className="px-4 sm:px-6 mb-3">
+                  <input
+                    type="range"
+                    min={0}
+                    max={curTV.totalEpisodes}
+                    value={curTV.watchedEpisodes}
+                    onChange={e => setEpisodeCount(entry.id, curTV.globalIndex, Number(e.target.value))}
+                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-violet-400"
+                  />
+                  <div className="flex justify-between font-mono text-[10px] text-violet-600 mt-0.5">
+                    <span>0</span>
+                    <span className="text-violet-400 font-medium">{curTV.watchedEpisodes} / {curTV.totalEpisodes} ép.</span>
+                    <span>{curTV.totalEpisodes}</span>
+                  </div>
+                </div>
+              )}
+
               <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-6">
                 {loadingEps
                   ? <div className="flex items-center gap-2 text-violet-400 text-sm py-6"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
@@ -467,14 +532,14 @@ export function Details() {
             </>
           )}
 
-          {/* ── Séparateur + Suggestions ────────────────────────────────── */}
-          {(loadingRecs || recs.length > 0) && (
-            <div className="px-3 sm:px-4 pt-1 pb-5 border-t border-white/5 mt-2">
-              {/* Séparateur décoratif */}
-              <div className="flex items-center gap-3 my-4">
+          {/* ── Recommandations similaires ────────────────────────────────── */}
+          {(loadingRecs || dedupedRecs.length > 0) && (
+            <div className="pt-1 pb-5 border-t border-white/5 mt-2">
+              {/* Titre section */}
+              <div className="flex items-center gap-3 mx-3 sm:mx-4 my-3">
                 <div className="h-px flex-1 bg-gradient-to-r from-transparent via-violet-500/30 to-violet-500/10" />
-                <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-violet-500 whitespace-nowrap flex-shrink-0">
-                  Suggestions
+                <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-violet-500 whitespace-nowrap flex-shrink-0">
+                  Recommandations similaires
                 </p>
                 <div className="h-px flex-1 bg-gradient-to-l from-transparent via-violet-500/30 to-violet-500/10" />
               </div>
@@ -484,8 +549,9 @@ export function Details() {
                   <Loader2 size={18} className="animate-spin text-violet-500" />
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {recs.map(rec => (
+                /* Ligne scrollable horizontalement */
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none px-3 sm:px-4">
+                  {dedupedRecs.map(rec => (
                     <RecCard
                       key={rec.id}
                       rec={rec}

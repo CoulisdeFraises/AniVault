@@ -33,16 +33,49 @@ const Row = ({ label, sublabel, children, onClick, danger = false }) => (
   </div>
 );
 
-const Toggle = ({ checked, onChange, colorClass }) => (
+// ── Toggle standard ───────────────────────────────────────────────────────────
+const Toggle = ({ checked, onChange }) => (
   <button
     type="button"
     role="switch"
     aria-checked={checked}
     onClick={() => onChange(!checked)}
-    className={`relative w-9 h-5 rounded-full transition-colors motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${checked ? (colorClass || "bg-amber-400") : "bg-white/20"}`}
+    className={`relative w-9 h-5 rounded-full transition-colors duration-300 motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${checked ? "bg-amber-400" : "bg-white/20"}`}
   >
-    <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform motion-reduce:transition-none ${checked ? "translate-x-4" : "translate-x-0"}`} />
+    <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-300 motion-reduce:transition-none ${checked ? "translate-x-4" : "translate-x-0"}`} />
   </button>
+);
+
+// ── Toggle Culture Mode (animation rose au clic) ───────────────────────────────
+const CultureToggle = ({ checked, onChange }) => (
+  <div className="relative flex items-center justify-center">
+    {/* Halo pulsant rose quand activé */}
+    {checked && (
+      <span
+        className="absolute w-12 h-7 rounded-full animate-pulse motion-reduce:hidden pointer-events-none"
+        style={{ background: "radial-gradient(ellipse at center, rgba(249,168,212,0.35) 0%, rgba(249,168,212,0) 75%)" }}
+      />
+    )}
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`relative w-9 h-5 rounded-full transition-colors duration-300 motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 ${
+        checked ? "bg-pink-300" : "bg-white/20"
+      }`}
+      style={
+        checked
+          ? { boxShadow: "0 0 0 2px rgba(249,168,212,0.4), 0 0 10px 2px rgba(249,168,212,0.25)" }
+          : {}
+      }
+    >
+      <span
+        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow transition-transform duration-300 motion-reduce:transition-none ${checked ? "translate-x-4" : "translate-x-0"}`}
+        style={{ backgroundColor: checked ? "#fff" : "#fff" }}
+      />
+    </button>
+  </div>
 );
 
 export function Settings() {
@@ -123,8 +156,8 @@ export function Settings() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}
-            className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
             aria-label="Retour"
+            className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
           >
             <ArrowLeft size={16} className="text-violet-400" />
           </button>
@@ -190,15 +223,11 @@ export function Settings() {
           label="Mode Culture 🌸"
           sublabel={
             cultureMode
-              ? "Activé — le contenu adulte (Hentai) est accessible. Fond rose."
+              ? "Activé — le contenu adulte (Hentai) est accessible."
               : "Désactivé (défaut) — le contenu Hentai est masqué des recherches."
           }
         >
-          <Toggle
-            checked={cultureMode}
-            onChange={setCultureMode}
-            colorClass="bg-pink-500"
-          />
+          <CultureToggle checked={cultureMode} onChange={setCultureMode} />
         </Row>
       </Section>
 
@@ -250,12 +279,16 @@ export function Settings() {
               Es-tu sûr ? Cette action est <span className="text-rose-300 font-semibold">irréversible</span>.
             </p>
             <div className="flex gap-2">
-              <button onClick={() => setConfirmClear(false)}
-                className="flex-1 px-4 py-2 rounded-xl text-sm font-medium bg-white/10 text-violet-200 hover:bg-white/20 transition-colors motion-reduce:transition-none">
+              <button
+                onClick={() => setConfirmClear(false)}
+                className="flex-1 px-4 py-2 rounded-xl text-sm font-medium bg-white/10 text-violet-200 hover:bg-white/20 transition-colors motion-reduce:transition-none"
+              >
                 Annuler
               </button>
-              <button onClick={handleClear}
-                className="flex-1 px-4 py-2 rounded-xl text-sm font-medium bg-rose-500 text-white hover:bg-rose-400 transition-colors motion-reduce:transition-none">
+              <button
+                onClick={handleClear}
+                className="flex-1 px-4 py-2 rounded-xl text-sm font-medium bg-rose-500 text-white hover:bg-rose-400 transition-colors motion-reduce:transition-none"
+              >
                 Tout supprimer
               </button>
             </div>
