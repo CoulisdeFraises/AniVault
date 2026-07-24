@@ -35,3 +35,12 @@ html {
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* ── Empêche le zoom automatique iOS Safari sur focus (exige font-size ≥ 16px) ── */
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

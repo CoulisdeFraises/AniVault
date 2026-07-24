@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { X, Pencil, Star, Loader2, RefreshCw, Film, Tv, Disc2,
-         CheckCheck, ChevronRight, Check, Heart, ListPlus } from "lucide-react"; // ← Disc2 ajouté
+         CheckCheck, ChevronRight, Check, Heart, ListPlus } from "lucide-react";
 import { EpisodeList }             from "../components/EpisodeList/EpisodeList";
 import { StarRating, getRatingEmoji } from "../components/common/Rating";
 import { TitleFormModal }          from "../components/Modal/TitleFormModal";
@@ -25,16 +25,14 @@ function normalizeSeriesTitle(title) {
     .replace(/\s+\d+(st|nd|rd|th)\s+season/gi, "")
     .replace(/\s+s\d+$/i, "")
     .replace(/\s+\d+$/, "")
-    .trim()
-    .toLowerCase();
+    .trim().toLowerCase();
 }
 
 function EpisodeSlider({ watched, total, entryId, globalIndex, setEpisodeCount }) {
   const pct = total > 0 ? (watched / total) * 100 : 0;
   return (
     <div className="mb-3">
-      <input
-        type="range" min={0} max={total} value={watched}
+      <input type="range" min={0} max={total} value={watched}
         onChange={e => setEpisodeCount(entryId, globalIndex, Number(e.target.value))}
         className="episode-slider w-full cursor-pointer"
         style={{ background: `linear-gradient(to right, #a78bfa ${pct}%, rgba(109,40,217,0.25) ${pct}%)` }}
@@ -48,7 +46,6 @@ function EpisodeSlider({ watched, total, entryId, globalIndex, setEpisodeCount }
   );
 }
 
-// ← AccordionHeader accepte maintenant des éléments JSX comme icon
 function AccordionHeader({ icon, label, count, summary, isOpen, onToggle }) {
   return (
     <button type="button" onClick={onToggle}
@@ -70,24 +67,20 @@ function RecCard({ rec, onAdd, adding, alreadyInLib, onClick }) {
       className="relative flex-shrink-0 w-24 rounded-xl overflow-hidden bg-white/[0.04] border border-white/5 group cursor-pointer active:scale-[0.97] transition-transform">
       <div className="aspect-[2/3] w-full overflow-hidden">
         {rec.image
-          ? <img src={rec.image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none" />
-          // ← 🎬 remplacé par Film icon
+          ? <img src={rec.image} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none" />
           : <div className="w-full h-full bg-violet-900/50 flex items-center justify-center">
               <Film size={28} className="text-violet-500/40" />
-            </div>
-        }
+            </div>}
       </div>
       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-1.5 pt-5">
         <p className="font-mono text-[9px] text-white leading-tight line-clamp-2 mb-1" title={rec.title}>{rec.title}</p>
         {rec.score > 0 && <p className="font-mono text-[8px] text-amber-400 mb-1">★ {(rec.score / 10).toFixed(1)}</p>}
-        {alreadyInLib ? (
-          <span className="font-mono text-[8px] text-violet-400 block text-center">✓ Dans ta liste</span>
-        ) : (
-          <button onClick={e => { e.stopPropagation(); onAdd(rec); }} disabled={adding}
-            className="w-full font-mono text-[8px] py-0.5 rounded-md bg-amber-400/25 text-amber-300 hover:bg-amber-400/40 active:scale-95 transition-all disabled:opacity-50 text-center">
-            {adding ? "…" : "+ Ajouter"}
-          </button>
-        )}
+        {alreadyInLib
+          ? <span className="font-mono text-[8px] text-violet-400 block text-center">✓ Dans ta liste</span>
+          : <button onClick={e => { e.stopPropagation(); onAdd(rec); }} disabled={adding}
+              className="w-full font-mono text-[8px] py-0.5 rounded-md bg-amber-400/25 text-amber-300 hover:bg-amber-400/40 active:scale-95 transition-all disabled:opacity-50 text-center">
+              {adding ? "…" : "+ Ajouter"}
+            </button>}
       </div>
     </div>
   );
@@ -96,7 +89,8 @@ function RecCard({ rec, onAdd, adding, alreadyInLib, onClick }) {
 export function Details() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { entries, saveEntry, updateRating, setEpisodeCount, updateSeasonTotal, incrementEpisode, decrementEpisode, markDone } = useLibrary();
+  const { entries, saveEntry, updateRating, setEpisodeCount, updateSeasonTotal,
+          incrementEpisode, decrementEpisode, markDone } = useLibrary();
   const { isInFavorites, toggleFavorite } = useLists();
   const entry = entries.find((e) => e.id === id);
 
@@ -117,6 +111,8 @@ export function Details() {
   const [addingId,      setAddingId]      = useState(null);
   const [synopsisRec,   setSynopsisRec]   = useState(null);
   const [addToListOpen, setAddToListOpen] = useState(false);
+  // Swipe to dismiss (bottom sheet sur mobile)
+  const [touchStartY,   setTouchStartY]   = useState(null);
 
   useEffect(() => {
     setActiveTVIdx(0); setSeasonCache({});
@@ -163,10 +159,10 @@ export function Details() {
     </div>
   );
 
-  const s         = STATUS[entry.status];
-  const curTV     = tvSeasons[activeTVIdx] ?? null;
-  const watched   = curTV?.watchedEpisodes || 0;
-  const curEps    = seasonCache[activeTVIdx]?.episodes || [];
+  const s       = STATUS[entry.status];
+  const curTV   = tvSeasons[activeTVIdx] ?? null;
+  const watched = curTV?.watchedEpisodes || 0;
+  const curEps  = seasonCache[activeTVIdx]?.episodes || [];
   const hasNextTV = activeTVIdx < tvSeasons.length - 1;
 
   const { watched: tvW, total: tvT }   = seasonTotals(tvSeasons);
@@ -220,19 +216,58 @@ export function Details() {
     navigate("/");
   }
 
+  // ── Swipe vers le bas pour fermer (drag handle mobile) ──
+  function handleDragTouchStart(e) {
+    setTouchStartY(e.touches[0].clientY);
+  }
+  function handleDragTouchEnd(e) {
+    if (touchStartY === null) return;
+    const delta = e.changedTouches[0].clientY - touchStartY;
+    if (delta > 80) navigate("/");
+    setTouchStartY(null);
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm text-violet-50 flex items-center justify-center p-3 sm:p-4 z-50"
-      style={{ fontFamily: "'Inter',sans-serif" }} onClick={handleOuterClick}>
-      <div onClick={e => e.stopPropagation()}
-        className="bg-violet-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col">
+    /*
+     * ── LAYOUT RESPONSIVE ─────────────────────────────────────────────────────
+     * Mobile  : bottom sheet — la modale monte depuis le bas (items-end),
+     *           bords arrondis uniquement en haut, swipe-to-dismiss.
+     * Desktop : modal centré classique (sm:items-center sm:justify-center).
+     * ─────────────────────────────────────────────────────────────────────────
+     */
+    <div
+      className="fixed inset-0 z-50 text-violet-50 bg-black/60 backdrop-blur-sm
+        flex items-end
+        sm:items-center sm:justify-center sm:p-4"
+      style={{ fontFamily: "'Inter',sans-serif" }}
+      onClick={handleOuterClick}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        className="bg-violet-900 border border-white/10 flex flex-col w-full
+          rounded-t-3xl max-h-[92dvh]
+          sm:rounded-2xl sm:max-w-2xl sm:max-h-[92vh]
+          animate-slideUp sm:animate-none"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
+
+        {/* ── Drag handle — mobile uniquement ── */}
+        <div
+          className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0 touch-none select-none"
+          onTouchStart={handleDragTouchStart}
+          onTouchEnd={handleDragTouchEnd}
+        >
+          <div className="w-10 h-1 rounded-full bg-white/20" />
+        </div>
 
         {/* ── Header ── */}
         <div className="flex gap-3 sm:gap-4 p-4 sm:p-6 border-b border-white/5 flex-shrink-0">
           {displayImage
-            ? <img src={displayImage} alt="" className="w-16 h-24 sm:w-24 sm:h-36 object-cover rounded-xl flex-shrink-0" />
+            ? <img src={displayImage} alt="" loading="lazy"
+                className="w-16 h-24 sm:w-24 sm:h-36 object-cover rounded-xl flex-shrink-0" />
             : showFallback
               ? <div className="relative w-16 h-24 sm:w-24 sm:h-36 rounded-xl overflow-hidden flex-shrink-0">
-                  <img src={fallbackImage} alt="" className="w-full h-full object-cover brightness-[0.25]" />
+                  <img src={fallbackImage} alt="" loading="lazy" className="w-full h-full object-cover brightness-[0.25]" />
                   <span className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-white/50">?</span>
                 </div>
               : null}
@@ -262,8 +297,14 @@ export function Details() {
                   className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-amber-300 transition-colors">
                   <ListPlus size={14} />
                 </button>
-                <button onClick={() => setEditing(true)} className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-violet-50"><Pencil size={14} /></button>
-                <button onClick={() => navigate("/")} className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10"><X size={14} /></button>
+                <button onClick={() => setEditing(true)}
+                  className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-violet-50">
+                  <Pencil size={14} />
+                </button>
+                <button onClick={() => navigate("/")}
+                  className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10">
+                  <X size={14} />
+                </button>
               </div>
             </div>
 
@@ -284,10 +325,10 @@ export function Details() {
               </div>
             )}
 
-            {/* Note — getRatingEmoji conservé */}
             <div className="mb-1">
               <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-xl sm:text-3xl font-bold text-violet-50" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+                <span className="text-xl sm:text-3xl font-bold text-violet-50"
+                  style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
                   {entry.rating || "—"}
                 </span>
                 {entry.rating > 0 && <Star size={18} fill="#fbbf24" strokeWidth={0} />}
@@ -304,7 +345,6 @@ export function Details() {
           {hasMulti ? (
             <div className="p-3 sm:p-4 space-y-2">
 
-              {/* Série principale — ← icon Tv */}
               {tvSeasons.length > 0 && (
                 <div className="rounded-xl bg-white/[0.03] border border-white/5 overflow-hidden">
                   <div className="px-3 sm:px-4">
@@ -325,7 +365,6 @@ export function Details() {
                         </div>
                       )}
                       {curTV?.title && <p className="font-mono text-[11px] text-violet-500 truncate mt-2" title={curTV.title}>{curTV.title}</p>}
-
                       <div className="flex items-center justify-between mt-3 mb-2 gap-2 flex-wrap">
                         <p className="font-mono text-[11px] text-violet-400">{watched} / {curTV?.totalEpisodes ?? "?"} ép. vus</p>
                         <div className="flex items-center gap-2">
@@ -343,7 +382,6 @@ export function Details() {
                           )}
                         </div>
                       </div>
-
                       {curTV && (
                         <div className="flex gap-1.5 sm:gap-2 mb-3 flex-wrap">
                           <button onClick={() => decrementEpisode(entry.id, curTV.globalIndex)}
@@ -360,12 +398,10 @@ export function Details() {
                           )}
                         </div>
                       )}
-
                       {curTV && curTV.totalEpisodes != null && curTV.totalEpisodes > 0 && (
                         <EpisodeSlider watched={curTV.watchedEpisodes} total={curTV.totalEpisodes}
                           entryId={entry.id} globalIndex={curTV.globalIndex} setEpisodeCount={setEpisodeCount} />
                       )}
-
                       {loadingEps
                         ? <div className="flex items-center gap-2 text-violet-400 text-sm py-4"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
                         : <EpisodeList episodes={curEps} totalEpisodes={curTV?.totalEpisodes} watched={watched}
@@ -375,7 +411,6 @@ export function Details() {
                 </div>
               )}
 
-              {/* OVA / Specials — ← icon Disc2 */}
               {extraSeasons.length > 0 && (
                 <div className="rounded-xl bg-white/[0.03] border border-white/5 overflow-hidden">
                   <div className="px-3 sm:px-4">
@@ -420,7 +455,6 @@ export function Details() {
                 </div>
               )}
 
-              {/* Films — ← icon Film */}
               {movieSeasons.length > 0 && (
                 <div className="rounded-xl bg-white/[0.03] border border-white/5 overflow-hidden">
                   <div className="px-3 sm:px-4">
@@ -455,15 +489,14 @@ export function Details() {
             </div>
 
           ) : (
-            /* ── MODE SIMPLE ── */
             <>
               {tvSeasons.length > 1 && (
                 <div className="flex gap-1.5 px-4 sm:px-6 pt-4 pb-1 overflow-x-auto scrollbar-none">
                   {tvSeasons.map((se, i) => (
                     <button key={i} onClick={() => setActiveTVIdx(i)} title={se.title || undefined}
-                      className={`px-3 py-1 rounded-md text-xs font-mono border flex-shrink-0 transition-colors ${
-                        i === activeTVIdx ? `${s.border} ${s.text} bg-white/10` : "border-white/10 text-violet-400 hover:bg-white/5"
-                      }`}>S{se.number}</button>
+                      className={`px-3 py-1 rounded-md text-xs font-mono border flex-shrink-0 transition-colors ${i === activeTVIdx ? `${s.border} ${s.text} bg-white/10` : "border-white/10 text-violet-400 hover:bg-white/5"}`}>
+                      S{se.number}
+                    </button>
                   ))}
                 </div>
               )}
@@ -472,7 +505,6 @@ export function Details() {
                 <button type="button" onClick={() => setOpenEpisodes(v => !v)}
                   className="flex items-center justify-between w-full px-3 sm:px-4 py-3 text-left group select-none border-b border-white/5">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                    {/* ← 📺 remplacé par Tv icon */}
                     <Tv size={15} className="text-violet-400 flex-shrink-0" />
                     <span className="font-mono text-[11px] uppercase tracking-widest text-violet-400 group-hover:text-violet-200 transition-colors">
                       Épisodes{curTV?.title ? ` — ${curTV.title}` : curTV ? ` — S${curTV.number}` : ""}
@@ -506,7 +538,6 @@ export function Details() {
                         )}
                       </div>
                     </div>
-
                     {curTV && (
                       <div className="flex gap-1.5 sm:gap-2 mb-3 flex-wrap">
                         <button onClick={() => decrementEpisode(entry.id, curTV.globalIndex)}
@@ -523,12 +554,10 @@ export function Details() {
                         )}
                       </div>
                     )}
-
                     {curTV && curTV.totalEpisodes != null && curTV.totalEpisodes > 0 && (
                       <EpisodeSlider watched={curTV.watchedEpisodes} total={curTV.totalEpisodes}
                         entryId={entry.id} globalIndex={curTV.globalIndex} setEpisodeCount={setEpisodeCount} />
                     )}
-
                     {loadingEps
                       ? <div className="flex items-center gap-2 text-violet-400 text-sm py-6"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
                       : <EpisodeList episodes={curEps} totalEpisodes={curTV?.totalEpisodes} watched={watched}
@@ -541,7 +570,6 @@ export function Details() {
             </>
           )}
 
-          {/* ── Recommandations ── */}
           {(loadingRecs || dedupedRecs.length > 0) && (
             <div className="pt-1 pb-5 border-t border-white/5 mt-2">
               <div className="flex items-center gap-3 mx-3 sm:mx-4 my-3">
@@ -551,29 +579,18 @@ export function Details() {
                 </p>
                 <div className="h-px flex-1 bg-gradient-to-l from-transparent via-violet-500/30 to-violet-500/10" />
               </div>
-              {loadingRecs ? (
-                <div className="flex items-center justify-center py-8"><Loader2 size={18} className="animate-spin text-violet-500" /></div>
-              ) : (
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none px-3 sm:px-4">
-                  {dedupedRecs.map(rec => (
-                    <RecCard key={rec.id} rec={rec} onAdd={handleAddRec}
-                      adding={addingId === rec.id} alreadyInLib={libraryAnilistIds.has(rec.id)}
-                      onClick={() => setSynopsisRec(rec)} />
-                  ))}
-                </div>
-              )}
+              {loadingRecs
+                ? <div className="flex items-center justify-center py-8"><Loader2 size={18} className="animate-spin text-violet-500" /></div>
+                : <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none px-3 sm:px-4">
+                    {dedupedRecs.map(rec => (
+                      <RecCard key={rec.id} rec={rec} onAdd={handleAddRec}
+                        adding={addingId === rec.id} alreadyInLib={libraryAnilistIds.has(rec.id)}
+                        onClick={() => setSynopsisRec(rec)} />
+                    ))}
+                  </div>}
             </div>
           )}
         </div>
-      </div>
-
-      <div className="flex justify-center pt-2 pb-0 flex-shrink-0 cursor-grab"
-        onTouchStart={e => e.currentTarget._ty = e.touches[0].clientY}
-        onTouchEnd={e => {
-          const delta = e.changedTouches[0].clientY - (e.currentTarget._ty || 0);
-          if (delta > 90) navigate("/");
-        }}>
-        <div className="w-10 h-1 rounded-full bg-white/20" />
       </div>
 
       {synopsisRec && (

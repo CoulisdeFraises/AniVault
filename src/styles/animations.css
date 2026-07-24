@@ -85,6 +85,39 @@
   100% { transform: scale(1);     box-shadow: 0 0  0px 0px rgba(249, 168, 212, 0);    }
 }
 
+/* ── Bottom sheet — animation slide-up (mobile uniquement) ────────────────────
+   Utilisé par Details.jsx sur mobile : la feuille monte depuis le bas.
+   La classe sm:animate-none désactive l'animation sur desktop.
+─────────────────────────────────────────────────────────────────────────────── */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideUp {
+  animation: slideUp 0.32s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* Désactivé sur desktop via Tailwind sm:animate-none */
+@media (min-width: 640px) {
+  .animate-slideUp {
+    animation: none;
+  }
+}
+
+/* Désactivé si l'utilisateur préfère moins de mouvement */
+@media (prefers-reduced-motion: reduce) {
+  .animate-slideUp {
+    animation: none !important;
+  }
+}
+
 /* ── Classes utilitaires ───────────────────────────────────── */
 .animate-fadeInUp       { animation: fadeInUp      0.35s ease-out both; }
 .animate-fadeIn         { animation: fadeIn        0.20s ease-out both; }
