@@ -4,7 +4,6 @@ import { ChevronLeft, Plus, Trash2, Pencil, X, Check, ListPlus, Eye, EyeOff } fr
 import { useLists, HIDDEN_LIST_ID } from "../context/ListsContext";
 import { BurgerMenu } from "../components/common/BurgerMenu";
 
-// ── Mini carte d'entrée dans une liste ────────────────────────────────────────
 function EntryCard({ item, onRemove, blurred = false, onClick }) {
   return (
     <div
@@ -32,7 +31,6 @@ function EntryCard({ item, onRemove, blurred = false, onClick }) {
   );
 }
 
-// ── Carte liste ───────────────────────────────────────────────────────────────
 function ListCard({ list, onDelete, onRename, onRemoveEntry }) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
@@ -44,11 +42,12 @@ function ListCard({ list, onDelete, onRename, onRemoveEntry }) {
     setEditing(false);
   }
 
-  const previews = list.entries.slice(0, 4);
+  // ← Guard : entries peut être undefined si la donnée vient d'une source externe
+  const entries  = list.entries || [];
+  const previews = entries.slice(0, 4);
 
   return (
     <div className={`rounded-2xl border overflow-hidden transition-colors ${list.isFavorites ? "bg-pink-950/20 border-pink-500/20" : "bg-violet-900/20 border-white/5"}`}>
-      {/* Header liste */}
       <div className="flex items-center gap-3 px-4 py-3">
         <span className="text-xl flex-shrink-0">{list.emoji}</span>
         {editing ? (
@@ -66,11 +65,12 @@ function ListCard({ list, onDelete, onRename, onRemoveEntry }) {
               style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
               {list.name}
             </p>
-            <p className="font-mono text-[10px] text-violet-500 mt-0.5">{list.entries.length} titre{list.entries.length !== 1 ? "s" : ""}</p>
+            <p className="font-mono text-[10px] text-violet-500 mt-0.5">
+              {entries.length} titre{entries.length !== 1 ? "s" : ""}
+            </p>
           </button>
         )}
 
-        {/* Aperçu covers (quand fermé) */}
         {!expanded && !editing && previews.length > 0 && (
           <div className="flex -space-x-1.5 flex-shrink-0">
             {previews.map(e => (
@@ -81,15 +81,14 @@ function ListCard({ list, onDelete, onRename, onRemoveEntry }) {
                 }
               </div>
             ))}
-            {list.entries.length > 4 && (
+            {entries.length > 4 && (
               <div className="w-6 h-9 rounded bg-violet-800/80 border border-violet-700 flex items-center justify-center flex-shrink-0">
-                <span className="font-mono text-[8px] text-violet-300">+{list.entries.length - 4}</span>
+                <span className="font-mono text-[8px] text-violet-300">+{entries.length - 4}</span>
               </div>
             )}
           </div>
         )}
 
-        {/* Actions */}
         <div className="flex gap-0.5 flex-shrink-0">
           {!list.isFavorites && !list.isHidden && (
             <>
@@ -104,18 +103,17 @@ function ListCard({ list, onDelete, onRename, onRemoveEntry }) {
         </div>
       </div>
 
-      {/* Contenu déroulé */}
       {expanded && (
         <div className="px-4 pb-4">
-          {list.entries.length === 0 ? (
+          {entries.length === 0 ? (
             <p className="text-sm text-violet-600 italic text-center py-4">Cette liste est vide.</p>
           ) : (
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
-              {list.entries.map(item => (
+              {entries.map(item => (
                 <EntryCard
                   key={item.entryId}
                   item={item}
-                  onRemove={(id) => onRemoveEntry(list.id, id)}
+                  onRemove={id => onRemoveEntry(list.id, id)}
                   onClick={() => navigate(`/details/${item.entryId}`)}
                 />
               ))}
@@ -127,26 +125,27 @@ function ListCard({ list, onDelete, onRename, onRemoveEntry }) {
   );
 }
 
-// ── Carte spéciale : Cachette secrète ─────────────────────────────────────────
 function HiddenListCard({ list, onRemoveEntry }) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
-  const [revealed, setRevealed] = useState(false); // toggle blur
+  const [revealed, setRevealed] = useState(false);
+
+  const entries = list.entries || []; // ← Guard
 
   return (
     <div className="rounded-2xl border border-violet-600/30 bg-violet-950/40 overflow-hidden">
-      {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
         <span className="text-xl flex-shrink-0 select-none">🙈</span>
         <button onClick={() => setExpanded(v => !v)} className="flex-1 text-left min-w-0">
           <p className="font-semibold text-sm text-violet-300 truncate" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
             {list.name}
           </p>
-          <p className="font-mono text-[10px] text-violet-500 mt-0.5">{list.entries.length} titre{list.entries.length !== 1 ? "s" : ""} · liste spéciale</p>
+          <p className="font-mono text-[10px] text-violet-500 mt-0.5">
+            {entries.length} titre{entries.length !== 1 ? "s" : ""} · liste spéciale
+          </p>
         </button>
 
-        {/* Toggle blur rose */}
-        {expanded && list.entries.length > 0 && (
+        {expanded && entries.length > 0 && (
           <button
             onClick={() => setRevealed(v => !v)}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-mono border transition-all active:scale-95 ${
@@ -154,7 +153,6 @@ function HiddenListCard({ list, onRemoveEntry }) {
                 ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
                 : "bg-white/5 border-white/10 text-violet-500 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400"
             }`}
-            title={revealed ? "Flouter à nouveau" : "Révéler"}
           >
             {revealed ? <Eye size={11} /> : <EyeOff size={11} />}
             {revealed ? "Flou off" : "Révéler"}
@@ -162,18 +160,17 @@ function HiddenListCard({ list, onRemoveEntry }) {
         )}
       </div>
 
-      {/* Contenu */}
       {expanded && (
         <div className="px-4 pb-4">
-          {list.entries.length === 0 ? (
+          {entries.length === 0 ? (
             <p className="text-sm text-violet-600 italic text-center py-4">Rien de caché ici… pour l'instant 👀</p>
           ) : (
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
-              {list.entries.map(item => (
+              {entries.map(item => (
                 <EntryCard
                   key={item.entryId}
                   item={item}
-                  onRemove={(id) => onRemoveEntry(list.id, id)}
+                  onRemove={id => onRemoveEntry(list.id, id)}
                   blurred={!revealed}
                   onClick={() => navigate(`/details/${item.entryId}`)}
                 />
@@ -186,7 +183,6 @@ function HiddenListCard({ list, onRemoveEntry }) {
   );
 }
 
-// ── Page principale ───────────────────────────────────────────────────────────
 export function Lists() {
   const navigate = useNavigate();
   const { lists, createList, deleteList, renameList, removeEntryFromList } = useLists();
@@ -206,15 +202,14 @@ export function Lists() {
     else setConfirmId(id);
   }
 
-  const favorites   = lists.find(l => l.isFavorites);
-  const hiddenList  = lists.find(l => l.id === HIDDEN_LIST_ID);
-  const otherLists  = lists.filter(l => !l.isFavorites && l.id !== HIDDEN_LIST_ID);
+  const favorites  = lists.find(l => l.isFavorites);
+  const hiddenList = lists.find(l => l.id === HIDDEN_LIST_ID);
+  const otherLists = lists.filter(l => !l.isFavorites && l.id !== HIDDEN_LIST_ID);
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter',sans-serif" }}>
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
 
-        {/* Header */}
         <div className="flex items-start justify-between">
           <div>
             <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 transition-colors mb-3">
@@ -228,20 +223,13 @@ export function Lists() {
           <BurgerMenu />
         </div>
 
-        {/* Liste Favoris (toujours en premier) */}
         {favorites && (
           <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-pink-400/70 mb-2">Liste spéciale</p>
-            <ListCard
-              list={favorites}
-              onDelete={() => {}}
-              onRename={renameList}
-              onRemoveEntry={removeEntryFromList}
-            />
+            <ListCard list={favorites} onDelete={() => {}} onRename={renameList} onRemoveEntry={removeEntryFromList} />
           </div>
         )}
 
-        {/* Autres listes */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500">
@@ -253,7 +241,6 @@ export function Lists() {
             </button>
           </div>
 
-          {/* Formulaire création */}
           {creating && (
             <div className="flex gap-2 mb-3 animate-fadeIn">
               <input
@@ -295,26 +282,17 @@ export function Lists() {
                       </button>
                     </div>
                   )}
-                  <ListCard
-                    list={list}
-                    onDelete={handleDelete}
-                    onRename={renameList}
-                    onRemoveEntry={removeEntryFromList}
-                  />
+                  <ListCard list={list} onDelete={handleDelete} onRename={renameList} onRemoveEntry={removeEntryFromList} />
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* ── Cachette secrète (toujours en dernier) ── */}
         {hiddenList && (
           <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-violet-600/70 mb-2">Zone secrète</p>
-            <HiddenListCard
-              list={hiddenList}
-              onRemoveEntry={removeEntryFromList}
-            />
+            <HiddenListCard list={hiddenList} onRemoveEntry={removeEntryFromList} />
           </div>
         )}
 
