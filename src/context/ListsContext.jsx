@@ -9,27 +9,17 @@ export const HIDDEN_LIST_ID = "cachette-secrete";
 
 function createFavoritesList() {
   return {
-    id: FAVORITES_ID,
-    name: "Favoris",
-    emoji: "♡",
-    isFavorites: true,
-    isHidden: false,
-    entries: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+    id: FAVORITES_ID, name: "Favoris", emoji: "♡",
+    isFavorites: true, isHidden: false,
+    entries: [], createdAt: Date.now(), updatedAt: Date.now(),
   };
 }
 
 function createHiddenList() {
   return {
-    id: HIDDEN_LIST_ID,
-    name: "Cachette secrète",
-    emoji: "🙈",
-    isFavorites: false,
-    isHidden: true,
-    entries: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+    id: HIDDEN_LIST_ID, name: "Cachette secrète", emoji: "🙈",
+    isFavorites: false, isHidden: true,
+    entries: [], createdAt: Date.now(), updatedAt: Date.now(),
   };
 }
 
@@ -46,7 +36,11 @@ export function ListsProvider({ children }) {
   const [loading, setLoading]    = useState(true);
   const listsRef  = useRef([]);
   const saveTimer = useRef(null);
+  const userRef   = useRef(null); // ← ref pour éviter les problèmes de closure dans setTimeout
 
+  useEffect(() => { userRef.current = user; }, [user]);
+
+  // ── Chargement ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) { setListsState([]); setLoading(false); return; }
     setLoading(true);
@@ -59,40 +53,41 @@ export function ListsProvider({ children }) {
         if (error) console.error("[AniVault] Erreur chargement lists:", error);
         const raw   = Array.isArray(data?.lists) ? data.lists : [];
         const final = ensureSpecialLists(raw);
-        applyLists(final);
+        listsRef.current = final;
+        setListsState(final);
         setLoading(false);
       });
   }, [user?.id]);
 
-  function applyLists(next) {
-    listsRef.current = next;
-    setListsState(next);
-  }
-
-  /**
-   * FIX : on utilise upsert({ user_id, lists }) exactement comme
-   * LibraryContext utilise upsert({ user_id, entries }).
-   *
-   * - Si la ligne n'existe pas → INSERT avec lists = next, entries = [] (default DB)
-   * - Si la ligne existe → UPDATE SET lists = next  (entries n'est PAS touché)
-   *
-   * L'ancien code utilisait .update() qui ne génère aucune erreur quand
-   * aucune ligne ne correspond, donc le fallback insert ne se déclenchait jamais.
-   */
+  // ── Sauvegarde via RPC (bulletproof) ─────────────────────────────────────
   async function saveToSupabase(next) {
-    if (!user) return;
-    const { error } = await supabase
-      .from("libraries")
-      .upsert(
-        { user_id: user.id, lists: next },
-        { onConflict: "user_id" }
-      );
-    if (error) console.error("[AniVault] Erreur sauvegarde lists:", error);
+    const currentUser = userRef.current;
+    if (!currentUser) {
+      console.warn("[AniVault] Save lists annulée : pas d'utilisateur connecté");
+      return;
+    }
+
+    console.log("[AniVault] Sauvegarde lists →", next.length, "listes");
+
+    const { error } = await supabase.rpc("save_my_lists", { p_lists: next });
+
+    if (error) {
+      console.error("[AniVault] Erreur RPC save_my_lists:", error);
+      // Fallback : essai direct upsert
+      const { error: e2 } = await supabase
+        .from("libraries")
+        .upsert({ user_id: currentUser.id, lists: next }, { onConflict: "user_id" });
+      if (e2) console.error("[AniVault] Erreur fallback upsert lists:", e2);
+      else console.log("[AniVault] Fallback upsert lists OK");
+    } else {
+      console.log("[AniVault] RPC save_my_lists OK ✓");
+    }
   }
 
   function persist(next) {
     const ordered = ensureSpecialLists(next);
-    applyLists(ordered);
+    listsRef.current = ordered;
+    setListsState(ordered);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(
       () => saveToSupabase(listsRef.current),
@@ -100,19 +95,14 @@ export function ListsProvider({ children }) {
     );
   }
 
+  // ── Actions ───────────────────────────────────────────────────────────────
   const createList = useCallback((name, emoji = "📋") => {
     const id = Date.now().toString();
-    const newList = {
-      id,
-      name:        name.trim(),
-      emoji,
-      isFavorites: false,
-      isHidden:    false,
-      entries:     [],
-      createdAt:   Date.now(),
-      updatedAt:   Date.now(),
-    };
-    persist([...listsRef.current, newList]);
+    persist([...listsRef.current, {
+      id, name: name.trim(), emoji,
+      isFavorites: false, isHidden: false,
+      entries: [], createdAt: Date.now(), updatedAt: Date.now(),
+    }]);
     return id;
   }, []);
 
@@ -160,8 +150,8 @@ export function ListsProvider({ children }) {
     []
   );
 
-  const isInFavorites  = useCallback((entryId) => isInList(FAVORITES_ID, entryId),   [isInList]);
-  const isInHiddenList = useCallback((entryId) => isInList(HIDDEN_LIST_ID, entryId), [isInList]);
+  const isInFavorites  = useCallback((e) => isInList(FAVORITES_ID, e),   [isInList]);
+  const isInHiddenList = useCallback((e) => isInList(HIDDEN_LIST_ID, e), [isInList]);
 
   const toggleFavorite = useCallback((entry) => {
     if (isInFavorites(entry.id)) removeEntryFromList(FAVORITES_ID, entry.id);
