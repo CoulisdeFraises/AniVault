@@ -416,7 +416,7 @@ export function Profile() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-10 pt-safe-10 space-y-6" style={{ fontFamily: "'Inter', sans-serif" }}>
 
       {/* En-tête */}
       <div className="flex items-start justify-between animate-fadeInUp">

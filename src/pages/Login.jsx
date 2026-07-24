@@ -54,10 +54,7 @@ export function Login() {
   }
 
   return (
-    <div
-      className="min-h-screen bg-violet-950 text-violet-50 flex items-center justify-center p-4"
-      style={{ fontFamily: "'Inter', sans-serif" }}
-    >
+    <div className="min-h-screen bg-violet-950 text-violet-50 flex items-center justify-center px-4 pb-4 pt-safe-4" style={{ fontFamily: "'Inter', sans-serif" }}>
       <div className="w-full max-w-sm">
 
         {/* ── Logo ── */}

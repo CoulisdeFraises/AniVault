@@ -133,7 +133,7 @@ export function Recommendations() {
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-8 pt-safe-8">
 
         <div className="flex items-start justify-between mb-6">
           <div>

@@ -20,7 +20,7 @@ export function History() {
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-8 pt-safe-8 space-y-6">
 
         {/* ── En-tête ── */}
         <div className="flex items-start justify-between">

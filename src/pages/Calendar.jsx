@@ -345,7 +345,7 @@ export function Calendar() {
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <div className="max-w-5xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
+      <div className="max-w-5xl mx-auto px-3 sm:px-6 pb-6 sm:pb-8 pt-safe-6">
 
         {/* ── En-tête ── */}
         <div className="flex items-start justify-between gap-3 mb-5">

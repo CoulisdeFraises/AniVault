@@ -53,3 +53,12 @@
   border-radius: 9999px;
   background: rgba(109, 40, 217, 0.25);
 }
+
+/* ── Safe-area padding-top — Dynamic Island / notch iOS ────────────────────────
+   Chaque classe remplace le padding-top de py-N en tenant compte de l'encoche.
+   Utilisation : remplacer py-N par  pb-N + pt-safe-N  sur les pages secondaires.
+──────────────────────────────────────────────────────────────────────────────── */
+.pt-safe-4  { padding-top: max(1rem,   env(safe-area-inset-top)); }
+.pt-safe-6  { padding-top: max(1.5rem, env(safe-area-inset-top)); }
+.pt-safe-8  { padding-top: max(2rem,   env(safe-area-inset-top)); }
+.pt-safe-10 { padding-top: max(2.5rem, env(safe-area-inset-top)); }

@@ -63,9 +63,9 @@ function FriendProfileModal({ friend, onClose, onRemove }) {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-2 mt-4">
             {[
-              { icon: <Film size={14} />,  value: friend.entries_count  ?? 0, label: "Titres"  },
-              { icon: <Clock size={14} />, value: friend.episodes_watched ?? 0, label: "Épisodes" },
-              { icon: <Trophy size={14} />, value: achievementsCount,            label: "Succès"   },
+              { icon: <Film size={14} />,   value: friend.entries_count   ?? 0, label: "Titres"    },
+              { icon: <Clock size={14} />,  value: friend.episodes_watched ?? 0, label: "Épisodes"  },
+              { icon: <Trophy size={14} />, value: achievementsCount,             label: "Succès"    },
             ].map(({ icon, value, label }) => (
               <div key={label} className="rounded-xl bg-white/5 border border-white/5 p-3 text-center">
                 <div className="flex justify-center mb-1 text-violet-400">{icon}</div>
@@ -125,19 +125,19 @@ function FriendCard({ friend, onClick }) {
 
 // ── Page principale ───────────────────────────────────────────────────────────
 export function Community() {
-  const navigate      = useNavigate();
-  const { user }      = useAuth();
+  const navigate   = useNavigate();
+  const { user }   = useAuth();
 
-  const [friends,     setFriends]     = useState([]);
-  const [pending,     setPending]     = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResult, setSearchResult] = useState(null);
-  const [searching,   setSearching]   = useState(false);
-  const [searchError, setSearchError] = useState("");
-  const [addingId,    setAddingId]    = useState(null);
+  const [friends,       setFriends]       = useState([]);
+  const [pending,       setPending]       = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [searchQuery,   setSearchQuery]   = useState("");
+  const [searchResult,  setSearchResult]  = useState(null);
+  const [searching,     setSearching]     = useState(false);
+  const [searchError,   setSearchError]   = useState("");
+  const [addingId,      setAddingId]      = useState(null);
   const [selectedFriend, setSelectedFriend] = useState(null);
-  const [actionMsg,   setActionMsg]   = useState("");
+  const [actionMsg,     setActionMsg]     = useState("");
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -195,136 +195,145 @@ export function Community() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6" style={{ fontFamily: "'Inter',sans-serif" }}>
+    // ── Wrapper bg — couvre toute la surface y compris sous le Dynamic Island ──
+    <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter',sans-serif" }}>
+      {/*
+        pt-safe-8 : padding-top = max(2rem, env(safe-area-inset-top))
+        → évite que le contenu soit masqué par le Dynamic Island / notch iOS.
+        Défini dans src/styles/custom.css.
+      */}
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-8 pt-safe-8 space-y-6">
 
-      {/* ── En-tête ── */}
-      <div className="flex items-start justify-between">
-        <div>
-          <button onClick={() => navigate(-1)}
-            className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 transition-colors mb-3">
-            <ChevronLeft size={16} /> Retour
-          </button>
-          <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-0.5">Social</p>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2"
-            style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-            <Users size={24} className="text-violet-400" /> Communauté
-          </h1>
-        </div>
-        <BurgerMenu />
-      </div>
-
-      {/* ── Flash message ── */}
-      {actionMsg && (
-        <div className="px-4 py-2.5 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-300 text-sm animate-fadeIn">
-          {actionMsg}
-        </div>
-      )}
-
-      {/* ── Demandes en attente ── */}
-      {pending.length > 0 && (
-        <div className="rounded-2xl bg-amber-400/5 border border-amber-400/20 p-4 space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-amber-400 mb-3">
-            Demandes reçues · {pending.length}
-          </p>
-          {pending.map(req => (
-            <div key={req.friendshipId} className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5">
-              <Avatar name={req.username} color={req.avatar_color} size="sm" />
-              <p className="flex-1 text-sm font-medium text-violet-100">@{req.username}</p>
-              <button onClick={() => handleAccept(req.friendshipId)}
-                className="p-1.5 rounded-lg bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-all">
-                <Check size={14} />
-              </button>
-              <button onClick={() => handleRemove(req.friendshipId)}
-                className="p-1.5 rounded-lg bg-white/5 text-violet-400 hover:bg-rose-500/20 hover:text-rose-300 active:scale-95 transition-all">
-                <X size={14} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── Ajouter un ami ── */}
-      <div className="rounded-2xl bg-violet-900/30 border border-white/5 p-4">
-        <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
-          Ajouter un ami
-        </p>
-        <div className="flex gap-2">
-          <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-950/60 border border-white/10 focus-within:border-violet-500/60">
-            <Search size={14} className="text-violet-500 flex-shrink-0" />
-            <input
-              value={searchQuery}
-              onChange={e => { setSearchQuery(e.target.value); setSearchError(""); setSearchResult(null); }}
-              onKeyDown={e => e.key === "Enter" && handleSearch()}
-              placeholder="Rechercher par pseudo…"
-              className="flex-1 bg-transparent text-sm text-violet-50 placeholder-violet-500 focus:outline-none"
-            />
+        {/* ── En-tête ── */}
+        <div className="flex items-start justify-between">
+          <div>
+            <button onClick={() => navigate(-1)}
+              className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 transition-colors mb-3">
+              <ChevronLeft size={16} /> Retour
+            </button>
+            <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-0.5">Social</p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2"
+              style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+              <Users size={24} className="text-violet-400" /> Communauté
+            </h1>
           </div>
-          <button onClick={handleSearch} disabled={searching || !searchQuery.trim()}
-            className="h-9 px-4 rounded-xl bg-amber-400 text-violet-950 font-semibold text-sm hover:bg-amber-300 active:scale-95 transition-all disabled:opacity-50">
-            {searching ? <Loader2 size={14} className="animate-spin" /> : "Chercher"}
-          </button>
+          <BurgerMenu />
         </div>
 
-        {searchError && <p className="text-rose-300 text-xs mt-2">{searchError}</p>}
-
-        {searchResult && (
-          <div className="mt-3 flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 animate-fadeIn">
-            <Avatar name={searchResult.username} color={searchResult.avatar_color} />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-violet-100">@{searchResult.username}</p>
-              {searchResult.description && (
-                <p className="text-[11px] text-violet-400 truncate">{searchResult.description}</p>
-              )}
-            </div>
-            {searchResult.alreadyFriend ? (
-              <span className="font-mono text-[11px] text-teal-400 flex items-center gap-1">
-                <UserCheck size={12} /> Amis
-              </span>
-            ) : (
-              <button onClick={() => handleAddFriend(searchResult.user_id)}
-                disabled={addingId === searchResult.user_id}
-                className="h-8 px-3 rounded-xl bg-violet-700 hover:bg-violet-600 text-white text-xs font-medium active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1">
-                {addingId === searchResult.user_id
-                  ? <Loader2 size={12} className="animate-spin" />
-                  : <><UserPlus size={12} /> Ajouter</>}
-              </button>
-            )}
+        {/* ── Flash message ── */}
+        {actionMsg && (
+          <div className="px-4 py-2.5 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-300 text-sm animate-fadeIn">
+            {actionMsg}
           </div>
         )}
-      </div>
 
-      {/* ── Liste d'amis ── */}
-      <div>
-        <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
-          Mes amis · {friends.length}
-        </p>
-        {loading ? (
-          <div className="flex justify-center py-10">
-            <Loader2 size={20} className="animate-spin text-violet-500" />
-          </div>
-        ) : friends.length === 0 ? (
-          <div className="text-center py-14 rounded-2xl border border-dashed border-white/10">
-            <p className="text-4xl mb-3">👥</p>
-            <p className="text-violet-400 text-sm">Pas encore d'amis.</p>
-            <p className="text-violet-600 text-xs mt-1">Cherche un pseudo pour commencer !</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {friends.map(f => (
-              <FriendCard key={f.user_id} friend={f} onClick={() => setSelectedFriend(f)} />
+        {/* ── Demandes en attente ── */}
+        {pending.length > 0 && (
+          <div className="rounded-2xl bg-amber-400/5 border border-amber-400/20 p-4 space-y-2">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-amber-400 mb-3">
+              Demandes reçues · {pending.length}
+            </p>
+            {pending.map(req => (
+              <div key={req.friendshipId} className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5">
+                <Avatar name={req.username} color={req.avatar_color} size="sm" />
+                <p className="flex-1 text-sm font-medium text-violet-100">@{req.username}</p>
+                <button onClick={() => handleAccept(req.friendshipId)}
+                  className="p-1.5 rounded-lg bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-all">
+                  <Check size={14} />
+                </button>
+                <button onClick={() => handleRemove(req.friendshipId)}
+                  className="p-1.5 rounded-lg bg-white/5 text-violet-400 hover:bg-rose-500/20 hover:text-rose-300 active:scale-95 transition-all">
+                  <X size={14} />
+                </button>
+              </div>
             ))}
           </div>
         )}
-      </div>
 
-      {/* ── Modal profil ami ── */}
-      {selectedFriend && (
-        <FriendProfileModal
-          friend={selectedFriend}
-          onClose={() => setSelectedFriend(null)}
-          onRemove={handleRemove}
-        />
-      )}
+        {/* ── Ajouter un ami ── */}
+        <div className="rounded-2xl bg-violet-900/30 border border-white/5 p-4">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
+            Ajouter un ami
+          </p>
+          <div className="flex gap-2">
+            <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-950/60 border border-white/10 focus-within:border-violet-500/60">
+              <Search size={14} className="text-violet-500 flex-shrink-0" />
+              <input
+                value={searchQuery}
+                onChange={e => { setSearchQuery(e.target.value); setSearchError(""); setSearchResult(null); }}
+                onKeyDown={e => e.key === "Enter" && handleSearch()}
+                placeholder="Rechercher par pseudo…"
+                className="flex-1 bg-transparent text-base sm:text-sm text-violet-50 placeholder-violet-500 focus:outline-none"
+              />
+            </div>
+            <button onClick={handleSearch} disabled={searching || !searchQuery.trim()}
+              className="h-9 px-4 rounded-xl bg-amber-400 text-violet-950 font-semibold text-sm hover:bg-amber-300 active:scale-95 transition-all disabled:opacity-50">
+              {searching ? <Loader2 size={14} className="animate-spin" /> : "Chercher"}
+            </button>
+          </div>
+
+          {searchError && <p className="text-rose-300 text-xs mt-2">{searchError}</p>}
+
+          {searchResult && (
+            <div className="mt-3 flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 animate-fadeIn">
+              <Avatar name={searchResult.username} color={searchResult.avatar_color} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-violet-100">@{searchResult.username}</p>
+                {searchResult.description && (
+                  <p className="text-[11px] text-violet-400 truncate">{searchResult.description}</p>
+                )}
+              </div>
+              {searchResult.alreadyFriend ? (
+                <span className="font-mono text-[11px] text-teal-400 flex items-center gap-1">
+                  <UserCheck size={12} /> Amis
+                </span>
+              ) : (
+                <button onClick={() => handleAddFriend(searchResult.user_id)}
+                  disabled={addingId === searchResult.user_id}
+                  className="h-8 px-3 rounded-xl bg-violet-700 hover:bg-violet-600 text-white text-xs font-medium active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1">
+                  {addingId === searchResult.user_id
+                    ? <Loader2 size={12} className="animate-spin" />
+                    : <><UserPlus size={12} /> Ajouter</>}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Liste d'amis ── */}
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
+            Mes amis · {friends.length}
+          </p>
+          {loading ? (
+            <div className="flex justify-center py-10">
+              <Loader2 size={20} className="animate-spin text-violet-500" />
+            </div>
+          ) : friends.length === 0 ? (
+            <div className="text-center py-14 rounded-2xl border border-dashed border-white/10">
+              <p className="text-4xl mb-3">👥</p>
+              <p className="text-violet-400 text-sm">Pas encore d'amis.</p>
+              <p className="text-violet-600 text-xs mt-1">Cherche un pseudo pour commencer !</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {friends.map(f => (
+                <FriendCard key={f.user_id} friend={f} onClick={() => setSelectedFriend(f)} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Modal profil ami ── */}
+        {selectedFriend && (
+          <FriendProfileModal
+            friend={selectedFriend}
+            onClose={() => setSelectedFriend(null)}
+            onRemove={handleRemove}
+          />
+        )}
+
+      </div>
     </div>
   );
 }
