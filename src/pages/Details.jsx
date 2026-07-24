@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { X, Pencil, Star, Loader2, RefreshCw, Film, Tv, CheckCheck, ChevronRight, Check, Heart, ListPlus } from "lucide-react";
+import { X, Pencil, Star, Loader2, RefreshCw, Film, Tv, Disc2,
+         CheckCheck, ChevronRight, Check, Heart, ListPlus } from "lucide-react"; // ← Disc2 ajouté
 import { EpisodeList }             from "../components/EpisodeList/EpisodeList";
 import { StarRating, getRatingEmoji } from "../components/common/Rating";
 import { TitleFormModal }          from "../components/Modal/TitleFormModal";
@@ -12,7 +13,6 @@ import { SynopsisModal }  from "../components/common/SynopsisModal";
 import { AddToListModal } from "../components/common/AddToListModal";
 import { useLists }       from "../context/ListsContext";
 
-// ── helpers ──────────────────────────────────────────────────────────────────
 function getFormatGroup(f) {
   if (!f || f === "TV") return "tv";
   if (f === "MOVIE") return "movie";
@@ -29,21 +29,15 @@ function normalizeSeriesTitle(title) {
     .toLowerCase();
 }
 
-// Composant slider avec barre visible
 function EpisodeSlider({ watched, total, entryId, globalIndex, setEpisodeCount }) {
   const pct = total > 0 ? (watched / total) * 100 : 0;
   return (
     <div className="mb-3">
       <input
-        type="range"
-        min={0}
-        max={total}
-        value={watched}
+        type="range" min={0} max={total} value={watched}
         onChange={e => setEpisodeCount(entryId, globalIndex, Number(e.target.value))}
         className="episode-slider w-full cursor-pointer"
-        style={{
-          background: `linear-gradient(to right, #a78bfa ${pct}%, rgba(109,40,217,0.25) ${pct}%)`
-        }}
+        style={{ background: `linear-gradient(to right, #a78bfa ${pct}%, rgba(109,40,217,0.25) ${pct}%)` }}
       />
       <div className="flex justify-between font-mono text-[10px] text-violet-600 mt-1">
         <span>0</span>
@@ -54,12 +48,13 @@ function EpisodeSlider({ watched, total, entryId, globalIndex, setEpisodeCount }
   );
 }
 
+// ← AccordionHeader accepte maintenant des éléments JSX comme icon
 function AccordionHeader({ icon, label, count, summary, isOpen, onToggle }) {
   return (
     <button type="button" onClick={onToggle}
       className="flex items-center justify-between w-full py-2 text-left group select-none border-b border-white/5">
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        <span className="text-base leading-none">{icon}</span>
+        <span className="flex-shrink-0 text-violet-400 flex items-center">{icon}</span>
         <span className="font-mono text-[11px] uppercase tracking-widest text-violet-400 group-hover:text-violet-200 transition-colors">{label}</span>
         <span className="font-mono text-[11px] text-violet-600">({count})</span>
         {!isOpen && summary && <span className="font-mono text-[11px] text-violet-500 truncate ml-1">— {summary}</span>}
@@ -71,14 +66,15 @@ function AccordionHeader({ icon, label, count, summary, isOpen, onToggle }) {
 
 function RecCard({ rec, onAdd, adding, alreadyInLib, onClick }) {
   return (
-    <div
-      onClick={onClick}
-      className="relative flex-shrink-0 w-24 rounded-xl overflow-hidden bg-white/[0.04] border border-white/5 group cursor-pointer active:scale-[0.97] transition-transform"
-    >
+    <div onClick={onClick}
+      className="relative flex-shrink-0 w-24 rounded-xl overflow-hidden bg-white/[0.04] border border-white/5 group cursor-pointer active:scale-[0.97] transition-transform">
       <div className="aspect-[2/3] w-full overflow-hidden">
         {rec.image
           ? <img src={rec.image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none" />
-          : <div className="w-full h-full bg-violet-900/50 flex items-center justify-center text-2xl">🎬</div>
+          // ← 🎬 remplacé par Film icon
+          : <div className="w-full h-full bg-violet-900/50 flex items-center justify-center">
+              <Film size={28} className="text-violet-500/40" />
+            </div>
         }
       </div>
       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-1.5 pt-5">
@@ -87,9 +83,7 @@ function RecCard({ rec, onAdd, adding, alreadyInLib, onClick }) {
         {alreadyInLib ? (
           <span className="font-mono text-[8px] text-violet-400 block text-center">✓ Dans ta liste</span>
         ) : (
-          <button
-            onClick={e => { e.stopPropagation(); onAdd(rec); }}
-            disabled={adding}
+          <button onClick={e => { e.stopPropagation(); onAdd(rec); }} disabled={adding}
             className="w-full font-mono text-[8px] py-0.5 rounded-md bg-amber-400/25 text-amber-300 hover:bg-amber-400/40 active:scale-95 transition-all disabled:opacity-50 text-center">
             {adding ? "…" : "+ Ajouter"}
           </button>
@@ -99,7 +93,6 @@ function RecCard({ rec, onAdd, adding, alreadyInLib, onClick }) {
   );
 }
 
-// ── Page principale ───────────────────────────────────────────────────────────
 export function Details() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -112,22 +105,21 @@ export function Details() {
   const movieSeasons = useMemo(() => (entry?.seasons || []).map((s, i) => ({ ...s, globalIndex: i })).filter(s => getFormatGroup(s.format) === "movie"),  [entry?.seasons]);
   const hasMulti = [tvSeasons.length > 0, extraSeasons.length > 0, movieSeasons.length > 0].filter(Boolean).length > 1;
 
-  const [activeTVIdx,  setActiveTVIdx]  = useState(0);
-  const [open,         setOpen]         = useState({ tv: false, extra: false, movie: false });
-  const [openEpisodes, setOpenEpisodes] = useState(false);
-  const [seasonCache,  setSeasonCache]  = useState({});
-  const [loadingEps,   setLoadingEps]   = useState(false);
-  const [refreshing,   setRefreshing]   = useState(false);
-  const [editing,      setEditing]      = useState(false);
-  const [recs,         setRecs]         = useState([]);
-  const [loadingRecs,  setLoadingRecs]  = useState(false);
-  const [addingId,     setAddingId]     = useState(null);
-  const [synopsisRec,  setSynopsisRec]  = useState(null);
+  const [activeTVIdx,   setActiveTVIdx]   = useState(0);
+  const [open,          setOpen]          = useState({ tv: false, extra: false, movie: false });
+  const [openEpisodes,  setOpenEpisodes]  = useState(false);
+  const [seasonCache,   setSeasonCache]   = useState({});
+  const [loadingEps,    setLoadingEps]    = useState(false);
+  const [refreshing,    setRefreshing]    = useState(false);
+  const [editing,       setEditing]       = useState(false);
+  const [recs,          setRecs]          = useState([]);
+  const [loadingRecs,   setLoadingRecs]   = useState(false);
+  const [addingId,      setAddingId]      = useState(null);
+  const [synopsisRec,   setSynopsisRec]   = useState(null);
   const [addToListOpen, setAddToListOpen] = useState(false);
 
   useEffect(() => {
-    setActiveTVIdx(0);
-    setSeasonCache({});
+    setActiveTVIdx(0); setSeasonCache({});
     setOpen({ tv: false, extra: false, movie: false });
     setOpenEpisodes(false);
   }, [id]);
@@ -154,8 +146,7 @@ export function Details() {
   useEffect(() => {
     if (!entry || entry.type !== "anime" || !entry.genres?.length) { setRecs([]); return; }
     let cancelled = false;
-    setLoadingRecs(true);
-    setRecs([]);
+    setLoadingRecs(true); setRecs([]);
     const excludeIds = entries.flatMap(e => e.anilistIds || []);
     fetchAniListRecommendations(entry.genres, excludeIds).then(results => {
       if (!cancelled) { setRecs(results.slice(0, 20)); setLoadingRecs(false); }
@@ -183,33 +174,26 @@ export function Details() {
   const filmSeen  = movieSeasons.filter(m => m.watchedEpisodes >= (m.totalEpisodes ?? 1)).length;
   const canFinish = entry.status === "en-cours" && tvT != null && tvT > 0 && tvW >= tvT;
 
-  const libraryAnilistIds = useMemo(
-    () => new Set(entries.flatMap(e => e.anilistIds || [])),
-    [entries]
-  );
+  const libraryAnilistIds = useMemo(() => new Set(entries.flatMap(e => e.anilistIds || [])), [entries]);
 
   const dedupedRecs = useMemo(() => {
     const seen = new Set();
     return recs.filter(rec => {
       const key = normalizeSeriesTitle(rec.title);
       if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
+      seen.add(key); return true;
     });
   }, [recs]);
 
   const displayImage  = curTV?.coverImage || (activeTVIdx === 0 ? entry.coverImage : null);
   const fallbackImage = tvSeasons[0]?.coverImage || entry.coverImage;
   const showFallback  = !displayImage && activeTVIdx > 0 && fallbackImage;
-
-  const FMT_LABEL = { OVA: "OAV", ONA: "ONA", SPECIAL: "Spécial", TV_SHORT: "Court", MUSIC: "Musique" };
+  const FMT_LABEL     = { OVA: "OAV", ONA: "ONA", SPECIAL: "Spécial", TV_SHORT: "Court", MUSIC: "Musique" };
 
   function handleMarkAllWatched() {
     if (!curTV || curTV.totalEpisodes == null) return;
     setEpisodeCount(entry.id, curTV.globalIndex, curTV.totalEpisodes);
-    if (hasNextTV) {
-      setTimeout(() => setActiveTVIdx(prev => prev + 1), 300);
-    }
+    if (hasNextTV) setTimeout(() => setActiveTVIdx(prev => prev + 1), 300);
   }
 
   async function handleRefresh() {
@@ -226,43 +210,24 @@ export function Details() {
     setAddingId(rec.id);
     try {
       const imported = await importResult(rec);
-      saveEntry({
-        ...imported,
-        type: "anime",
-        status: "a-voir",
-        rating: 0,
-        notes: "",
-      }, null);
+      saveEntry({ ...imported, type: "anime", status: "a-voir", rating: 0, notes: "" }, null);
     } catch (_) {}
     finally { setAddingId(null); }
   }
 
-  /**
-   * FIX : cliquer en dehors du synopsis ferme d'abord le synopsis,
-   * puis seulement revient sur la homepage si on clique à nouveau.
-   */
   function handleOuterClick() {
-    if (synopsisRec) {
-      setSynopsisRec(null);
-      return;
-    }
+    if (synopsisRec) { setSynopsisRec(null); return; }
     navigate("/");
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm text-violet-50 flex items-center justify-center p-3 sm:p-4 z-50"
-      style={{ fontFamily: "'Inter',sans-serif" }}
-      onClick={handleOuterClick}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        className="bg-violet-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col"
-      >
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm text-violet-50 flex items-center justify-center p-3 sm:p-4 z-50"
+      style={{ fontFamily: "'Inter',sans-serif" }} onClick={handleOuterClick}>
+      <div onClick={e => e.stopPropagation()}
+        className="bg-violet-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col">
 
         {/* ── Header ── */}
         <div className="flex gap-3 sm:gap-4 p-4 sm:p-6 border-b border-white/5 flex-shrink-0">
-          {/* Cover */}
           {displayImage
             ? <img src={displayImage} alt="" className="w-16 h-24 sm:w-24 sm:h-36 object-cover rounded-xl flex-shrink-0" />
             : showFallback
@@ -272,7 +237,6 @@ export function Details() {
                 </div>
               : null}
 
-          {/* Infos */}
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-1.5">
               <div className="min-w-0 flex-1">
@@ -286,20 +250,15 @@ export function Details() {
                   </span>
                 </div>
                 <h2 className="text-base sm:text-xl font-bold text-violet-50 leading-tight line-clamp-2"
-                  style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-                  {entry.title}
-                </h2>
+                  style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{entry.title}</h2>
               </div>
               <div className="flex gap-1 flex-shrink-0">
-                <button
-                  onClick={() => toggleFavorite(entry)}
+                <button onClick={() => toggleFavorite(entry)}
                   aria-label={isInFavorites(entry.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
                   className={`p-1.5 rounded-lg transition-colors ${isInFavorites(entry.id) ? "text-pink-400 hover:bg-pink-500/10" : "text-violet-300 hover:bg-white/10 hover:text-pink-300"}`}>
                   <Heart size={14} fill={isInFavorites(entry.id) ? "currentColor" : "none"} />
                 </button>
-                <button
-                  onClick={() => setAddToListOpen(true)}
-                  aria-label="Ajouter à une liste"
+                <button onClick={() => setAddToListOpen(true)} aria-label="Ajouter à une liste"
                   className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-amber-300 transition-colors">
                   <ListPlus size={14} />
                 </button>
@@ -325,6 +284,7 @@ export function Details() {
               </div>
             )}
 
+            {/* Note — getRatingEmoji conservé */}
             <div className="mb-1">
               <div className="flex items-center gap-1.5 mb-1">
                 <span className="text-xl sm:text-3xl font-bold text-violet-50" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
@@ -341,15 +301,14 @@ export function Details() {
 
         {/* ── Corps scrollable ── */}
         <div className="flex-1 overflow-y-auto">
-
           {hasMulti ? (
             <div className="p-3 sm:p-4 space-y-2">
 
-              {/* Série principale */}
+              {/* Série principale — ← icon Tv */}
               {tvSeasons.length > 0 && (
                 <div className="rounded-xl bg-white/[0.03] border border-white/5 overflow-hidden">
                   <div className="px-3 sm:px-4">
-                    <AccordionHeader icon="📺" label="Série principale" count={tvSeasons.length}
+                    <AccordionHeader icon={<Tv size={15} />} label="Série principale" count={tvSeasons.length}
                       summary={`${tvW}${tvT != null ? `/${tvT}` : ""} ép.`}
                       isOpen={open.tv} onToggle={() => setOpen(p => ({ ...p, tv: !p.tv }))} />
                   </div>
@@ -368,9 +327,7 @@ export function Details() {
                       {curTV?.title && <p className="font-mono text-[11px] text-violet-500 truncate mt-2" title={curTV.title}>{curTV.title}</p>}
 
                       <div className="flex items-center justify-between mt-3 mb-2 gap-2 flex-wrap">
-                        <p className="font-mono text-[11px] text-violet-400">
-                          {watched} / {curTV?.totalEpisodes ?? "?"} ép. vus
-                        </p>
+                        <p className="font-mono text-[11px] text-violet-400">{watched} / {curTV?.totalEpisodes ?? "?"} ép. vus</p>
                         <div className="flex items-center gap-2">
                           {canFinish && (
                             <button onClick={() => markDone(entry.id)}
@@ -390,49 +347,39 @@ export function Details() {
                       {curTV && (
                         <div className="flex gap-1.5 sm:gap-2 mb-3 flex-wrap">
                           <button onClick={() => decrementEpisode(entry.id, curTV.globalIndex)}
-                            className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">
-                            -1 ép.
-                          </button>
+                            className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">-1 ép.</button>
                           {(curTV.totalEpisodes == null || curTV.watchedEpisodes < curTV.totalEpisodes) && (
                             <button onClick={() => incrementEpisode(entry.id, curTV.globalIndex)}
-                              className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">
-                              +1 ép.
-                            </button>
+                              className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">+1 ép.</button>
                           )}
                           {curTV.totalEpisodes != null && curTV.watchedEpisodes < curTV.totalEpisodes && (
                             <button onClick={handleMarkAllWatched}
                               className="font-mono text-xs px-3 py-1.5 rounded-lg bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform flex items-center gap-1">
-                              <CheckCheck size={12} />
-                              {hasNextTV ? "Tout → Suiv." : "Tout"}
+                              <CheckCheck size={12} />{hasNextTV ? "Tout → Suiv." : "Tout"}
                             </button>
                           )}
                         </div>
                       )}
 
-                      {/* Slider épisodes TV */}
                       {curTV && curTV.totalEpisodes != null && curTV.totalEpisodes > 0 && (
-                        <EpisodeSlider
-                          watched={curTV.watchedEpisodes}
-                          total={curTV.totalEpisodes}
-                          entryId={entry.id}
-                          globalIndex={curTV.globalIndex}
-                          setEpisodeCount={setEpisodeCount}
-                        />
+                        <EpisodeSlider watched={curTV.watchedEpisodes} total={curTV.totalEpisodes}
+                          entryId={entry.id} globalIndex={curTV.globalIndex} setEpisodeCount={setEpisodeCount} />
                       )}
 
                       {loadingEps
                         ? <div className="flex items-center gap-2 text-violet-400 text-sm py-4"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
-                        : <EpisodeList episodes={curEps} totalEpisodes={curTV?.totalEpisodes} watched={watched} statusColor={s.color} onSetEpisode={v => curTV && setEpisodeCount(entry.id, curTV.globalIndex, v)} />}
+                        : <EpisodeList episodes={curEps} totalEpisodes={curTV?.totalEpisodes} watched={watched}
+                            statusColor={s.color} onSetEpisode={v => curTV && setEpisodeCount(entry.id, curTV.globalIndex, v)} />}
                     </div>
                   )}
                 </div>
               )}
 
-              {/* OVA / Specials */}
+              {/* OVA / Specials — ← icon Disc2 */}
               {extraSeasons.length > 0 && (
                 <div className="rounded-xl bg-white/[0.03] border border-white/5 overflow-hidden">
                   <div className="px-3 sm:px-4">
-                    <AccordionHeader icon="📼" label="OVA / Specials" count={extraSeasons.length}
+                    <AccordionHeader icon={<Disc2 size={15} />} label="OVA / Specials" count={extraSeasons.length}
                       summary={`${extW}${extT != null ? `/${extT}` : ""} ép.`}
                       isOpen={open.extra} onToggle={() => setOpen(p => ({ ...p, extra: !p.extra }))} />
                   </div>
@@ -473,11 +420,11 @@ export function Details() {
                 </div>
               )}
 
-              {/* Films */}
+              {/* Films — ← icon Film */}
               {movieSeasons.length > 0 && (
                 <div className="rounded-xl bg-white/[0.03] border border-white/5 overflow-hidden">
                   <div className="px-3 sm:px-4">
-                    <AccordionHeader icon="🎬" label="Films" count={movieSeasons.length}
+                    <AccordionHeader icon={<Film size={15} />} label="Films" count={movieSeasons.length}
                       summary={`${filmSeen}/${movieSeasons.length} vu`}
                       isOpen={open.movie} onToggle={() => setOpen(p => ({ ...p, movie: !p.movie }))} />
                   </div>
@@ -516,45 +463,34 @@ export function Details() {
                     <button key={i} onClick={() => setActiveTVIdx(i)} title={se.title || undefined}
                       className={`px-3 py-1 rounded-md text-xs font-mono border flex-shrink-0 transition-colors ${
                         i === activeTVIdx ? `${s.border} ${s.text} bg-white/10` : "border-white/10 text-violet-400 hover:bg-white/5"
-                      }`}>
-                      S{se.number}
-                    </button>
+                      }`}>S{se.number}</button>
                   ))}
                 </div>
               )}
 
               <div className="mx-3 sm:mx-4 mt-3 rounded-xl bg-white/[0.03] border border-white/5 overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setOpenEpisodes(v => !v)}
-                  className="flex items-center justify-between w-full px-3 sm:px-4 py-3 text-left group select-none border-b border-white/5"
-                >
+                <button type="button" onClick={() => setOpenEpisodes(v => !v)}
+                  className="flex items-center justify-between w-full px-3 sm:px-4 py-3 text-left group select-none border-b border-white/5">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className="text-base leading-none">📺</span>
+                    {/* ← 📺 remplacé par Tv icon */}
+                    <Tv size={15} className="text-violet-400 flex-shrink-0" />
                     <span className="font-mono text-[11px] uppercase tracking-widest text-violet-400 group-hover:text-violet-200 transition-colors">
                       Épisodes{curTV?.title ? ` — ${curTV.title}` : curTV ? ` — S${curTV.number}` : ""}
                     </span>
-                    <span className="font-mono text-[11px] text-violet-600">
-                      ({curTV?.totalEpisodes ?? "?"})
-                    </span>
+                    <span className="font-mono text-[11px] text-violet-600">({curTV?.totalEpisodes ?? "?"})</span>
                     {!openEpisodes && (
                       <span className="font-mono text-[11px] text-violet-500 truncate ml-1">
                         — {watched}{curTV?.totalEpisodes != null ? `/${curTV.totalEpisodes}` : ""} ép. vus
                       </span>
                     )}
                   </div>
-                  <ChevronRight
-                    size={14}
-                    className={`flex-shrink-0 ml-2 text-violet-500 group-hover:text-violet-300 transition-all duration-200 ${openEpisodes ? "rotate-90" : ""}`}
-                  />
+                  <ChevronRight size={14} className={`flex-shrink-0 ml-2 text-violet-500 group-hover:text-violet-300 transition-all duration-200 ${openEpisodes ? "rotate-90" : ""}`} />
                 </button>
 
                 {openEpisodes && (
                   <div className="px-3 sm:px-4 pb-4 pt-3">
                     <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-                      <p className="font-mono text-[11px] text-violet-400">
-                        {watched} / {curTV?.totalEpisodes ?? "?"} ép. vus
-                      </p>
+                      <p className="font-mono text-[11px] text-violet-400">{watched} / {curTV?.totalEpisodes ?? "?"} ép. vus</p>
                       <div className="flex items-center gap-2">
                         {canFinish && (
                           <button onClick={() => markDone(entry.id)}
@@ -574,14 +510,10 @@ export function Details() {
                     {curTV && (
                       <div className="flex gap-1.5 sm:gap-2 mb-3 flex-wrap">
                         <button onClick={() => decrementEpisode(entry.id, curTV.globalIndex)}
-                          className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">
-                          -1 ép.
-                        </button>
+                          className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">-1 ép.</button>
                         {(curTV.totalEpisodes == null || curTV.watchedEpisodes < curTV.totalEpisodes) && (
                           <button onClick={() => incrementEpisode(entry.id, curTV.globalIndex)}
-                            className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">
-                            +1 ép.
-                          </button>
+                            className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">+1 ép.</button>
                         )}
                         {curTV.totalEpisodes != null && curTV.watchedEpisodes < curTV.totalEpisodes && (
                           <button onClick={handleMarkAllWatched}
@@ -592,28 +524,15 @@ export function Details() {
                       </div>
                     )}
 
-                    {/* Slider épisodes — barre visible */}
                     {curTV && curTV.totalEpisodes != null && curTV.totalEpisodes > 0 && (
-                      <EpisodeSlider
-                        watched={curTV.watchedEpisodes}
-                        total={curTV.totalEpisodes}
-                        entryId={entry.id}
-                        globalIndex={curTV.globalIndex}
-                        setEpisodeCount={setEpisodeCount}
-                      />
+                      <EpisodeSlider watched={curTV.watchedEpisodes} total={curTV.totalEpisodes}
+                        entryId={entry.id} globalIndex={curTV.globalIndex} setEpisodeCount={setEpisodeCount} />
                     )}
 
                     {loadingEps
-                      ? <div className="flex items-center gap-2 text-violet-400 text-sm py-6">
-                          <Loader2 size={14} className="animate-spin" /> Chargement…
-                        </div>
-                      : <EpisodeList
-                          episodes={curEps}
-                          totalEpisodes={curTV?.totalEpisodes}
-                          watched={watched}
-                          statusColor={s.color}
-                          onSetEpisode={v => curTV && setEpisodeCount(entry.id, curTV.globalIndex, v)}
-                        />
+                      ? <div className="flex items-center gap-2 text-violet-400 text-sm py-6"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
+                      : <EpisodeList episodes={curEps} totalEpisodes={curTV?.totalEpisodes} watched={watched}
+                          statusColor={s.color} onSetEpisode={v => curTV && setEpisodeCount(entry.id, curTV.globalIndex, v)} />
                     }
                   </div>
                 )}
@@ -622,7 +541,7 @@ export function Details() {
             </>
           )}
 
-          {/* ── Recommandations similaires ── */}
+          {/* ── Recommandations ── */}
           {(loadingRecs || dedupedRecs.length > 0) && (
             <div className="pt-1 pb-5 border-t border-white/5 mt-2">
               <div className="flex items-center gap-3 mx-3 sm:mx-4 my-3">
@@ -632,22 +551,14 @@ export function Details() {
                 </p>
                 <div className="h-px flex-1 bg-gradient-to-l from-transparent via-violet-500/30 to-violet-500/10" />
               </div>
-
               {loadingRecs ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 size={18} className="animate-spin text-violet-500" />
-                </div>
+                <div className="flex items-center justify-center py-8"><Loader2 size={18} className="animate-spin text-violet-500" /></div>
               ) : (
                 <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none px-3 sm:px-4">
                   {dedupedRecs.map(rec => (
-                    <RecCard
-                      key={rec.id}
-                      rec={rec}
-                      onAdd={handleAddRec}
-                      adding={addingId === rec.id}
-                      alreadyInLib={libraryAnilistIds.has(rec.id)}
-                      onClick={() => setSynopsisRec(rec)}
-                    />
+                    <RecCard key={rec.id} rec={rec} onAdd={handleAddRec}
+                      adding={addingId === rec.id} alreadyInLib={libraryAnilistIds.has(rec.id)}
+                      onClick={() => setSynopsisRec(rec)} />
                   ))}
                 </div>
               )}
@@ -657,17 +568,11 @@ export function Details() {
       </div>
 
       {synopsisRec && (
-        <SynopsisModal
-          rec={synopsisRec}
-          onClose={() => setSynopsisRec(null)}
-          onAdd={handleAddRec}
-          adding={addingId === synopsisRec.id}
-          alreadyInLib={libraryAnilistIds.has(synopsisRec.id)}
-        />
+        <SynopsisModal rec={synopsisRec} onClose={() => setSynopsisRec(null)}
+          onAdd={handleAddRec} adding={addingId === synopsisRec.id}
+          alreadyInLib={libraryAnilistIds.has(synopsisRec.id)} />
       )}
-      {addToListOpen && (
-        <AddToListModal entry={entry} onClose={() => setAddToListOpen(false)} />
-      )}
+      {addToListOpen && <AddToListModal entry={entry} onClose={() => setAddToListOpen(false)} />}
       {editing && <TitleFormModal editingEntry={entry} onClose={() => setEditing(false)} />}
     </div>
   );
