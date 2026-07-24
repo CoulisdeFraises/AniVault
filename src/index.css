@@ -15,9 +15,9 @@
 html,
 body,
 #root {
-  background-color: #0f0a1e; /* = bg-violet-950 */
+  background-color: #1a0a2e; /* = theme_color du manifeste = violet-950 */
   min-height: 100%;
-  min-height: 100dvh; /* dynamic viewport height sur mobile */
+  min-height: 100dvh;
 }
 
 /* ── Scrollbar ─────────────────────────────────────────────── */
