@@ -6,15 +6,26 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Scrollbar ─────────────────────────────────────────────── */
+/* ── Fond global — évite la barre blanche iOS ──────────────────────────────
+   Sans ça, html/body ont un fond blanc par défaut (reset navigateur).
+   React ne monte qu'après le premier paint : Safari voit le blanc en premier.
+   On force le fond violet-950 (#0f0a1e) sur toute la surface, y compris
+   la zone de status bar iOS rendue par viewport-fit=cover.
+────────────────────────────────────────────────────────────────────────── */
+html,
+body,
+#root {
+  background-color: #0f0a1e; /* = bg-violet-950 */
+  min-height: 100%;
+  min-height: 100dvh; /* dynamic viewport height sur mobile */
+}
 
-/* Standard moderne (Firefox + futurs navigateurs) */
+/* ── Scrollbar ─────────────────────────────────────────────── */
 html {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
 
-/* WebKit/Blink (Chrome, Edge, Safari) */
 ::-webkit-scrollbar              { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track        { background: transparent; }
 ::-webkit-scrollbar-thumb        { background: rgba(255, 255, 255, 0.15); border-radius: 8px; }
