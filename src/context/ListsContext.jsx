@@ -4,7 +4,8 @@ import { useAuth } from "./AuthContext";
 
 const ListsContext = createContext(null);
 const SAVE_DEBOUNCE_MS = 800;
-export const FAVORITES_ID = "favorites";
+export const FAVORITES_ID   = "favorites";
+export const HIDDEN_LIST_ID = "cachette-secrete";
 
 function createFavoritesList() {
   return {
@@ -12,16 +13,40 @@ function createFavoritesList() {
     name: "Favoris",
     emoji: "♡",
     isFavorites: true,
+    isHidden: false,
     entries: [],
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
 }
 
+function createHiddenList() {
+  return {
+    id: HIDDEN_LIST_ID,
+    name: "Cachette secrète",
+    emoji: "🙈",
+    isFavorites: false,
+    isHidden: true,
+    entries: [],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/** Garantit que les listes spéciales existent et sont dans le bon ordre :
+ *  [Favoris, ...listes normales..., Cachette secrète]
+ */
+function ensureSpecialLists(raw) {
+  const fav     = raw.find(l => l.isFavorites)      || createFavoritesList();
+  const hidden  = raw.find(l => l.id === HIDDEN_LIST_ID) || createHiddenList();
+  const normals = raw.filter(l => !l.isFavorites && l.id !== HIDDEN_LIST_ID);
+  return [fav, ...normals, hidden];
+}
+
 export function ListsProvider({ children }) {
   const { user } = useAuth();
-  const [lists, setListsState] = useState([]);
-  const [loading, setLoading]  = useState(true);
+  const [lists,   setListsState] = useState([]);
+  const [loading, setLoading]    = useState(true);
   const listsRef  = useRef([]);
   const saveTimer = useRef(null);
 
@@ -34,9 +59,8 @@ export function ListsProvider({ children }) {
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        const raw    = Array.isArray(data?.lists) ? data.lists : [];
-        const hasFav = raw.some(l => l.isFavorites);
-        const final  = hasFav ? raw : [createFavoritesList(), ...raw];
+        const raw   = Array.isArray(data?.lists) ? data.lists : [];
+        const final = ensureSpecialLists(raw);
         applyLists(final);
         setLoading(false);
       });
@@ -47,17 +71,27 @@ export function ListsProvider({ children }) {
     setListsState(next);
   }
 
-  // ── FIX : UPDATE au lieu de UPSERT pour ne pas écraser la colonne `entries` ──
+  /**
+   * FIX CRITIQUE : supabase .update() ne renvoie PAS d'erreur quand
+   * aucune ligne ne correspond au WHERE — le fallback insert ne se
+   * déclenchait donc jamais sur un compte neuf.
+   * On vérifie l'existence en amont avec maybeSingle().
+   */
   async function saveToSupabase(next) {
     if (!user) return;
 
-    const { error } = await supabase
+    const { data: existing } = await supabase
       .from("libraries")
-      .update({ lists: next })
-      .eq("user_id", user.id);
+      .select("user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-    if (error) {
-      // La ligne n'existe pas encore (compte tout neuf sans titre ajouté)
+    if (existing) {
+      await supabase
+        .from("libraries")
+        .update({ lists: next })
+        .eq("user_id", user.id);
+    } else {
       await supabase.from("libraries").insert({
         user_id: user.id,
         entries: [],
@@ -67,7 +101,8 @@ export function ListsProvider({ children }) {
   }
 
   function persist(next) {
-    applyLists(next);
+    const ordered = ensureSpecialLists(next);
+    applyLists(ordered);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(
       () => saveToSupabase(listsRef.current),
@@ -76,24 +111,26 @@ export function ListsProvider({ children }) {
   }
 
   const createList = useCallback((name, emoji = "📋") => {
-    const id = Date.now().toString();
+    const id      = Date.now().toString();
     const newList = {
       id, name: name.trim(), emoji,
       isFavorites: false,
-      entries: [],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      isHidden:    false,
+      entries:     [],
+      createdAt:   Date.now(),
+      updatedAt:   Date.now(),
     };
     persist([...listsRef.current, newList]);
     return id;
   }, []);
 
   const deleteList = useCallback((listId) => {
-    if (listId === FAVORITES_ID) return;
+    if (listId === FAVORITES_ID || listId === HIDDEN_LIST_ID) return;
     persist(listsRef.current.filter(l => l.id !== listId));
   }, []);
 
   const renameList = useCallback((listId, name) => {
+    if (listId === HIDDEN_LIST_ID) return; // pas renommable
     persist(listsRef.current.map(l =>
       l.id === listId ? { ...l, name: name.trim(), updatedAt: Date.now() } : l
     ));
@@ -136,18 +173,29 @@ export function ListsProvider({ children }) {
     [isInList]
   );
 
+  const isInHiddenList = useCallback(
+    (entryId) => isInList(HIDDEN_LIST_ID, entryId),
+    [isInList]
+  );
+
   const toggleFavorite = useCallback((entry) => {
     if (isInFavorites(entry.id)) removeEntryFromList(FAVORITES_ID, entry.id);
     else addEntryToList(FAVORITES_ID, entry);
   }, [isInFavorites, addEntryToList, removeEntryFromList]);
+
+  const toggleHidden = useCallback((entry) => {
+    if (isInHiddenList(entry.id)) removeEntryFromList(HIDDEN_LIST_ID, entry.id);
+    else addEntryToList(HIDDEN_LIST_ID, entry);
+  }, [isInHiddenList, addEntryToList, removeEntryFromList]);
 
   return (
     <ListsContext.Provider value={{
       lists, loading,
       createList, deleteList, renameList,
       addEntryToList, removeEntryFromList,
-      isInList, isInFavorites, toggleFavorite,
-      FAVORITES_ID,
+      isInList, isInFavorites, isInHiddenList,
+      toggleFavorite, toggleHidden,
+      FAVORITES_ID, HIDDEN_LIST_ID,
     }}>
       {children}
     </ListsContext.Provider>

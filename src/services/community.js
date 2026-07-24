@@ -2,7 +2,6 @@ import { supabase } from "../lib/supabase";
 
 // ── Profil ────────────────────────────────────────────────────────────────────
 
-/** Crée le profil public si inexistant (appelé au login) */
 export async function initProfile(user) {
   const { data: existing } = await supabase
     .from("profiles")
@@ -17,7 +16,6 @@ export async function initProfile(user) {
     user.email?.split("@")[0] ||
     "user";
 
-  // Génère un username unique en cas de collision
   let username = base.slice(0, 20).replace(/\s+/g, "_");
   let suffix = 0;
   while (true) {
@@ -29,7 +27,7 @@ export async function initProfile(user) {
   }
 
   await supabase.from("profiles").insert({
-    user_id:     user.id,
+    user_id:      user.id,
     username,
     avatar_color: user.user_metadata?.avatar_color || "#7c3aed",
   });
@@ -40,10 +38,6 @@ export async function fetchMyProfile(userId) {
   return data;
 }
 
-/**
- * Met à jour le profil (description, couleur).
- * Le username est géré séparément pour appliquer la limite 1x/semaine.
- */
 export async function updateProfileMeta(userId, { description, avatar_color }) {
   const updates = { updated_at: new Date().toISOString() };
   if (description  !== undefined) updates.description  = description;
@@ -52,9 +46,7 @@ export async function updateProfileMeta(userId, { description, avatar_color }) {
   if (error) throw error;
 }
 
-/** Change le username (vérifie la limite 1x/semaine côté client) */
 export async function changeUsername(userId, username) {
-  // Vérifie unicité
   const { data: clash } = await supabase.from("profiles").select("user_id").ilike("username", username).maybeSingle();
   if (clash && clash.user_id !== userId) throw new Error("Ce pseudo est déjà pris.");
 
@@ -66,7 +58,6 @@ export async function changeUsername(userId, username) {
   if (error) throw error;
 }
 
-/** Synchronise les stats de la librairie + succès dans le profil public */
 export async function syncProfileStats(userId, { entriesCount, episodesWatched, achievements }) {
   await supabase.from("profiles").update({
     entries_count:    entriesCount,
@@ -78,10 +69,37 @@ export async function syncProfileStats(userId, { entriesCount, episodesWatched, 
 
 // ── Recherche ─────────────────────────────────────────────────────────────────
 
+/** Recherche par pseudo (exact, insensible à la casse) */
 export async function searchUserByUsername(username) {
   const { data } = await supabase.from("profiles")
     .select("user_id, username, avatar_color, description")
     .ilike("username", username.trim())
+    .maybeSingle();
+  return data;
+}
+
+/**
+ * Recherche par identifiant OU pseudo.
+ * Si l'entrée ressemble à un UUID → cherche d'abord par user_id (ID unique).
+ * Sinon → cherche par pseudo.
+ * Utilisé pour l'ajout d'amis afin d'éviter les confusions entre homonymes.
+ */
+export async function searchUserByIdentifier(identifier) {
+  const trimmed = identifier.trim();
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  if (uuidPattern.test(trimmed)) {
+    const { data } = await supabase.from("profiles")
+      .select("user_id, username, avatar_color, description")
+      .eq("user_id", trimmed)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  // Fallback : recherche par pseudo
+  const { data } = await supabase.from("profiles")
+    .select("user_id, username, avatar_color, description")
+    .ilike("username", trimmed)
     .maybeSingle();
   return data;
 }
@@ -132,7 +150,8 @@ export async function fetchPendingRequests(myId) {
 
   const ids = rows.map(r => r.requester_id);
   const { data: profiles } = await supabase.from("profiles")
-    .select("user_id, username, avatar_color").in("user_id", ids);
+    .select("user_id, username, avatar_color, description")
+    .in("user_id", ids);
   return (profiles || []).map(p => ({
     ...p,
     friendshipId: rows.find(r => r.requester_id === p.user_id)?.id,

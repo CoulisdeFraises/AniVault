@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Plus, Trash2, Pencil, X, Check, ListPlus } from "lucide-react";
-import { useLists } from "../context/ListsContext";
+import { ChevronLeft, Plus, Trash2, Pencil, X, Check, ListPlus, Eye, EyeOff } from "lucide-react";
+import { useLists, HIDDEN_LIST_ID } from "../context/ListsContext";
 import { BurgerMenu } from "../components/common/BurgerMenu";
 
 // ── Mini carte d'entrée dans une liste ────────────────────────────────────────
-function EntryCard({ item, onRemove }) {
+function EntryCard({ item, onRemove, blurred = false, onClick }) {
   return (
-    <div className="relative group rounded-xl overflow-hidden bg-violet-950">
+    <div
+      className={`relative group rounded-xl overflow-hidden bg-violet-950 cursor-pointer transition-all duration-300 ${blurred ? "blur-sm hover:blur-none" : ""}`}
+      onClick={onClick}
+    >
       <div className="aspect-[2/3] overflow-hidden">
         {item.coverImage
           ? <img src={item.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none" />
@@ -20,7 +23,7 @@ function EntryCard({ item, onRemove }) {
         <p className="font-mono text-[9px] text-white leading-tight line-clamp-2" title={item.title}>{item.title}</p>
       </div>
       <button
-        onClick={() => onRemove(item.entryId)}
+        onClick={e => { e.stopPropagation(); onRemove(item.entryId); }}
         className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/60 text-white/60 hover:text-rose-300 hover:bg-black/80 opacity-0 group-hover:opacity-100 transition-all active:scale-90"
       >
         <X size={10} />
@@ -31,6 +34,7 @@ function EntryCard({ item, onRemove }) {
 
 // ── Carte liste ───────────────────────────────────────────────────────────────
 function ListCard({ list, onDelete, onRename, onRemoveEntry }) {
+  const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const [editing,  setEditing]  = useState(false);
   const [name,     setName]     = useState(list.name);
@@ -87,7 +91,7 @@ function ListCard({ list, onDelete, onRename, onRemoveEntry }) {
 
         {/* Actions */}
         <div className="flex gap-0.5 flex-shrink-0">
-          {!list.isFavorites && (
+          {!list.isFavorites && !list.isHidden && (
             <>
               <button onClick={() => setEditing(true)} className="p-1.5 rounded-lg text-violet-500 hover:text-violet-200 hover:bg-white/10 transition-colors">
                 <Pencil size={12} />
@@ -108,7 +112,71 @@ function ListCard({ list, onDelete, onRename, onRemoveEntry }) {
           ) : (
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
               {list.entries.map(item => (
-                <EntryCard key={item.entryId} item={item} onRemove={(id) => onRemoveEntry(list.id, id)} />
+                <EntryCard
+                  key={item.entryId}
+                  item={item}
+                  onRemove={(id) => onRemoveEntry(list.id, id)}
+                  onClick={() => navigate(`/details/${item.entryId}`)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Carte spéciale : Cachette secrète ─────────────────────────────────────────
+function HiddenListCard({ list, onRemoveEntry }) {
+  const navigate = useNavigate();
+  const [expanded, setExpanded] = useState(false);
+  const [revealed, setRevealed] = useState(false); // toggle blur
+
+  return (
+    <div className="rounded-2xl border border-violet-600/30 bg-violet-950/40 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3">
+        <span className="text-xl flex-shrink-0 select-none">🙈</span>
+        <button onClick={() => setExpanded(v => !v)} className="flex-1 text-left min-w-0">
+          <p className="font-semibold text-sm text-violet-300 truncate" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+            {list.name}
+          </p>
+          <p className="font-mono text-[10px] text-violet-500 mt-0.5">{list.entries.length} titre{list.entries.length !== 1 ? "s" : ""} · liste spéciale</p>
+        </button>
+
+        {/* Toggle blur rose */}
+        {expanded && list.entries.length > 0 && (
+          <button
+            onClick={() => setRevealed(v => !v)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-mono border transition-all active:scale-95 ${
+              revealed
+                ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
+                : "bg-white/5 border-white/10 text-violet-500 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400"
+            }`}
+            title={revealed ? "Flouter à nouveau" : "Révéler"}
+          >
+            {revealed ? <Eye size={11} /> : <EyeOff size={11} />}
+            {revealed ? "Flou off" : "Révéler"}
+          </button>
+        )}
+      </div>
+
+      {/* Contenu */}
+      {expanded && (
+        <div className="px-4 pb-4">
+          {list.entries.length === 0 ? (
+            <p className="text-sm text-violet-600 italic text-center py-4">Rien de caché ici… pour l'instant 👀</p>
+          ) : (
+            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+              {list.entries.map(item => (
+                <EntryCard
+                  key={item.entryId}
+                  item={item}
+                  onRemove={(id) => onRemoveEntry(list.id, id)}
+                  blurred={!revealed}
+                  onClick={() => navigate(`/details/${item.entryId}`)}
+                />
               ))}
             </div>
           )}
@@ -139,7 +207,8 @@ export function Lists() {
   }
 
   const favorites   = lists.find(l => l.isFavorites);
-  const otherLists  = lists.filter(l => !l.isFavorites);
+  const hiddenList  = lists.find(l => l.id === HIDDEN_LIST_ID);
+  const otherLists  = lists.filter(l => !l.isFavorites && l.id !== HIDDEN_LIST_ID);
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter',sans-serif" }}>
@@ -217,11 +286,11 @@ export function Lists() {
                 <div key={list.id}>
                   {confirmId === list.id && (
                     <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 mb-1.5 animate-fadeIn">
-                      <p className="flex-1 text-sm text-rose-300">Supprimer « {list.name} » ?</p>
-                      <button onClick={() => handleDelete(list.id)} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 active:scale-95">
-                        <Check size={11} /> Confirmer
+                      <p className="flex-1 text-sm text-rose-200">Supprimer <span className="font-semibold">«&nbsp;{list.name}&nbsp;»</span> ?</p>
+                      <button onClick={() => handleDelete(list.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 text-xs font-mono active:scale-95">
+                        <Check size={11} /> Oui
                       </button>
-                      <button onClick={() => setConfirmId(null)} className="p-1 rounded hover:bg-white/10 text-violet-400">
+                      <button onClick={() => setConfirmId(null)} className="p-1.5 rounded-lg hover:bg-white/10 text-violet-400">
                         <X size={13} />
                       </button>
                     </div>
@@ -237,6 +306,18 @@ export function Lists() {
             </div>
           )}
         </div>
+
+        {/* ── Cachette secrète (toujours en dernier) ── */}
+        {hiddenList && (
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-violet-600/70 mb-2">Zone secrète</p>
+            <HiddenListCard
+              list={hiddenList}
+              onRemoveEntry={removeEntryFromList}
+            />
+          </div>
+        )}
+
       </div>
     </div>
   );

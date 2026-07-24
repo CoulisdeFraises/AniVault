@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate }        from "react-router-dom";
 import {
   Loader2, Check, Lock, Trash2, ArrowLeft,
-  ChevronDown, Eye, EyeOff, KeyRound, AlertTriangle,
+  ChevronDown, Eye, EyeOff, KeyRound, AlertTriangle, Copy,
 } from "lucide-react";
 import { supabase }        from "../lib/supabase";
 import { useAuth }         from "../context/AuthContext";
@@ -166,7 +166,6 @@ function PasswordSection({ userEmail }) {
           </div>
         ) : (
           <div className="px-5 py-5 space-y-4 animate-fadeInUp">
-            {/* Mot de passe actuel */}
             <div>
               <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Mot de passe actuel</label>
               <div className="relative">
@@ -179,7 +178,6 @@ function PasswordSection({ userEmail }) {
                 </button>
               </div>
             </div>
-            {/* Nouveau mot de passe */}
             <div>
               <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Nouveau mot de passe</label>
               <div className="relative">
@@ -193,7 +191,6 @@ function PasswordSection({ userEmail }) {
               </div>
               <div className="mt-2"><PasswordStrength password={newPassword} /></div>
             </div>
-            {/* Confirmer */}
             <div>
               <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Confirmer le nouveau mot de passe</label>
               <div className="relative">
@@ -246,8 +243,9 @@ function AchievementRow({ achievement, unlocked }) {
   );
 }
 
-function CategoryAccordion({ category, achievements, unlockedIds, defaultOpen }) {
-  const [open, setOpen] = useState(defaultOpen ?? false);
+// Accordéon catégorie — FERMÉ par défaut
+function CategoryAccordion({ category, achievements, unlockedIds }) {
+  const [open, setOpen] = useState(false); // ← fermé par défaut
   const total    = achievements.length;
   const unlocked = achievements.filter((a) => unlockedIds.has(a.id)).length;
   const pct      = total > 0 ? Math.round((unlocked / total) * 100) : 0;
@@ -293,12 +291,6 @@ function AchievementsPanel({ allAchievements, unlockedIds }) {
     return map;
   }, [allAchievements]);
 
-  const firstUnlockedCat = useMemo(() =>
-    ACHIEVEMENT_CATEGORIES.find((cat) =>
-      (grouped[cat.id] || []).some((a) => unlockedIds.has(a.id))
-    )?.id ?? null,
-  [grouped, unlockedIds]);
-
   return (
     <div className="flex flex-col">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
@@ -312,7 +304,8 @@ function AchievementsPanel({ allAchievements, unlockedIds }) {
           const items = grouped[cat.id];
           if (!items || items.length === 0) return null;
           return (
-            <CategoryAccordion key={cat.id} category={cat} achievements={items} unlockedIds={unlockedIds} defaultOpen={cat.id === firstUnlockedCat} />
+            // Pas de defaultOpen : tous fermés par défaut
+            <CategoryAccordion key={cat.id} category={cat} achievements={items} unlockedIds={unlockedIds} />
           );
         })}
       </div>
@@ -330,11 +323,15 @@ export function Profile() {
   const favoritesList = lists.find(l => l.isFavorites);
   const unlockedCount = unlockedIds.size;
 
-  const [username,      setUsername]      = useState(userProfile?.username || profile || "");
-  const [description,   setDescription]   = useState(userProfile?.description || "");
-  const [color,         setColor]         = useState(userProfile?.avatar_color || AVATAR_COLORS[0]);
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profileMsg,    setProfileMsg]    = useState({ type: "", text: "" });
+  const [username,        setUsername]        = useState(userProfile?.username || profile || "");
+  const [description,     setDescription]     = useState(userProfile?.description || "");
+  const [color,           setColor]           = useState(userProfile?.avatar_color || AVATAR_COLORS[0]);
+  const [savingProfile,   setSavingProfile]   = useState(false);
+  const [profileMsg,      setProfileMsg]      = useState({ type: "", text: "" });
+  const [copiedId,        setCopiedId]        = useState(false);
+
+  // Bloc succès ouvert/fermé
+  const [achievementsOpen, setAchievementsOpen] = useState(false); // ← fermé par défaut
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting,      setDeleting]      = useState(false);
@@ -353,8 +350,12 @@ export function Profile() {
     const ms = Date.now() - new Date(userProfile.username_last_changed).getTime();
     return Math.max(0, Math.ceil(7 - ms / (24 * 60 * 60 * 1000)));
   })();
+  const nextChangeDate = (() => {
+    if (!userProfile?.username_last_changed) return null;
+    const d = new Date(new Date(userProfile.username_last_changed).getTime() + 7 * 24 * 60 * 60 * 1000);
+    return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+  })();
 
-  // Sync des stats au chargement du profil
   useEffect(() => {
     if (!user || !userProfile) return;
     const episodesWatched = entries.reduce(
@@ -366,6 +367,13 @@ export function Profile() {
       achievements:    [...unlockedIds],
     }).catch(() => {});
   }, [user?.id, userProfile?.user_id]); // eslint-disable-line
+
+  function handleCopyId() {
+    navigator.clipboard.writeText(user?.id || "").then(() => {
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
+    });
+  }
 
   async function handleSaveProfile() {
     if (!username.trim()) return;
@@ -451,6 +459,33 @@ export function Profile() {
         </div>
 
         <div className="px-5 pb-5 space-y-4">
+
+          {/* ID Unique (non modifiable) */}
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">
+              ID unique <span className="normal-case tracking-normal text-violet-600">— pour l'ajout d'amis</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                value={user?.id || ""}
+                disabled
+                className="flex-1 px-4 py-2.5 rounded-xl bg-violet-950/30 border border-white/5 text-violet-500 cursor-not-allowed text-xs font-mono overflow-hidden"
+              />
+              <button
+                onClick={handleCopyId}
+                title="Copier l'ID"
+                className={`flex-shrink-0 p-2.5 rounded-xl border transition-all active:scale-95 ${
+                  copiedId
+                    ? "bg-teal-500/20 border-teal-500/40 text-teal-300"
+                    : "bg-violet-900/50 border-white/10 text-violet-400 hover:text-violet-200 hover:bg-white/10"
+                }`}
+              >
+                {copiedId ? <Check size={14} /> : <Copy size={14} />}
+              </button>
+            </div>
+            <p className="text-[10px] text-violet-600 mt-1">Cet identifiant est permanent et ne peut pas être modifié.</p>
+          </div>
+
           {/* Pseudo */}
           <div>
             <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Pseudo</label>
@@ -461,9 +496,13 @@ export function Profile() {
               placeholder="Ton pseudo…"
               className="w-full px-4 py-2.5 rounded-xl bg-violet-950/60 border border-white/10 text-violet-50 placeholder-violet-500 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
             />
-            {!canChangeUsername && (
+            {canChangeUsername ? (
+              <p className="text-[10px] text-violet-600 mt-1">
+                💡 Tu ne peux changer ton pseudo qu'une fois par semaine.
+              </p>
+            ) : (
               <p className="text-[11px] text-amber-400/80 mt-1">
-                🔒 Pseudo modifiable dans {daysLeft} jour{daysLeft > 1 ? "s" : ""}
+                🔒 Pseudo modifiable à partir du {nextChangeDate} ({daysLeft} jour{daysLeft > 1 ? "s" : ""})
               </p>
             )}
           </div>
@@ -502,10 +541,26 @@ export function Profile() {
       {/* Mot de passe */}
       <PasswordSection userEmail={user?.email || ""} />
 
-      {/* Succès */}
-      <Section title={`Succès — ${unlockedCount} / ${allAchievements.length}`}>
-        <AchievementsPanel allAchievements={allAchievements} unlockedIds={unlockedIds} />
-      </Section>
+      {/* ── Succès — collapsable, fermé par défaut ── */}
+      <div className="rounded-2xl bg-violet-900/30 border border-white/5 overflow-hidden animate-fadeInUp">
+        <button
+          onClick={() => setAchievementsOpen(v => !v)}
+          className="w-full flex items-center justify-between px-5 py-3 hover:bg-white/5 transition-colors motion-reduce:transition-none"
+        >
+          <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">
+            Succès — {unlockedCount} / {allAchievements.length}
+          </p>
+          <ChevronDown
+            size={14}
+            className={`text-violet-500 transition-transform duration-200 motion-reduce:transition-none ${achievementsOpen ? "rotate-0" : "-rotate-90"}`}
+          />
+        </button>
+        {achievementsOpen && (
+          <div className="border-t border-white/5 animate-fadeIn">
+            <AchievementsPanel allAchievements={allAchievements} unlockedIds={unlockedIds} />
+          </div>
+        )}
+      </div>
 
       {/* Favoris */}
       {favoritesList && (
@@ -541,8 +596,6 @@ export function Profile() {
       {/* Zone de danger */}
       <Section title="Zone de danger">
         <div className="divide-y divide-white/5">
-
-          {/* Reset liste */}
           <div className="px-5 py-4">
             {!confirmReset ? (
               <>
@@ -571,7 +624,6 @@ export function Profile() {
             )}
           </div>
 
-          {/* Suppression compte */}
           <div className="px-5 py-4">
             {!confirmDelete ? (
               <>
@@ -595,7 +647,6 @@ export function Profile() {
               </div>
             )}
           </div>
-
         </div>
       </Section>
     </div>
