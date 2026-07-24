@@ -3,6 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!--
+      Content Security Policy — restreint les origines autorisées.
+      • script-src 'self' 'unsafe-inline' : nécessaire pour Vite (HMR dev) et
+        les scripts inline générés par le build.
+      • connect-src : APIs tierces utilisées par l'app.
+      Note : frame-ancestors ne fonctionne pas via meta (nécessite un header HTTP
+      côté serveur/CDN). Ajoute `X-Frame-Options: DENY` dans les headers Netlify/Vercel.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src  'self' 'unsafe-inline';
+      style-src   'self' 'unsafe-inline' https://fonts.googleapis.com;
+      font-src    https://fonts.gstatic.com data:;
+      img-src     'self' data: blob: https:;
+      connect-src 'self'
+                  https://graphql.anilist.co
+                  https://api.jikan.moe
+                  https://api.tvmaze.com
+                  https://api.themoviedb.org
+                  https://*.supabase.co
+                  wss://*.supabase.co;
+      worker-src  'self' blob:;
+    " />
+
     <title>AniVault — Journal de visionnage</title>
 
     <!-- ── Favicons ── -->

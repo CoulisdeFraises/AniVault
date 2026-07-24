@@ -6,7 +6,35 @@ import { seasonTotals, autoStatus } from "../utils/status";
 const LibraryContext = createContext(null);
 const SAVE_DEBOUNCE_MS = 800;
 
-/** Lit la préf autoStatus directement depuis localStorage (pas de hook). */
+// ── Validation / normalisation d'une entrée chargée depuis Supabase ───────────
+// Évite les crashes si des données sont corrompues ou incomplètes.
+function sanitizeEntry(e) {
+  if (!e || typeof e !== "object") return null;
+  const VALID_STATUS = ["en-cours", "termine", "a-voir", "abandonne"];
+  const VALID_TYPES  = ["anime", "serie"];
+  return {
+    ...e,
+    id:           typeof e.id === "string" && e.id ? e.id : String(Date.now() + Math.random()),
+    title:        typeof e.title === "string" ? e.title : "",
+    type:         VALID_TYPES.includes(e.type) ? e.type : "anime",
+    status:       VALID_STATUS.includes(e.status) ? e.status : "a-voir",
+    rating:       typeof e.rating === "number" ? Math.min(10, Math.max(0, e.rating)) : 0,
+    genres:       Array.isArray(e.genres) ? e.genres.filter(g => typeof g === "string") : [],
+    watchHistory: Array.isArray(e.watchHistory) ? e.watchHistory : [],
+    seasons: Array.isArray(e.seasons) && e.seasons.length > 0
+      ? e.seasons.map(s => ({
+          ...s,
+          number:          Number(s.number) || 1,
+          format:          typeof s.format === "string" ? s.format : "TV",
+          totalEpisodes:   s.totalEpisodes != null ? Math.max(0, Number(s.totalEpisodes) || 0) : null,
+          watchedEpisodes: Math.max(0, Number(s.watchedEpisodes) || 0),
+          coverImage:      s.coverImage ?? null,
+        }))
+      : [{ number: 1, format: "TV", totalEpisodes: null, watchedEpisodes: 0, coverImage: null }],
+  };
+}
+
+/** Lit la préf autoStatus depuis localStorage (sans hook) */
 function shouldAutoStatus() {
   return localStorage.getItem("pref_autoStatus") !== "false";
 }
@@ -23,7 +51,15 @@ export function LibraryProvider({ children }) {
     if (!user) { setEntriesState([]); setLoading(false); return; }
     setLoading(true);
     supabase.from("libraries").select("entries").eq("user_id", user.id).maybeSingle()
-      .then(({ data, error }) => { if (error) setSaveError(true); else applyEntries(data?.entries || []); setLoading(false); });
+      .then(({ data, error }) => {
+        if (error) { setSaveError(true); }
+        else {
+          // Validation à l'import
+          const raw = Array.isArray(data?.entries) ? data.entries : [];
+          applyEntries(raw.map(sanitizeEntry).filter(Boolean));
+        }
+        setLoading(false);
+      });
   }, [user?.id]);
 
   function applyEntries(next) { entriesRef.current = next; setEntriesState(next); }
@@ -35,7 +71,10 @@ export function LibraryProvider({ children }) {
   }
 
   function persist(next) {
-    const newlyDone = next.some((e) => { const old = entriesRef.current.find((p) => p.id === e.id); return old && old.status !== "termine" && e.status === "termine"; });
+    const newlyDone = next.some((e) => {
+      const old = entriesRef.current.find((p) => p.id === e.id);
+      return old && old.status !== "termine" && e.status === "termine";
+    });
     if (newlyDone) { setShowConfetti(true); setTimeout(() => setShowConfetti(false), 3000); }
     applyEntries(next);
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -52,21 +91,13 @@ export function LibraryProvider({ children }) {
       const watched = total != null
         ? Math.min(total, forceAll ? total : Math.max(0, Number(s.watchedEpisodes) || 0))
         : Math.max(0, Number(s.watchedEpisodes) || 0);
-      return {
-        number:          s.number,
-        format:          s.format ?? "TV",
-        title:           s.title ?? null,
-        totalEpisodes:   total,
-        watchedEpisodes: watched,
-        coverImage:      s.coverImage ?? null,
-      };
+      return { number: s.number, format: s.format ?? "TV", title: s.title ?? null,
+               totalEpisodes: total, watchedEpisodes: watched, coverImage: s.coverImage ?? null };
     });
     const cleaned = {
-      ...form,
-      title:        form.title.trim(),
-      seasons,
-      rating:       Math.min(10, Math.max(0, Number(form.rating) || 0)),
-      id:           editingId || Date.now().toString(),
+      ...form, title: form.title.trim(), seasons,
+      rating: Math.min(10, Math.max(0, Number(form.rating) || 0)),
+      id: editingId || Date.now().toString(),
       watchHistory: editingId ? (entriesRef.current.find((e) => e.id === editingId)?.watchHistory || []) : [],
     };
     persist(editingId
@@ -78,48 +109,50 @@ export function LibraryProvider({ children }) {
   const deleteEntry  = useCallback((id)   => persist(entriesRef.current.filter((e) => e.id !== id)), [user]);
 
   const incrementEpisode = useCallback((id, seasonIndex) => {
-    const now  = Date.now();
-    const auto = shouldAutoStatus(); // FIX : respect de la préférence
-    const next = entriesRef.current.map((e) => {
+    const now = Date.now(); const auto = shouldAutoStatus();
+    persist(entriesRef.current.map((e) => {
       if (e.id !== id) return e;
       const seasons = e.seasons.map((s, i) => {
         if (i !== seasonIndex) return s;
         const n = s.watchedEpisodes + 1;
         return { ...s, watchedEpisodes: s.totalEpisodes != null ? Math.min(s.totalEpisodes, n) : n };
       });
-      const history = [...(e.watchHistory || []), { seasonIndex, episode: seasons[seasonIndex].watchedEpisodes, watchedAt: now }];
+      const history = [...(e.watchHistory || []),
+        { seasonIndex, episode: seasons[seasonIndex].watchedEpisodes, watchedAt: now }];
       return { ...e, seasons, status: auto ? autoStatus(e, seasons) : e.status, watchHistory: history };
-    });
-    persist(next);
+    }));
   }, [user]);
 
   const decrementEpisode = useCallback((id, seasonIndex) => {
-    const auto = shouldAutoStatus(); // FIX
+    const auto = shouldAutoStatus();
     persist(entriesRef.current.map((e) => {
       if (e.id !== id) return e;
-      const seasons = e.seasons.map((s, i) => i !== seasonIndex ? s : { ...s, watchedEpisodes: Math.max(0, s.watchedEpisodes - 1) });
+      const seasons = e.seasons.map((s, i) =>
+        i !== seasonIndex ? s : { ...s, watchedEpisodes: Math.max(0, s.watchedEpisodes - 1) });
       return { ...e, seasons, status: auto ? autoStatus(e, seasons) : e.status };
     }));
   }, [user]);
 
   const setEpisodeCount = useCallback((id, seasonIndex, value) => {
-    const now  = Date.now();
-    const auto = shouldAutoStatus(); // FIX
-    const next = entriesRef.current.map((e) => {
+    const now = Date.now(); const auto = shouldAutoStatus();
+    persist(entriesRef.current.map((e) => {
       if (e.id !== id) return e;
-      const old     = e.seasons[seasonIndex]?.watchedEpisodes || 0;
+      const old = e.seasons[seasonIndex]?.watchedEpisodes || 0;
       const seasons = e.seasons.map((s, i) => {
         if (i !== seasonIndex) return s;
-        const c = s.totalEpisodes != null ? Math.min(s.totalEpisodes, Math.max(0, value)) : Math.max(0, value);
+        const c = s.totalEpisodes != null
+          ? Math.min(s.totalEpisodes, Math.max(0, value)) : Math.max(0, value);
         return { ...s, watchedEpisodes: c };
       });
-      const nw      = seasons[seasonIndex].watchedEpisodes;
-      const entries = nw > old
-        ? Array.from({ length: nw - old }, (_, i) => ({ seasonIndex, episode: old + i + 1, watchedAt: now + i }))
+      const nw = seasons[seasonIndex].watchedEpisodes;
+      const hist = nw > old
+        ? Array.from({ length: nw - old }, (_, i) =>
+            ({ seasonIndex, episode: old + i + 1, watchedAt: now + i }))
         : [];
-      return { ...e, seasons, status: auto ? autoStatus(e, seasons) : e.status, watchHistory: [...(e.watchHistory || []), ...entries] };
-    });
-    persist(next);
+      return { ...e, seasons,
+        status: auto ? autoStatus(e, seasons) : e.status,
+        watchHistory: [...(e.watchHistory || []), ...hist] };
+    }));
   }, [user]);
 
   const markDone = useCallback((id) =>
@@ -139,15 +172,11 @@ export function LibraryProvider({ children }) {
   const addSeason = useCallback((id, seasonData = {}) => {
     persist(entriesRef.current.map((e) => {
       if (e.id !== id) return e;
-      const newSeason = {
-        number:          e.seasons.length + 1,
-        format:          seasonData.format ?? "TV",
-        title:           seasonData.title ?? null,
-        totalEpisodes:   seasonData.totalEpisodes ?? null,
-        watchedEpisodes: 0,
-        coverImage:      seasonData.coverImage ?? null,
-      };
-      const newIds = seasonData.anilistId ? [...(e.anilistIds || []), seasonData.anilistId] : (e.anilistIds || []);
+      const newSeason = { number: e.seasons.length + 1, format: seasonData.format ?? "TV",
+        title: seasonData.title ?? null, totalEpisodes: seasonData.totalEpisodes ?? null,
+        watchedEpisodes: 0, coverImage: seasonData.coverImage ?? null };
+      const newIds = seasonData.anilistId
+        ? [...(e.anilistIds || []), seasonData.anilistId] : (e.anilistIds || []);
       return { ...e, seasons: [...e.seasons, newSeason], anilistIds: newIds };
     }));
   }, [user]);
