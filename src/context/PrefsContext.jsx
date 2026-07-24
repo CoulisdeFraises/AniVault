@@ -25,7 +25,23 @@ export function usePrefs() {
   return ctx;
 }
 
-/** Helper pur — lisible partout sans hook (ex: dans anilist.js) */
+/** Lecture directe localStorage — utilisable hors hook (ex: anilist.js) */
 export function getCultureMode() {
   return localStorage.getItem("pref_culture_mode") === "true";
+}
+
+/**
+ * Afficher la barre de progression sur les cartes.
+ * Valeur par défaut : true (activé).
+ */
+export function getShowProgress() {
+  return localStorage.getItem("pref_showProgress") !== "false";
+}
+
+/**
+ * Changer le statut automatiquement selon les épisodes cochés.
+ * Valeur par défaut : true (activé).
+ */
+export function getAutoStatus() {
+  return localStorage.getItem("pref_autoStatus") !== "false";
 }

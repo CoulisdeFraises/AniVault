@@ -56,8 +56,15 @@ export function Header({
 
   return (
     <>
-      {/* ══ STICKY TOP BAR ════════════════════════════════════════════════ */}
-      <div className="sticky top-0 z-40 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 mb-6 bg-violet-950/95 backdrop-blur-md border-b border-white/5">
+      {/* ══ STICKY TOP BAR ════════════════════════════════════════════════
+          FIX : paddingTop utilise env(safe-area-inset-top) pour couvrir
+          le Dynamic Island / notch iOS, tout en conservant au moins py-3
+          (0.75rem) sur les appareils sans encoche.
+      ════════════════════════════════════════════════════════════════════ */}
+      <div
+        className="sticky top-0 z-40 -mx-4 sm:-mx-6 px-4 sm:px-6 pb-3 mb-6 bg-violet-950/95 backdrop-blur-md border-b border-white/5"
+        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+      >
         <div className="flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-2.5">
@@ -67,7 +74,7 @@ export function Header({
               <h1 className="text-lg font-bold tracking-tight leading-none" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>ANIVAULT</h1>
             </div>
           </div>
-          {/* Actions — hauteur unifiée h-9 sur tous les boutons */}
+          {/* Actions */}
           <div className="flex items-center gap-2">
             <button onClick={onSyncClick} disabled={syncing}
               title={syncing ? `Sync… ${syncProgress.current}/${syncProgress.total}` : "Actualiser les données"}

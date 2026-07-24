@@ -7,6 +7,7 @@ import { getRatingEmoji } from "../common/Rating";
 import { STATUS, seasonTotals, formatCountdown } from "../../utils/status";
 import { useLibrary } from "../../context/LibraryContext";
 import { fetchNextAiring } from "../../api";
+import { getShowProgress } from "../../context/PrefsContext";
 
 function getFormatGroup(f) {
   if (!f || f === "TV") return "tv";

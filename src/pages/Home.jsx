@@ -54,7 +54,10 @@ export function Home() {
   const { syncAll, syncing, progress } = useSync();
   const navigate = useNavigate();
 
-  const [typeFilter,        setTypeFilter]        = useState("all");
+  // FIX : initialise le filtre depuis la préférence sauvegardée
+  const [typeFilter,        setTypeFilter]        = useState(
+    () => localStorage.getItem("pref_defaultFilter") || "all"
+  );
   const [selectedStatuses,  setSelectedStatuses]  = useState([]);
   const [searchQuery,       setSearchQuery]       = useState("");
   const [showForm,          setShowForm]          = useState(false);
@@ -248,7 +251,6 @@ export function Home() {
 
             {cachetteOpen && (
               <div className="mt-4 rounded-2xl border border-violet-700/20 bg-violet-950/60 overflow-hidden animate-fadeIn">
-                {/* Contrôle de révélation */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-violet-800/30">
                   <p className="font-mono text-[10px] uppercase tracking-widest text-violet-600">Contenu secret</p>
                   <button

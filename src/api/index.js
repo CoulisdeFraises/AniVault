@@ -72,22 +72,62 @@ export async function importResult(result) {
 }
 
 const SEASON_INFO_TTL = 60 * 60 * 1000;
+
+/**
+ * fetchSeasonInfo — récupère les épisodes et le total d'une saison.
+ *
+ * CORRECTIFS :
+ *  1. Pour AniList : utilise entry.anilistIds[i] en priorité, puis tombe
+ *     sur season.anilistId (présent sur TOUTES les saisons, y compris
+ *     TV_SHORT / OVA / Films qui ne figurent PAS dans anilistIds).
+ *  2. Ne met pas en cache un résultat vide (episodes=[] ET totalEpisodes=null)
+ *     afin que le prochain chargement retente l'API (évite de "coller"
+ *     un échec Jikan dû à un rate-limit temporaire).
+ */
 export async function fetchSeasonInfo(entry, seasonIndex) {
   const seasonNumber = entry.seasons[seasonIndex]?.number ?? seasonIndex + 1;
   const cacheKey = `season-info:${entry.source}:${entry.id}:s${seasonIndex}`;
+
+  // shouldCache : on ne cache que si on a au moins l'une des deux infos utiles
+  const shouldCache = (result) =>
+    (result.episodes && result.episodes.length > 0) || result.totalEpisodes != null;
+
   return withCache(cacheKey, SEASON_INFO_TTL, async () => {
-    if (entry.source === "tvmaze" && entry.tmdbId) { const tmdb = await fetchTMDBSeason(entry.tmdbId, seasonNumber); if (tmdb) return tmdb; }
+    // ── TVmaze ──────────────────────────────────────────────────────────
+    if (entry.source === "tvmaze" && entry.tmdbId) {
+      const tmdb = await fetchTMDBSeason(entry.tmdbId, seasonNumber);
+      if (tmdb) return tmdb;
+    }
     if (entry.source === "tvmaze" && entry.tvmazeId) {
-      const [epsBySeason, totalEpisodes] = await Promise.all([fetchTVMazeEpisodesBySeason(entry.tvmazeId), fetchTVMazeSeasonTotal(entry.tvmazeId, seasonNumber)]);
+      const [epsBySeason, totalEpisodes] = await Promise.all([
+        fetchTVMazeEpisodesBySeason(entry.tvmazeId),
+        fetchTVMazeSeasonTotal(entry.tvmazeId, seasonNumber),
+      ]);
       return { episodes: epsBySeason[seasonNumber] || [], totalEpisodes };
     }
-    if (entry.source === "anilist" && entry.anilistIds?.[seasonIndex]) {
-      const anilistId = entry.anilistIds[seasonIndex];
-      const [episodes, totalEpisodes] = await Promise.all([fetchAniListEpisodesBySeasonId(anilistId), fetchAniListEpisodeTotal(anilistId)]);
-      return { episodes, totalEpisodes };
+
+    // ── AniList ─────────────────────────────────────────────────────────
+    if (entry.source === "anilist") {
+      const season = entry.seasons[seasonIndex];
+      // FIX : anilistIds ne contient que les saisons TV pures.
+      // season.anilistId est présent sur toutes les saisons (TV, TV_SHORT,
+      // OVA, Films) et sert de fallback fiable.
+      const anilistId =
+        entry.anilistIds?.[seasonIndex] ??
+        season?.anilistId ??
+        null;
+
+      if (anilistId) {
+        const [episodes, totalEpisodes] = await Promise.all([
+          fetchAniListEpisodesBySeasonId(anilistId),
+          fetchAniListEpisodeTotal(anilistId),
+        ]);
+        return { episodes, totalEpisodes };
+      }
     }
+
     return { episodes: [], totalEpisodes: null };
-  });
+  }, shouldCache);
 }
 
 export async function findNextSeason(entry) {
@@ -108,9 +148,12 @@ export async function fetchNextAiring(entry) {
     ? `next-airing:anilist:${entry.anilistIds?.[entry.anilistIds.length - 1]}`
     : entry.source === "tvmaze" ? `next-airing:tvmaze:${entry.tvmazeId}` : null;
   if (!key) return null;
-  return withCache(key, NEXT_AIRING_TTL, () =>
-    entry.source === "anilist"
-      ? fetchNextAiringAniList(entry.anilistIds[entry.anilistIds.length - 1])
-      : fetchNextAiringTVMaze(entry.tvmazeId)
-  );
+  return withCache(key, NEXT_AIRING_TTL, async () => {
+    if (entry.source === "anilist") {
+      const id = entry.anilistIds?.[entry.anilistIds.length - 1];
+      return id ? fetchNextAiringAniList(id) : null;
+    }
+    if (entry.source === "tvmaze") return fetchNextAiringTVMaze(entry.tvmazeId);
+    return null;
+  });
 }

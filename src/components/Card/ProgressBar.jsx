@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { getCultureMode } from "../../context/PrefsContext";
 
 export function ProgressBar({ watched, total, colorClass, glow, onChange, color }) {
   const pct = total > 0 ? Math.min(100, (watched / total) * 100) : 0;

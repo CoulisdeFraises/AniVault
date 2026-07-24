@@ -6,6 +6,11 @@ import { seasonTotals, autoStatus } from "../utils/status";
 const LibraryContext = createContext(null);
 const SAVE_DEBOUNCE_MS = 800;
 
+/** Lit la préf autoStatus directement depuis localStorage (pas de hook). */
+function shouldAutoStatus() {
+  return localStorage.getItem("pref_autoStatus") !== "false";
+}
+
 export function LibraryProvider({ children }) {
   const { user } = useAuth();
   const [entries, setEntriesState] = useState([]);
@@ -50,7 +55,6 @@ export function LibraryProvider({ children }) {
       return {
         number:          s.number,
         format:          s.format ?? "TV",
-        // FIX : title preserve (nom de l OVA / du film / de la saison TV)
         title:           s.title ?? null,
         totalEpisodes:   total,
         watchedEpisodes: watched,
@@ -75,6 +79,7 @@ export function LibraryProvider({ children }) {
 
   const incrementEpisode = useCallback((id, seasonIndex) => {
     const now  = Date.now();
+    const auto = shouldAutoStatus(); // FIX : respect de la préférence
     const next = entriesRef.current.map((e) => {
       if (e.id !== id) return e;
       const seasons = e.seasons.map((s, i) => {
@@ -83,21 +88,23 @@ export function LibraryProvider({ children }) {
         return { ...s, watchedEpisodes: s.totalEpisodes != null ? Math.min(s.totalEpisodes, n) : n };
       });
       const history = [...(e.watchHistory || []), { seasonIndex, episode: seasons[seasonIndex].watchedEpisodes, watchedAt: now }];
-      return { ...e, seasons, status: autoStatus(e, seasons), watchHistory: history };
+      return { ...e, seasons, status: auto ? autoStatus(e, seasons) : e.status, watchHistory: history };
     });
     persist(next);
   }, [user]);
 
   const decrementEpisode = useCallback((id, seasonIndex) => {
+    const auto = shouldAutoStatus(); // FIX
     persist(entriesRef.current.map((e) => {
       if (e.id !== id) return e;
       const seasons = e.seasons.map((s, i) => i !== seasonIndex ? s : { ...s, watchedEpisodes: Math.max(0, s.watchedEpisodes - 1) });
-      return { ...e, seasons, status: autoStatus(e, seasons) };
+      return { ...e, seasons, status: auto ? autoStatus(e, seasons) : e.status };
     }));
   }, [user]);
 
   const setEpisodeCount = useCallback((id, seasonIndex, value) => {
     const now  = Date.now();
+    const auto = shouldAutoStatus(); // FIX
     const next = entriesRef.current.map((e) => {
       if (e.id !== id) return e;
       const old     = e.seasons[seasonIndex]?.watchedEpisodes || 0;
@@ -110,7 +117,7 @@ export function LibraryProvider({ children }) {
       const entries = nw > old
         ? Array.from({ length: nw - old }, (_, i) => ({ seasonIndex, episode: old + i + 1, watchedAt: now + i }))
         : [];
-      return { ...e, seasons, status: autoStatus(e, seasons), watchHistory: [...(e.watchHistory || []), ...entries] };
+      return { ...e, seasons, status: auto ? autoStatus(e, seasons) : e.status, watchHistory: [...(e.watchHistory || []), ...entries] };
     });
     persist(next);
   }, [user]);

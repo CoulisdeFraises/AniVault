@@ -243,9 +243,8 @@ function AchievementRow({ achievement, unlocked }) {
   );
 }
 
-// Accordéon catégorie — FERMÉ par défaut
 function CategoryAccordion({ category, achievements, unlockedIds }) {
-  const [open, setOpen] = useState(false); // ← fermé par défaut
+  const [open, setOpen] = useState(false);
   const total    = achievements.length;
   const unlocked = achievements.filter((a) => unlockedIds.has(a.id)).length;
   const pct      = total > 0 ? Math.round((unlocked / total) * 100) : 0;
@@ -304,7 +303,6 @@ function AchievementsPanel({ allAchievements, unlockedIds }) {
           const items = grouped[cat.id];
           if (!items || items.length === 0) return null;
           return (
-            // Pas de defaultOpen : tous fermés par défaut
             <CategoryAccordion key={cat.id} category={cat} achievements={items} unlockedIds={unlockedIds} />
           );
         })}
@@ -330,8 +328,7 @@ export function Profile() {
   const [profileMsg,      setProfileMsg]      = useState({ type: "", text: "" });
   const [copiedId,        setCopiedId]        = useState(false);
 
-  // Bloc succès ouvert/fermé
-  const [achievementsOpen, setAchievementsOpen] = useState(false); // ← fermé par défaut
+  const [achievementsOpen, setAchievementsOpen] = useState(false);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting,      setDeleting]      = useState(false);
@@ -339,7 +336,6 @@ export function Profile() {
   const [resetting,     setResetting]     = useState(false);
   const [resetMsg,      setResetMsg]      = useState({ type: "", text: "" });
 
-  // Limite 1× / semaine pour le pseudo
   const canChangeUsername = (() => {
     if (!userProfile?.username_last_changed) return true;
     const ms = Date.now() - new Date(userProfile.username_last_changed).getTime();
@@ -439,7 +435,6 @@ export function Profile() {
 
       {/* Identité */}
       <Section title="Identité">
-        {/* Avatar + sélecteur couleur */}
         <div className="flex flex-col items-center gap-5 px-5 pt-6 pb-4">
           <div
             className="w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold text-white shadow-lg select-none transition-colors motion-reduce:transition-none"
@@ -459,8 +454,6 @@ export function Profile() {
         </div>
 
         <div className="px-5 pb-5 space-y-4">
-
-          {/* ID Unique (non modifiable) */}
           <div>
             <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">
               ID unique <span className="normal-case tracking-normal text-violet-600">— pour l'ajout d'amis</span>
@@ -486,7 +479,6 @@ export function Profile() {
             <p className="text-[10px] text-violet-600 mt-1">Cet identifiant est permanent et ne peut pas être modifié.</p>
           </div>
 
-          {/* Pseudo */}
           <div>
             <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Pseudo</label>
             <input
@@ -507,7 +499,6 @@ export function Profile() {
             )}
           </div>
 
-          {/* Description */}
           <div>
             <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Description</label>
             <textarea
@@ -521,7 +512,6 @@ export function Profile() {
             <p className="text-[10px] text-violet-600 mt-0.5 text-right">{description.length}/200</p>
           </div>
 
-          {/* Email (lecture seule) */}
           <div>
             <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Email</label>
             <input value={user?.email || ""} disabled
@@ -541,26 +531,7 @@ export function Profile() {
       {/* Mot de passe */}
       <PasswordSection userEmail={user?.email || ""} />
 
-      {/* ── Succès — collapsable, fermé par défaut ── */}
-      <div className="rounded-2xl bg-violet-900/30 border border-white/5 overflow-hidden animate-fadeInUp">
-        <button
-          onClick={() => setAchievementsOpen(v => !v)}
-          className="w-full flex items-center justify-between px-5 py-3 hover:bg-white/5 transition-colors motion-reduce:transition-none"
-        >
-          <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">
-            Succès — {unlockedCount} / {allAchievements.length}
-          </p>
-          <ChevronDown
-            size={14}
-            className={`text-violet-500 transition-transform duration-200 motion-reduce:transition-none ${achievementsOpen ? "rotate-0" : "-rotate-90"}`}
-          />
-        </button>
-        {achievementsOpen && (
-          <div className="border-t border-white/5 animate-fadeIn">
-            <AchievementsPanel allAchievements={allAchievements} unlockedIds={unlockedIds} />
-          </div>
-        )}
-      </div>
+      {/* ── FIX : Favoris déplacé AU-DESSUS des Succès ── */}
 
       {/* Favoris */}
       {favoritesList && (
@@ -592,6 +563,27 @@ export function Profile() {
           )}
         </Section>
       )}
+
+      {/* ── Succès — collapsable, fermé par défaut ── */}
+      <div className="rounded-2xl bg-violet-900/30 border border-white/5 overflow-hidden animate-fadeInUp">
+        <button
+          onClick={() => setAchievementsOpen(v => !v)}
+          className="w-full flex items-center justify-between px-5 py-3 hover:bg-white/5 transition-colors motion-reduce:transition-none"
+        >
+          <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">
+            Succès — {unlockedCount} / {allAchievements.length}
+          </p>
+          <ChevronDown
+            size={14}
+            className={`text-violet-500 transition-transform duration-200 motion-reduce:transition-none ${achievementsOpen ? "rotate-0" : "-rotate-90"}`}
+          />
+        </button>
+        {achievementsOpen && (
+          <div className="border-t border-white/5 animate-fadeIn">
+            <AchievementsPanel allAchievements={allAchievements} unlockedIds={unlockedIds} />
+          </div>
+        )}
+      </div>
 
       {/* Zone de danger */}
       <Section title="Zone de danger">
