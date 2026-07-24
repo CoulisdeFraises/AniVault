@@ -12,7 +12,7 @@ import { useNavigate } from "react-router-dom";
 // ── Modal de choix "Ajouter quoi ?" ──────────────────────────────────────────
 function AddChoiceModal({ onAddTitle, onCreateList, onClose }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
       onClick={onClose}>
       <div className="w-full max-w-xs bg-violet-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl animate-fadeInUp"
         onClick={e => e.stopPropagation()}>

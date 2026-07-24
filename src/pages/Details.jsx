@@ -92,6 +92,7 @@ export function Details() {
   // ── État ───────────────────────────────────────────────────────────────────
   const [activeTVIdx,  setActiveTVIdx]  = useState(0);
   const [open,         setOpen]         = useState({ tv: false, extra: false, movie: false });
+  const [openEpisodes, setOpenEpisodes] = useState(false);
   const [seasonCache,  setSeasonCache]  = useState({});
   const [loadingEps,   setLoadingEps]   = useState(false);
   const [refreshing,   setRefreshing]   = useState(false);
@@ -107,6 +108,7 @@ export function Details() {
     setActiveTVIdx(0);
     setSeasonCache({});
     setOpen({ tv: false, extra: false, movie: false });
+    setOpenEpisodes(false);
   }, [id]);
 
   // Chargement des épisodes de la saison TV active
@@ -490,60 +492,135 @@ export function Details() {
             </div>
 
           ) : (
-            /* ── MODE SIMPLE (TV uniquement) ── */
+            /* ── MODE SIMPLE (TV uniquement) — épisodes dans un accordéon ── */
             <>
+              {/* Onglets saisons (hors accordéon) */}
               {tvSeasons.length > 1 && (
                 <div className="flex gap-1.5 px-4 sm:px-6 pt-4 pb-1 overflow-x-auto scrollbar-none">
                   {tvSeasons.map((se, i) => (
                     <button key={i} onClick={() => setActiveTVIdx(i)} title={se.title || undefined}
-                      className={`px-3 py-1 rounded-md text-xs font-mono border flex-shrink-0 transition-colors ${i === activeTVIdx ? `${s.border} ${s.text} bg-white/10` : "border-white/10 text-violet-400 hover:bg-white/5"}`}>
+                      className={`px-3 py-1 rounded-md text-xs font-mono border flex-shrink-0 transition-colors ${
+                        i === activeTVIdx ? `${s.border} ${s.text} bg-white/10` : "border-white/10 text-violet-400 hover:bg-white/5"
+                      }`}>
                       S{se.number}
                     </button>
                   ))}
                 </div>
               )}
-              <div className="px-4 sm:px-6 pt-3 pb-1 flex items-center justify-between gap-2 flex-wrap">
-                <p className="font-mono text-[11px] text-violet-500">{watched} / {curTV?.totalEpisodes ?? "?"} ép. vus</p>
-                <div className="flex items-center gap-2">
-                  {curTV?.totalEpisodes != null && curTV.watchedEpisodes < curTV.totalEpisodes && (
-                    <button onClick={handleMarkAllWatched}
-                      className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95">
-                      <CheckCheck size={10} />{hasNextTV ? "Tout → Suiv." : "Tout"}
-                    </button>
-                  )}
-                  {(entry.source === "anilist" || entry.source === "tvmaze") && (
-                    <button onClick={handleRefresh} disabled={refreshing}
-                      className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wide text-violet-400 hover:text-violet-200 disabled:opacity-50">
-                      <RefreshCw size={11} className={refreshing ? "animate-spin" : ""} /> Actualiser
-                    </button>
-                  )}
-                </div>
-              </div>
 
-              {/* Slider épisodes TV (mode simple) */}
-              {curTV && curTV.totalEpisodes != null && curTV.totalEpisodes > 0 && (
-                <div className="px-4 sm:px-6 mb-3">
-                  <input
-                    type="range"
-                    min={0}
-                    max={curTV.totalEpisodes}
-                    value={curTV.watchedEpisodes}
-                    onChange={e => setEpisodeCount(entry.id, curTV.globalIndex, Number(e.target.value))}
-                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-violet-400"
-                  />
-                  <div className="flex justify-between font-mono text-[10px] text-violet-600 mt-0.5">
-                    <span>0</span>
-                    <span className="text-violet-400 font-medium">{curTV.watchedEpisodes} / {curTV.totalEpisodes} ép.</span>
-                    <span>{curTV.totalEpisodes}</span>
+              {/* Accordéon épisodes */}
+              <div className="mx-3 sm:mx-4 mt-3 rounded-xl bg-white/[0.03] border border-white/5 overflow-hidden">
+                {/* Header accordéon */}
+                <button
+                  type="button"
+                  onClick={() => setOpenEpisodes(v => !v)}
+                  className="flex items-center justify-between w-full px-3 sm:px-4 py-3 text-left group select-none border-b border-white/5"
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="text-base leading-none">📺</span>
+                    <span className="font-mono text-[11px] uppercase tracking-widest text-violet-400 group-hover:text-violet-200 transition-colors">
+                      Épisodes{curTV?.title ? ` — ${curTV.title}` : curTV ? ` — S${curTV.number}` : ""}
+                    </span>
+                    <span className="font-mono text-[11px] text-violet-600">
+                      ({curTV?.totalEpisodes ?? "?"})
+                    </span>
+                    {!openEpisodes && (
+                      <span className="font-mono text-[11px] text-violet-500 truncate ml-1">
+                        — {watched}{curTV?.totalEpisodes != null ? `/${curTV.totalEpisodes}` : ""} ép. vus
+                      </span>
+                    )}
                   </div>
-                </div>
-              )}
+                  <ChevronRight
+                    size={14}
+                    className={`flex-shrink-0 ml-2 text-violet-500 group-hover:text-violet-300 transition-all duration-200 ${openEpisodes ? "rotate-90" : ""}`}
+                  />
+                </button>
 
-              <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-6">
-                {loadingEps
-                  ? <div className="flex items-center gap-2 text-violet-400 text-sm py-6"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
-                  : <EpisodeList episodes={curEps} totalEpisodes={curTV?.totalEpisodes} watched={watched} statusColor={s.color} onSetEpisode={v => curTV && setEpisodeCount(entry.id, curTV.globalIndex, v)} />}
+                {/* Contenu accordéon */}
+                {openEpisodes && (
+                  <div className="px-3 sm:px-4 pb-4 pt-3">
+                    {/* Compteur + boutons */}
+                    <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                      <p className="font-mono text-[11px] text-violet-400">
+                        {watched} / {curTV?.totalEpisodes ?? "?"} ép. vus
+                      </p>
+                      <div className="flex items-center gap-2">
+                        {canFinish && (
+                          <button onClick={() => markDone(entry.id)}
+                            className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 active:scale-95">
+                            <Check size={10} /> Terminée
+                          </button>
+                        )}
+                        {(entry.source === "anilist" || entry.source === "tvmaze") && (
+                          <button onClick={handleRefresh} disabled={refreshing}
+                            className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wide text-violet-400 hover:text-violet-200 disabled:opacity-50">
+                            <RefreshCw size={11} className={refreshing ? "animate-spin" : ""} /> Actualiser
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Boutons +1 / -1 / Tout */}
+                    {curTV && (
+                      <div className="flex gap-1.5 sm:gap-2 mb-3 flex-wrap">
+                        <button onClick={() => decrementEpisode(entry.id, curTV.globalIndex)}
+                          className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">
+                          -1 ép.
+                        </button>
+                        {(curTV.totalEpisodes == null || curTV.watchedEpisodes < curTV.totalEpisodes) && (
+                          <button onClick={() => incrementEpisode(entry.id, curTV.globalIndex)}
+                            className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">
+                            +1 ép.
+                          </button>
+                        )}
+                        {curTV.totalEpisodes != null && curTV.watchedEpisodes < curTV.totalEpisodes && (
+                          <button onClick={handleMarkAllWatched}
+                            className="font-mono text-xs px-3 py-1.5 rounded-lg bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform flex items-center gap-1">
+                            <CheckCheck size={12} />{hasNextTV ? "Tout → Suiv." : "Tout"}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Slider épisodes — au-dessus de la liste */}
+                    {curTV && curTV.totalEpisodes != null && curTV.totalEpisodes > 0 && (
+                      <div className="mb-4">
+                        <input
+                          type="range"
+                          min={0}
+                          max={curTV.totalEpisodes}
+                          value={curTV.watchedEpisodes}
+                          onChange={e => setEpisodeCount(entry.id, curTV.globalIndex, Number(e.target.value))}
+                          className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-violet-400"
+                        />
+                        <div className="flex justify-between font-mono text-[10px] text-violet-600 mt-0.5">
+                          <span>0</span>
+                          <span className="text-violet-400 font-medium">
+                            {curTV.watchedEpisodes} / {curTV.totalEpisodes} ép.
+                          </span>
+                          <span>{curTV.totalEpisodes}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Liste des épisodes */}
+                    {loadingEps
+                      ? <div className="flex items-center gap-2 text-violet-400 text-sm py-6">
+                          <Loader2 size={14} className="animate-spin" /> Chargement…
+                        </div>
+                      : <EpisodeList
+                          episodes={curEps}
+                          totalEpisodes={curTV?.totalEpisodes}
+                          watched={watched}
+                          statusColor={s.color}
+                          onSetEpisode={v => curTV && setEpisodeCount(entry.id, curTV.globalIndex, v)}
+                        />
+                    }
+                  </div>
+                )}
               </div>
+              {/* Espace bas */}
+              <div className="pb-4" />
             </>
           )}
 

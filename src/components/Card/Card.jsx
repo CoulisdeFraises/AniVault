@@ -1,8 +1,7 @@
 import { memo, useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Pencil, Trash2, Film, Tv, Check, Star, RotateCcw } from "lucide-react";
-import "./Card.css";
-import { ProgressBar }   from "./ProgressBar";
+import { Pencil, Trash2, Film, Tv, Check, Star, RotateCcw, Heart } from "lucide-react";
+import { useLists } from "../../context/ListsContext";
 import { ConfirmDialog } from "../Modal/Modal";
 import { getRatingEmoji } from "../common/Rating";
 import { STATUS, seasonTotals, formatCountdown } from "../../utils/status";
@@ -23,6 +22,8 @@ function getResumeStatus(entry) {
 // ── Carte principale ──────────────────────────────────────────────────────────
 export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
   const { markDone, deleteEntry, saveEntry } = useLibrary();
+  const { isInFavorites } = useLists();
+  const isFavorite = isInFavorites(entry.id);
   const navigate = useNavigate(); const location = useLocation();
   const seasons = entry.seasons;
 
@@ -101,16 +102,36 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
 
         <div className="absolute inset-y-0 left-0 w-[3px] rounded-l-2xl" style={{ background: `linear-gradient(to bottom,${s.color},${s.color}70,${s.color}10)` }} />
 
-        {/* Cover */}
+        {/* Cover + badge favoris */}
         {(() => {
           const img = cur?.coverImage || (activeTVIdx === 0 ? entry.coverImage : null);
-          const fb = tvSeasons[0]?.coverImage || entry.coverImage;
-          const sf = !img && activeTVIdx > 0 && fb;
-          return img
-            ? (<div className={`flex-shrink-0 aspect-[2/3] max-h-36 self-start rounded-lg overflow-hidden bg-white/5 ${dimmed}`}><img src={img} alt="" className="w-full h-full object-cover" /></div>)
-            : sf
-              ? (<div className={`relative flex-shrink-0 aspect-[2/3] max-h-36 self-start rounded-lg overflow-hidden bg-white/5 ${dimmed}`}><img src={fb} alt="" className="w-full h-full object-cover brightness-[0.25]" /><span className="absolute inset-0 flex items-center justify-center text-5xl font-bold text-white/50">?</span></div>)
-              : null;
+          const fb  = tvSeasons[0]?.coverImage || entry.coverImage;
+          const sf  = !img && activeTVIdx > 0 && fb;
+
+          if (!img && !sf) return null;
+
+          return (
+            <div className="relative flex-shrink-0 self-start">
+              {/* Image */}
+              {img ? (
+                <div className={`aspect-[2/3] max-h-36 rounded-lg overflow-hidden bg-white/5 ${dimmed}`}>
+                  <img src={img} alt="" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className={`relative aspect-[2/3] max-h-36 rounded-lg overflow-hidden bg-white/5 ${dimmed}`}>
+                  <img src={fb} alt="" className="w-full h-full object-cover brightness-[0.25]" />
+                  <span className="absolute inset-0 flex items-center justify-center text-5xl font-bold text-white/50">?</span>
+                </div>
+              )}
+
+              {/* Badge cœur favoris */}
+              {isFavorite && (
+                <div className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-pink-500/90 shadow-md shadow-pink-500/50">
+                  <Heart size={9} fill="white" className="text-white" />
+                </div>
+              )}
+            </div>
+          );
         })()}
 
         <div className="flex-1 min-w-0 flex flex-col gap-1.5 sm:gap-2 relative z-10">
@@ -176,13 +197,6 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
               </span>
             )}
           </div>
-
-          {/* Barre de progression globale */}
-          {tvSeasons.length > 0 && tvT != null && tvT > 0 && (
-            <div className={`h-2.5 flex items-center ${dimmed}`}>
-              <ProgressBar watched={tvW} total={tvT} colorClass={s.bar} glow={entry.status === "en-cours"} color={s.color} />
-            </div>
-          )}
 
           {/* Bouton "Série terminée" */}
           {canFinish && !isAbandoned && (

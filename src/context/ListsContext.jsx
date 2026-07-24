@@ -28,7 +28,11 @@ export function ListsProvider({ children }) {
   useEffect(() => {
     if (!user) { setListsState([]); setLoading(false); return; }
     setLoading(true);
-    supabase.from("libraries").select("lists").eq("user_id", user.id).maybeSingle()
+    supabase
+      .from("libraries")
+      .select("lists")
+      .eq("user_id", user.id)
+      .maybeSingle()
       .then(({ data }) => {
         const raw    = Array.isArray(data?.lists) ? data.lists : [];
         const hasFav = raw.some(l => l.isFavorites);
@@ -38,22 +42,48 @@ export function ListsProvider({ children }) {
       });
   }, [user?.id]);
 
-  function applyLists(next) { listsRef.current = next; setListsState(next); }
+  function applyLists(next) {
+    listsRef.current = next;
+    setListsState(next);
+  }
 
+  // ── FIX : UPDATE au lieu de UPSERT pour ne pas écraser la colonne `entries` ──
   async function saveToSupabase(next) {
     if (!user) return;
-    await supabase.from("libraries").upsert({ user_id: user.id, lists: next });
+
+    const { error } = await supabase
+      .from("libraries")
+      .update({ lists: next })
+      .eq("user_id", user.id);
+
+    if (error) {
+      // La ligne n'existe pas encore (compte tout neuf sans titre ajouté)
+      await supabase.from("libraries").insert({
+        user_id: user.id,
+        entries: [],
+        lists:   next,
+      });
+    }
   }
 
   function persist(next) {
     applyLists(next);
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => saveToSupabase(listsRef.current), SAVE_DEBOUNCE_MS);
+    saveTimer.current = setTimeout(
+      () => saveToSupabase(listsRef.current),
+      SAVE_DEBOUNCE_MS
+    );
   }
 
   const createList = useCallback((name, emoji = "📋") => {
     const id = Date.now().toString();
-    const newList = { id, name: name.trim(), emoji, isFavorites: false, entries: [], createdAt: Date.now(), updatedAt: Date.now() };
+    const newList = {
+      id, name: name.trim(), emoji,
+      isFavorites: false,
+      entries: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
     persist([...listsRef.current, newList]);
     return id;
   }, []);
@@ -64,7 +94,9 @@ export function ListsProvider({ children }) {
   }, []);
 
   const renameList = useCallback((listId, name) => {
-    persist(listsRef.current.map(l => l.id === listId ? { ...l, name: name.trim(), updatedAt: Date.now() } : l));
+    persist(listsRef.current.map(l =>
+      l.id === listId ? { ...l, name: name.trim(), updatedAt: Date.now() } : l
+    ));
   }, []);
 
   const addEntryToList = useCallback((listId, entry) => {
@@ -87,12 +119,22 @@ export function ListsProvider({ children }) {
 
   const removeEntryFromList = useCallback((listId, entryId) => {
     persist(listsRef.current.map(l =>
-      l.id !== listId ? l : { ...l, entries: l.entries.filter(e => e.entryId !== entryId), updatedAt: Date.now() }
+      l.id !== listId
+        ? l
+        : { ...l, entries: l.entries.filter(e => e.entryId !== entryId), updatedAt: Date.now() }
     ));
   }, []);
 
-  const isInList      = useCallback((listId, entryId) => (listsRef.current.find(l => l.id === listId)?.entries || []).some(e => e.entryId === entryId), []);
-  const isInFavorites = useCallback((entryId) => isInList(FAVORITES_ID, entryId), [isInList]);
+  const isInList = useCallback(
+    (listId, entryId) =>
+      (listsRef.current.find(l => l.id === listId)?.entries || []).some(e => e.entryId === entryId),
+    []
+  );
+
+  const isInFavorites = useCallback(
+    (entryId) => isInList(FAVORITES_ID, entryId),
+    [isInList]
+  );
 
   const toggleFavorite = useCallback((entry) => {
     if (isInFavorites(entry.id)) removeEntryFromList(FAVORITES_ID, entry.id);
@@ -100,7 +142,13 @@ export function ListsProvider({ children }) {
   }, [isInFavorites, addEntryToList, removeEntryFromList]);
 
   return (
-    <ListsContext.Provider value={{ lists, loading, createList, deleteList, renameList, addEntryToList, removeEntryFromList, isInList, isInFavorites, toggleFavorite, FAVORITES_ID }}>
+    <ListsContext.Provider value={{
+      lists, loading,
+      createList, deleteList, renameList,
+      addEntryToList, removeEntryFromList,
+      isInList, isInFavorites, toggleFavorite,
+      FAVORITES_ID,
+    }}>
       {children}
     </ListsContext.Provider>
   );
@@ -112,9 +160,12 @@ export function useLists() {
   return ctx;
 }
 
-// Fetch public des favoris d'un autre utilisateur
 export async function fetchUserFavorites(userId) {
-  const { data } = await supabase.from("libraries").select("lists").eq("user_id", userId).maybeSingle();
+  const { data } = await supabase
+    .from("libraries")
+    .select("lists")
+    .eq("user_id", userId)
+    .maybeSingle();
   const lists = Array.isArray(data?.lists) ? data.lists : [];
   return lists.find(l => l.isFavorites) || null;
 }
