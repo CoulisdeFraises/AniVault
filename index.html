@@ -4,9 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AniVault — Journal de visionnage</title>
-    <!-- Pas de type="" sur .ico : les navigateurs le détectent automatiquement -->
-    <link rel="icon" href="/favicon.ico" />
-    <link rel="apple-touch-icon" href="/logo.png" />
+
+    <!-- ── Favicon : chaîne complète de compatibilité ───────────────────────
+         Ordre important : le navigateur prend le PREMIER qu'il supporte.
+         1. SVG  → Chrome 80+, Firefox 41+, Edge 79+, Safari 13.1+  (priorité)
+         2. PNG  → fallback navigateurs plus anciens
+         3. ICO  → fallback ultime (IE, très vieux browsers)
+    ──────────────────────────────────────────────────────────────────────── -->
+    <link rel="icon" type="image/svg+xml"  href="/favicon.svg" />
+    <link rel="icon" type="image/png"      href="/favicon-32x32.png" sizes="32x32" />
+    <link rel="icon" type="image/png"      href="/favicon-16x16.png" sizes="16x16" />
+    <link rel="icon"                        href="/favicon.ico"       sizes="48x48" />
+
+    <!-- Apple (iOS, macOS Safari) -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+    <!-- PWA / Android Chrome -->
+    <meta name="theme-color" content="#2e1065" />
+
+    <!-- Polices -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
