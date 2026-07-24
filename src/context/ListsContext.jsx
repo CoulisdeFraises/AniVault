@@ -1,12 +1,33 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
-import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
 
 const ListsContext = createContext(null);
-const SAVE_DEBOUNCE_MS = 800;
 export const FAVORITES_ID   = "favorites";
 export const HIDDEN_LIST_ID = "cachette-secrete";
 
+// ── Persistance localStorage (clé par utilisateur) ───────────────────────────
+function storageKey(userId) {
+  return `anivault:${userId}:lists`;
+}
+
+function loadFromStorage(userId) {
+  try {
+    const raw = localStorage.getItem(storageKey(userId));
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveToStorage(userId, lists) {
+  try {
+    localStorage.setItem(storageKey(userId), JSON.stringify(lists));
+  } catch (e) {
+    console.warn("[AniVault] Impossible de sauvegarder les listes :", e);
+  }
+}
+
+// ── Listes spéciales (toujours présentes) ────────────────────────────────────
 function createFavoritesList() {
   return {
     id: FAVORITES_ID,
@@ -33,87 +54,57 @@ function createHiddenList() {
   };
 }
 
-/** Garantit que les listes spéciales existent et sont dans le bon ordre :
- *  [Favoris, ...listes normales..., Cachette secrète]
+/**
+ * Garantit que les deux listes système existent et sont dans le bon ordre :
+ * [Favoris, ...listes normales..., Cachette secrète]
  */
 function ensureSpecialLists(raw) {
-  const fav     = raw.find(l => l.isFavorites)      || createFavoritesList();
+  const fav     = raw.find(l => l.isFavorites)           || createFavoritesList();
   const hidden  = raw.find(l => l.id === HIDDEN_LIST_ID) || createHiddenList();
   const normals = raw.filter(l => !l.isFavorites && l.id !== HIDDEN_LIST_ID);
   return [fav, ...normals, hidden];
 }
 
+// ── Provider ─────────────────────────────────────────────────────────────────
 export function ListsProvider({ children }) {
   const { user } = useAuth();
   const [lists,   setListsState] = useState([]);
   const [loading, setLoading]    = useState(true);
-  const listsRef  = useRef([]);
-  const saveTimer = useRef(null);
+  const listsRef = useRef([]);
 
+  // Chargement depuis localStorage à chaque changement d'utilisateur
   useEffect(() => {
-    if (!user) { setListsState([]); setLoading(false); return; }
-    setLoading(true);
-    supabase
-      .from("libraries")
-      .select("lists")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        const raw   = Array.isArray(data?.lists) ? data.lists : [];
-        const final = ensureSpecialLists(raw);
-        applyLists(final);
-        setLoading(false);
-      });
+    if (!user) {
+      setListsState([]);
+      setLoading(false);
+      return;
+    }
+    const raw   = loadFromStorage(user.id);
+    const final = ensureSpecialLists(raw);
+    listsRef.current = final;
+    setListsState(final);
+    setLoading(false);
   }, [user?.id]);
 
-  function applyLists(next) {
-    listsRef.current = next;
-    setListsState(next);
-  }
-
   /**
-   * FIX CRITIQUE : supabase .update() ne renvoie PAS d'erreur quand
-   * aucune ligne ne correspond au WHERE — le fallback insert ne se
-   * déclenchait donc jamais sur un compte neuf.
-   * On vérifie l'existence en amont avec maybeSingle().
+   * Sauvegarde immédiate + synchrone en localStorage.
+   * Aucune promesse, aucun délai, aucune dépendance réseau.
    */
-  async function saveToSupabase(next) {
-    if (!user) return;
-
-    const { data: existing } = await supabase
-      .from("libraries")
-      .select("user_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (existing) {
-      await supabase
-        .from("libraries")
-        .update({ lists: next })
-        .eq("user_id", user.id);
-    } else {
-      await supabase.from("libraries").insert({
-        user_id: user.id,
-        entries: [],
-        lists:   next,
-      });
-    }
-  }
-
   function persist(next) {
     const ordered = ensureSpecialLists(next);
-    applyLists(ordered);
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(
-      () => saveToSupabase(listsRef.current),
-      SAVE_DEBOUNCE_MS
-    );
+    listsRef.current = ordered;
+    setListsState(ordered);
+    if (user) saveToStorage(user.id, ordered);
   }
 
+  // ── Actions ───────────────────────────────────────────────────────────────
+
   const createList = useCallback((name, emoji = "📋") => {
-    const id      = Date.now().toString();
+    const id = Date.now().toString();
     const newList = {
-      id, name: name.trim(), emoji,
+      id,
+      name:        name.trim(),
+      emoji,
       isFavorites: false,
       isHidden:    false,
       entries:     [],
@@ -122,19 +113,19 @@ export function ListsProvider({ children }) {
     };
     persist([...listsRef.current, newList]);
     return id;
-  }, []);
+  }, [user]);
 
   const deleteList = useCallback((listId) => {
     if (listId === FAVORITES_ID || listId === HIDDEN_LIST_ID) return;
     persist(listsRef.current.filter(l => l.id !== listId));
-  }, []);
+  }, [user]);
 
   const renameList = useCallback((listId, name) => {
-    if (listId === HIDDEN_LIST_ID) return; // pas renommable
+    if (listId === HIDDEN_LIST_ID) return;
     persist(listsRef.current.map(l =>
       l.id === listId ? { ...l, name: name.trim(), updatedAt: Date.now() } : l
     ));
-  }, []);
+  }, [user]);
 
   const addEntryToList = useCallback((listId, entry) => {
     persist(listsRef.current.map(l => {
@@ -152,7 +143,7 @@ export function ListsProvider({ children }) {
         updatedAt: Date.now(),
       };
     }));
-  }, []);
+  }, [user]);
 
   const removeEntryFromList = useCallback((listId, entryId) => {
     persist(listsRef.current.map(l =>
@@ -160,7 +151,7 @@ export function ListsProvider({ children }) {
         ? l
         : { ...l, entries: l.entries.filter(e => e.entryId !== entryId), updatedAt: Date.now() }
     ));
-  }, []);
+  }, [user]);
 
   const isInList = useCallback(
     (listId, entryId) =>
@@ -208,12 +199,14 @@ export function useLists() {
   return ctx;
 }
 
-export async function fetchUserFavorites(userId) {
-  const { data } = await supabase
-    .from("libraries")
-    .select("lists")
-    .eq("user_id", userId)
-    .maybeSingle();
-  const lists = Array.isArray(data?.lists) ? data.lists : [];
-  return lists.find(l => l.isFavorites) || null;
+// Conservé pour la compatibilité des imports dans Profile/Community
+// (uniquement pour le propre utilisateur connecté — localStorage est local)
+export function fetchUserFavorites(userId) {
+  try {
+    const raw   = localStorage.getItem(`anivault:${userId}:lists`);
+    const lists = raw ? JSON.parse(raw) : [];
+    return Promise.resolve(lists.find(l => l.isFavorites) || null);
+  } catch {
+    return Promise.resolve(null);
+  }
 }
