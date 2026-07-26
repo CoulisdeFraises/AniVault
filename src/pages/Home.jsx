@@ -1,14 +1,15 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useSearchParams, useNavigate }  from "react-router-dom";
-import { Header }         from "../components/Header/Header";
-import { Card }           from "../components/Card/Card";
-import { TitleFormModal } from "../components/Modal/TitleFormModal";
-import { Confetti }       from "../components/common/Confetti";
-import { Footer }         from "../components/common/Footer";
-import { SkeletonGrid }   from "../components/common/SkeletonCard";
-import { useLibrary }     from "../context/LibraryContext";
+import { Header }           from "../components/Header/Header";
+import { Card }             from "../components/Card/Card";
+import { TitleFormModal }   from "../components/Modal/TitleFormModal";
+import { Confetti }         from "../components/common/Confetti";
+import { Footer }           from "../components/common/Footer";
+import { SkeletonGrid }     from "../components/common/SkeletonCard";
+import { PullToRefresh }    from "../components/common/PullToRefresh";
+import { useLibrary }       from "../context/LibraryContext";
 import { useLists, HIDDEN_LIST_ID } from "../context/ListsContext";
-import { useSync }        from "../hooks/useSync";
+import { useSync }          from "../hooks/useSync";
 import {
   Film, Tv, ListPlus, X, Heart, Eye, EyeOff,
   ArrowUpDown, ArrowDownAZ, Star, TrendingUp,
@@ -67,7 +68,7 @@ const SORT_OPTIONS = [
 ];
 
 function sortEntries(entries, sortBy) {
-  if (sortBy === "date") return entries; // ordre d'insertion (plus récent en premier)
+  if (sortBy === "date") return entries;
   return [...entries].sort((a, b) => {
     if (sortBy === "title")
       return a.title.localeCompare(b.title, "fr", { sensitivity: "base" });
@@ -93,7 +94,6 @@ export function Home() {
   const navigate   = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // ── État — initialisé depuis l'URL ou les prefs ──
   const [typeFilter, setTypeFilter] = useState(
     () => searchParams.get("type") || localStorage.getItem("pref_defaultFilter") || "all"
   );
@@ -103,20 +103,19 @@ export function Home() {
   const [sortBy, setSortBy] = useState(
     () => searchParams.get("sort") || "date"
   );
-  const [searchQuery,      setSearchQuery]      = useState("");
-  const [showForm,         setShowForm]         = useState(false);
-  const [editingEntry,     setEditingEntry]     = useState(null);
-  const [showAddChoice,    setShowAddChoice]    = useState(false);
+  const [searchQuery,       setSearchQuery]       = useState("");
+  const [showForm,          setShowForm]          = useState(false);
+  const [editingEntry,      setEditingEntry]      = useState(null);
+  const [showAddChoice,     setShowAddChoice]     = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-  const [cachetteOpen,     setCachetteOpen]     = useState(false);
-  const [cachetteRevealed, setCachetteRevealed] = useState(false);
+  const [cachetteOpen,      setCachetteOpen]      = useState(false);
+  const [cachetteRevealed,  setCachetteRevealed]  = useState(false);
 
-  // ── Sync URL ──
   useEffect(() => {
     const p = {};
-    if (typeFilter !== "all")         p.type   = typeFilter;
-    if (selectedStatuses.length)      p.status = selectedStatuses.join(",");
-    if (sortBy !== "date")            p.sort   = sortBy;
+    if (typeFilter !== "all")    p.type   = typeFilter;
+    if (selectedStatuses.length) p.status = selectedStatuses.join(",");
+    if (sortBy !== "date")       p.sort   = sortBy;
     setSearchParams(p, { replace: true });
   }, [typeFilter, selectedStatuses, sortBy, setSearchParams]);
 
@@ -142,10 +141,8 @@ export function Home() {
       prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]);
   }, []);
 
-  const visibleEntries = useMemo(
-    () => entries.filter(e => !hiddenListEntries.has(e.id)), [entries, hiddenListEntries]);
-  const hiddenFullEntries = useMemo(
-    () => entries.filter(e => hiddenListEntries.has(e.id)), [entries, hiddenListEntries]);
+  const visibleEntries    = useMemo(() => entries.filter(e => !hiddenListEntries.has(e.id)), [entries, hiddenListEntries]);
+  const hiddenFullEntries = useMemo(() => entries.filter(e => hiddenListEntries.has(e.id)),  [entries, hiddenListEntries]);
 
   const byType = useMemo(
     () => typeFilter === "all" ? visibleEntries : visibleEntries.filter((e) => e.type === typeFilter),
@@ -166,7 +163,7 @@ export function Home() {
   const sorted = useMemo(() => sortEntries(filtered, sortBy), [filtered, sortBy]);
 
   const filteredAnime = useMemo(() => sorted.filter((e) => e.type === "anime"), [sorted]);
-  const filteredSerie = useMemo(() => sorted.filter((e) => e.type === "serie"), [sorted]);
+  const filteredSerie = useMemo(() => sorted.filter((e) => e.type === "serie"),  [sorted]);
 
   const openNewForm    = () => { setShowAddChoice(false); setEditingEntry(null); setShowForm(true); };
   const openEditForm   = (entry) => { setEditingEntry(entry); setShowForm(true); };
@@ -180,138 +177,146 @@ export function Home() {
       style={{ fontFamily: "'Inter', sans-serif" }}>
       <Confetti active={showConfetti} />
 
-      <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-8">
-        <Header
-          typeFilter={typeFilter} selectedStatuses={selectedStatuses} searchQuery={searchQuery}
-          onTypeFilterChange={setTypeFilter} onToggleStatus={toggleStatus}
-          onClearFilters={() => setSelectedStatuses([])} onSearchChange={setSearchQuery}
-          onAddClick={() => setShowAddChoice(true)} syncing={syncing}
-          syncProgress={progress} onSyncClick={() => syncAll(true)}
-        />
+      {/*
+       * PullToRefresh wrappe TOUT le contenu scrollable.
+       * onRefresh déclenche une synchronisation forcée des données.
+       * Le composant utilise des listeners natifs (passive: false sur touchmove)
+       * pour fonctionner correctement en mode PWA standalone sur Android/iOS.
+       */}
+      <PullToRefresh onRefresh={() => syncAll(true)}>
+        <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-8">
+          <Header
+            typeFilter={typeFilter} selectedStatuses={selectedStatuses} searchQuery={searchQuery}
+            onTypeFilterChange={setTypeFilter} onToggleStatus={toggleStatus}
+            onClearFilters={() => setSelectedStatuses([])} onSearchChange={setSearchQuery}
+            onAddClick={() => setShowAddChoice(true)} syncing={syncing}
+            syncProgress={progress} onSyncClick={() => syncAll(true)}
+          />
 
-        {/* ── Barre de contrôles : Favoris + Tri ── */}
-        <div className="flex items-center gap-2 mt-3 mb-4 flex-wrap">
-          <button
-            onClick={() => setShowFavoritesOnly(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono border
-              transition-all active:scale-95 ${showFavoritesOnly
-                ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
-                : "bg-white/5 border-white/10 text-violet-400 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400"}`}
-          >
-            <Heart size={12} fill={showFavoritesOnly ? "currentColor" : "none"} /> Favoris
-          </button>
+          {/* ── Barre de contrôles : Favoris + Tri ── */}
+          <div className="flex items-center gap-2 mt-3 mb-4 flex-wrap">
+            <button
+              onClick={() => setShowFavoritesOnly(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono border
+                transition-all active:scale-95 ${showFavoritesOnly
+                  ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
+                  : "bg-white/5 border-white/10 text-violet-400 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400"}`}
+            >
+              <Heart size={12} fill={showFavoritesOnly ? "currentColor" : "none"} /> Favoris
+            </button>
 
-          {/* Tri */}
-          <div className="flex items-center gap-1 ml-auto">
-            {SORT_OPTIONS.map(opt => (
-              <button key={opt.key} onClick={() => setSortBy(opt.key)}
-                title={opt.label}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-mono border
-                  transition-all active:scale-95 ${sortBy === opt.key
-                    ? "bg-violet-600/60 border-violet-500/40 text-violet-100"
-                    : "bg-white/5 border-white/10 text-violet-500 hover:bg-white/10 hover:text-violet-300"}`}>
-                {opt.icon}
-                <span className="hidden sm:inline">{opt.label}</span>
-              </button>
-            ))}
+            {/* Tri */}
+            <div className="flex items-center gap-1 ml-auto">
+              {SORT_OPTIONS.map(opt => (
+                <button key={opt.key} onClick={() => setSortBy(opt.key)}
+                  title={opt.label}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-mono border
+                    transition-all active:scale-95 ${sortBy === opt.key
+                      ? "bg-violet-600/60 border-violet-500/40 text-violet-100"
+                      : "bg-white/5 border-white/10 text-violet-500 hover:bg-white/10 hover:text-violet-300"}`}>
+                  {opt.icon}
+                  <span className="hidden sm:inline">{opt.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
+
+          {saveError && (
+            <div className="mb-4 text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30
+              rounded-lg px-3 py-2 animate-fadeIn">
+              La sauvegarde a échoué. Tes changements restent visibles mais pourraient ne pas persister.
+            </div>
+          )}
+
+          {/* ── Contenu ── */}
+          {loading ? (
+            <SkeletonGrid count={6} />
+
+          ) : sorted.length === 0 ? (
+            <div className="text-center py-20 rounded-2xl border border-dashed border-white/10 animate-fadeIn">
+              {showFavoritesOnly ? (
+                <><p className="text-4xl mb-4 animate-popIn">♡</p>
+                  <p className="text-violet-300 mb-1">Aucun favori ici</p>
+                  <p className="text-violet-500 text-sm">Utilise le ♡ dans les détails d'une série.</p></>
+              ) : isSearchActive ? (
+                <><p className="text-4xl mb-4 animate-popIn">🔍</p>
+                  <p className="text-violet-300 mb-1">Aucun résultat pour <span className="text-violet-100 font-semibold">« {searchQuery} »</span></p>
+                  <p className="text-violet-500 text-sm">Essaie un autre terme ou ajoute ce titre.</p></>
+              ) : (
+                <><p className="text-4xl mb-4 animate-popIn">📭</p>
+                  <p className="text-violet-300 mb-1">Aucun titre ici</p>
+                  <p className="text-violet-500 text-sm">Ajoute un anime ou une série pour commencer.</p></>
+              )}
+            </div>
+
+          ) : typeFilter === "all" ? (
+            <div key={gridKey} className="space-y-8 animate-fadeIn">
+              {filteredAnime.length > 0 && (
+                <section>
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
+                    Animes · {filteredAnime.length}
+                  </p>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    {filteredAnime.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} />)}
+                  </div>
+                </section>
+              )}
+              {filteredSerie.length > 0 && (
+                <section>
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
+                    Séries · {filteredSerie.length}
+                  </p>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    {filteredSerie.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} />)}
+                  </div>
+                </section>
+              )}
+            </div>
+          ) : (
+            <div key={gridKey} className="grid grid-cols-1 lg:grid-cols-2 gap-3 animate-fadeIn">
+              {sorted.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} />)}
+            </div>
+          )}
+
+          {/* ── Cachette secrète ── */}
+          {hiddenFullEntries.length > 0 && (
+            <div className="mt-10">
+              <button onClick={() => setCachetteOpen(v => !v)}
+                className="w-full flex items-center justify-center gap-3 py-3 px-5 rounded-2xl
+                  border border-violet-700/30 bg-violet-900/20 hover:bg-violet-900/40 transition-all group">
+                <span className={`text-violet-500 group-hover:text-violet-300 transition-all duration-300 ${cachetteOpen ? "scale-110" : "animate-pulse"}`}>
+                  {cachetteOpen ? <EyeOff size={20} /> : <Eye size={20} />}
+                </span>
+                <span className="font-mono text-[11px] uppercase tracking-widest text-violet-500 group-hover:text-violet-300 transition-colors select-none">
+                  {cachetteOpen ? "Masquer" : "Cachette secrète"} · {hiddenFullEntries.length} titre{hiddenFullEntries.length > 1 ? "s" : ""}
+                </span>
+                {!cachetteOpen && <span className="font-mono text-[10px] text-violet-700 animate-bounce">👀</span>}
+              </button>
+              {cachetteOpen && (
+                <div className="mt-4 rounded-2xl border border-violet-700/20 bg-violet-950/60 overflow-hidden animate-fadeIn">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-violet-800/30">
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-violet-600">Contenu secret</p>
+                    <button onClick={() => setCachetteRevealed(v => !v)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-mono border transition-all active:scale-95 ${cachetteRevealed ? "bg-pink-500/20 border-pink-500/40 text-pink-300" : "bg-white/5 border-white/10 text-violet-500 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400"}`}>
+                      {cachetteRevealed ? <Eye size={11} /> : <EyeOff size={11} />}
+                      {cachetteRevealed ? "Flouter" : "Révéler"}
+                    </button>
+                  </div>
+                  <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    {hiddenFullEntries.map((e, i) => (
+                      <div key={e.id} className={`transition-all duration-500 ${cachetteRevealed ? "" : "blur-sm hover:blur-none"}`}>
+                        <Card entry={e} onEdit={openEditForm} index={i} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {saveError && (
-          <div className="mb-4 text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30
-            rounded-lg px-3 py-2 animate-fadeIn">
-            La sauvegarde a échoué. Tes changements restent visibles mais pourraient ne pas persister.
-          </div>
-        )}
-
-        {/* ── Contenu ── */}
-        {loading ? (
-          <SkeletonGrid count={6} />
-
-        ) : sorted.length === 0 ? (
-          <div className="text-center py-20 rounded-2xl border border-dashed border-white/10 animate-fadeIn">
-            {showFavoritesOnly ? (
-              <><p className="text-4xl mb-4 animate-popIn">♡</p>
-                <p className="text-violet-300 mb-1">Aucun favori ici</p>
-                <p className="text-violet-500 text-sm">Utilise le ♡ dans les détails d'une série.</p></>
-            ) : isSearchActive ? (
-              <><p className="text-4xl mb-4 animate-popIn">🔍</p>
-                <p className="text-violet-300 mb-1">Aucun résultat pour <span className="text-violet-100 font-semibold">« {searchQuery} »</span></p>
-                <p className="text-violet-500 text-sm">Essaie un autre terme ou ajoute ce titre.</p></>
-            ) : (
-              <><p className="text-4xl mb-4 animate-popIn">📭</p>
-                <p className="text-violet-300 mb-1">Aucun titre ici</p>
-                <p className="text-violet-500 text-sm">Ajoute un anime ou une série pour commencer.</p></>
-            )}
-          </div>
-
-        ) : typeFilter === "all" ? (
-          <div key={gridKey} className="space-y-8 animate-fadeIn">
-            {filteredAnime.length > 0 && (
-              <section>
-                <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
-                  Animes · {filteredAnime.length}
-                </p>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  {filteredAnime.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} />)}
-                </div>
-              </section>
-            )}
-            {filteredSerie.length > 0 && (
-              <section>
-                <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
-                  Séries · {filteredSerie.length}
-                </p>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  {filteredSerie.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} />)}
-                </div>
-              </section>
-            )}
-          </div>
-        ) : (
-          <div key={gridKey} className="grid grid-cols-1 lg:grid-cols-2 gap-3 animate-fadeIn">
-            {sorted.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} />)}
-          </div>
-        )}
-
-        {/* ── Cachette secrète ── */}
-        {hiddenFullEntries.length > 0 && (
-          <div className="mt-10">
-            <button onClick={() => setCachetteOpen(v => !v)}
-              className="w-full flex items-center justify-center gap-3 py-3 px-5 rounded-2xl
-                border border-violet-700/30 bg-violet-900/20 hover:bg-violet-900/40 transition-all group">
-              <span className={`text-violet-500 group-hover:text-violet-300 transition-all duration-300 ${cachetteOpen ? "scale-110" : "animate-pulse"}`}>
-                {cachetteOpen ? <EyeOff size={20} /> : <Eye size={20} />}
-              </span>
-              <span className="font-mono text-[11px] uppercase tracking-widest text-violet-500 group-hover:text-violet-300 transition-colors select-none">
-                {cachetteOpen ? "Masquer" : "Cachette secrète"} · {hiddenFullEntries.length} titre{hiddenFullEntries.length > 1 ? "s" : ""}
-              </span>
-              {!cachetteOpen && <span className="font-mono text-[10px] text-violet-700 animate-bounce">👀</span>}
-            </button>
-            {cachetteOpen && (
-              <div className="mt-4 rounded-2xl border border-violet-700/20 bg-violet-950/60 overflow-hidden animate-fadeIn">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-violet-800/30">
-                  <p className="font-mono text-[10px] uppercase tracking-widest text-violet-600">Contenu secret</p>
-                  <button onClick={() => setCachetteRevealed(v => !v)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-mono border transition-all active:scale-95 ${cachetteRevealed ? "bg-pink-500/20 border-pink-500/40 text-pink-300" : "bg-white/5 border-white/10 text-violet-500 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400"}`}>
-                    {cachetteRevealed ? <Eye size={11} /> : <EyeOff size={11} />}
-                    {cachetteRevealed ? "Flouter" : "Révéler"}
-                  </button>
-                </div>
-                <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  {hiddenFullEntries.map((e, i) => (
-                    <div key={e.id} className={`transition-all duration-500 ${cachetteRevealed ? "" : "blur-sm hover:blur-none"}`}>
-                      <Card entry={e} onEdit={openEditForm} index={i} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <Footer />
+        <Footer />
+      </PullToRefresh>
 
       {showAddChoice && (
         <AddChoiceModal onAddTitle={openNewForm} onCreateList={handleCreateList}

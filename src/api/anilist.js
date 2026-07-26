@@ -163,17 +163,27 @@ export async function fetchAniListNextSeason(rootId, currentSeasonCount) {
   return next ? { id: next.id, episodes: next.episodes ?? null, coverImage: next.coverImage ?? null } : null;
 }
 
-export async function fetchAniListEpisodeTotal(anilistId) {
-  const q = `query ($id: Int) { Media(id: $id) { episodes nextAiringEpisode { episode } } }`;
+export async function fetchAniListSeasonData(anilistId) {
+  const q = `query ($id: Int) {
+    Media(id: $id) {
+      idMal
+      episodes
+      nextAiringEpisode { episode }
+    }
+  }`;
   try {
-    const j = await anilistQuery(q, { id: anilistId }); const m = j.data?.Media;
-    return m?.episodes ?? (m?.nextAiringEpisode?.episode != null ? m.nextAiringEpisode.episode - 1 : null);
-  } catch { return null; }
-}
-
-async function fetchAniListIdMal(id) {
-  const q = `query ($id: Int) { Media(id: $id) { idMal } }`;
-  const j = await anilistQuery(q, { id }); return j.data?.Media?.idMal ?? null;
+    const j = await anilistQuery(q, { id: anilistId });
+    const m = j.data?.Media;
+    if (!m) return { malId: null, totalEpisodes: null };
+    return {
+      malId:         m.idMal ?? null,
+      totalEpisodes: m.episodes ?? (m.nextAiringEpisode?.episode != null
+        ? m.nextAiringEpisode.episode - 1
+        : null),
+    };
+  } catch {
+    return { malId: null, totalEpisodes: null };
+  }
 }
 
 // ── File d'attente Jikan ─────────────────────────────────────────────────────

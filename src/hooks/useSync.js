@@ -2,13 +2,14 @@ import { useState, useCallback } from "react";
 import { fetchSeasonInfo } from "../api";
 import { useLibrary } from "../context/LibraryContext";
 
-const INTER_CALL_DELAY_MS = 400;
-const SYNC_COOLDOWN_MS    = 6 * 60 * 60 * 1000; // 6 heures
+const INTER_CALL_DELAY_MS = 700;              // relevé de 400→700ms (fix rate limit)
+const SYNC_COOLDOWN_MS    = 6 * 60 * 60 * 1000;
 const LAST_SYNC_KEY       = "anivault:lastSync";
 
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
+// Statuts pour lesquels totalEpisodes peut encore changer
+const ACTIVE_STATUSES = new Set(["en-cours", "a-voir"]);
+
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 export function useSync() {
   const { entries, updateSeasonTotal } = useLibrary();
@@ -18,15 +19,22 @@ export function useSync() {
   const syncAll = useCallback(async (force = false) => {
     if (syncing) return;
 
-    // Vérification du cooldown (sauf si forcé manuellement)
     const lastSync = parseInt(localStorage.getItem(LAST_SYNC_KEY) || "0");
     if (!force && Date.now() - lastSync < SYNC_COOLDOWN_MS) return;
 
-    // Uniquement les entrées avec une source connue
-    const toSync = entries.filter(
-      (e) => e.source === "anilist" || e.source === "tvmaze"
-    );
-    if (!toSync.length) return;
+    const toSync = entries.filter((e) => {
+      // 1. Source connue
+      if (e.source !== "anilist" && e.source !== "tvmaze") return false;
+      // 2. Statut actif uniquement — les titres terminés/abandonnés
+      //    ont des données figées, inutile de les refetcher.
+      return ACTIVE_STATUSES.has(e.status);
+    });
+
+    if (!toSync.length) {
+      // Rien à sync mais on marque quand même pour réinitialiser le cooldown
+      localStorage.setItem(LAST_SYNC_KEY, Date.now().toString());
+      return;
+    }
 
     setSyncing(true);
     setProgress({ current: 0, total: toSync.length });
@@ -35,7 +43,14 @@ export function useSync() {
       const entry = toSync[i];
       setProgress({ current: i + 1, total: toSync.length });
 
-      for (let s = 0; s < entry.seasons.length; s++) {
+      // 3. Pour les animes multi-saisons, ne sync que la dernière saison :
+      //    c'est la seule dont le totalEpisodes peut encore évoluer.
+      //    Exception : si le titre a une seule saison, on la sync quand même.
+      const seasonsToSync = entry.seasons.length <= 1
+        ? entry.seasons.map((_, idx) => idx)
+        : [entry.seasons.length - 1]; // dernière saison uniquement
+
+      for (const s of seasonsToSync) {
         try {
           const data = await fetchSeasonInfo(entry, s);
           if (
@@ -45,6 +60,7 @@ export function useSync() {
             updateSeasonTotal(entry.id, s, data.totalEpisodes);
           }
         } catch (_) {}
+
         await sleep(INTER_CALL_DELAY_MS);
       }
     }

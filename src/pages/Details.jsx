@@ -7,7 +7,7 @@ import { StarRating, getRatingEmoji } from "../components/common/Rating";
 import { TitleFormModal }          from "../components/Modal/TitleFormModal";
 import { STATUS, seasonTotals }    from "../utils/status";
 import { useLibrary }              from "../context/LibraryContext";
-import { fetchSeasonInfo, importResult } from "../api";
+import { fetchSeasonInfo, importResult, refreshEntryCard } from "../api";
 import { fetchAniListRecommendations }   from "../api/recommendations";
 import { SynopsisModal }  from "../components/common/SynopsisModal";
 import { AddToListModal } from "../components/common/AddToListModal";
@@ -99,25 +99,28 @@ export function Details() {
   const movieSeasons = useMemo(() => (entry?.seasons || []).map((s, i) => ({ ...s, globalIndex: i })).filter(s => getFormatGroup(s.format) === "movie"),  [entry?.seasons]);
   const hasMulti = [tvSeasons.length > 0, extraSeasons.length > 0, movieSeasons.length > 0].filter(Boolean).length > 1;
 
-  const [activeTVIdx,   setActiveTVIdx]   = useState(0);
-  const [open,          setOpen]          = useState({ tv: false, extra: false, movie: false });
-  const [openEpisodes,  setOpenEpisodes]  = useState(false);
-  const [seasonCache,   setSeasonCache]   = useState({});
-  const [loadingEps,    setLoadingEps]    = useState(false);
-  const [refreshing,    setRefreshing]    = useState(false);
-  const [editing,       setEditing]       = useState(false);
-  const [recs,          setRecs]          = useState([]);
-  const [loadingRecs,   setLoadingRecs]   = useState(false);
-  const [addingId,      setAddingId]      = useState(null);
-  const [synopsisRec,   setSynopsisRec]   = useState(null);
-  const [addToListOpen, setAddToListOpen] = useState(false);
-  // Swipe to dismiss (bottom sheet sur mobile)
-  const [touchStartY,   setTouchStartY]   = useState(null);
+  const [activeTVIdx,    setActiveTVIdx]   = useState(0);
+  const [open,           setOpen]          = useState({ tv: false, extra: false, movie: false });
+  const [openEpisodes,   setOpenEpisodes]  = useState(false);
+  const [seasonCache,    setSeasonCache]   = useState({});
+  const [loadingEps,     setLoadingEps]    = useState(false);
+  // ── Refresh carte ──────────────────────────────────────────────────────────
+  const [refreshingCard, setRefreshingCard] = useState(false);
+  const [refreshResult,  setRefreshResult]  = useState(null); // null | { newCount }
+  // ──────────────────────────────────────────────────────────────────────────
+  const [editing,        setEditing]       = useState(false);
+  const [recs,           setRecs]          = useState([]);
+  const [loadingRecs,    setLoadingRecs]   = useState(false);
+  const [addingId,       setAddingId]      = useState(null);
+  const [synopsisRec,    setSynopsisRec]   = useState(null);
+  const [addToListOpen,  setAddToListOpen] = useState(false);
+  const [touchStartY,    setTouchStartY]   = useState(null);
 
   useEffect(() => {
     setActiveTVIdx(0); setSeasonCache({});
     setOpen({ tv: false, extra: false, movie: false });
     setOpenEpisodes(false);
+    setRefreshResult(null);
   }, [id]);
 
   useEffect(() => {
@@ -192,14 +195,30 @@ export function Details() {
     if (hasNextTV) setTimeout(() => setActiveTVIdx(prev => prev + 1), 300);
   }
 
-  async function handleRefresh() {
-    setRefreshing(true);
+  /**
+   * handleRefreshCard — vérifie si de nouvelles saisons / OVA / Films sont
+   * disponibles sur AniList ou TVmaze, et met à jour la carte si c'est le cas.
+   * La progression existante est toujours préservée.
+   */
+  async function handleRefreshCard() {
+    if (refreshingCard) return;
+    setRefreshingCard(true);
+    setRefreshResult(null);
     try {
-      const data = await fetchSeasonInfo(entry, activeTVIdx);
-      setSeasonCache(prev => ({ ...prev, [activeTVIdx]: data }));
-      if (data.totalEpisodes != null && curTV) updateSeasonTotal(entry.id, curTV.globalIndex, data.totalEpisodes);
+      const result = await refreshEntryCard(entry);
+      if (!result) return;
+      saveEntry(
+        {
+          ...entry,
+          seasons: result.seasons,
+          ...(result.anilistIds ? { anilistIds: result.anilistIds } : {}),
+        },
+        entry.id
+      );
+      setRefreshResult({ newCount: result.newCount });
+      setTimeout(() => setRefreshResult(null), 5000);
     } catch (_) {}
-    finally { setRefreshing(false); }
+    finally { setRefreshingCard(false); }
   }
 
   async function handleAddRec(rec) {
@@ -216,7 +235,6 @@ export function Details() {
     navigate("/");
   }
 
-  // ── Swipe vers le bas pour fermer (drag handle mobile) ──
   function handleDragTouchStart(e) {
     setTouchStartY(e.touches[0].clientY);
   }
@@ -228,13 +246,6 @@ export function Details() {
   }
 
   return (
-    /*
-     * ── LAYOUT RESPONSIVE ─────────────────────────────────────────────────────
-     * Mobile  : bottom sheet — la modale monte depuis le bas (items-end),
-     *           bords arrondis uniquement en haut, swipe-to-dismiss.
-     * Desktop : modal centré classique (sm:items-center sm:justify-center).
-     * ─────────────────────────────────────────────────────────────────────────
-     */
     <div
       className="fixed inset-0 z-50 text-violet-50 bg-black/60 backdrop-blur-sm
         flex items-end
@@ -287,6 +298,8 @@ export function Details() {
                 <h2 className="text-base sm:text-xl font-bold text-violet-50 leading-tight line-clamp-2"
                   style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{entry.title}</h2>
               </div>
+
+              {/* ── Boutons header ── */}
               <div className="flex gap-1 flex-shrink-0">
                 <button onClick={() => toggleFavorite(entry)}
                   aria-label={isInFavorites(entry.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
@@ -297,6 +310,18 @@ export function Details() {
                   className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-amber-300 transition-colors">
                   <ListPlus size={14} />
                 </button>
+                {/* ── Actualiser la carte (nouvelles saisons / OVA / Films) ── */}
+                {(entry.source === "anilist" || entry.source === "tvmaze") && (
+                  <button
+                    onClick={handleRefreshCard}
+                    disabled={refreshingCard}
+                    aria-label="Actualiser — chercher de nouveaux contenus"
+                    title="Chercher de nouvelles saisons, OVA ou films"
+                    className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-teal-300 transition-colors disabled:opacity-40"
+                  >
+                    <RefreshCw size={14} className={refreshingCard ? "animate-spin" : ""} />
+                  </button>
+                )}
                 <button onClick={() => setEditing(true)}
                   className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-violet-50">
                   <Pencil size={14} />
@@ -340,6 +365,17 @@ export function Details() {
           </div>
         </div>
 
+        {/* ── Bannière résultat actualisation ── */}
+        {refreshResult !== null && (
+          <div className="mx-4 sm:mx-6 mt-2 px-3 py-2 rounded-xl flex items-center gap-2 text-xs font-mono animate-fadeIn
+            bg-teal-500/15 border border-teal-500/30 text-teal-300 flex-shrink-0">
+            <Check size={12} className="flex-shrink-0" />
+            {refreshResult.newCount > 0
+              ? `${refreshResult.newCount} nouveau${refreshResult.newCount > 1 ? "x" : ""} contenu${refreshResult.newCount > 1 ? "s" : ""} ajouté${refreshResult.newCount > 1 ? "s" : ""} !`
+              : "Aucun nouveau contenu disponible pour le moment."}
+          </div>
+        )}
+
         {/* ── Corps scrollable ── */}
         <div className="flex-1 overflow-y-auto">
           {hasMulti ? (
@@ -372,12 +408,6 @@ export function Details() {
                             <button onClick={() => markDone(entry.id)}
                               className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 active:scale-95">
                               <Check size={10} /> Terminée
-                            </button>
-                          )}
-                          {(entry.source === "anilist" || entry.source === "tvmaze") && (
-                            <button onClick={handleRefresh} disabled={refreshing}
-                              className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wide text-violet-400 hover:text-violet-200 disabled:opacity-50">
-                              <RefreshCw size={11} className={refreshing ? "animate-spin" : ""} /> Actualiser
                             </button>
                           )}
                         </div>
@@ -523,20 +553,12 @@ export function Details() {
                   <div className="px-3 sm:px-4 pb-4 pt-3">
                     <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
                       <p className="font-mono text-[11px] text-violet-400">{watched} / {curTV?.totalEpisodes ?? "?"} ép. vus</p>
-                      <div className="flex items-center gap-2">
-                        {canFinish && (
-                          <button onClick={() => markDone(entry.id)}
-                            className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 active:scale-95">
-                            <Check size={10} /> Terminée
-                          </button>
-                        )}
-                        {(entry.source === "anilist" || entry.source === "tvmaze") && (
-                          <button onClick={handleRefresh} disabled={refreshing}
-                            className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wide text-violet-400 hover:text-violet-200 disabled:opacity-50">
-                            <RefreshCw size={11} className={refreshing ? "animate-spin" : ""} /> Actualiser
-                          </button>
-                        )}
-                      </div>
+                      {canFinish && (
+                        <button onClick={() => markDone(entry.id)}
+                          className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 active:scale-95">
+                          <Check size={10} /> Terminée
+                        </button>
+                      )}
                     </div>
                     {curTV && (
                       <div className="flex gap-1.5 sm:gap-2 mb-3 flex-wrap">

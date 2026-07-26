@@ -8,6 +8,7 @@ import { SynopsisModal }  from "../components/common/SynopsisModal";
 import { fetchAniListRecommendations } from "../api/recommendations";
 import { importResult } from "../api";
 import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
+import { toEnglishGenres } from "../utils/genres";
 
 function normalizeSeriesTitle(title) {
   return (title || "")
@@ -49,30 +50,53 @@ export function Recommendations() {
   const navigate = useNavigate();
   const { entries } = useLibrary();
 
-  const [recs,          setRecs]          = useState([]);
-  const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState("");
-  const [isStale,       setIsStale]       = useState(false); // données hors-ligne
-  const [adding,        setAdding]        = useState(null);
-  const [editingEntry,  setEditingEntry]  = useState(null);
-  const [synopsisRec,   setSynopsisRec]   = useState(null);
+  const [recs,         setRecs]         = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState("");
+  const [isStale,      setIsStale]      = useState(false);
+  const [adding,       setAdding]       = useState(null);
+  const [editingEntry, setEditingEntry] = useState(null);
+  const [synopsisRec,  setSynopsisRec]  = useState(null);
 
+  /**
+   * Calcul des genres les plus fréquents dans la bibliothèque.
+   *
+   * CORRECTIF : on inclut tous les statuts (pas seulement "termine"/"en-cours")
+   * en les pondérant — un titre terminé/en-cours compte double, un titre
+   * "à voir" compte 1. Cela évite d'avoir topGenres vide si l'utilisateur
+   * n'a encore terminé aucun titre.
+   */
   const topGenres = useMemo(() => {
     const tally = {};
-    entries.filter((e) => e.status === "termine" || e.status === "en-cours")
-      .forEach((e) => e.genres.forEach((g) => { tally[g] = (tally[g] || 0) + 1; }));
-    return Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([g]) => g);
+    entries.forEach((e) => {
+      // Les titres terminés ou en cours ont plus de poids (goûts confirmés)
+      const weight = (e.status === "termine" || e.status === "en-cours") ? 2 : 1;
+      (e.genres || []).forEach((g) => { tally[g] = (tally[g] || 0) + weight; });
+    });
+    return Object.entries(tally)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([g]) => g);
   }, [entries]);
+
+  /**
+   * CORRECTIF MAJEUR : les genres sont stockés en français dans la bibliothèque
+   * (via translateGenres lors de l'import), mais AniList attend des genres en anglais.
+   * On les reconvertit avec toEnglishGenres avant de les envoyer à l'API.
+   */
+  const topGenresEN = useMemo(() => toEnglishGenres(topGenres), [topGenres]);
 
   const libraryIds = useMemo(() => new Set(entries.flatMap((e) => e.anilistIds || [])), [entries]);
 
+  // La clé de cache utilise les genres EN anglais pour éviter des collisions
+  // avec l'ancien cache (genres en français → résultats vides).
   const cacheKey = useMemo(
-    () => `recs_${[...topGenres].sort().join("_")}`,
-    [topGenres]
+    () => `recs_en_${[...topGenresEN].sort().join("_")}`,
+    [topGenresEN]
   );
 
   useEffect(() => {
-    if (!topGenres.length) { setLoading(false); return; }
+    if (!topGenresEN.length) { setLoading(false); return; }
 
     // 1. Cache valide → affichage immédiat
     const cached = getCached(cacheKey);
@@ -83,12 +107,12 @@ export function Recommendations() {
       return;
     }
 
-    // 2. Fetch réseau
+    // 2. Fetch réseau avec les genres en anglais
     setLoading(true);
     setError("");
     setIsStale(false);
 
-    fetchAniListRecommendations(topGenres, [...libraryIds])
+    fetchAniListRecommendations(topGenresEN, [...libraryIds])
       .then((data) => {
         setCached(cacheKey, data, TTL.RECOMMENDATIONS);
         setRecs(data);
@@ -174,7 +198,7 @@ export function Recommendations() {
           <div className="text-center py-20 rounded-2xl border border-dashed border-white/10">
             <Film size={32} className="text-violet-500 mx-auto mb-3" />
             <p className="text-violet-300 mb-1">Pas encore assez de données</p>
-            <p className="text-sm text-violet-500">Ajoute et termine des titres pour recevoir des recommandations personnalisées.</p>
+            <p className="text-sm text-violet-500">Ajoute des titres à ta bibliothèque pour recevoir des recommandations personnalisées.</p>
           </div>
         ) : dedupedRecs.length === 0 ? (
           <div className="text-center py-20">

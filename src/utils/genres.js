@@ -56,6 +56,23 @@ const GENRE_TRANSLATIONS = {
   "Josei": "Josei",
 };
 
+// ── Mapping inverse : Français → Anglais ──────────────────────────────────────
+// Construit automatiquement depuis GENRE_TRANSLATIONS.
+// Utilisé pour renvoyer les genres en anglais aux APIs (AniList attend de l'anglais).
+const GENRE_TRANSLATIONS_REVERSE = Object.fromEntries(
+  Object.entries(GENRE_TRANSLATIONS).map(([en, fr]) => [fr, en])
+);
+
+/** Traduit des genres anglais en français pour l'affichage. */
 export function translateGenres(genres) {
   return genres.map((g) => GENRE_TRANSLATIONS[g] || g);
+}
+
+/**
+ * Reconvertit des genres stockés en français vers l'anglais,
+ * pour les envoyer correctement aux APIs comme AniList.
+ * Les genres déjà en anglais (ou sans traduction connue) sont retournés tels quels.
+ */
+export function toEnglishGenres(genres) {
+  return genres.map((g) => GENRE_TRANSLATIONS_REVERSE[g] || g);
 }
