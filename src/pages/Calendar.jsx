@@ -11,7 +11,6 @@ import { BurgerMenu } from "../components/common/BurgerMenu";
 import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
 
 const DAY_NAMES = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-// Nombre de jours visibles : 1 sur mobile, 3 sur desktop
 const VISIBLE_DAYS_MOBILE  = 1;
 const VISIBLE_DAYS_DESKTOP = 3;
 const TMDB_CHUNK = 5;
@@ -24,6 +23,14 @@ function getSeasonLabel() {
   return `Automne ${year}`;
 }
 function todayIndex() { const d = new Date().getDay(); return d === 0 ? 6 : d - 1; }
+
+// ── Garantit qu'une valeur est un objet Date valide ───────────────────────────
+// Nécessaire car le cache (localStorage / JSON) sérialise les Date en strings.
+function toDate(value) {
+  if (value instanceof Date) return value;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
 
 // ── Hook responsive ───────────────────────────────────────────────────────────
 function useVisibleDays() {
@@ -199,20 +206,20 @@ export function Calendar() {
   const { entries: libraryEntries } = useLibrary();
   const VISIBLE_DAYS = useVisibleDays(); // 1 mobile / 3 desktop
 
-  const [schedules,        setSchedules]        = useState([]);
-  const [weekMonday,       setWeekMonday]        = useState(null);
-  const [loading,          setLoading]           = useState(true);
-  const [refreshing,       setRefreshing]        = useState(false);
-  const [error,            setError]             = useState("");
-  const [weekOffset,       setWeekOffset]        = useState(0);
-  const [selectedSchedule, setSelectedSchedule]  = useState(null);
-  const [tmdbTitles,       setTmdbTitles]        = useState({});
-  const [tmdbFrAvailable,  setTmdbFrAvailable]   = useState({});
-  const [contentFilter,    setContentFilter]     = useState("all");
-  const [langFilter,       setLangFilter]        = useState("all");
-  const [gridKey,          setGridKey]           = useState(0);
-  const [slideDir,         setSlideDir]          = useState("none");
-  const [dayOffset,        setDayOffset]         = useState(() =>
+  const [schedules,         setSchedules]         = useState([]);
+  const [weekMonday,        setWeekMonday]         = useState(null);
+  const [loading,           setLoading]            = useState(true);
+  const [refreshing,        setRefreshing]         = useState(false);
+  const [error,             setError]              = useState("");
+  const [weekOffset,        setWeekOffset]         = useState(0);
+  const [selectedSchedule,  setSelectedSchedule]   = useState(null);
+  const [tmdbTitles,        setTmdbTitles]         = useState({});
+  const [tmdbFrAvailable,   setTmdbFrAvailable]    = useState({});
+  const [contentFilter,     setContentFilter]      = useState("all");
+  const [langFilter,        setLangFilter]         = useState("all");
+  const [gridKey,           setGridKey]            = useState(0);
+  const [slideDir,          setSlideDir]           = useState("none");
+  const [dayOffset,         setDayOffset]          = useState(() =>
     Math.max(0, Math.min(7 - VISIBLE_DAYS_DESKTOP, todayIndex() - 1))
   );
 
@@ -229,7 +236,9 @@ export function Calendar() {
       const cached = getCached(cacheKey);
       if (cached) {
         setSchedules(cached.schedules);
-        setWeekMonday(cached.monday);
+        // ✅ FIX : le cache JSON sérialise les Date en strings — on reconvertit
+        // explicitement en Date pour que .getDate() fonctionne ensuite.
+        setWeekMonday(toDate(cached.monday));
         setLoading(false);
         return;
       }
@@ -241,16 +250,16 @@ export function Calendar() {
 
     try {
       const { schedules: data, monday } = await fetchWeeklySchedule(offset);
-      // Stocker en cache (30 min)
       setCached(cacheKey, { schedules: data, monday }, TTL.CALENDAR);
       setSchedules(data);
-      setWeekMonday(monday);
+      // ✅ FIX : défensif même pour la réponse fraîche de l'API
+      setWeekMonday(toDate(monday));
     } catch (err) {
-      // Fallback : cache périmé si réseau indisponible
       const stale = getStaleCached(cacheKey);
       if (stale) {
         setSchedules(stale.schedules);
-        setWeekMonday(stale.monday);
+        // ✅ FIX : même traitement pour le cache périmé
+        setWeekMonday(toDate(stale.monday));
         setError("⚠️ Connexion indisponible — données hors-ligne affichées.");
       } else {
         setError(err?.message || "Impossible de charger le calendrier. Vérifie ta connexion et réessaie.");
@@ -391,7 +400,6 @@ export function Calendar() {
         <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1 scrollbar-none">
           <FilterBtn active={contentFilter === "all"}       onClick={() => setContentFilter("all")}>Tout</FilterBtn>
           <FilterBtn active={contentFilter === "mylibrary"} onClick={() => setContentFilter("mylibrary")}>Ma liste</FilterBtn>
-          {/* Labels raccourcis sur mobile */}
           <FilterBtn active={contentFilter === "new"}       onClick={() => setContentFilter("new")}>
             <span className="sm:hidden">Nouvelles</span>
             <span className="hidden sm:inline">Nouvelles séries</span>
@@ -499,42 +507,24 @@ export function Calendar() {
                         ))
                       )}
                     </div>
-
-                    {entries.length > 0 && (
-                      <div className="px-3 sm:px-4 py-2 border-t border-white/5">
-                        <p className="font-mono text-[10px] text-violet-500">
-                          {entries.length} épisode{entries.length > 1 ? "s" : ""}
-                        </p>
-                      </div>
-                    )}
                   </div>
                 );
               })}
             </div>
-
-            {/* ── Pagination jours ── */}
-            <div className="flex justify-center gap-1.5 mt-4">
-              {Array.from({ length: 7 - VISIBLE_DAYS + 1 }, (_, i) => (
-                <button
-                  key={i}
-                  onClick={() => { setSlideDir(i > dayOffset ? "from-left" : "from-right"); setGridKey((k) => k + 1); setDayOffset(i); }}
-                  className={`w-2 h-2 rounded-full transition-colors active:scale-90 motion-reduce:transition-none ${dayOffset === i ? "bg-amber-400" : "bg-white/20 hover:bg-white/40"}`}
-                  aria-label={`Voir ${DAY_NAMES[i]}`}
-                />
-              ))}
-            </div>
           </>
         )}
-      </div>
 
-      {selectedSchedule && (
-        <EpisodeDetailModal
-          schedule={selectedSchedule}
-          initialFrTitle={tmdbTitles[selectedSchedule.media.id] ?? null}
-          hasFrFromTmdb={tmdbFrAvailable[selectedSchedule.media.id] ?? false}
-          onClose={() => setSelectedSchedule(null)}
-        />
-      )}
+        {/* ── Modal détail épisode ── */}
+        {selectedSchedule && (
+          <EpisodeDetailModal
+            schedule={selectedSchedule}
+            initialFrTitle={tmdbTitles[selectedSchedule.media.id] ?? null}
+            hasFrFromTmdb={!!tmdbFrAvailable[selectedSchedule.media.id]}
+            onClose={() => setSelectedSchedule(null)}
+          />
+        )}
+
+      </div>
     </div>
   );
 }
