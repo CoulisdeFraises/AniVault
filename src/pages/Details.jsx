@@ -12,12 +12,7 @@ import { fetchAniListRecommendations }   from "../api/recommendations";
 import { SynopsisModal }  from "../components/common/SynopsisModal";
 import { AddToListModal } from "../components/common/AddToListModal";
 import { useLists }       from "../context/ListsContext";
-
-function getFormatGroup(f) {
-  if (!f || f === "TV") return "tv";
-  if (f === "MOVIE") return "movie";
-  return "extra";
-}
+import { getFormatGroup } from "../utils/format";
 
 function normalizeSeriesTitle(title) {
   return (title || "")
@@ -129,7 +124,7 @@ export function Details() {
     setLoadingEps(true);
     (async () => {
       try {
-        const data = await fetchSeasonInfo(entry, activeTVIdx);
+        const data = await fetchSeasonInfo(entry, curTV?.globalIndex ?? activeTVIdx);
         if (cancelled) return;
         setSeasonCache(prev => ({ ...prev, [activeTVIdx]: data }));
         const curSeason = tvSeasons[activeTVIdx];
