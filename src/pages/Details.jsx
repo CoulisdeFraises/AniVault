@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { X, Pencil, Star, Loader2, RefreshCw, Film, Tv, Disc2,
-         CheckCheck, ChevronRight, Check, Heart, ListPlus } from "lucide-react";
+         CheckCheck, ChevronRight, Check, Heart, ListPlus, AlertTriangle, WifiOff } from "lucide-react";
 import { EpisodeList }             from "../components/EpisodeList/EpisodeList";
 import { StarRating, getRatingEmoji } from "../components/common/Rating";
 import { TitleFormModal }          from "../components/Modal/TitleFormModal";
@@ -13,7 +13,6 @@ import { SynopsisModal }  from "../components/common/SynopsisModal";
 import { AddToListModal } from "../components/common/AddToListModal";
 import { useLists }       from "../context/ListsContext";
 import { getFormatGroup } from "../utils/format";
-import { BurgerMenu }     from "../components/common/BurgerMenu";
 
 function normalizeSeriesTitle(title) {
   return (title || "")
@@ -202,7 +201,11 @@ export function Details() {
     setRefreshResult(null);
     try {
       const result = await refreshEntryCard(entry);
-      if (!result) return;
+      if (!result) {
+        setRefreshResult({ status: "unsupported" });
+        setTimeout(() => setRefreshResult(null), 5000);
+        return;
+      }
       saveEntry(
         {
           ...entry,
@@ -211,9 +214,12 @@ export function Details() {
         },
         entry.id
       );
-      setRefreshResult({ newCount: result.newCount });
+      setRefreshResult({ status: "success", newCount: result.newCount });
       setTimeout(() => setRefreshResult(null), 5000);
-    } catch (_) {}
+    } catch (_) {
+      setRefreshResult({ status: "error" });
+      setTimeout(() => setRefreshResult(null), 5000);
+    }
     finally { setRefreshingCard(false); }
   }
 
@@ -297,7 +303,6 @@ export function Details() {
 
               {/* ── Boutons header ── */}
               <div className="flex items-center gap-1 flex-shrink-0">
-                <BurgerMenu />
                 <button onClick={() => toggleFavorite(entry)}
                   aria-label={isInFavorites(entry.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
                   className={`p-1.5 rounded-lg transition-colors ${isInFavorites(entry.id) ? "text-pink-400 hover:bg-pink-500/10" : "text-violet-300 hover:bg-white/10 hover:text-pink-300"}`}>
@@ -364,12 +369,30 @@ export function Details() {
 
         {/* ── Bannière résultat actualisation ── */}
         {refreshResult !== null && (
-          <div className="mx-4 sm:mx-6 mt-2 px-3 py-2 rounded-xl flex items-center gap-2 text-xs font-mono animate-fadeIn
-            bg-teal-500/15 border border-teal-500/30 text-teal-300 flex-shrink-0">
-            <Check size={12} className="flex-shrink-0" />
-            {refreshResult.newCount > 0
-              ? `${refreshResult.newCount} nouveau${refreshResult.newCount > 1 ? "x" : ""} contenu${refreshResult.newCount > 1 ? "s" : ""} ajouté${refreshResult.newCount > 1 ? "s" : ""} !`
-              : "Aucun nouveau contenu disponible pour le moment."}
+          <div className={`mx-4 sm:mx-6 mt-2 px-3 py-2 rounded-xl flex items-center gap-2 text-xs font-mono animate-fadeIn flex-shrink-0 ${
+            refreshResult.status === "error"
+              ? "bg-rose-500/15 border border-rose-500/30 text-rose-300"
+              : refreshResult.status === "unsupported"
+                ? "bg-amber-500/15 border border-amber-500/30 text-amber-300"
+                : "bg-teal-500/15 border border-teal-500/30 text-teal-300"
+          }`}>
+            {refreshResult.status === "error"
+              ? <WifiOff size={12} className="flex-shrink-0" />
+              : refreshResult.status === "unsupported"
+                ? <AlertTriangle size={12} className="flex-shrink-0" />
+                : <Check size={12} className="flex-shrink-0" />}
+            <span className="flex-1">
+              {refreshResult.status === "error"
+                ? "Échec de l'actualisation — vérifie ta connexion et réessaie."
+                : refreshResult.status === "unsupported"
+                  ? "Ce titre ne peut pas être actualisé automatiquement (source non reconnue)."
+                  : refreshResult.newCount > 0
+                    ? `${refreshResult.newCount} nouveau${refreshResult.newCount > 1 ? "x" : ""} contenu${refreshResult.newCount > 1 ? "s" : ""} ajouté${refreshResult.newCount > 1 ? "s" : ""} !`
+                    : "Aucun nouveau contenu disponible pour le moment."}
+            </span>
+            <button onClick={() => setRefreshResult(null)} aria-label="Fermer" className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+              <X size={12} />
+            </button>
           </div>
         )}
 

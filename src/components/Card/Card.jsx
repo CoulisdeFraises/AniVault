@@ -120,6 +120,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
   // ── Pointer / gestes ──────────────────────────────────────────────────────
   function handlePointerDown(e) {
     if (longPressMenu || e.button > 0) return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
     ptrRef.current = {
       id:     e.pointerId,
       startX: e.clientX,
@@ -160,8 +161,9 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
     }
   }
 
-  function handlePointerUp() {
+  function handlePointerUp(e) {
     clearTimeout(ptrRef.current.timer);
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
     if (isSwiping) {
       if (swipeDir === "right" && canAddEp) {
         handleAddEpisode();
@@ -177,8 +179,9 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
     ptrRef.current.id = null;
   }
 
-  function handlePointerCancel() {
+  function handlePointerCancel(e) {
     clearTimeout(ptrRef.current.timer);
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
     setSwipeX(0);
     setIsSwiping(false);
     setSwipeDir(null);
@@ -451,41 +454,41 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
         {/* ── Menu long-press ── */}
         {longPressMenu && (
           <div
-            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/97 backdrop-blur-md flex flex-col items-center justify-center gap-2 p-4 animate-fadeIn"
+            className="absolute inset-0 z-30 rounded-2xl bg-violet-950 flex flex-col items-center justify-center gap-2 p-4 animate-fadeIn"
             onClick={e => e.stopPropagation()}
           >
-            <p className="font-mono text-xs uppercase tracking-widest text-violet-200 mb-1 truncate max-w-full px-2 text-center">
+            <p className="font-mono text-xs uppercase tracking-widest text-white/90 mb-1 truncate max-w-full px-2 text-center">
               {entry.title}
             </p>
 
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/15 text-sm font-medium text-violet-100 transition-colors disabled:opacity-60"
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 text-sm font-semibold text-white transition-colors disabled:opacity-60"
             >
-              <RefreshCw size={15} className={`text-violet-300 flex-shrink-0 ${refreshing ? "animate-spin" : ""}`} />
+              <RefreshCw size={16} className={`text-white flex-shrink-0 ${refreshing ? "animate-spin" : ""}`} />
               {refreshing ? "Actualisation…" : "Actualiser"}
             </button>
 
             <button
               onClick={() => { setLongPressMenu(false); setShowAddToList(true); }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/15 text-sm font-medium text-violet-100 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 text-sm font-semibold text-white transition-colors"
             >
-              <ListPlus size={15} className="text-violet-300 flex-shrink-0" />
+              <ListPlus size={16} className="text-white flex-shrink-0" />
               Ajouter à une liste
             </button>
 
             <button
               onClick={() => { setLongPressMenu(false); setShowDel(true); }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-rose-500/15 border border-rose-500/25 hover:bg-rose-500/25 text-sm font-medium text-rose-200 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-rose-500/25 border border-rose-400/40 hover:bg-rose-500/35 text-sm font-semibold text-white transition-colors"
             >
-              <Trash2 size={15} className="text-rose-300 flex-shrink-0" />
+              <Trash2 size={16} className="text-rose-200 flex-shrink-0" />
               Supprimer
             </button>
 
             <button
               onClick={() => { setLongPressMenu(false); gesturedRef.current = false; }}
-              className="mt-1 text-xs text-violet-300 hover:text-violet-100 transition-colors font-mono"
+              className="mt-1 text-xs text-white/70 hover:text-white transition-colors font-mono"
             >
               Annuler
             </button>

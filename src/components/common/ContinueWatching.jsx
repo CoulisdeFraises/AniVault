@@ -52,7 +52,7 @@ export function ContinueWatching() {
       })
       .filter(Boolean)
       .sort((a, b) => b.lastActivity - a.lastActivity)
-      .slice(0, 8);
+      .slice(0, 9);
   }, [entries]);
 
   if (!items.length) return null;
