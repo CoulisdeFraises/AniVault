@@ -7,7 +7,8 @@ import {
 import { fetchWeeklySchedule, hasFrenchVersion, isReturningSeries } from "../api/anilist";
 import { hasTMDB, searchTMDBShow, fetchTMDBEpisodeFR, fetchTMDBWatchProvidersFR } from "../api/tmdb";
 import { useLibrary } from "../context/LibraryContext";
-import { BurgerMenu } from "../components/common/BurgerMenu";
+import { BurgerMenu }    from "../components/common/BurgerMenu";
+import { PullToRefresh } from "../components/common/PullToRefresh";
 import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
 
 const DAY_NAMES = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
@@ -24,15 +25,12 @@ function getSeasonLabel() {
 }
 function todayIndex() { const d = new Date().getDay(); return d === 0 ? 6 : d - 1; }
 
-// ── Garantit qu'une valeur est un objet Date valide ───────────────────────────
-// Nécessaire car le cache (localStorage / JSON) sérialise les Date en strings.
 function toDate(value) {
   if (value instanceof Date) return value;
   const d = new Date(value);
   return isNaN(d.getTime()) ? new Date() : d;
 }
 
-// ── Hook responsive ───────────────────────────────────────────────────────────
 function useVisibleDays() {
   const [days, setDays] = useState(
     typeof window !== "undefined" && window.innerWidth < 640
@@ -204,22 +202,22 @@ function FilterBtn({ active, onClick, children }) {
 export function Calendar() {
   const navigate    = useNavigate();
   const { entries: libraryEntries } = useLibrary();
-  const VISIBLE_DAYS = useVisibleDays(); // 1 mobile / 3 desktop
+  const VISIBLE_DAYS = useVisibleDays();
 
-  const [schedules,         setSchedules]         = useState([]);
-  const [weekMonday,        setWeekMonday]         = useState(null);
-  const [loading,           setLoading]            = useState(true);
-  const [refreshing,        setRefreshing]         = useState(false);
-  const [error,             setError]              = useState("");
-  const [weekOffset,        setWeekOffset]         = useState(0);
-  const [selectedSchedule,  setSelectedSchedule]   = useState(null);
-  const [tmdbTitles,        setTmdbTitles]         = useState({});
-  const [tmdbFrAvailable,   setTmdbFrAvailable]    = useState({});
-  const [contentFilter,     setContentFilter]      = useState("all");
-  const [langFilter,        setLangFilter]         = useState("all");
-  const [gridKey,           setGridKey]            = useState(0);
-  const [slideDir,          setSlideDir]           = useState("none");
-  const [dayOffset,         setDayOffset]          = useState(() =>
+  const [schedules,        setSchedules]        = useState([]);
+  const [weekMonday,       setWeekMonday]        = useState(null);
+  const [loading,          setLoading]           = useState(true);
+  const [refreshing,       setRefreshing]        = useState(false);
+  const [error,            setError]             = useState("");
+  const [weekOffset,       setWeekOffset]        = useState(0);
+  const [selectedSchedule, setSelectedSchedule]  = useState(null);
+  const [tmdbTitles,       setTmdbTitles]        = useState({});
+  const [tmdbFrAvailable,  setTmdbFrAvailable]   = useState({});
+  const [contentFilter,    setContentFilter]     = useState("all");
+  const [langFilter,       setLangFilter]        = useState("all");
+  const [gridKey,          setGridKey]           = useState(0);
+  const [slideDir,         setSlideDir]          = useState("none");
+  const [dayOffset,        setDayOffset]         = useState(() =>
     Math.max(0, Math.min(7 - VISIBLE_DAYS_DESKTOP, todayIndex() - 1))
   );
 
@@ -231,13 +229,10 @@ export function Calendar() {
   const load = useCallback(async (offset, isRefresh = false) => {
     const cacheKey = `calendar_week_${offset}`;
 
-    // Cache valide → affichage immédiat (sauf si refresh forcé)
     if (!isRefresh) {
       const cached = getCached(cacheKey);
       if (cached) {
         setSchedules(cached.schedules);
-        // ✅ FIX : le cache JSON sérialise les Date en strings — on reconvertit
-        // explicitement en Date pour que .getDate() fonctionne ensuite.
         setWeekMonday(toDate(cached.monday));
         setLoading(false);
         return;
@@ -252,13 +247,11 @@ export function Calendar() {
       const { schedules: data, monday } = await fetchWeeklySchedule(offset);
       setCached(cacheKey, { schedules: data, monday }, TTL.CALENDAR);
       setSchedules(data);
-      // ✅ FIX : défensif même pour la réponse fraîche de l'API
       setWeekMonday(toDate(monday));
     } catch (err) {
       const stale = getStaleCached(cacheKey);
       if (stale) {
         setSchedules(stale.schedules);
-        // ✅ FIX : même traitement pour le cache périmé
         setWeekMonday(toDate(stale.monday));
         setError("⚠️ Connexion indisponible — données hors-ligne affichées.");
       } else {
@@ -307,9 +300,9 @@ export function Calendar() {
     return () => { cancelled = true; };
   }, [schedules]);
 
-  function prevWeek() { setSlideDir("from-right"); setGridKey((k) => k + 1); setWeekOffset((w) => w - 1); setDayOffset(0); }
-  function nextWeek() { setSlideDir("from-left");  setGridKey((k) => k + 1); setWeekOffset((w) => w + 1); setDayOffset(0); }
-  function thisWeek() { setSlideDir("from-right"); setGridKey((k) => k + 1); setWeekOffset(0); setDayOffset(Math.max(0, Math.min(7 - VISIBLE_DAYS, todayIndex() - 1))); }
+  function prevWeek()      { setSlideDir("from-right"); setGridKey((k) => k + 1); setWeekOffset((w) => w - 1); setDayOffset(0); }
+  function nextWeek()      { setSlideDir("from-left");  setGridKey((k) => k + 1); setWeekOffset((w) => w + 1); setDayOffset(0); }
+  function thisWeek()      { setSlideDir("from-right"); setGridKey((k) => k + 1); setWeekOffset(0); setDayOffset(Math.max(0, Math.min(7 - VISIBLE_DAYS, todayIndex() - 1))); }
   function handlePrevDay() { setSlideDir("from-right"); setGridKey((k) => k + 1); setDayOffset((d) => Math.max(0, d - 1)); }
   function handleNextDay() { setSlideDir("from-left");  setGridKey((k) => k + 1); setDayOffset((d) => Math.min(7 - VISIBLE_DAYS, d + 1)); }
 
@@ -354,177 +347,183 @@ export function Calendar() {
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <div className="max-w-5xl mx-auto px-3 sm:px-6 pb-6 sm:pb-8 pt-safe-6">
 
-        {/* ── En-tête ── */}
-        <div className="flex items-start justify-between gap-3 mb-5">
-          <div>
-            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 active:scale-95 transition-all motion-reduce:transition-none mb-2">
-              <ChevronLeft size={16} /> Retour
-            </button>
-            <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-0.5">{getSeasonLabel()}</p>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Calendrier</h1>
-          </div>
+      {/*
+       * PullToRefresh wrappe tout le contenu scrollable.
+       * Appelle load(weekOffset, true) : force le re-fetch en by-passant le cache,
+       * affiche l'indicateur "refreshing" (spinner dans le bouton header) pendant l'opération.
+       * Les modales (EpisodeDetailModal) restent en dehors du wrapper.
+       */}
+      <PullToRefresh onRefresh={() => load(weekOffset, true)}>
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 pb-6 sm:pb-8 pt-safe-6">
 
-          {/* Navigation semaine + BurgerMenu */}
-          <div className="flex flex-col items-end gap-2">
-            <BurgerMenu />
-            <div className="flex items-center gap-1.5">
-              <button onClick={prevWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none" aria-label="Semaine précédente">
-                <ArrowLeft size={14} className="text-violet-400" />
+          {/* ── En-tête ── */}
+          <div className="flex items-start justify-between gap-3 mb-5">
+            <div>
+              <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 active:scale-95 transition-all motion-reduce:transition-none mb-2">
+                <ChevronLeft size={16} /> Retour
               </button>
-              <div className="text-center">
-                <p className="text-xs sm:text-sm font-medium text-violet-100 whitespace-nowrap">{weekLabel}</p>
-                {weekOffset !== 0 && (
-                  <button onClick={thisWeek} className="text-[10px] font-mono text-amber-400 hover:text-amber-300 transition-colors motion-reduce:transition-none">
-                    Cette semaine
-                  </button>
-                )}
+              <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-0.5">{getSeasonLabel()}</p>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Calendrier</h1>
+            </div>
+
+            <div className="flex flex-col items-end gap-2">
+              <BurgerMenu />
+              <div className="flex items-center gap-1.5">
+                <button onClick={prevWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none" aria-label="Semaine précédente">
+                  <ArrowLeft size={14} className="text-violet-400" />
+                </button>
+                <div className="text-center">
+                  <p className="text-xs sm:text-sm font-medium text-violet-100 whitespace-nowrap">{weekLabel}</p>
+                  {weekOffset !== 0 && (
+                    <button onClick={thisWeek} className="text-[10px] font-mono text-amber-400 hover:text-amber-300 transition-colors motion-reduce:transition-none">
+                      Cette semaine
+                    </button>
+                  )}
+                </div>
+                <button onClick={nextWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none" aria-label="Semaine suivante">
+                  <ArrowRight size={14} className="text-violet-400" />
+                </button>
+                <button
+                  onClick={() => load(weekOffset, true)}
+                  disabled={refreshing}
+                  className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-50 active:scale-95 transition-all motion-reduce:transition-none"
+                  aria-label="Actualiser"
+                >
+                  <RefreshCw size={14} className={`text-violet-300 ${refreshing ? "animate-spin motion-reduce:animate-none" : ""}`} />
+                </button>
               </div>
-              <button onClick={nextWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none" aria-label="Semaine suivante">
-                <ArrowRight size={14} className="text-violet-400" />
-              </button>
-              <button
-                onClick={() => load(weekOffset, true)}
-                disabled={refreshing}
-                className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-50 active:scale-95 transition-all motion-reduce:transition-none"
-                aria-label="Actualiser"
-              >
-                <RefreshCw size={14} className={`text-violet-300 ${refreshing ? "animate-spin motion-reduce:animate-none" : ""}`} />
-              </button>
             </div>
           </div>
-        </div>
 
-        {/* ── Filtres — scroll horizontal sur mobile ── */}
-        <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1 scrollbar-none">
-          <FilterBtn active={contentFilter === "all"}       onClick={() => setContentFilter("all")}>Tout</FilterBtn>
-          <FilterBtn active={contentFilter === "mylibrary"} onClick={() => setContentFilter("mylibrary")}>Ma liste</FilterBtn>
-          <FilterBtn active={contentFilter === "new"}       onClick={() => setContentFilter("new")}>
-            <span className="sm:hidden">Nouvelles</span>
-            <span className="hidden sm:inline">Nouvelles séries</span>
-          </FilterBtn>
-          <FilterBtn active={contentFilter === "returning"} onClick={() => setContentFilter("returning")}>
-            <span className="sm:hidden">Reprises</span>
-            <span className="hidden sm:inline">Séries qui reprennent</span>
-          </FilterBtn>
-          <span className="w-px h-4 bg-white/20 flex-shrink-0" aria-hidden />
-          <FilterBtn active={langFilter === "all"} onClick={() => setLangFilter("all")}>VO</FilterBtn>
-          <FilterBtn active={langFilter === "vf"}  onClick={() => setLangFilter("vf")}>VF</FilterBtn>
-        </div>
-
-        {error && (
-          <div className="mb-5 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">{error}</div>
-        )}
-        {langFilter === "vf" && !loading && (
-          <p className="text-[11px] text-violet-500 font-mono mb-4">
-            ℹ Les horaires sont ceux de la diffusion VO.
-          </p>
-        )}
-
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-32 gap-3">
-            <Loader2 size={28} className="animate-spin text-violet-400" />
-            <p className="text-sm text-violet-400 font-mono">Chargement du calendrier…</p>
+          {/* ── Filtres ── */}
+          <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1 scrollbar-none">
+            <FilterBtn active={contentFilter === "all"}       onClick={() => setContentFilter("all")}>Tout</FilterBtn>
+            <FilterBtn active={contentFilter === "mylibrary"} onClick={() => setContentFilter("mylibrary")}>Ma liste</FilterBtn>
+            <FilterBtn active={contentFilter === "new"}       onClick={() => setContentFilter("new")}>
+              <span className="sm:hidden">Nouvelles</span>
+              <span className="hidden sm:inline">Nouvelles séries</span>
+            </FilterBtn>
+            <FilterBtn active={contentFilter === "returning"} onClick={() => setContentFilter("returning")}>
+              <span className="sm:hidden">Reprises</span>
+              <span className="hidden sm:inline">Séries qui reprennent</span>
+            </FilterBtn>
+            <span className="w-px h-4 bg-white/20 flex-shrink-0" aria-hidden />
+            <FilterBtn active={langFilter === "all"} onClick={() => setLangFilter("all")}>VO</FilterBtn>
+            <FilterBtn active={langFilter === "vf"}  onClick={() => setLangFilter("vf")}>VF</FilterBtn>
           </div>
-        ) : (
-          <>
-            {/* ── Navigation jours ── */}
-            <div className="flex items-center justify-between mb-3">
-              <button
-                onClick={handlePrevDay}
-                disabled={!canPrevDay}
-                className="flex items-center gap-1 px-3 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 text-sm text-violet-300 transition-all motion-reduce:transition-none"
-              >
-                <ChevronLeft size={15} />
-                <span className="hidden sm:inline text-xs">Préc.</span>
-              </button>
 
-              <p className="font-mono text-[11px] text-violet-500">
-                {totalVisible} épisode{totalVisible !== 1 ? "s" : ""}
-              </p>
+          {error && (
+            <div className="mb-5 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">{error}</div>
+          )}
+          {langFilter === "vf" && !loading && (
+            <p className="text-[11px] text-violet-500 font-mono mb-4">
+              ℹ Les horaires sont ceux de la diffusion VO.
+            </p>
+          )}
 
-              <button
-                onClick={handleNextDay}
-                disabled={!canNextDay}
-                className="flex items-center gap-1 px-3 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 text-sm text-violet-300 transition-all motion-reduce:transition-none"
-              >
-                <span className="hidden sm:inline text-xs">Suiv.</span>
-                <ChevronRight size={15} />
-              </button>
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-32 gap-3">
+              <Loader2 size={28} className="animate-spin text-violet-400" />
+              <p className="text-sm text-violet-400 font-mono">Chargement du calendrier…</p>
             </div>
+          ) : (
+            <>
+              {/* ── Navigation jours ── */}
+              <div className="flex items-center justify-between mb-3">
+                <button
+                  onClick={handlePrevDay}
+                  disabled={!canPrevDay}
+                  className="flex items-center gap-1 px-3 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 text-sm text-violet-300 transition-all motion-reduce:transition-none"
+                >
+                  <ChevronLeft size={15} />
+                  <span className="hidden sm:inline text-xs">Préc.</span>
+                </button>
 
-            {/* ── Grille jours : 1 col mobile, 3 col desktop ── */}
-            <div
-              key={gridKey}
-              className={`grid gap-3 motion-reduce:animate-none ${slideClass} ${
-                VISIBLE_DAYS === 1 ? "grid-cols-1" : "grid-cols-3"
-              }`}
-            >
-              {visibleDays.map(({ date, entries }, i) => {
-                const isToday   = date.getTime() === todayMidnight;
-                const globalIdx = dayOffset + i;
+                <p className="font-mono text-[11px] text-violet-500">
+                  {totalVisible} épisode{totalVisible !== 1 ? "s" : ""}
+                </p>
 
-                return (
-                  <div
-                    key={globalIdx}
-                    className={`rounded-2xl border overflow-hidden flex flex-col ${
-                      isToday ? "border-amber-400/40 bg-amber-400/5" : "border-white/5 bg-violet-900/20"
-                    }`}
-                  >
-                    {/* En-tête du jour */}
-                    <div className={`px-3 sm:px-4 py-3 border-b ${isToday ? "border-amber-400/20" : "border-white/5"}`}>
-                      <div className="flex items-center justify-between">
-                        <p className={`font-mono text-xs uppercase tracking-widest font-semibold ${isToday ? "text-amber-400" : "text-violet-300"}`}>
-                          {DAY_NAMES[globalIdx]}
+                <button
+                  onClick={handleNextDay}
+                  disabled={!canNextDay}
+                  className="flex items-center gap-1 px-3 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 text-sm text-violet-300 transition-all motion-reduce:transition-none"
+                >
+                  <span className="hidden sm:inline text-xs">Suiv.</span>
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+
+              {/* ── Grille jours ── */}
+              <div
+                key={gridKey}
+                className={`grid gap-3 motion-reduce:animate-none ${slideClass} ${
+                  VISIBLE_DAYS === 1 ? "grid-cols-1" : "grid-cols-3"
+                }`}
+              >
+                {visibleDays.map(({ date, entries }, i) => {
+                  const isToday   = date.getTime() === todayMidnight;
+                  const globalIdx = dayOffset + i;
+
+                  return (
+                    <div
+                      key={globalIdx}
+                      className={`rounded-2xl border overflow-hidden flex flex-col ${
+                        isToday ? "border-amber-400/40 bg-amber-400/5" : "border-white/5 bg-violet-900/20"
+                      }`}
+                    >
+                      <div className={`px-3 sm:px-4 py-3 border-b ${isToday ? "border-amber-400/20" : "border-white/5"}`}>
+                        <div className="flex items-center justify-between">
+                          <p className={`font-mono text-xs uppercase tracking-widest font-semibold ${isToday ? "text-amber-400" : "text-violet-300"}`}>
+                            {DAY_NAMES[globalIdx]}
+                          </p>
+                          {isToday && (
+                            <span className="font-mono text-[8px] bg-amber-400 text-violet-950 px-1.5 py-0.5 rounded-full font-bold animate-glowPulse motion-reduce:animate-none">
+                              Aujourd'hui
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-violet-500 mt-0.5">
+                          {date.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}
                         </p>
-                        {isToday && (
-                          <span className="font-mono text-[8px] bg-amber-400 text-violet-950 px-1.5 py-0.5 rounded-full font-bold animate-glowPulse motion-reduce:animate-none">
-                            Aujourd'hui
-                          </span>
+                      </div>
+
+                      <div className="p-2.5 sm:p-3 flex-1 space-y-2 overflow-y-auto max-h-[60vh] sm:max-h-[70vh]">
+                        {entries.length === 0 ? (
+                          <p className="text-[11px] text-violet-600 font-mono text-center py-8">Aucun épisode</p>
+                        ) : (
+                          entries.map((s) => (
+                            <EpisodeCard
+                              key={s.id}
+                              schedule={s}
+                              showVfBadge={langFilter === "all"}
+                              onClick={() => setSelectedSchedule(s)}
+                              frTitle={tmdbTitles[s.media.id] ?? null}
+                              isFrench={isAvailableInFR(s.media)}
+                              isLoadingTitle={hasTMDB() && !tmdbTitles[s.media.id]}
+                            />
+                          ))
                         )}
                       </div>
-                      <p className="text-xs text-violet-500 mt-0.5">
-                        {date.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}
-                      </p>
                     </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
-                    {/* Liste épisodes */}
-                    <div className="p-2.5 sm:p-3 flex-1 space-y-2 overflow-y-auto max-h-[60vh] sm:max-h-[70vh]">
-                      {entries.length === 0 ? (
-                        <p className="text-[11px] text-violet-600 font-mono text-center py-8">Aucun épisode</p>
-                      ) : (
-                        entries.map((s) => (
-                          <EpisodeCard
-                            key={s.id}
-                            schedule={s}
-                            showVfBadge={langFilter === "all"}
-                            onClick={() => setSelectedSchedule(s)}
-                            frTitle={tmdbTitles[s.media.id] ?? null}
-                            isFrench={isAvailableInFR(s.media)}
-                            isLoadingTitle={hasTMDB() && !tmdbTitles[s.media.id]}
-                          />
-                        ))
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
+        </div>
+      </PullToRefresh>
 
-        {/* ── Modal détail épisode ── */}
-        {selectedSchedule && (
-          <EpisodeDetailModal
-            schedule={selectedSchedule}
-            initialFrTitle={tmdbTitles[selectedSchedule.media.id] ?? null}
-            hasFrFromTmdb={!!tmdbFrAvailable[selectedSchedule.media.id]}
-            onClose={() => setSelectedSchedule(null)}
-          />
-        )}
-
-      </div>
+      {/* ── Modal détail épisode (hors PullToRefresh pour éviter les conflits de touch) ── */}
+      {selectedSchedule && (
+        <EpisodeDetailModal
+          schedule={selectedSchedule}
+          initialFrTitle={tmdbTitles[selectedSchedule.media.id] ?? null}
+          hasFrFromTmdb={!!tmdbFrAvailable[selectedSchedule.media.id]}
+          onClose={() => setSelectedSchedule(null)}
+        />
+      )}
     </div>
   );
 }

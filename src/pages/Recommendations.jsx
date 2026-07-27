@@ -5,9 +5,10 @@ import { useLibrary } from "../context/LibraryContext";
 import { BurgerMenu } from "../components/common/BurgerMenu";
 import { TitleFormModal } from "../components/Modal/TitleFormModal";
 import { SynopsisModal }  from "../components/common/SynopsisModal";
+import { PullToRefresh }  from "../components/common/PullToRefresh";
 import { fetchAniListRecommendations } from "../api/recommendations";
 import { importResult } from "../api";
-import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
+import { getCached, getStaleCached, setCached, removeCached, TTL } from "../lib/cache";
 import { toEnglishGenres } from "../utils/genres";
 
 function normalizeSeriesTitle(title) {
@@ -58,18 +59,9 @@ export function Recommendations() {
   const [editingEntry, setEditingEntry] = useState(null);
   const [synopsisRec,  setSynopsisRec]  = useState(null);
 
-  /**
-   * Calcul des genres les plus fréquents dans la bibliothèque.
-   *
-   * CORRECTIF : on inclut tous les statuts (pas seulement "termine"/"en-cours")
-   * en les pondérant — un titre terminé/en-cours compte double, un titre
-   * "à voir" compte 1. Cela évite d'avoir topGenres vide si l'utilisateur
-   * n'a encore terminé aucun titre.
-   */
   const topGenres = useMemo(() => {
     const tally = {};
     entries.forEach((e) => {
-      // Les titres terminés ou en cours ont plus de poids (goûts confirmés)
       const weight = (e.status === "termine" || e.status === "en-cours") ? 2 : 1;
       (e.genres || []).forEach((g) => { tally[g] = (tally[g] || 0) + weight; });
     });
@@ -79,26 +71,18 @@ export function Recommendations() {
       .map(([g]) => g);
   }, [entries]);
 
-  /**
-   * CORRECTIF MAJEUR : les genres sont stockés en français dans la bibliothèque
-   * (via translateGenres lors de l'import), mais AniList attend des genres en anglais.
-   * On les reconvertit avec toEnglishGenres avant de les envoyer à l'API.
-   */
   const topGenresEN = useMemo(() => toEnglishGenres(topGenres), [topGenres]);
+  const libraryIds  = useMemo(() => new Set(entries.flatMap((e) => e.anilistIds || [])), [entries]);
 
-  const libraryIds = useMemo(() => new Set(entries.flatMap((e) => e.anilistIds || [])), [entries]);
-
-  // La clé de cache utilise les genres EN anglais pour éviter des collisions
-  // avec l'ancien cache (genres en français → résultats vides).
   const cacheKey = useMemo(
     () => `recs_en_${[...topGenresEN].sort().join("_")}`,
     [topGenresEN]
   );
 
+  // ── Fetch initial (avec cache) ─────────────────────────────────────────────
   useEffect(() => {
     if (!topGenresEN.length) { setLoading(false); return; }
 
-    // 1. Cache valide → affichage immédiat
     const cached = getCached(cacheKey);
     if (cached) {
       setRecs(cached);
@@ -107,7 +91,6 @@ export function Recommendations() {
       return;
     }
 
-    // 2. Fetch réseau avec les genres en anglais
     setLoading(true);
     setError("");
     setIsStale(false);
@@ -119,7 +102,6 @@ export function Recommendations() {
         setLoading(false);
       })
       .catch(() => {
-        // 3. Fallback cache périmé (hors-ligne)
         const stale = getStaleCached(cacheKey);
         if (stale) {
           setRecs(stale);
@@ -131,6 +113,31 @@ export function Recommendations() {
         }
       });
   }, [cacheKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * handlePullRefresh — déclenché par le pull-to-refresh.
+   * Invalide le cache et refetch sans passer en mode "loading" complet
+   * (le contenu actuel reste visible pendant que l'indicateur PTR tourne).
+   */
+  async function handlePullRefresh() {
+    if (!topGenresEN.length) return;
+    removeCached(cacheKey);
+    setError("");
+    setIsStale(false);
+    try {
+      const data = await fetchAniListRecommendations(topGenresEN, [...libraryIds]);
+      setCached(cacheKey, data, TTL.RECOMMENDATIONS);
+      setRecs(data);
+    } catch {
+      const stale = getStaleCached(cacheKey);
+      if (stale) {
+        setRecs(stale);
+        setIsStale(true);
+      } else {
+        setError("Impossible de charger les recommandations. Vérifie ta connexion.");
+      }
+    }
+  }
 
   const dedupedRecs = useMemo(() => {
     const seen = new Set();
@@ -157,61 +164,68 @@ export function Recommendations() {
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-8 pt-safe-8">
 
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 transition-colors mb-2">
-              <ChevronLeft size={16} /> Retour
-            </button>
-            <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">Basé sur tes goûts</p>
-            <h1 className="text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Recommandations</h1>
+      {/*
+       * PullToRefresh wrappe uniquement le contenu scrollable (pas les modales).
+       * handlePullRefresh invalide le cache et refetch sans bloquer l'affichage.
+       */}
+      <PullToRefresh onRefresh={handlePullRefresh}>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-8 pt-safe-8">
+
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 transition-colors mb-2">
+                <ChevronLeft size={16} /> Retour
+              </button>
+              <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">Basé sur tes goûts</p>
+              <h1 className="text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Recommandations</h1>
+            </div>
+            <BurgerMenu />
           </div>
-          <BurgerMenu />
+
+          {topGenres.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-5">
+              <span className="text-[11px] text-violet-400 font-mono uppercase tracking-wide self-center">Basé sur :</span>
+              {topGenres.map((g) => (
+                <span key={g} className="px-2.5 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[11px] font-mono">{g}</span>
+              ))}
+            </div>
+          )}
+
+          {isStale && (
+            <div className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 text-sm animate-fadeIn">
+              <WifiOff size={14} className="flex-shrink-0" />
+              <span>Mode hors-ligne — données mises en cache affichées.</span>
+            </div>
+          )}
+
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-32 gap-3">
+              <Loader2 size={28} className="animate-spin text-violet-400" />
+              <p className="text-sm text-violet-400 font-mono">Recherche de recommandations…</p>
+            </div>
+          ) : error ? (
+            <div className="text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">{error}</div>
+          ) : topGenres.length === 0 ? (
+            <div className="text-center py-20 rounded-2xl border border-dashed border-white/10">
+              <Film size={32} className="text-violet-500 mx-auto mb-3" />
+              <p className="text-violet-300 mb-1">Pas encore assez de données</p>
+              <p className="text-sm text-violet-500">Ajoute des titres à ta bibliothèque pour recevoir des recommandations personnalisées.</p>
+            </div>
+          ) : dedupedRecs.length === 0 ? (
+            <div className="text-center py-20">
+              <p className="text-violet-400">Aucune recommandation trouvée pour ces genres.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 sm:gap-3">
+              {dedupedRecs.map((rec) => (
+                <RecCard key={rec.id} rec={rec} onClick={() => setSynopsisRec(rec)} />
+              ))}
+            </div>
+          )}
+
         </div>
-
-        {topGenres.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-5">
-            <span className="text-[11px] text-violet-400 font-mono uppercase tracking-wide self-center">Basé sur :</span>
-            {topGenres.map((g) => (
-              <span key={g} className="px-2.5 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[11px] font-mono">{g}</span>
-            ))}
-          </div>
-        )}
-
-        {/* Bandeau hors-ligne */}
-        {isStale && (
-          <div className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 text-sm animate-fadeIn">
-            <WifiOff size={14} className="flex-shrink-0" />
-            <span>Mode hors-ligne — données mises en cache affichées.</span>
-          </div>
-        )}
-
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-32 gap-3">
-            <Loader2 size={28} className="animate-spin text-violet-400" />
-            <p className="text-sm text-violet-400 font-mono">Recherche de recommandations…</p>
-          </div>
-        ) : error ? (
-          <div className="text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">{error}</div>
-        ) : topGenres.length === 0 ? (
-          <div className="text-center py-20 rounded-2xl border border-dashed border-white/10">
-            <Film size={32} className="text-violet-500 mx-auto mb-3" />
-            <p className="text-violet-300 mb-1">Pas encore assez de données</p>
-            <p className="text-sm text-violet-500">Ajoute des titres à ta bibliothèque pour recevoir des recommandations personnalisées.</p>
-          </div>
-        ) : dedupedRecs.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-violet-400">Aucune recommandation trouvée pour ces genres.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 sm:gap-3">
-            {dedupedRecs.map((rec) => (
-              <RecCard key={rec.id} rec={rec} onClick={() => setSynopsisRec(rec)} />
-            ))}
-          </div>
-        )}
-      </div>
+      </PullToRefresh>
 
       {synopsisRec && (
         <SynopsisModal
