@@ -8,7 +8,7 @@ import { TitleFormModal }          from "../components/Modal/TitleFormModal";
 import { STATUS, seasonTotals }    from "../utils/status";
 import { useLibrary }              from "../context/LibraryContext";
 import { fetchSeasonInfo, importResult, refreshEntryCard } from "../api";
-import { fetchAniListRecommendations }   from "../api/recommendations";
+import { fetchAniListRecommendations, fetchSimilarTitles } from "../api/recommendations";
 import { SynopsisModal }  from "../components/common/SynopsisModal";
 import { AddToListModal } from "../components/common/AddToListModal";
 import { useLists }       from "../context/ListsContext";
@@ -138,11 +138,17 @@ export function Details() {
   }, [entry?.id, activeTVIdx]); // eslint-disable-line
 
   useEffect(() => {
-    if (!entry || entry.type !== "anime" || !entry.genres?.length) { setRecs([]); return; }
+    if (!entry || entry.type !== "anime") { setRecs([]); return; }
     let cancelled = false;
     setLoadingRecs(true); setRecs([]);
-    const excludeIds = entries.flatMap(e => e.anilistIds || []);
-    fetchAniListRecommendations(entry.genres, excludeIds).then(results => {
+    const excludeIds  = entries.flatMap(e => e.anilistIds || []);
+    const anilistId    = entry.anilistIds?.[0] ?? entry.seasons?.find(s => s.anilistId)?.anilistId ?? null;
+
+    const fetchPromise = anilistId
+      ? fetchSimilarTitles(anilistId, excludeIds)
+      : (entry.genres?.length ? fetchAniListRecommendations(entry.genres, excludeIds) : Promise.resolve([]));
+
+    fetchPromise.then(results => {
       if (!cancelled) { setRecs(results.slice(0, 20)); setLoadingRecs(false); }
     });
     return () => { cancelled = true; };
@@ -210,15 +216,15 @@ export function Details() {
         {
           ...entry,
           seasons: result.seasons,
-          ...(result.anilistIds ? { anilistIds: result.anilistIds } : {}),
+          ...(result.anilistIds?.length ? { anilistIds: result.anilistIds } : {}),
         },
         entry.id
       );
       setRefreshResult({ status: "success", newCount: result.newCount });
       setTimeout(() => setRefreshResult(null), 5000);
-    } catch (_) {
-      setRefreshResult({ status: "error" });
-      setTimeout(() => setRefreshResult(null), 5000);
+    } catch (err) {
+      setRefreshResult({ status: "error", message: err?.message });
+      setTimeout(() => setRefreshResult(null), 6000);
     }
     finally { setRefreshingCard(false); }
   }
@@ -383,7 +389,7 @@ export function Details() {
                 : <Check size={12} className="flex-shrink-0" />}
             <span className="flex-1">
               {refreshResult.status === "error"
-                ? "Échec de l'actualisation — vérifie ta connexion et réessaie."
+                ? (refreshResult.message || "Échec de l'actualisation — vérifie ta connexion et réessaie.")
                 : refreshResult.status === "unsupported"
                   ? "Ce titre ne peut pas être actualisé automatiquement (source non reconnue)."
                   : refreshResult.newCount > 0

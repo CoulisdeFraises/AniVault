@@ -23,7 +23,7 @@ function getResumeStatus(entry) {
 const SWIPE_THRESHOLD = 72;
 const LONG_PRESS_MS   = 500;
 
-export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
+export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = false }) {
   const { markDone, deleteEntry, saveEntry, updateRating } = useLibrary();
   const { isInFavorites, toggleFavorite } = useLists();
   const isFavorite = isInFavorites(entry.id);
@@ -304,7 +304,11 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
             transform:  `translateX(${swipeX}px)`,
             transition: isSwiping ? "none" : "transform 0.35s cubic-bezier(0.34,1.56,0.64,1)",
           }}
-          className="relative card-noise rounded-2xl overflow-hidden bg-violet-900/30 border-t border-r border-b border-white/5 p-3 sm:p-4 flex gap-2 sm:gap-3 cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:shadow-violet-950/60 hover:bg-violet-800/40"
+          className={`relative card-noise rounded-2xl overflow-hidden bg-violet-900/30 p-3 sm:p-4 flex gap-2 sm:gap-3 cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:shadow-violet-950/60 hover:bg-violet-800/40 transition-shadow motion-reduce:transition-none ${
+            isAiring
+              ? "border border-teal-400/60 shadow-[0_0_14px_-2px_rgba(45,212,191,0.55)]"
+              : "border-t border-r border-b border-white/5"
+          }`}
         >
           <div className="absolute inset-y-0 left-0 w-[3px] rounded-l-2xl"
             style={{ background: `linear-gradient(to bottom,${s.color},${s.color}70,${s.color}10)` }} />
@@ -442,7 +446,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
         {/* ── Menu long-press ── */}
         {longPressMenu && (
           <div
-            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/85 backdrop-blur-xl flex flex-col items-center justify-center gap-2 p-4 animate-fadeIn"
+            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/70 backdrop-blur-xl flex flex-col items-center justify-center gap-2 p-4 animate-fadeIn"
             onClick={e => e.stopPropagation()}
           >
             <p className="font-mono text-xs uppercase tracking-widest text-white/90 mb-1 truncate max-w-full px-2 text-center">
@@ -486,7 +490,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
         {/* ── Panneau swipe droite : Note / Favori ── */}
         {showQuickRate && (
           <div
-            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/85 backdrop-blur-xl flex flex-col items-center justify-center gap-3 p-4 animate-fadeIn"
+            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/70 backdrop-blur-xl flex flex-col items-center justify-center gap-3 p-4 animate-fadeIn"
             onClick={e => e.stopPropagation()}
           >
             <p className="font-mono text-xs uppercase tracking-widest text-white/90 truncate max-w-full px-2 text-center">

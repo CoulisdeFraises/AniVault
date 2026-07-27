@@ -84,9 +84,22 @@ export async function importResult(result) {
  */
 export async function refreshEntryCard(entry) {
   // ── AniList ──────────────────────────────────────────────────────────────
-  if (entry.source === "anilist" && entry.anilistIds?.length) {
-    const { seasons: freshSeasons, anilistIds: freshIds } =
-      await fetchAniListFranchise(entry.anilistIds[0]);
+  if (entry.source === "anilist") {
+    // anilistIds[0] est la source normale ; si elle a été vidée par un bug
+    // passé, on retente de repartir d'un anilistId retrouvé sur une saison.
+    const seedId = entry.anilistIds?.[0] ?? entry.seasons?.find((s) => s.anilistId)?.anilistId ?? null;
+    if (!seedId) {
+      throw new Error("Ce titre a perdu son lien AniList. Supprime-le puis rajoute-le depuis la recherche pour le relier à nouveau.");
+    }
+
+    const { seasons: freshSeasons, anilistIds: freshIds } = await fetchAniListFranchise(seedId);
+
+    // Garde-fou : si AniList ne renvoie rien alors qu'on avait déjà des
+    // saisons, on n'écrase pas les données existantes — mieux vaut échouer
+    // proprement (l'utilisateur peut réessayer) que de tout remettre à 0.
+    if (!freshSeasons.length && entry.seasons?.length) {
+      throw new Error("AniList n'a renvoyé aucune saison — actualisation annulée pour ne pas écraser tes données. Réessaie dans un instant.");
+    }
 
     const existingByAnilistId = new Map(
       entry.seasons.filter((s) => s.anilistId).map((s) => [s.anilistId, s])
@@ -216,7 +229,7 @@ export async function findNextSeason(entry) {
 const NEXT_AIRING_TTL = 5 * 60 * 1000;
 export async function fetchNextAiring(entry) {
   const key = entry.source === "anilist"
-    ? `next-airing:anilist:${entry.anilistIds?.[entry.anilistIds.leng- 1]}`
+    ? `next-airing:anilist:${entry.anilistIds?.[entry.anilistIds.length - 1]}`
     : entry.source === "tvmaze" ? `next-airing:tvmaze:${entry.tvmazeId}` : null;
   if (!key) return null;
   return withCache(key, NEXT_AIRING_TTL, async () => {

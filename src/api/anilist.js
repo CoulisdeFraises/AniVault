@@ -1,11 +1,54 @@
-async function anilistQuery(query, variables) {
-  const res = await fetch("https://graphql.anilist.co", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ query, variables }),
-  });
-  if (!res.ok) throw new Error("anilist error");
-  return res.json();
+import { cacheGet, cacheSet } from "../services/cache";
+
+const ANILIST_QUERY_TTL = 10 * 60 * 1000; // 10 min — assez pour éviter les doublons dans une session, sans figer les données trop longtemps
+
+// Petit hash stable (djb2) pour garder des clés de cache compactes
+function hashKey(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h * 33) ^ str.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
+async function anilistFetch(query, variables, attempt = 0) {
+  let res;
+  try {
+    res = await fetch("https://graphql.anilist.co", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ query, variables }),
+    });
+  } catch {
+    throw new Error("Impossible de joindre AniList. Vérifie ta connexion.");
+  }
+  if (res.status === 429) {
+    if (attempt >= 4) throw new Error("AniList est temporairement saturé. Réessaie dans quelques instants.");
+    await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+    return anilistFetch(query, variables, attempt + 1);
+  }
+  if (!res.ok) throw new Error(`AniList a répondu avec une erreur (${res.status}).`);
+  const j = await res.json();
+  if (j.errors?.length) throw new Error(j.errors[0].message || "Erreur GraphQL AniList.");
+  return j;
+}
+
+/**
+ * anilistQuery — point d'entrée unique pour toutes les requêtes AniList de l'app.
+ *
+ * Ajoute un cache partagé (mémoire + localStorage, via services/cache.js) par
+ * couple (query, variables) : deux appels identiques dans la fenêtre de TTL
+ * ne déclenchent qu'une seule requête réseau. Utile car un même titre est
+ * souvent refetché depuis plusieurs endroits (chaîne de saisons, extras,
+ * recommandations similaires…) au cours d'une même session.
+ *
+ * N'est jamais mis en cache en cas d'erreur : le prochain appel retentera.
+ */
+export async function anilistQuery(query, variables) {
+  const key = "anilist_q_" + hashKey(query + JSON.stringify(variables || {}));
+  const cached = cacheGet(key, ANILIST_QUERY_TTL);
+  if (cached !== undefined) return cached;
+  const json = await anilistFetch(query, variables);
+  cacheSet(key, json);
+  return json;
 }
 
 export async function searchAniList(q) {
@@ -73,8 +116,7 @@ export async function fetchAniListFranchise(startId) {
 
   async function followTVChain(id, visited = new Set()) {
     if (!id || visited.has(id)) return []; visited.add(id);
-    let json;
-    try { json = await anilistQuery(FULL_QUERY, { id }); } catch { return []; }
+    const json = await anilistQuery(FULL_QUERY, { id }); // laisse remonter les erreurs (429, réseau…)
     const m = json.data?.Media; if (!m) return [];
     const fmt  = m.format ?? "TV";
     const isTV = TV_FORMATS.has(fmt);
@@ -93,14 +135,12 @@ export async function fetchAniListFranchise(startId) {
   const extrasMap = new Map();
   async function fetchOneExtra(id, formatHint) {
     if (extrasMap.has(id)) return;
-    try {
-      const json = await anilistQuery(FULL_QUERY, { id });
-      const m = json.data?.Media; if (!m) return;
-      extrasMap.set(id, {
-        anilistId: id, format: m.format ?? formatHint, title: parseTitle(m),
-        totalEpisodes: parseEps(m), coverImage: m.coverImage?.large ?? null,
-      });
-    } catch {}
+    const json = await anilistQuery(FULL_QUERY, { id }); // laisse remonter les erreurs (429, réseau…)
+    const m = json.data?.Media; if (!m) return;
+    extrasMap.set(id, {
+      anilistId: id, format: m.format ?? formatHint, title: parseTitle(m),
+      totalEpisodes: parseEps(m), coverImage: m.coverImage?.large ?? null,
+    });
   }
 
   /**

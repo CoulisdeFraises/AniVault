@@ -12,9 +12,11 @@ import { useLists, HIDDEN_LIST_ID } from "../context/ListsContext";
 import { useSync }          from "../hooks/useSync";
 import {
   Film, Tv, ListPlus, X, Heart, Eye, EyeOff,
-  ChevronDown,
+  ChevronDown, CalendarDays,
 } from "lucide-react";
 import { ContinueWatching } from "../components/common/ContinueWatching";
+import { fetchWeeklySchedule } from "../api/anilist";
+import { getCached, setCached, getStaleCached, TTL } from "../lib/cache";
 
 // ── Modal de choix "Ajouter quoi ?" ──────────────────────────────────────────
 function AddChoiceModal({ onAddTitle, onCreateList, onClose }) {
@@ -110,6 +112,8 @@ export function Home() {
   const [editingEntry,      setEditingEntry]      = useState(null);
   const [showAddChoice,     setShowAddChoice]     = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [showCalendarOnly,  setShowCalendarOnly]  = useState(false);
+  const [airingIds,         setAiringIds]         = useState(new Set());
   const [cachetteOpen,      setCachetteOpen]      = useState(false);
   const [cachetteRevealed,  setCachetteRevealed]  = useState(false);
 
@@ -127,6 +131,34 @@ export function Home() {
       return () => clearTimeout(t);
     }
   }, [loading]); // eslint-disable-line
+
+  // ── Titres "dans le calendrier" (diffusés cette semaine) ────────────────────
+  // Réutilise la même clé de cache que Calendar.jsx (offset 0) pour éviter un
+  // second appel réseau si l'utilisateur a déjà visité le calendrier récemment.
+  useEffect(() => {
+    let cancelled = false;
+    const cacheKey = "calendar_week_0";
+
+    function applySchedules(schedules) {
+      if (cancelled) return;
+      setAiringIds(new Set((schedules || []).map((s) => String(s.media?.id)).filter(Boolean)));
+    }
+
+    const cached = getCached(cacheKey);
+    if (cached) { applySchedules(cached.schedules); return; }
+
+    fetchWeeklySchedule(0)
+      .then(({ schedules, monday }) => {
+        setCached(cacheKey, { schedules, monday }, TTL.CALENDAR);
+        applySchedules(schedules);
+      })
+      .catch(() => {
+        const stale = getStaleCached(cacheKey);
+        if (stale) applySchedules(stale.schedules);
+      });
+
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (sortBy === "cachette" && hiddenFullEntries.length > 0) {
@@ -160,17 +192,23 @@ export function Home() {
     () => typeFilter === "all" ? visibleEntries : visibleEntries.filter((e) => e.type === typeFilter),
     [visibleEntries, typeFilter]);
 
+  const isAiringThisWeek = useCallback(
+    (e) => (e.anilistIds || []).some((id) => airingIds.has(String(id))),
+    [airingIds]
+  );
+
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return byType.filter((e) => {
-      const statusOk = selectedStatuses.length === 0 || selectedStatuses.includes(e.status);
-      const favOk    = !showFavoritesOnly || favoritesEntryIds.has(e.id);
+      const statusOk   = selectedStatuses.length === 0 || selectedStatuses.includes(e.status);
+      const favOk      = !showFavoritesOnly || favoritesEntryIds.has(e.id);
+      const calendarOk = !showCalendarOnly  || isAiringThisWeek(e);
       const searchOk = !q || e.title.toLowerCase().includes(q)
         || (e.genres || []).some((g) => g.toLowerCase().includes(q))
         || (e.notes || "").toLowerCase().includes(q);
-      return statusOk && favOk && searchOk;
+      return statusOk && favOk && calendarOk && searchOk;
     });
-  }, [byType, selectedStatuses, searchQuery, showFavoritesOnly, favoritesEntryIds]);
+  }, [byType, selectedStatuses, searchQuery, showFavoritesOnly, favoritesEntryIds, showCalendarOnly, isAiringThisWeek]);
 
   const sorted = useMemo(() => sortEntries(filtered, sortBy), [filtered, sortBy]);
 
@@ -182,7 +220,7 @@ export function Home() {
   const handleCreateList = () => { setShowAddChoice(false); navigate("/lists"); };
 
   const isSearchActive = searchQuery.trim().length > 0;
-  const gridKey = `${typeFilter}-${selectedStatuses.join(",")}-${searchQuery}-${showFavoritesOnly}-${sortBy}`;
+  const gridKey = `${typeFilter}-${selectedStatuses.join(",")}-${searchQuery}-${showFavoritesOnly}-${showCalendarOnly}-${sortBy}`;
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50 flex flex-col"
@@ -216,6 +254,18 @@ export function Home() {
                   : "bg-white/5 border-white/10 text-violet-400 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400"}`}
             >
               <Heart size={12} fill={showFavoritesOnly ? "currentColor" : "none"} /> Favoris
+            </button>
+
+            {/* Dans le calendrier */}
+            <button
+              onClick={() => setShowCalendarOnly(v => !v)}
+              disabled={airingIds.size === 0}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono border
+                transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${showCalendarOnly
+                  ? "bg-teal-500/20 border-teal-500/40 text-teal-300"
+                  : "bg-white/5 border-white/10 text-violet-400 hover:bg-teal-500/10 hover:border-teal-500/30 hover:text-teal-400"}`}
+            >
+              <CalendarDays size={12} /> Cette semaine
             </button>
 
             {/* Tri — liste déroulante */}
@@ -279,7 +329,7 @@ export function Home() {
                     Animes · {filteredAnime.length}
                   </p>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    {filteredAnime.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} />)}
+                    {filteredAnime.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />)}
                   </div>
                 </section>
               )}
@@ -289,14 +339,14 @@ export function Home() {
                     Séries · {filteredSerie.length}
                   </p>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    {filteredSerie.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} />)}
+                    {filteredSerie.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />)}
                   </div>
                 </section>
               )}
             </div>
           ) : (
             <div key={gridKey} className="grid grid-cols-1 lg:grid-cols-2 gap-3 animate-fadeIn">
-              {sorted.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} />)}
+              {sorted.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />)}
             </div>
           )}
 
@@ -330,7 +380,7 @@ export function Home() {
                   <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
                     {hiddenFullEntries.map((e, i) => (
                       <div key={e.id} className={`transition-all duration-500 ${cachetteRevealed ? "" : "blur-sm hover:blur-none"}`}>
-                        <Card entry={e} onEdit={openEditForm} index={i} />
+                        <Card entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />
                       </div>
                     ))}
                   </div>

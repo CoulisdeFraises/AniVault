@@ -132,25 +132,27 @@ export function BurgerMenu() {
 
   return (
     <>
-      {location.pathname !== "/" && (
+      <div className="flex items-center rounded-xl bg-violet-900/40 border border-white/10 overflow-hidden flex-shrink-0">
+        {location.pathname !== "/" && (
+          <button
+            onClick={() => navigate("/")}
+            aria-label="Retour à l'accueil"
+            title="Accueil"
+            className="h-9 w-9 flex items-center justify-center border-r border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
+          >
+            <Home size={16} className="text-violet-400" />
+          </button>
+        )}
         <button
-          onClick={() => navigate("/")}
-          aria-label="Retour à l'accueil"
-          title="Accueil"
-          className="h-9 w-9 flex items-center justify-center rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
+          ref={buttonRef}
+          onClick={menuOpen ? closeMenu : openMenu}
+          aria-label="Menu"
+          aria-expanded={menuOpen}
+          className="h-9 w-9 flex items-center justify-center hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
         >
-          <Home size={16} className="text-violet-400" />
+          <Menu size={16} className="text-violet-400" />
         </button>
-      )}
-      <button
-        ref={buttonRef}
-        onClick={menuOpen ? closeMenu : openMenu}
-        aria-label="Menu"
-        aria-expanded={menuOpen}
-        className="h-9 w-9 flex items-center justify-center rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
-      >
-        <Menu size={16} className="text-violet-400" />
-      </button>
+      </div>
 
       {menuOpen && createPortal(dropdown, document.body)}
       {exportImportOpen && <ExportImportModal onClose={() => setExportImportOpen(false)} />}
