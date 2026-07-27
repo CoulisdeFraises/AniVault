@@ -22,13 +22,29 @@ export async function searchAniList(q) {
 
 // -----------------------------------------------------------------------------
 // fetchAniListFranchise — récupère la franchise complète.
-// (voir commentaires inline pour la logique Phase 1/2/3)
+//
+// CORRECTIF BUG FILMS PARASITES :
+//   Avant : collectExtras() suivait récursivement les relations des extras eux-mêmes
+//   (OVA → ses propres relations → autres franchises via ALTERNATIVE/SPIN_OFF...).
+//   En quelques sauts dans le graphe AniList on pouvait arriver sur des œuvres
+//   totalement non liées (ex: Mayonaka Punch → Professeur Layton).
+//
+//   Maintenant :
+//   1. EXTRAS_REL ne contient plus SPIN_OFF / ALTERNATIVE_SETTING / ALTERNATIVE
+//      (ces types relient des franchises DIFFÉRENTES, pas des extras du même titre).
+//   2. La phase récursive est supprimée : on ne parcourt que les relations directes
+//      depuis la chaîne TV principale, sans suivre les relations des extras trouvés.
 // -----------------------------------------------------------------------------
 export async function fetchAniListFranchise(startId) {
   const NON_TV     = new Set(["OVA", "ONA", "MOVIE", "SPECIAL", "MUSIC"]);
   const TV_FORMATS = new Set(["TV", "TV_SHORT"]);
-  const EXTRAS_REL = new Set(["SEQUEL", "SIDE_STORY", "PREQUEL", "OTHER", "SUMMARY", "SPIN_OFF", "ALTERNATIVE_SETTING", "ALTERNATIVE"]);
-  const MAX_EXTRAS = 100;
+
+  // Relations valides pour rattacher un extra (OVA/Film/Spécial) à la franchise.
+  // SPIN_OFF, ALTERNATIVE_SETTING, ALTERNATIVE volontairement exclus :
+  // ils désignent des œuvres DISTINCTES, pas des contenus annexes du même titre.
+  const EXTRAS_REL = new Set(["SIDE_STORY", "OTHER", "SUMMARY", "PREQUEL", "SEQUEL"]);
+
+  const MAX_EXTRAS = 30; // réduit pour éviter les graphes trop larges
 
   const FULL_QUERY = `query ($id: Int) { Media(id: $id, type: ANIME) {
     id format episodes title { english romaji }
@@ -80,38 +96,44 @@ export async function fetchAniListFranchise(startId) {
     try {
       const json = await anilistQuery(FULL_QUERY, { id });
       const m = json.data?.Media; if (!m) return;
-      extrasMap.set(id, { anilistId: id, format: m.format ?? formatHint, title: parseTitle(m),
+      extrasMap.set(id, {
+        anilistId: id, format: m.format ?? formatHint, title: parseTitle(m),
         totalEpisodes: parseEps(m), coverImage: m.coverImage?.large ?? null,
-        edges: m.relations?.edges || [] });
+      });
     } catch {}
   }
 
+  /**
+   * collectExtras — récupère OVA / Films / Spéciaux directement liés à la chaîne TV.
+   *
+   * CORRECTIF : on ne parcourt QUE les relations directes des nœuds de la chaîne TV.
+   * On ne suit PAS les relations des extras entre eux (suppression de la récursion)
+   * pour éviter de dériver vers des franchises non liées via des chaînes de relations
+   * AniList indirectes.
+   */
   async function collectExtras(tvChain, tvIds) {
-    const queue = []; const queued = new Set();
-    function enqueue(id, formatHint) {
-      if (!id || tvIds.has(id) || extrasMap.has(id) || queued.has(id)) return;
-      queued.add(id); queue.push({ id, formatHint });
-    }
+    const toFetch = [];
+    const queued  = new Set();
+
+    // Seeding uniquement depuis la chaîne TV principale — pas de récursion ensuite
     for (const node of tvChain) {
       for (const edge of node.edges) {
         if (edge.node.type !== "ANIME") continue;
         if (edge.node.format != null && !NON_TV.has(edge.node.format)) continue;
         if (!EXTRAS_REL.has(edge.relationType)) continue;
-        enqueue(edge.node.id, edge.node.format);
+        const id = edge.node.id;
+        if (!id || tvIds.has(id) || queued.has(id)) continue;
+        queued.add(id);
+        toFetch.push({ id, formatHint: edge.node.format });
+        if (toFetch.length >= MAX_EXTRAS) break;
       }
+      if (toFetch.length >= MAX_EXTRAS) break;
     }
-    while (queue.length > 0 && queued.size <= MAX_EXTRAS) {
-      const batch = queue.splice(0, 5);
+
+    // Fetch en batches — sans re-parcourir les edges des extras
+    for (let i = 0; i < toFetch.length; i += 5) {
+      const batch = toFetch.slice(i, i + 5);
       await Promise.all(batch.map(({ id, formatHint }) => fetchOneExtra(id, formatHint)));
-      for (const { id } of batch) {
-        const data = extrasMap.get(id); if (!data) continue;
-        for (const edge of data.edges) {
-          if (edge.node.type !== "ANIME") continue;
-          if (edge.node.format != null && !NON_TV.has(edge.node.format)) continue;
-          if (!EXTRAS_REL.has(edge.relationType)) continue;
-          enqueue(edge.node.id, edge.node.format);
-        }
-      }
     }
   }
 
@@ -145,8 +167,6 @@ export async function fetchAniListFranchise(startId) {
   const anilistIds = tvOnlyChain.map((m) => m.anilistId);
   return { seasons, anilistIds };
 }
-
-// ── fetchAniListAllSeasons supprimé (code mort — remplacé par fetchAniListFranchise) ──
 
 export async function fetchAniListNextSeason(rootId, currentSeasonCount) {
   const v = new Set(); const all = []; let cur = rootId;
@@ -187,18 +207,14 @@ export async function fetchAniListSeasonData(anilistId) {
 }
 
 // ── File d'attente Jikan ─────────────────────────────────────────────────────
-// Évite les bans 429 quand plusieurs animes sont synchronisés simultanément.
-// Toutes les requêtes Jikan passent par cette chaîne de promesses séquentielle
-// avec un délai de 500 ms entre chaque appel (~2 req/s max).
 let _jikanChain = Promise.resolve();
 
 function jikanFetch(url) {
   const request = _jikanChain.then(async () => {
     const res = await fetch(url);
-    await new Promise((r) => setTimeout(r, 500)); // Pause inter-requêtes
+    await new Promise((r) => setTimeout(r, 500));
     return res;
   });
-  // La chaîne continue même si `request` rejette
   _jikanChain = request.then(() => {}).catch(() => {});
   return request;
 }
@@ -216,6 +232,11 @@ async function fetchJikanEpisodes(malId) {
     } catch { break; }
   }
   return eps;
+}
+
+async function fetchAniListIdMal(id) {
+  const q = `query ($id: Int) { Media(id: $id) { idMal } }`;
+  const j = await anilistQuery(q, { id }); return j.data?.Media?.idMal ?? null;
 }
 
 export async function fetchAniListEpisodesBySeasonId(anilistId) {

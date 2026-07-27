@@ -51,7 +51,12 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
   const filmSeen = movieSeasons.filter(m => m.watchedEpisodes >= (m.totalEpisodes ?? 1)).length;
   const canFinish = entry.status === "en-cours" && tvT != null && tvT > 0 && tvW >= tvT;
 
-  const showUpcoming = useMemo(() => {
+  /**
+   * showEnProduction — vrai si la dernière saison TV a un nombre d'épisodes inconnu.
+   * Ce chip indique que la série est en cours de diffusion/production.
+   * Doit correspondre exactement à la logique de isEnProduction() dans useSync.js.
+   */
+  const showEnProduction = useMemo(() => {
     if (entry.status === "termine" || entry.status === "abandonne") return false;
     if (!tvSeasons.length) return false;
     const lastTV = tvSeasons[tvSeasons.length - 1];
@@ -140,10 +145,11 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
                   <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${s.dot}`} />
                   {s.label}
                 </span>
-                {showUpcoming && (
+                {/* ── Chip "En Production" (anciennement "À venir") ── */}
+                {showEnProduction && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-indigo-400/15 border border-indigo-400/25 text-indigo-300 whitespace-nowrap">
                     <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse flex-shrink-0" />
-                    À venir
+                    En Production
                   </span>
                 )}
               </div>
@@ -184,7 +190,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
             </div>
           )}
 
-          {/* ── Stats de progression — icônes lucide au lieu d'emojis ── */}
+          {/* Stats de progression */}
           <div className={`flex flex-wrap gap-1.5 ${isAbandoned ? dimmed : ""}`}>
             {tvSeasons.length > 0 && (
               <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-violet-300 whitespace-nowrap">
@@ -220,7 +226,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           )}
         </div>
 
-        {/* Note — getRatingEmoji conservé (emojis de note) */}
+        {/* Note */}
         <div className={`flex flex-col items-center justify-center gap-0.5 pl-2 sm:pl-3 border-l border-white/5 min-w-[40px] sm:min-w-[48px] relative z-10 flex-shrink-0 ${dimmed}`}>
           <p className="font-mono text-[9px] uppercase tracking-widest text-violet-400 hidden sm:block">Note</p>
           <div className="flex items-center gap-0.5">
