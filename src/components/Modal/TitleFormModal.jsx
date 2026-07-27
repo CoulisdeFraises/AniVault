@@ -55,7 +55,12 @@ export function TitleFormModal({ editingEntry, onClose }) {
       <Modal onClose={onClose}>
         <form onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit} className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{editingId ? "Modifier le titre" : "Nouveau titre"}</h2>
+            <h2
+              className={`text-lg font-semibold ${editingId ? "text-violet-50" : "text-amber-400"}`}
+              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+            >
+              {editingId ? "Modifier le titre" : "Nouveau titre"}
+            </h2>
             <button type="button" onClick={onClose} className="p-1 rounded-lg hover:bg-white/10" aria-label="Fermer"><X size={18} /></button>
           </div>
 

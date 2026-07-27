@@ -3,12 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Play, Tv, Film, ChevronRight } from "lucide-react";
 import { useLibrary } from "../../context/LibraryContext";
 import { LazyImage } from "./LazyImage";
-
-function getFormatGroup(f) {
-  if (!f || f === "TV" || f === "TV_SHORT") return "tv";
-  if (f === "MOVIE") return "movie";
-  return "extra";
-}
+import { getFormatGroup } from "../../utils/format";
 
 export function ContinueWatching() {
   const { entries } = useLibrary();
