@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+//changement de nom du fichier
 
 const STORAGE_KEY  = "anivault:notifications";
 const MAX_NOTIFS   = 50;
