@@ -27,16 +27,24 @@ export function NotificationPanel() {
   const btnRef    = useRef(null);
   const panelRef  = useRef(null);
   const [open, setOpen] = useState(false);
-  const [pos,  setPos]  = useState({ top: 0, right: 0 });
+  const [pos,  setPos]  = useState({ top: 0, right: 0, maxWidth: 320 });
   const [permGranted, setPermGranted] = useState(
     () => "Notification" in window && Notification.permission === "granted"
   );
 
   function openPanel() {
     const rect = btnRef.current?.getBoundingClientRect();
-    if (rect) setPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    if (rect) {
+      const MARGIN   = 8;
+      const panelW   = Math.min(320, window.innerWidth - MARGIN * 2);
+      // right = distance depuis le bord droit de la fenêtre
+      const rawRight = window.innerWidth - rect.right;
+      // On clamp pour que le panneau ne déborde pas à gauche
+      const clampedRight = Math.max(MARGIN, Math.min(rawRight, window.innerWidth - panelW - MARGIN));
+      setPos({ top: rect.bottom + MARGIN, right: clampedRight, maxWidth: panelW });
+    }
     setOpen(true);
-    if (unreadCount > 0) setTimeout(markAllRead, 800); // marque comme lu après 800ms
+    if (unreadCount > 0) setTimeout(markAllRead, 800);
   }
 
   useEffect(() => {
@@ -67,11 +75,19 @@ export function NotificationPanel() {
   const panel = open && createPortal(
     <div
       ref={panelRef}
-      style={{ position: "fixed", top: pos.top, right: pos.right, zIndex: 9999, width: "20rem" }}
-      className="rounded-2xl bg-violet-900 border border-white/10 shadow-2xl overflow-hidden animate-fadeIn"
+      style={{
+        position: "fixed",
+        top: pos.top,
+        right: pos.right,
+        zIndex: 9999,
+        width: pos.maxWidth,
+        // Hauteur max : ne pas dépasser le bas de l'écran (avec 8px de marge)
+        maxHeight: `calc(100dvh - ${pos.top + 8}px)`,
+      }}
+      className="rounded-2xl bg-violet-900 border border-white/10 shadow-2xl overflow-hidden flex flex-col animate-fadeIn"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
         <div className="flex items-center gap-2">
           <Bell size={14} className="text-amber-400" />
           <p className="font-semibold text-sm text-violet-50">Notifications</p>
@@ -94,7 +110,7 @@ export function NotificationPanel() {
 
       {/* Permission banner */}
       {!permGranted && (
-        <div className="px-4 py-3 border-b border-white/5 bg-amber-400/5">
+        <div className="px-4 py-3 border-b border-white/5 bg-amber-400/5 flex-shrink-0">
           <p className="text-[11px] text-amber-300 mb-2">Active les notifications pour être alerté quand un épisode sort.</p>
           <button onClick={handleRequestPermission}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-400/20 text-amber-300 text-[11px] font-medium hover:bg-amber-400/30 active:scale-95 transition-all">
@@ -103,8 +119,8 @@ export function NotificationPanel() {
         </div>
       )}
 
-      {/* Liste */}
-      <div className="overflow-y-auto max-h-80">
+      {/* Liste — scrollable */}
+      <div className="overflow-y-auto flex-1 overscroll-contain">
         {notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 gap-2">
             <BellOff size={24} className="text-violet-600" />
@@ -131,7 +147,7 @@ export function NotificationPanel() {
 
       {/* Footer */}
       {unreadCount > 0 && (
-        <div className="px-4 py-2.5 border-t border-white/5">
+        <div className="px-4 py-2.5 border-t border-white/5 flex-shrink-0">
           <button onClick={markAllRead}
             className="flex items-center gap-1.5 text-[11px] text-violet-400 hover:text-violet-200 transition-colors font-mono">
             <Check size={11} /> Tout marquer comme lu

@@ -20,13 +20,25 @@ export function ContinueWatching() {
       .filter((e) => e.status === "en-cours")
       .map((e) => {
         const tvSeasons = e.seasons.filter((s) => getFormatGroup(s.format) === "tv");
-        // Saison active = première non terminée
-        const activeSeason = tvSeasons.find(
-          (s) => s.totalEpisodes == null || s.watchedEpisodes < s.totalEpisodes
-        );
+
+        // Saison active = première avec des épisodes disponibles non vus
+        const activeSeason = tvSeasons.find((s) => {
+          // Nombre d'épisodes réellement disponibles (diffusés ou total connu)
+          const available = s.availableEpisodes ?? s.totalEpisodes;
+          // Exclure si 0 épisode disponible
+          if (available === 0) return false;
+          // Inclure si total inconnu (en cours de diffusion) OU s'il reste des épisodes à voir
+          return available == null || s.watchedEpisodes < available;
+        });
+
         if (!activeSeason) return null;
 
-        // Dernière activité (watchHistory)
+        const available  = activeSeason.availableEpisodes ?? activeSeason.totalEpisodes;
+        const nextEpisode = activeSeason.watchedEpisodes + 1;
+
+        // Double-vérification : si on sait qu'il n'y a rien à voir, on exclut
+        if (available != null && nextEpisode > available) return null;
+
         const lastActivity = (e.watchHistory || []).reduce(
           (max, h) => (h.watchedAt > max ? h.watchedAt : max),
           0
@@ -35,7 +47,7 @@ export function ContinueWatching() {
         return {
           entry: e,
           activeSeason,
-          nextEpisode: activeSeason.watchedEpisodes + 1,
+          nextEpisode,
           cover: activeSeason.coverImage || e.coverImage,
           lastActivity,
         };

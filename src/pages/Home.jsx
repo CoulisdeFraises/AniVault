@@ -12,7 +12,7 @@ import { useLists, HIDDEN_LIST_ID } from "../context/ListsContext";
 import { useSync }          from "../hooks/useSync";
 import {
   Film, Tv, ListPlus, X, Heart, Eye, EyeOff,
-  ArrowUpDown, ArrowDownAZ, Star, TrendingUp,
+  ChevronDown,
 } from "lucide-react";
 import { ContinueWatching } from "../components/common/ContinueWatching";
 
@@ -62,14 +62,15 @@ function AddChoiceModal({ onAddTitle, onCreateList, onClose }) {
 
 // ── Options de tri ────────────────────────────────────────────────────────────
 const SORT_OPTIONS = [
-  { key: "date",     label: "Récents",     icon: <ArrowUpDown size={11} /> },
-  { key: "title",    label: "A → Z",       icon: <ArrowDownAZ size={11} /> },
-  { key: "rating",   label: "Note",        icon: <Star size={11} /> },
-  { key: "progress", label: "Progression", icon: <TrendingUp size={11} /> },
+  { key: "date",     label: "Récents"           },
+  { key: "title",    label: "A → Z"             },
+  { key: "rating",   label: "Meilleures notes"  },
+  { key: "progress", label: "Progression"       },
+  { key: "cachette", label: "👀 Cachette secrète" },
 ];
 
 function sortEntries(entries, sortBy) {
-  if (sortBy === "date") return entries;
+  if (sortBy === "date" || sortBy === "cachette") return entries;
   return [...entries].sort((a, b) => {
     if (sortBy === "title")
       return a.title.localeCompare(b.title, "fr", { sensitivity: "base" });
@@ -126,6 +127,16 @@ export function Home() {
       return () => clearTimeout(t);
     }
   }, [loading]); // eslint-disable-line
+
+  useEffect(() => {
+    if (sortBy === "cachette" && hiddenFullEntries.length > 0) {
+      setCachetteOpen(true);
+      // Scroll vers la cachette après un court délai
+      setTimeout(() => {
+        document.getElementById("cachette-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+    }
+  }, [sortBy]); // eslint-disable-line
 
   const hiddenListEntries = useMemo(() => {
     const hidden = lists.find(l => l.id === HIDDEN_LIST_ID);
@@ -195,7 +206,8 @@ export function Home() {
           />
 
           {/* ── Barre de contrôles : Favoris + Tri ── */}
-          <div className="flex items-center gap-2 mt-3 mb-4 flex-wrap">
+          <div className="flex items-center gap-2 mt-3 mb-4">
+            {/* Favoris */}
             <button
               onClick={() => setShowFavoritesOnly(v => !v)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono border
@@ -206,19 +218,26 @@ export function Home() {
               <Heart size={12} fill={showFavoritesOnly ? "currentColor" : "none"} /> Favoris
             </button>
 
-            {/* Tri */}
-            <div className="flex items-center gap-1 ml-auto">
-              {SORT_OPTIONS.map(opt => (
-                <button key={opt.key} onClick={() => setSortBy(opt.key)}
-                  title={opt.label}
-                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-mono border
-                    transition-all active:scale-95 ${sortBy === opt.key
-                      ? "bg-violet-600/60 border-violet-500/40 text-violet-100"
-                      : "bg-white/5 border-white/10 text-violet-500 hover:bg-white/10 hover:text-violet-300"}`}>
-                  {opt.icon}
-                  <span className="hidden sm:inline">{opt.label}</span>
-                </button>
-              ))}
+            {/* Tri — liste déroulante */}
+            <div className="relative ml-auto">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="appearance-none pl-3 pr-8 py-1.5 rounded-full text-[11px] font-mono
+                  bg-white/5 border border-white/10 text-violet-300
+                  hover:bg-white/10 hover:text-violet-100
+                  focus:outline-none focus:border-violet-500/50
+                  transition-all cursor-pointer"
+              >
+                {SORT_OPTIONS.map(opt => (
+                  <option key={opt.key} value={opt.key}
+                    className="bg-violet-900 text-violet-100">
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              {/* Icône chevron */}
+              <ChevronDown size={11} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-violet-500" />
             </div>
           </div>
 
@@ -283,7 +302,7 @@ export function Home() {
 
           {/* ── Cachette secrète ── */}
           {hiddenFullEntries.length > 0 && (
-            <div className="mt-10">
+            <div className="mt-10" id="cachette-section">
               <button onClick={() => setCachetteOpen(v => !v)}
                 className="w-full flex items-center justify-center gap-3 py-3 px-5 rounded-2xl
                   border border-violet-700/30 bg-violet-900/20 hover:bg-violet-900/40 transition-all group">
@@ -295,12 +314,15 @@ export function Home() {
                 </span>
                 {!cachetteOpen && <span className="font-mono text-[10px] text-violet-700 animate-bounce">👀</span>}
               </button>
+
               {cachetteOpen && (
                 <div className="mt-4 rounded-2xl border border-violet-700/20 bg-violet-950/60 overflow-hidden animate-fadeIn">
                   <div className="flex items-center justify-between px-4 py-3 border-b border-violet-800/30">
                     <p className="font-mono text-[10px] uppercase tracking-widest text-violet-600">Contenu secret</p>
                     <button onClick={() => setCachetteRevealed(v => !v)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-mono border transition-all active:scale-95 ${cachetteRevealed ? "bg-pink-500/20 border-pink-500/40 text-pink-300" : "bg-white/5 border-white/10 text-violet-500 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400"}`}>
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-mono border transition-all active:scale-95 ${cachetteRevealed
+                        ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
+                        : "bg-white/5 border-white/10 text-violet-500 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400"}`}>
                       {cachetteRevealed ? <Eye size={11} /> : <EyeOff size={11} />}
                       {cachetteRevealed ? "Flouter" : "Révéler"}
                     </button>
