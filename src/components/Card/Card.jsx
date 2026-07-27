@@ -454,7 +454,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
         {/* ── Menu long-press ── */}
         {longPressMenu && (
           <div
-            className="absolute inset-0 z-30 rounded-2xl bg-violet-950 flex flex-col items-center justify-center gap-2 p-4 animate-fadeIn"
+            className="absolute inset-0 z-30 rounded-2xl bg-violet-950 backdrop-blur-md flex flex-col items-center justify-center gap-2 p-4 animate-fadeIn"
             onClick={e => e.stopPropagation()}
           >
             <p className="font-mono text-xs uppercase tracking-widest text-white/90 mb-1 truncate max-w-full px-2 text-center">

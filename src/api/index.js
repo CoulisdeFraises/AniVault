@@ -216,7 +216,7 @@ export async function findNextSeason(entry) {
 const NEXT_AIRING_TTL = 5 * 60 * 1000;
 export async function fetchNextAiring(entry) {
   const key = entry.source === "anilist"
-    ? `next-airing:anilist:${entry.anilistIds?.[entry.anilistIds.length - 1]}`
+    ? `next-airing:anilist:${entry.anilistIds?.[entry.anilistIds.leng- 1]}`
     : entry.source === "tvmaze" ? `next-airing:tvmaze:${entry.tvmazeId}` : null;
   if (!key) return null;
   return withCache(key, NEXT_AIRING_TTL, async () => {
