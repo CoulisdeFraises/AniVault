@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { useLists }         from "../../context/ListsContext";
 import { ConfirmDialog }    from "../Modal/Modal";
-import { getRatingEmoji }   from "../common/Rating";
+import { StarRating, getRatingEmoji } from "../common/Rating";
 import { STATUS, seasonTotals, formatCountdown } from "../../utils/status";
 import { useLibrary }       from "../../context/LibraryContext";
 import { fetchNextAiring, refreshEntryCard } from "../../api";
@@ -24,8 +24,8 @@ const SWIPE_THRESHOLD = 72;
 const LONG_PRESS_MS   = 500;
 
 export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
-  const { markDone, deleteEntry, saveEntry } = useLibrary();
-  const { isInFavorites } = useLists();
+  const { markDone, deleteEntry, saveEntry, updateRating } = useLibrary();
+  const { isInFavorites, toggleFavorite } = useLists();
   const isFavorite = isInFavorites(entry.id);
   const navigate = useNavigate();
   const location = useLocation();
@@ -41,11 +41,13 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
   }, [tvSeasons]);
 
   // ── State UI ──────────────────────────────────────────────────────────────
-  const [showDel,       setShowDel]       = useState(false);
-  const [showAddToList, setShowAddToList] = useState(false);
-  const [longPressMenu, setLongPressMenu] = useState(false);
-  const [refreshing,    setRefreshing]    = useState(false);
-  const [nextAiring,    setNextAiring]    = useState(null);
+  const [showDel,           setShowDel]           = useState(false);
+  const [showAddToList,     setShowAddToList]     = useState(false);
+  const [longPressMenu,     setLongPressMenu]     = useState(false);
+  const [refreshing,        setRefreshing]        = useState(false);
+  const [nextAiring,        setNextAiring]        = useState(null);
+  const [showQuickRate,     setShowQuickRate]     = useState(false);
+  const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
 
   // ── State swipe ──────────────────────────────────────────────────────────
   const [swipeX,    setSwipeX]    = useState(0);
@@ -67,10 +69,8 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
   const filmSeen = movieSeasons.filter(m => m.watchedEpisodes >= (m.totalEpisodes ?? 1)).length;
   const canFinish = entry.status === "en-cours" && tvT != null && tvT > 0 && tvW >= tvT;
 
-  // Peut-on swiper à droite (+1 épisode) ?
-  const canAddEp = entry.status !== "termine" && entry.status !== "abandonne"
-    && cur != null
-    && (cur.totalEpisodes == null || cur.watchedEpisodes < cur.totalEpisodes);
+  // Swipe droite = note / favori · Swipe gauche = confirmation d'abandon
+  const canSwipeLeft = entry.status !== "abandonne";
 
   const showEnProduction = useMemo(() => {
     if (entry.status === "termine" || entry.status === "abandonne") return false;
@@ -83,17 +83,6 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
   function handleResume(e) {
     e.stopPropagation();
     saveEntry({ ...entry, status: getResumeStatus(entry) }, entry.id);
-  }
-
-  function handleAddEpisode() {
-    if (!cur) return;
-    const gIdx = cur.globalIndex;
-    const updatedSeasons = seasons.map((s, i) => {
-      if (i !== gIdx) return s;
-      const next = (s.watchedEpisodes || 0) + 1;
-      return { ...s, watchedEpisodes: s.totalEpisodes != null ? Math.min(next, s.totalEpisodes) : next };
-    });
-    saveEntry({ ...entry, seasons: updatedSeasons }, entry.id);
   }
 
   function handleAbandon() {
@@ -165,11 +154,11 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
     clearTimeout(ptrRef.current.timer);
     e.currentTarget.releasePointerCapture?.(e.pointerId);
     if (isSwiping) {
-      if (swipeDir === "right" && canAddEp) {
-        handleAddEpisode();
+      if (swipeDir === "right") {
+        setShowQuickRate(true);
         navigator.vibrate?.(30);
-      } else if (swipeDir === "left" && entry.status === "en-cours") {
-        handleAbandon();
+      } else if (swipeDir === "left" && canSwipeLeft) {
+        setShowAbandonConfirm(true);
         navigator.vibrate?.(30);
       }
       setSwipeX(0);
@@ -194,16 +183,17 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
   }
 
   useEffect(() => {
-    if (!longPressMenu) return;
+    if (!longPressMenu && !showQuickRate) return;
     function handleOutside(e) {
       if (cardRef.current && !cardRef.current.contains(e.target)) {
         setLongPressMenu(false);
+        setShowQuickRate(false);
         gesturedRef.current = false;
       }
     }
     document.addEventListener("pointerdown", handleOutside);
     return () => document.removeEventListener("pointerdown", handleOutside);
-  }, [longPressMenu]);
+  }, [longPressMenu, showQuickRate]);
 
   // ── Animations d'entrée ───────────────────────────────────────────────────
   useEffect(() => {
@@ -272,24 +262,22 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
       {/* ── Wrapper relatif pour les couches de swipe ── */}
       <div className="relative select-none" style={{ touchAction: "pan-y" }}>
 
-        {/* Reveal DROITE : +1 épisode (fond vert) */}
-        {canAddEp && (
-          <div
-            className="absolute inset-0 rounded-2xl flex items-center pl-5 pointer-events-none"
-            style={{
-              background: "rgb(52 211 153 / 0.18)",
-              opacity: swipeX > 0 ? swipeRevealOpacity(swipeX, "right") : 0,
-            }}
-          >
-            <div className="flex flex-col items-center gap-0.5">
-              <span className="text-2xl">▶️</span>
-              <span className="font-mono text-[9px] text-emerald-300 uppercase tracking-wide">+1 épisode</span>
-            </div>
+        {/* Reveal DROITE : Note / Favori (fond ambre) */}
+        <div
+          className="absolute inset-0 rounded-2xl flex items-center pl-5 pointer-events-none"
+          style={{
+            background: "rgb(251 191 36 / 0.18)",
+            opacity: swipeX > 0 ? swipeRevealOpacity(swipeX, "right") : 0,
+          }}
+        >
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-2xl">⭐</span>
+            <span className="font-mono text-[9px] text-amber-300 uppercase tracking-wide">Note / Favori</span>
           </div>
-        )}
+        </div>
 
         {/* Reveal GAUCHE : Abandonner (fond rose) */}
-        {entry.status === "en-cours" && (
+        {canSwipeLeft && (
           <div
             className="absolute inset-0 rounded-2xl flex items-center justify-end pr-5 pointer-events-none"
             style={{
@@ -299,7 +287,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
           >
             <div className="flex flex-col items-center gap-0.5">
               <span className="text-2xl">💤</span>
-              <span className="font-mono text-[9px] text-rose-300 uppercase tracking-wide">Abandonner</span>
+              <span className="font-mono text-[9px] text-rose-300 uppercase tracking-wide">Abandonner ?</span>
             </div>
           </div>
         )}
@@ -454,7 +442,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
         {/* ── Menu long-press ── */}
         {longPressMenu && (
           <div
-            className="absolute inset-0 z-30 rounded-2xl bg-violet-950 backdrop-blur-md flex flex-col items-center justify-center gap-2 p-4 animate-fadeIn"
+            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/85 backdrop-blur-xl flex flex-col items-center justify-center gap-2 p-4 animate-fadeIn"
             onClick={e => e.stopPropagation()}
           >
             <p className="font-mono text-xs uppercase tracking-widest text-white/90 mb-1 truncate max-w-full px-2 text-center">
@@ -494,6 +482,39 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
             </button>
           </div>
         )}
+
+        {/* ── Panneau swipe droite : Note / Favori ── */}
+        {showQuickRate && (
+          <div
+            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/85 backdrop-blur-xl flex flex-col items-center justify-center gap-3 p-4 animate-fadeIn"
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="font-mono text-xs uppercase tracking-widest text-white/90 truncate max-w-full px-2 text-center">
+              {entry.title}
+            </p>
+
+            <StarRating value={entry.rating} onChange={r => updateRating(entry.id, r)} />
+
+            <button
+              onClick={() => { toggleFavorite(entry); }}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                isFavorite
+                  ? "bg-pink-500/30 border border-pink-400/50 text-white"
+                  : "bg-white/15 border border-white/25 text-white hover:bg-white/20"
+              }`}
+            >
+              <Heart size={16} fill={isFavorite ? "currentColor" : "none"} className={isFavorite ? "text-pink-200" : "text-white"} />
+              {isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+            </button>
+
+            <button
+              onClick={() => setShowQuickRate(false)}
+              className="mt-1 text-xs text-white/70 hover:text-white transition-colors font-mono"
+            >
+              Fermer
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Modals ── */}
@@ -509,6 +530,16 @@ export const Card = memo(function Card({ entry, onEdit, index = 0 }) {
       )}
       {showAddToList && (
         <AddToListModal entryId={entry.id} onClose={() => setShowAddToList(false)} />
+      )}
+      {showAbandonConfirm && (
+        <ConfirmDialog
+          icon={<RotateCcw size={14} className="text-rose-400" />}
+          title="Abandonner ce titre ?"
+          description={<>Tu pourras reprendre <span className="text-violet-50 font-medium">« {entry.title} »</span> à tout moment depuis la carte.</>}
+          confirmLabel="Abandonner"
+          onConfirm={() => { handleAbandon(); setShowAbandonConfirm(false); }}
+          onCancel={() => setShowAbandonConfirm(false)}
+        />
       )}
     </>
   );
