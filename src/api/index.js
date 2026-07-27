@@ -1,7 +1,7 @@
 import { searchTMDBShow, fetchTMDBSeason } from "./tmdb";
 import {
   searchAniList, fetchAniListFranchise, fetchAniListNextSeason,
-  fetchAniListEpisodeTotal, fetchAniListEpisodesBySeasonId,
+  fetchAniListSeasonData, fetchAniListEpisodesBySeasonId,
   fetchAniListDescription, fetchNextAiringAniList,
 } from "./anilist";
 import {
@@ -88,7 +88,6 @@ export async function refreshEntryCard(entry) {
     const { seasons: freshSeasons, anilistIds: freshIds } =
       await fetchAniListFranchise(entry.anilistIds[0]);
 
-    // Index des saisons existantes par anilistId
     const existingByAnilistId = new Map(
       entry.seasons.filter((s) => s.anilistId).map((s) => [s.anilistId, s])
     );
@@ -96,14 +95,12 @@ export async function refreshEntryCard(entry) {
     const mergedSeasons = freshSeasons.map((freshSeason) => {
       const existing = existingByAnilistId.get(freshSeason.anilistId);
       if (existing) {
-        // Conserver la progression, mettre à jour le total si nouvellement connu
         return {
           ...freshSeason,
           watchedEpisodes: existing.watchedEpisodes,
           totalEpisodes: freshSeason.totalEpisodes ?? existing.totalEpisodes,
         };
       }
-      // Nouvelle saison / OVA / Film
       return { ...freshSeason, watchedEpisodes: 0 };
     });
 
@@ -121,9 +118,7 @@ export async function refreshEntryCard(entry) {
   if (entry.source === "tvmaze" && entry.tvmazeId) {
     const freshTVSeasons = await fetchTVMazeSeasons(entry.tvmazeId);
 
-    // Saisons non-TV existantes (OVA, films ajoutés manuellement) → conservées
     const existingNonTV = entry.seasons.filter((s) => s.format && s.format !== "TV");
-    // Saisons TV existantes indexées par numéro
     const existingTVByNumber = new Map(
       entry.seasons
         .filter((s) => !s.format || s.format === "TV")
@@ -133,14 +128,12 @@ export async function refreshEntryCard(entry) {
     const mergedTVSeasons = freshTVSeasons.map((freshSeason) => {
       const existing = existingTVByNumber.get(freshSeason.number);
       if (existing) {
-        // Conserver progression, mettre à jour total et coverImage
         return {
           ...existing,
           totalEpisodes: freshSeason.totalEpisodes ?? existing.totalEpisodes,
           coverImage: freshSeason.coverImage ?? existing.coverImage,
         };
       }
-      // Nouvelle saison TV
       return { ...freshSeason, format: "TV", watchedEpisodes: 0 };
     });
 
@@ -161,12 +154,9 @@ const SEASON_INFO_TTL = 60 * 60 * 1000;
 /**
  * fetchSeasonInfo — récupère les épisodes et le total d'une saison.
  *
- * CORRECTIFS :
- *  1. Pour AniList : utilise entry.anilistIds[i] en priorité, puis tombe
- *     sur season.anilistId (présent sur TOUTES les saisons, y compris
- *     TV_SHORT / OVA / Films qui ne figurent PAS dans anilistIds).
- *  2. Ne met pas en cache un résultat vide (episodes=[] ET totalEpisodes=null)
- *     afin que le prochain chargement retente l'API.
+ * CORRECTIF : fetchAniListEpisodeTotal a été renommé fetchAniListSeasonData
+ * dans anilist.js (retourne maintenant { malId, totalEpisodes }).
+ * On extrait totalEpisodes depuis l'objet retourné.
  */
 export async function fetchSeasonInfo(entry, seasonIndex) {
   const seasonNumber = entry.seasons[seasonIndex]?.number ?? seasonIndex + 1;
@@ -198,11 +188,12 @@ export async function fetchSeasonInfo(entry, seasonIndex) {
         null;
 
       if (anilistId) {
-        const [episodes, totalEpisodes] = await Promise.all([
+        // fetchAniListSeasonData retourne { malId, totalEpisodes }
+        const [episodes, seasonData] = await Promise.all([
           fetchAniListEpisodesBySeasonId(anilistId),
-          fetchAniListEpisodeTotal(anilistId),
+          fetchAniListSeasonData(anilistId),
         ]);
-        return { episodes, totalEpisodes };
+        return { episodes, totalEpisodes: seasonData.totalEpisodes };
       }
     }
 
