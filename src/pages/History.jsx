@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ChevronLeft, Clock, Tv, Film } from "lucide-react";
 import { useLibrary } from "../context/LibraryContext";
 import { BurgerMenu } from "../components/common/BurgerMenu";
@@ -7,6 +7,7 @@ import { calcWatchTime, groupHistoryByMonth, getRecentHistory } from "../utils/w
 
 export function History() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { entries } = useLibrary();
 
   const watchTime    = useMemo(() => calcWatchTime(entries), [entries]);
@@ -102,7 +103,7 @@ export function History() {
                 return (
                   <div
                     key={i}
-                    onClick={() => navigate(`/details/${item.entry.id}`)}
+                    onClick={() => navigate(`/details/${item.entry.id}`, { state: { backgroundLocation: location } })}
                     className="flex items-center gap-3 px-5 py-3 hover:bg-white/5 cursor-pointer transition-colors"
                   >
                     {item.entry.coverImage ? (

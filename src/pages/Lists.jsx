@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ChevronLeft, Plus, Trash2, Pencil, X, Check, ListPlus, Eye, EyeOff } from "lucide-react";
 import { useLists, HIDDEN_LIST_ID } from "../context/ListsContext";
 import { BurgerMenu } from "../components/common/BurgerMenu";
@@ -33,6 +33,7 @@ function EntryCard({ item, onRemove, blurred = false, onClick }) {
 
 function ListCard({ list, onDelete, onRename, onRemoveEntry }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [expanded, setExpanded] = useState(false);
   const [editing,  setEditing]  = useState(false);
   const [name,     setName]     = useState(list.name);
@@ -114,7 +115,7 @@ function ListCard({ list, onDelete, onRename, onRemoveEntry }) {
                   key={item.entryId}
                   item={item}
                   onRemove={id => onRemoveEntry(list.id, id)}
-                  onClick={() => navigate(`/details/${item.entryId}`)}
+                  onClick={() => navigate(`/details/${item.entryId}`, { state: { backgroundLocation: location } })}
                 />
               ))}
             </div>
@@ -127,6 +128,7 @@ function ListCard({ list, onDelete, onRename, onRemoveEntry }) {
 
 function HiddenListCard({ list, onRemoveEntry }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [expanded, setExpanded] = useState(false);
   const [revealed, setRevealed] = useState(false);
 
@@ -172,7 +174,7 @@ function HiddenListCard({ list, onRemoveEntry }) {
                   item={item}
                   onRemove={id => onRemoveEntry(list.id, id)}
                   blurred={!revealed}
-                  onClick={() => navigate(`/details/${item.entryId}`)}
+                  onClick={() => navigate(`/details/${item.entryId}`, { state: { backgroundLocation: location } })}
                 />
               ))}
             </div>
