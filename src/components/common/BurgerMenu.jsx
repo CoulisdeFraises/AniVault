@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Menu, Home, User, Calendar, Settings, LogOut, Clock, Sparkles, Users, ListPlus } from "lucide-react";
+import { Menu, Home, User, Calendar, Settings, LogOut, Clock, Sparkles, Users, ListPlus, Database } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { ExportImportModal } from "./ExportImportModal";
 
 function getInitials(name) {
   if (!name) return "?";
@@ -19,11 +20,11 @@ export function BurgerMenu() {
   const buttonRef   = useRef(null);
   const dropdownRef = useRef(null);
 
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpen,        setMenuOpen]        = useState(false);
+  const [exportImportOpen, setExportImportOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, right: 0 });
 
-  const avatarColor  = user?.user_metadata?.avatar_color || "#7c3aed";
-  const isOnHomePage = location.pathname === "/";
+  const avatarColor = user?.user_metadata?.avatar_color || "#7c3aed";
 
   function openMenu() {
     const rect = buttonRef.current?.getBoundingClientRect();
@@ -63,15 +64,12 @@ export function BurgerMenu() {
       style={{ position: "fixed", top: pos.top, right: pos.right, zIndex: 9999, width: "14rem" }}
       className="rounded-2xl bg-violet-900 border border-white/10 shadow-2xl overflow-hidden animate-fadeIn"
     >
-      {/* Logo */}
       <div className="flex items-center justify-center px-4 py-3 border-b border-white/5">
         <img src="/logo-wide.png" alt="AniVault" className="h-6 object-contain" />
       </div>
 
-      {/* Avatar + infos */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
           style={{ backgroundColor: avatarColor }}>
           {getInitials(profile)}
         </div>
@@ -81,7 +79,6 @@ export function BurgerMenu() {
         </div>
       </div>
 
-      {/* Navigation */}
       <nav className="py-1">
         {[
           { path: "/",                icon: <Home      size={15} />, label: "Accueil"         },
@@ -110,51 +107,44 @@ export function BurgerMenu() {
         ))}
       </nav>
 
+      {/* Export / Import */}
+      <div className="border-t border-white/5 py-1">
+        <button
+          onClick={() => { closeMenu(); setExportImportOpen(true); }}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-violet-200 hover:bg-white/10 active:bg-white/20 transition-colors motion-reduce:transition-none"
+        >
+          <Database size={15} className="flex-shrink-0 text-violet-400" />
+          Données & Sauvegarde
+        </button>
+      </div>
+
       {/* Déconnexion */}
       <div className="border-t border-white/5 py-1">
         <button
-          onClick={() => { closeMenu(); logout(); }}
+          onClick={() => { closeMenu(); logout(); navigate("/login"); }}
           className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-rose-300 hover:bg-rose-500/10 active:bg-rose-500/20 transition-colors motion-reduce:transition-none"
         >
-          <LogOut size={15} /> Se déconnecter
+          <LogOut size={15} className="flex-shrink-0 text-rose-400" />
+          Déconnexion
         </button>
       </div>
     </div>
   );
 
   return (
-    <div className="flex items-center gap-2">
-
-      {/* ── Bouton Home ── toujours visible, grisé sur la homepage ── */}
-      <button
-        onClick={() => navigate("/")}
-        aria-label="Accueil"
-        disabled={isOnHomePage}
-        className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all motion-reduce:transition-none ${
-          isOnHomePage
-            ? "bg-amber-400/15 border-amber-400/30 text-amber-400 cursor-default"
-            : "bg-violet-900/40 border-white/10 text-violet-300 hover:bg-violet-800/50 hover:text-violet-50 hover:border-white/20 active:scale-95"
-        }`}
-      >
-        <Home size={15} />
-      </button>
-
-      {/* ── Burger Menu ── */}
+    <>
       <button
         ref={buttonRef}
-        onClick={() => (menuOpen ? closeMenu() : openMenu())}
+        onClick={menuOpen ? closeMenu : openMenu}
         aria-label="Menu"
-        className="h-9 flex items-center gap-2 px-2.5 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
+        aria-expanded={menuOpen}
+        className="h-9 w-9 flex items-center justify-center rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
       >
-        <div
-          className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-          style={{ backgroundColor: avatarColor }}>
-          {getInitials(profile)}
-        </div>
-        <Menu size={15} className="text-violet-300" />
+        <Menu size={16} className="text-violet-400" />
       </button>
 
       {menuOpen && createPortal(dropdown, document.body)}
-    </div>
+      {exportImportOpen && <ExportImportModal onClose={() => setExportImportOpen(false)} />}
+    </>
   );
 }

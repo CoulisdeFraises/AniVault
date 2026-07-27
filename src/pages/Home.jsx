@@ -14,6 +14,7 @@ import {
   Film, Tv, ListPlus, X, Heart, Eye, EyeOff,
   ArrowUpDown, ArrowDownAZ, Star, TrendingUp,
 } from "lucide-react";
+import { ContinueWatching } from "../components/common/ContinueWatching";
 
 // ── Modal de choix "Ajouter quoi ?" ──────────────────────────────────────────
 function AddChoiceModal({ onAddTitle, onCreateList, onClose }) {
@@ -228,6 +229,8 @@ export function Home() {
             </div>
           )}
 
+          {/* ── Widget Continuer à regarder ── */}
+          {!loading && <ContinueWatching />}
           {/* ── Contenu ── */}
           {loading ? (
             <SkeletonGrid count={6} />

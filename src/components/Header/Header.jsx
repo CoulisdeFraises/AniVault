@@ -1,10 +1,11 @@
 import { useMemo, useRef, useEffect, useState } from "react";
 import { Plus, Film, Tv, RefreshCw, X, Search } from "lucide-react";
 import { STATUS, STATUS_ORDER } from "../../utils/status";
-import { useLibrary }    from "../../context/LibraryContext";
-import { useCountUp }    from "../../hooks/useCountUp";
-import { BurgerMenu }    from "../common/BurgerMenu";
-import { calcWatchTime } from "../../utils/watchTime";
+import { useLibrary }           from "../../context/LibraryContext";
+import { useCountUp }           from "../../hooks/useCountUp";
+import { BurgerMenu }           from "../common/BurgerMenu";
+import { NotificationPanel }    from "../common/NotificationPanel";  // ← AJOUT
+import { calcWatchTime }        from "../../utils/watchTime";
 
 function FilterChip({ active, onClick, children, colorClass }) {
   return (
@@ -56,11 +57,6 @@ export function Header({
 
   return (
     <>
-      {/* ══ STICKY TOP BAR ════════════════════════════════════════════════
-          FIX : paddingTop utilise env(safe-area-inset-top) pour couvrir
-          le Dynamic Island / notch iOS, tout en conservant au moins py-3
-          (0.75rem) sur les appareils sans encoche.
-      ════════════════════════════════════════════════════════════════════ */}
       <div
         className="sticky top-0 z-40 -mx-4 sm:-mx-6 px-4 sm:px-6 pb-3 mb-6 bg-violet-950/95 backdrop-blur-md border-b border-white/5"
         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
@@ -84,6 +80,8 @@ export function Header({
                 ? <span className="text-xs font-mono text-violet-400 hidden sm:inline">{syncProgress.current}/{syncProgress.total}</span>
                 : <span className="text-xs font-mono text-violet-400 hidden sm:inline">Sync</span>}
             </button>
+            {/* ── Cloche notifications ── */}
+            <NotificationPanel />
             <BurgerMenu />
             <button onClick={onAddClick}
               className="h-9 flex items-center gap-1.5 bg-amber-400 text-violet-950 font-semibold text-sm px-4 rounded-xl hover:bg-amber-300 active:scale-95 transition-all motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
@@ -94,7 +92,7 @@ export function Header({
         </div>
       </div>
 
-      {/* ══ STATS ═════════════════════════════════════════════════════════ */}
+      {/* Stats */}
       {!loading && entries.length > 0 && (
         <div className="rounded-2xl bg-violet-900/30 border border-white/5 mb-6 overflow-hidden">
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
@@ -121,7 +119,7 @@ export function Header({
         </div>
       )}
 
-      {/* ══ RECHERCHE ═════════════════════════════════════════════════════ */}
+      {/* Recherche */}
       <div className="mb-4">
         <div className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl border transition-colors duration-200 motion-reduce:transition-none ${searchFocused ? "bg-violet-900/60 border-violet-500/60 shadow-[0_0_0_3px_rgba(139,92,246,0.15)]" : "bg-violet-900/30 border-white/5 hover:border-white/10"}`}>
           <Search size={15} className={`flex-shrink-0 transition-colors duration-200 motion-reduce:transition-none ${searchFocused || isSearch ? "text-violet-300" : "text-violet-500"}`} />
@@ -141,13 +139,13 @@ export function Header({
         </div>
       </div>
 
-      {/* ══ BOUTON AJOUTER ════════════════════════════════════════════════ */}
+      {/* Bouton ajouter */}
       <button onClick={onAddClick}
         className="w-full flex items-center justify-center gap-2 mb-4 py-2.5 rounded-xl border border-dashed border-amber-400/30 text-amber-400/70 hover:bg-amber-400/8 hover:border-amber-400/60 hover:text-amber-400 transition-all text-sm font-medium active:scale-[0.99] motion-reduce:transition-none">
         <Plus size={15} /> Ajouter un titre
       </button>
 
-      {/* ══ FILTRE TYPE : Tout / Animes / Séries ══════════════════════════ */}
+      {/* Filtre type */}
       <div className="flex justify-center mb-5">
         <div className="inline-flex rounded-full bg-white/5 border border-white/10 p-0.5">
           {[{ key: "all", label: "Tout", icon: null }, { key: "anime", label: "Animes", icon: <Film size={12} /> }, { key: "serie", label: "Séries", icon: <Tv size={12} /> }].map(({ key, label, icon }) => (
@@ -159,7 +157,7 @@ export function Header({
         </div>
       </div>
 
-      {/* ══ FILTRES STATUT ════════════════════════════════════════════════ */}
+      {/* Filtres statut */}
       <div className="rounded-2xl bg-violet-900/20 border border-white/5 p-4 mb-5">
         <div className="flex items-center justify-between mb-3">
           <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500">Statut</p>

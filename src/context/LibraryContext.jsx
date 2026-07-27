@@ -4,10 +4,11 @@ import { useAuth } from "./AuthContext";
 import { seasonTotals, autoStatus } from "../utils/status";
 
 const LibraryContext = createContext(null);
-const SAVE_DEBOUNCE_MS = 800;
+const SAVE_DEBOUNCE_MS  = 800;
+const BACKUP_INTERVAL   = 30 * 60 * 1000; // Sauvegarde auto toutes les 30 min
+const BACKUP_SLOTS      = 5;              // 5 sauvegardes rotatoires
+const LAST_BACKUP_KEY   = "anivault:lastBackup";
 
-// ── Validation / normalisation d'une entrée chargée depuis Supabase ───────────
-// Évite les crashes si des données sont corrompues ou incomplètes.
 function sanitizeEntry(e) {
   if (!e || typeof e !== "object") return null;
   const VALID_STATUS = ["en-cours", "termine", "a-voir", "abandonne"];
@@ -34,9 +35,28 @@ function sanitizeEntry(e) {
   };
 }
 
-/** Lit la préf autoStatus depuis localStorage (sans hook) */
 function shouldAutoStatus() {
   return localStorage.getItem("pref_autoStatus") !== "false";
+}
+
+/** Sauvegarde automatique rotative dans localStorage (5 slots) */
+function autoBackup(entries) {
+  try {
+    const lastBackup = parseInt(localStorage.getItem(LAST_BACKUP_KEY) || "0");
+    if (Date.now() - lastBackup < BACKUP_INTERVAL) return;
+
+    // Lire le slot actuel (0-4 en rotation)
+    const slotKey  = "anivault:backupSlot";
+    const curSlot  = (parseInt(localStorage.getItem(slotKey) || "0")) % BACKUP_SLOTS;
+    const nextSlot = (curSlot + 1) % BACKUP_SLOTS;
+
+    localStorage.setItem(
+      `anivault_backup_${curSlot}`,
+      JSON.stringify({ entries, savedAt: Date.now() })
+    );
+    localStorage.setItem(slotKey, String(nextSlot));
+    localStorage.setItem(LAST_BACKUP_KEY, String(Date.now()));
+  } catch { /* localStorage plein — on ignore */ }
 }
 
 export function LibraryProvider({ children }) {
@@ -54,7 +74,6 @@ export function LibraryProvider({ children }) {
       .then(({ data, error }) => {
         if (error) { setSaveError(true); }
         else {
-          // Validation à l'import
           const raw = Array.isArray(data?.entries) ? data.entries : [];
           applyEntries(raw.map(sanitizeEntry).filter(Boolean));
         }
@@ -76,7 +95,12 @@ export function LibraryProvider({ children }) {
       return old && old.status !== "termine" && e.status === "termine";
     });
     if (newlyDone) { setShowConfetti(true); setTimeout(() => setShowConfetti(false), 3000); }
+
     applyEntries(next);
+
+    // ── Sauvegarde auto rotative ──────────────────────────────────────────
+    autoBackup(next);
+
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => saveToSupabase(entriesRef.current), SAVE_DEBOUNCE_MS);
   }
@@ -106,7 +130,7 @@ export function LibraryProvider({ children }) {
   }, [user]);
 
   const setEntries   = useCallback((next) => persist(next), [user]);
-  const deleteEntry  = useCallback((id)   => persist(entriesRef.current.filter((e) => e.id !== id)), [user]);
+  const deleteEntry  = useCallback((id) => persist(entriesRef.current.filter((e) => e.id !== id)), [user]);
 
   const incrementEpisode = useCallback((id, seasonIndex) => {
     const now = Date.now(); const auto = shouldAutoStatus();
