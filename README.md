@@ -1,69 +1,129 @@
-# AniVault
+<div align="center">
+  <img src="public/logo-wide.png" alt="AniVault" width="320" />
+  
+  <p align="center">
+    Journal de visionnage pour animes et séries
+  </p>
 
-Journal de visionnage pour animes et séries : suivi par saison/épisode, notes, avis, statistiques, recherche de titres via **AniList** / **TVmaze**, prochain épisode à venir, et plus.
+  <p align="center">
+    <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=white" />
+    <img src="https://img.shields.io/badge/Vite-5-646CFF?style=flat-square&logo=vite&logoColor=white" />
+    <img src="https://img.shields.io/badge/Tailwind_CSS-3-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white" />
+    <img src="https://img.shields.io/badge/Supabase-Auth-3ECF8E?style=flat-square&logo=supabase&logoColor=white" />
+  </p>
+</div>
 
-## Lancer en local
+---
 
-Prérequis : [Node.js](https://nodejs.org) 18+ installé.
+## ✨ Fonctionnalités
+
+- 📺 **Suivi par saison & épisode** — progression détaillée pour chaque titre
+- 🔍 **Recherche intégrée** — via AniList (animes) et TVmaze (séries)
+- ⭐ **Notes & avis** — évalue et commente tes visionnages
+- 📊 **Statistiques** — temps total regardé, genres préférés, progression globale
+- 🔔 **Notifications push** — alertes quand le prochain épisode est disponible
+- ▶️ **Continuer à regarder** — reprends là où tu t'es arrêté
+- 📅 **Calendrier de diffusion** — prochain épisode à venir
+- 🏆 **Succès & achievements** — récompenses pour tes jalons de visionnage
+- 🗂️ **Listes personnalisées** — organise tes titres en collections
+- 👀 **Cachette secrète** — masque des titres de ta bibliothèque principale
+- 💾 **Export / Import** — sauvegarde tes données et transfère-les sur un autre appareil
+- 📱 **PWA** — installable sur mobile, fonctionne hors-ligne
+- 🎨 **Interface dark** — design violet immersif, optimisé mobile & desktop
+
+---
+
+## 🚀 Lancer en local
+
+**Prérequis :** [Node.js](https://nodejs.org) 18+
 
 ```bash
+git clone https://github.com/CoulisdeFraises/AniVault.git
+cd AniVault
 npm install
 npm run dev
 ```
 
-Ouvre ensuite l'URL affichée dans le terminal (en général `http://localhost:5173`).
+Ouvre ensuite `http://localhost:5173` dans ton navigateur.
 
-## Clé TMDB (optionnelle)
+---
 
-Les résumés de séries/animes essaient d'abord TMDB (en français) avant de retomber sur AniList/TVmaze. Pour l'activer :
+## 🔑 Clé TMDB (optionnelle)
+
+Les résumés essaient d'abord **TMDB** (en français) avant de retomber sur AniList/TVmaze.
 
 1. Copie `.env.example` en `.env.local`
-2. Renseigne `VITE_TMDB_TOKEN=ton_jeton_lecture_tmdb` (obtenu sur themoviedb.org → Paramètres → API)
+2. Renseigne ta clé :
+   ```
+   VITE_TMDB_TOKEN=ton_jeton_lecture_tmdb
+   ```
+   *(obtenu sur [themoviedb.org](https://www.themoviedb.org/) → Paramètres → API)*
 
-`.env.local` n'est jamais commité (voir `.gitignore`). **Important** : comme cette app est 100 % front-end, cette clé reste malgré tout visible dans le code envoyé au navigateur une fois déployée (onglet réseau / bundle JS) — le `.env` protège seulement contre une fuite dans l'historique git, pas contre une inspection du site en ligne. Si tu déploies publiquement, utilise un jeton TMDB dédié à ce projet (lecture seule) que tu peux régénérer facilement si besoin.
+> ⚠️ Cette app est 100 % front-end : la clé reste visible dans le bundle JS une fois déployée. Utilise un jeton dédié à ce projet (lecture seule), que tu peux régénérer facilement si besoin.
 
-## Build de production
+---
+
+## 📦 Build & Déploiement
 
 ```bash
-npm run build
-npm run preview   # pour tester le build localement
+npm run build      # génère le dossier dist/
+npm run preview    # teste le build en local
 ```
 
-Le dossier `dist/` contient le site prêt à héberger.
+L'app est un **site statique** déployable partout :
 
-## Déployer
+| Hébergeur | Méthode |
+|---|---|
+| **Cloudflare Pages** | Connecter le repo — build `npm run build`, dossier `dist` |
+| **Vercel** | `npx vercel` ou connecter le repo, aucune config requise |
+| **Netlify** | Glisser `dist/` sur app.netlify.com, ou connecter le repo |
+| **GitHub Pages** | Build command `npm run build`, dossier de sortie `dist` |
 
-L'app est un site statique (Vite + React), déployable sur n'importe quel hébergeur de sites statiques :
+> Si tu utilises la clé TMDB, ajoute `VITE_TMDB_TOKEN` dans les **variables d'environnement** de ton hébergeur.
 
-- **Vercel** : `npx vercel` (ou connecter le repo GitHub sur vercel.com), aucune config nécessaire.
-- **Netlify** : glisser-déposer le dossier `dist/` sur app.netlify.com, ou connecter le repo (build command `npm run build`, publish directory `dist`).
-- **GitHub Pages / Cloudflare Pages** : même principe, build command `npm run build`, dossier de sortie `dist`.
+---
 
-Si tu utilises la clé TMDB, pense à ajouter `VITE_TMDB_TOKEN` dans les variables d'environnement de ton hébergeur (Vercel/Netlify ont une section "Environment Variables" dans les réglages du projet) — `.env.local` n'est jamais envoyé avec ton dépôt.
+## 💾 Stockage des données
 
-## Stockage des données
+Les données sont sauvegardées dans le **`localStorage`** du navigateur — elles restent sur ton appareil et ne sont envoyées à aucun serveur. La fonctionnalité **Export/Import** te permet de les transférer sur un autre appareil ou navigateur.
 
-Les titres sont sauvegardés dans le `localStorage` du navigateur — les données restent sur ton appareil, propres à ce navigateur, et ne sont envoyées à aucun serveur. Vider le cache du navigateur ou changer d'appareil réinitialise la liste.
+---
 
-## Recherche de titres
+## 🔌 APIs utilisées
 
-- **Anime** → [AniList GraphQL API](https://docs.anilist.co/) (publique, sans clé)
-- **Séries** → [TVmaze API](https://www.tvmaze.com/api) (publique, sans clé)
+| API | Usage | Clé requise |
+|---|---|---|
+| [AniList GraphQL](https://docs.anilist.co/) | Recherche & infos animes | ❌ Non |
+| [TVmaze](https://www.tvmaze.com/api) | Recherche & infos séries | ❌ Non |
+| [TMDB](https://www.themoviedb.org/documentation/api) | Résumés en français | ✅ Optionnelle |
 
-Ces appels se font directement depuis le navigateur ; aucune configuration côté serveur n'est nécessaire.
+---
 
-## Corrections & optimisations récentes
+## 🛠️ Stack technique
 
-- **Sauvegarde réparée** : le code utilisait encore `window.storage` (une API disponible uniquement dans les artefacts claude.ai) au lieu de `localStorage`. Résultat : rien ne se sauvegardait réellement une fois l'app déployée. C'est corrigé.
-- **Crash corrigé** : cliquer une carte alors qu'un filtre "Animes" ou "Séries" était actif plantait l'app (prop manquante). Corrigé.
-- **Clé TMDB sécurisée** : sortie du code source vers `.env.local` (voir section ci-dessus).
-- **Moins d'appels réseau** : les infos "prochain épisode" sont maintenant mises en cache (5 min) et légèrement étalées dans le temps au chargement, pour éviter de saturer AniList/TVmaze quand tu as beaucoup de titres.
-- **Moins de re-rendus inutiles** : les cartes et les statistiques (genres, compteurs, filtres) sont mémoïsées, donc taper dans un champ ou changer un filtre ne recalcule plus toute la liste.
-- **Chargement des polices** plus rapide (plus de double import, `preconnect` ajouté).
+| Outil | Rôle |
+|---|---|
+| [Vite 5](https://vitejs.dev/) | Bundler & dev server |
+| [React 18](https://react.dev/) | UI |
+| [React Router 7](https://reactrouter.com/) | Navigation SPA |
+| [Tailwind CSS 3](https://tailwindcss.com/) | Styles |
+| [Supabase](https://supabase.com/) | Authentification |
+| [lucide-react](https://lucide.dev/) | Icônes |
 
-## Stack
+---
 
-- [Vite](https://vitejs.dev/)
-- [React 18](https://react.dev/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [lucide-react](https://lucide.dev/) (icônes)
+## 📁 Structure du projet
+
+```
+src/
+├── api/              # Appels AniList, TVmaze, TMDB
+├── components/
+│   ├── Card/         # Carte titre + barre de progression
+│   ├── Header/       # Barre de navigation, filtres, stats
+│   ├── Modal/        # Formulaire d'ajout/édition
+│   └── common/       # Composants réutilisables (notifications, achievements…)
+├── context/          # LibraryContext, AuthContext, PrefsContext, ListsContext
+├── hooks/            # useNotifications, useAchievements, useSync…
+├── pages/            # Home, Details, Calendar, History, Profile…
+└── utils/            # Helpers (watchTime, status…)
+```
