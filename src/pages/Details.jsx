@@ -13,6 +13,7 @@ import { SynopsisModal }  from "../components/common/SynopsisModal";
 import { AddToListModal } from "../components/common/AddToListModal";
 import { useLists }       from "../context/ListsContext";
 import { getFormatGroup } from "../utils/format";
+import { BurgerMenu }     from "../components/common/BurgerMenu";
 
 function normalizeSeriesTitle(title) {
   return (title || "")
@@ -295,7 +296,8 @@ export function Details() {
               </div>
 
               {/* ── Boutons header ── */}
-              <div className="flex gap-1 flex-shrink-0">
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <BurgerMenu />
                 <button onClick={() => toggleFavorite(entry)}
                   aria-label={isInFavorites(entry.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
                   className={`p-1.5 rounded-lg transition-colors ${isInFavorites(entry.id) ? "text-pink-400 hover:bg-pink-500/10" : "text-violet-300 hover:bg-white/10 hover:text-pink-300"}`}>

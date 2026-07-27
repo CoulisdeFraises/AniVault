@@ -81,7 +81,6 @@ export function BurgerMenu() {
 
       <nav className="py-1">
         {[
-          { path: "/",                icon: <Home      size={15} />, label: "Accueil"         },
           { path: "/profile",         icon: <User      size={15} />, label: "Mon profil"      },
           { path: "/lists",           icon: <ListPlus  size={15} />, label: "Mes Listes"      },
           { path: "/calendar",        icon: <Calendar  size={15} />, label: "Calendrier"      },
@@ -133,6 +132,16 @@ export function BurgerMenu() {
 
   return (
     <>
+      {location.pathname !== "/" && (
+        <button
+          onClick={() => navigate("/")}
+          aria-label="Retour à l'accueil"
+          title="Accueil"
+          className="h-9 w-9 flex items-center justify-center rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
+        >
+          <Home size={16} className="text-violet-400" />
+        </button>
+      )}
       <button
         ref={buttonRef}
         onClick={menuOpen ? closeMenu : openMenu}
