@@ -61,7 +61,7 @@ export function TitleFormModal({ editingEntry, onClose }) {
             >
               {editingId ? "Modifier le titre" : "Nouveau titre"}
             </h2>
-            <button type="button" onClick={onClose} className="p-1 rounded-lg hover:bg-white/10" aria-label="Fermer"><X size={18} /></button>
+            <button type="button" onClick={onClose} className="p-1 rounded-lg hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 transition-colors" aria-label="Fermer"><X size={18} /></button>
           </div>
 
           <div className="flex gap-2 mb-2">
