@@ -5,7 +5,7 @@ import { useLibrary } from "../../context/LibraryContext";
 import { LazyImage } from "./LazyImage";
 
 function getFormatGroup(f) {
-  if (!f || f === "TV") return "tv";
+  if (!f || f === "TV" || f === "TV_SHORT") return "tv";
   if (f === "MOVIE") return "movie";
   return "extra";
 }
@@ -19,26 +19,29 @@ export function ContinueWatching() {
     return entries
       .filter((e) => e.status === "en-cours")
       .map((e) => {
-        const tvSeasons = e.seasons.filter((s) => getFormatGroup(s.format) === "tv");
 
-        // Saison active = première avec des épisodes disponibles non vus
+        // ── Condition 1 : l'utilisateur a déjà regardé au moins 1 épisode ──
+        // Sans ça, toutes les séries "en-cours" jamais commencées apparaissent
+        const hasStarted = e.seasons.some((s) => (s.watchedEpisodes || 0) > 0);
+        if (!hasStarted) return null;
+
+        const tvSeasons = e.seasons.filter(
+          (s) => getFormatGroup(s.format) === "tv"
+        );
+
+        // ── Condition 2 : trouver la première saison TV avec des épisodes restants ──
         const activeSeason = tvSeasons.find((s) => {
-          // Nombre d'épisodes réellement disponibles (diffusés ou total connu)
-          const available = s.availableEpisodes ?? s.totalEpisodes;
-          // Exclure si 0 épisode disponible
-          if (available === 0) return false;
-          // Inclure si total inconnu (en cours de diffusion) OU s'il reste des épisodes à voir
-          return available == null || s.watchedEpisodes < available;
+          // Exclure les saisons sans aucun épisode connu (0 ou null non commencée)
+          if (!s.totalEpisodes && (s.watchedEpisodes || 0) === 0) return false;
+          // Exclure les saisons avec 0 épisode total (pas encore diffusé)
+          if (s.totalEpisodes === 0) return false;
+          // Garder : total inconnu (en cours de diffusion) OU épisodes restants à voir
+          return s.totalEpisodes == null || s.watchedEpisodes < s.totalEpisodes;
         });
 
         if (!activeSeason) return null;
 
-        const available  = activeSeason.availableEpisodes ?? activeSeason.totalEpisodes;
-        const nextEpisode = activeSeason.watchedEpisodes + 1;
-
-        // Double-vérification : si on sait qu'il n'y a rien à voir, on exclut
-        if (available != null && nextEpisode > available) return null;
-
+        // Dernière activité via watchHistory
         const lastActivity = (e.watchHistory || []).reduce(
           (max, h) => (h.watchedAt > max ? h.watchedAt : max),
           0
@@ -47,7 +50,7 @@ export function ContinueWatching() {
         return {
           entry: e,
           activeSeason,
-          nextEpisode,
+          nextEpisode: (activeSeason.watchedEpisodes || 0) + 1,
           cover: activeSeason.coverImage || e.coverImage,
           lastActivity,
         };
@@ -69,7 +72,9 @@ export function ContinueWatching() {
             Continuer à regarder
           </p>
         </div>
-        <span className="font-mono text-[10px] text-violet-600">{items.length} en cours</span>
+        <span className="font-mono text-[10px] text-violet-600">
+          {items.length} en cours
+        </span>
       </div>
 
       {/* Carrousel horizontal */}
@@ -77,7 +82,11 @@ export function ContinueWatching() {
         {items.map(({ entry, activeSeason, nextEpisode, cover }) => (
           <button
             key={entry.id}
-            onClick={() => navigate(`/details/${entry.id}`, { state: { backgroundLocation: location } })}
+            onClick={() =>
+              navigate(`/details/${entry.id}`, {
+                state: { backgroundLocation: location },
+              })
+            }
             className="flex-shrink-0 w-24 sm:w-28 rounded-xl overflow-hidden bg-violet-900/40 border border-white/5 hover:border-white/20 active:scale-[0.97] transition-all group"
           >
             <div className="relative aspect-[2/3] w-full">
@@ -89,20 +98,27 @@ export function ContinueWatching() {
                 />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center bg-violet-950">
-                  {entry.type === "anime"
-                    ? <Film size={20} className="text-violet-700" />
-                    : <Tv size={20} className="text-violet-700" />}
+                  {entry.type === "anime" ? (
+                    <Film size={20} className="text-violet-700" />
+                  ) : (
+                    <Tv size={20} className="text-violet-700" />
+                  )}
                 </div>
               )}
+
               {/* Overlay infos */}
               <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-2 pt-8">
-                <p className="font-mono text-[9px] text-white leading-tight line-clamp-2 mb-1" title={entry.title}>
+                <p
+                  className="font-mono text-[9px] text-white leading-tight line-clamp-2 mb-1"
+                  title={entry.title}
+                >
                   {entry.title}
                 </p>
                 <div className="flex items-center gap-0.5">
                   <ChevronRight size={8} className="text-amber-400 flex-shrink-0" />
                   <span className="font-mono text-[9px] text-amber-400 font-semibold">
-                    {activeSeason.number > 1 ? `S${activeSeason.number} · ` : ""}Ép.{nextEpisode}
+                    {activeSeason.number > 1 ? `S${activeSeason.number} · ` : ""}
+                    Ép.{nextEpisode}
                   </span>
                 </div>
               </div>
