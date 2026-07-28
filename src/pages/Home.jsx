@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate }  from "react-router-dom";
 import { Header }           from "../components/Header/Header";
 import { Card }             from "../components/Card/Card";
 import { TitleFormModal }   from "../components/Modal/TitleFormModal";
+import { Modal }            from "../components/Modal/Modal";
 import { Confetti }         from "../components/common/Confetti";
 import { Footer }           from "../components/common/Footer";
 import { SkeletonGrid }     from "../components/common/SkeletonCard";
@@ -21,10 +22,8 @@ import { getCached, setCached, getStaleCached, TTL } from "../lib/cache";
 // ── Modal de choix "Ajouter quoi ?" ──────────────────────────────────────────
 function AddChoiceModal({ onAddTitle, onCreateList, onClose }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60
-      backdrop-blur-sm animate-fadeIn" onClick={onClose}>
-      <div className="w-full max-w-xs bg-violet-900 border border-white/10 rounded-2xl
-        overflow-hidden shadow-2xl animate-fadeInUp" onClick={e => e.stopPropagation()}>
+    <Modal onClose={onClose} maxWidth="max-w-xs" zIndex="z-50">
+      <div>
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
           <p className="font-mono text-[11px] uppercase tracking-widest text-violet-400">Ajouter</p>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/10 text-violet-400">
@@ -58,7 +57,7 @@ function AddChoiceModal({ onAddTitle, onCreateList, onClose }) {
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -68,11 +67,10 @@ const SORT_OPTIONS = [
   { key: "title",    label: "A → Z"             },
   { key: "rating",   label: "Meilleures notes"  },
   { key: "progress", label: "Progression"       },
-  { key: "cachette", label: "👀 Cachette secrète" },
 ];
 
 function sortEntries(entries, sortBy) {
-  if (sortBy === "date" || sortBy === "cachette") return entries;
+  if (sortBy === "date") return entries;
   return [...entries].sort((a, b) => {
     if (sortBy === "title")
       return a.title.localeCompare(b.title, "fr", { sensitivity: "base" });
@@ -116,6 +114,7 @@ export function Home() {
   const [airingIds,         setAiringIds]         = useState(new Set());
   const [cachetteOpen,      setCachetteOpen]      = useState(false);
   const [cachetteRevealed,  setCachetteRevealed]  = useState(false);
+  const [cachetteSortBy,    setCachetteSortBy]    = useState("date");
 
   useEffect(() => {
     const p = {};
@@ -160,16 +159,6 @@ export function Home() {
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    if (sortBy === "cachette" && hiddenFullEntries.length > 0) {
-      setCachetteOpen(true);
-      // Scroll vers la cachette après un court délai
-      setTimeout(() => {
-        document.getElementById("cachette-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 150);
-    }
-  }, [sortBy]); // eslint-disable-line
-
   const hiddenListEntries = useMemo(() => {
     const hidden = lists.find(l => l.id === HIDDEN_LIST_ID);
     return new Set((hidden?.entries || []).map(e => e.entryId));
@@ -187,6 +176,7 @@ export function Home() {
 
   const visibleEntries    = useMemo(() => entries.filter(e => !hiddenListEntries.has(e.id)), [entries, hiddenListEntries]);
   const hiddenFullEntries = useMemo(() => entries.filter(e => hiddenListEntries.has(e.id)),  [entries, hiddenListEntries]);
+  const sortedHiddenEntries = useMemo(() => sortEntries(hiddenFullEntries, cachetteSortBy), [hiddenFullEntries, cachetteSortBy]);
 
   const byType = useMemo(
     () => typeFilter === "all" ? visibleEntries : visibleEntries.filter((e) => e.type === typeFilter),
@@ -244,7 +234,7 @@ export function Home() {
           />
 
           {/* ── Barre de contrôles : Favoris + Tri ── */}
-          <div className="flex items-center gap-2 mt-3 mb-4">
+          <div className="flex flex-wrap items-center gap-2 mt-3 mb-4">
             {/* Favoris */}
             <button
               onClick={() => setShowFavoritesOnly(v => !v)}
@@ -367,18 +357,38 @@ export function Home() {
 
               {cachetteOpen && (
                 <div className="mt-4 rounded-2xl border border-violet-700/20 bg-violet-950/60 overflow-hidden animate-fadeIn">
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-violet-800/30">
-                    <p className="font-mono text-[10px] uppercase tracking-widest text-violet-600">Contenu secret</p>
-                    <button onClick={() => setCachetteRevealed(v => !v)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-mono border transition-all active:scale-95 ${cachetteRevealed
-                        ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
-                        : "bg-white/5 border-white/10 text-violet-500 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400"}`}>
-                      {cachetteRevealed ? <Eye size={11} /> : <EyeOff size={11} />}
-                      {cachetteRevealed ? "Flouter" : "Révéler"}
-                    </button>
+                  <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-violet-800/30">
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-violet-600 flex-shrink-0">Contenu secret</p>
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <select
+                          value={cachetteSortBy}
+                          onChange={(e) => setCachetteSortBy(e.target.value)}
+                          className="appearance-none pl-3 pr-7 py-1.5 rounded-full text-[10px] font-mono
+                            bg-white/5 border border-white/10 text-violet-400
+                            hover:bg-white/10 hover:text-violet-200
+                            focus:outline-none focus:border-violet-500/50
+                            transition-all cursor-pointer"
+                        >
+                          {SORT_OPTIONS.map(opt => (
+                            <option key={opt.key} value={opt.key} className="bg-violet-900 text-violet-100">
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={10} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-violet-500" />
+                      </div>
+                      <button onClick={() => setCachetteRevealed(v => !v)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-mono border transition-all active:scale-95 flex-shrink-0 ${cachetteRevealed
+                          ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
+                          : "bg-white/5 border-white/10 text-violet-500 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400"}`}>
+                        {cachetteRevealed ? <Eye size={11} /> : <EyeOff size={11} />}
+                        {cachetteRevealed ? "Flouter" : "Révéler"}
+                      </button>
+                    </div>
                   </div>
                   <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    {hiddenFullEntries.map((e, i) => (
+                    {sortedHiddenEntries.map((e, i) => (
                       <div key={e.id} className={`transition-all duration-500 ${cachetteRevealed ? "" : "blur-sm hover:blur-none"}`}>
                         <Card entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />
                       </div>

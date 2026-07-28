@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X, Plus, Check } from "lucide-react";
 import { useLists } from "../../context/ListsContext";
+import { Modal } from "../Modal/Modal";
 
 export function AddToListModal({ entry, onClose }) {
   const { lists, addEntryToList, removeEntryFromList, isInList, createList } = useLists();
@@ -21,10 +22,8 @@ export function AddToListModal({ entry, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn"
-      onClick={onClose}>
-      <div className="w-full max-w-xs bg-violet-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl animate-fadeInUp"
-        onClick={e => e.stopPropagation()}>
+    <Modal onClose={onClose} maxWidth="max-w-xs" zIndex="z-[70]">
+      <div>
 
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
           <div className="min-w-0">
@@ -81,6 +80,6 @@ export function AddToListModal({ entry, onClose }) {
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

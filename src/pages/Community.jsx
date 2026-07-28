@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useAuth }    from "../context/AuthContext";
 import { BurgerMenu } from "../components/common/BurgerMenu";
+import { Modal }      from "../components/Modal/Modal";
 import {
   fetchFriends, fetchPendingRequests, searchUserByUsername,
   sendFriendRequest, acceptFriendRequest, removeFriend,
@@ -33,10 +34,8 @@ function FriendProfileModal({ friend, onClose, onRemove }) {
   const achievementsCount = Array.isArray(friend.achievements) ? friend.achievements.length : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-      onClick={onClose}>
-      <div className="w-full max-w-sm bg-violet-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-fadeInUp"
-        onClick={e => e.stopPropagation()}>
+    <Modal onClose={onClose} maxWidth="max-w-sm" zIndex="z-50">
+      <div>
 
         {/* Bannière + avatar */}
         <div className="relative h-20 bg-gradient-to-br from-violet-800 to-violet-950 flex items-end px-5 pb-0">
@@ -99,7 +98,7 @@ function FriendProfileModal({ friend, onClose, onRemove }) {
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

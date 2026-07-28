@@ -1,16 +1,11 @@
 import { X, Star, Plus, Loader2 } from "lucide-react";
+import { Modal } from "../Modal/Modal";
 
 export function SynopsisModal({ rec, onClose, onAdd, adding, alreadyInLib }) {
   if (!rec) return null;
   return (
-    <div
-      className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-sm bg-violet-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl animate-fadeInUp"
-        onClick={e => e.stopPropagation()}
-      >
+    <Modal onClose={onClose} maxWidth="max-w-sm" zIndex="z-[70]">
+      <div>
         {/* Image header */}
         <div className="relative h-44 overflow-hidden flex-shrink-0">
           {rec.image
@@ -65,6 +60,6 @@ export function SynopsisModal({ rec, onClose, onAdd, adding, alreadyInLib }) {
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

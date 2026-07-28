@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { Download, Upload, X, AlertTriangle, Check, Clock, Shield, Database } from "lucide-react";
 import { useLibrary } from "../../context/LibraryContext";
+import { Modal } from "../Modal/Modal";
 
 export function ExportImportModal({ onClose }) {
   const { entries, setEntries } = useLibrary();
@@ -63,8 +64,8 @@ export function ExportImportModal({ onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md bg-violet-900 border border-white/10 rounded-2xl shadow-2xl animate-fadeInUp max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <Modal onClose={onClose} maxWidth="max-w-md" zIndex="z-50">
+      <div className="max-h-[90vh] flex flex-col">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 flex-shrink-0">
@@ -179,6 +180,6 @@ export function ExportImportModal({ onClose }) {
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

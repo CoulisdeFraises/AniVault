@@ -8,6 +8,7 @@ import { fetchWeeklySchedule, hasFrenchVersion, isReturningSeries } from "../api
 import { hasTMDB, searchTMDBShow, fetchTMDBEpisodeFR, fetchTMDBWatchProvidersFR } from "../api/tmdb";
 import { useLibrary } from "../context/LibraryContext";
 import { BurgerMenu }    from "../components/common/BurgerMenu";
+import { Modal }         from "../components/Modal/Modal";
 import { PullToRefresh } from "../components/common/PullToRefresh";
 import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
 
@@ -98,15 +99,9 @@ function EpisodeDetailModal({ schedule, initialFrTitle, hasFrFromTmdb, onClose }
     return () => { cancelled = true; };
   }, [schedule.media.id, schedule.episode]);
 
-  useEffect(() => {
-    const h = (e) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="relative max-w-sm w-full bg-violet-900 rounded-2xl border border-white/10 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-fadeInUp motion-reduce:animate-none" onClick={(e) => e.stopPropagation()}>
+    <Modal onClose={onClose} maxWidth="max-w-sm" zIndex="z-50">
+      <div className="relative flex flex-col max-h-[90vh]">
         {cover && (
           <div className="relative h-44 flex-shrink-0 overflow-hidden bg-violet-950">
             <img src={cover} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30 scale-110" style={{ filter: "blur(16px)" }} aria-hidden />
@@ -147,7 +142,7 @@ function EpisodeDetailModal({ schedule, initialFrTitle, hasFrFromTmdb, onClose }
           </p>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

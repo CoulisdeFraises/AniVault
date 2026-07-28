@@ -8,6 +8,7 @@ import { supabase }        from "../lib/supabase";
 import { useAuth }         from "../context/AuthContext";
 import { useLibrary }      from "../context/LibraryContext";
 import { BurgerMenu }      from "../components/common/BurgerMenu";
+import { Modal }           from "../components/Modal/Modal";
 import { useAchievements } from "../hooks/useAchievements";
 import { ACHIEVEMENT_CATEGORIES } from "../utils/achievements";
 import { updateProfileMeta, changeUsername, syncProfileStats } from "../services/community";
@@ -81,8 +82,8 @@ function PasswordStrength({ password }) {
 
 function PasswordConfirmModal({ onConfirm, onCancel, loading }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-      <div className="w-full max-w-sm rounded-2xl bg-violet-900 border border-white/10 p-6 space-y-4 animate-fadeInUp shadow-2xl">
+    <Modal onClose={onCancel} maxWidth="max-w-sm" zIndex="z-50">
+      <div className="p-6 space-y-4">
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-400/15 border border-amber-400/30 flex items-center justify-center">
             <AlertTriangle size={18} className="text-amber-400" />
@@ -104,7 +105,7 @@ function PasswordConfirmModal({ onConfirm, onCancel, loading }) {
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

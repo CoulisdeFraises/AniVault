@@ -533,7 +533,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
         />
       )}
       {showAddToList && (
-        <AddToListModal entryId={entry.id} onClose={() => setShowAddToList(false)} />
+        <AddToListModal entry={entry} onClose={() => setShowAddToList(false)} />
       )}
       {showAbandonConfirm && (
         <ConfirmDialog
