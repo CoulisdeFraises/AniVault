@@ -446,7 +446,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
         {/* ── Menu long-press ── */}
         {longPressMenu && (
           <div
-            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/70 backdrop-blur-xl-800/40 flex flex-col items-center justify-center gap-2 p-4 animate-fadeIn"
+            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/70 backdrop-blur-xl flex flex-col items-center justify-center gap-2 p-4 animate-fadeIn pointer-events-none"
             onClick={e => e.stopPropagation()}
           >
             <p className="font-mono text-xs uppercase tracking-widest text-white/90 mb-1 truncate max-w-full px-2 text-center">
@@ -468,6 +468,14 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             >
               <ListPlus size={16} className="text-white flex-shrink-0" />
               Ajouter à une liste
+            </button>
+
+            <button
+              onClick={() => { setLongPressMenu(false); setShowDel(true); }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-rose-500/25 border border-rose-400/40 hover:bg-rose-500/35 text-sm font-semibold text-white transition-colors"
+            >
+              <Trash2 size={16} className="text-rose-200 flex-shrink-0" />
+              Supprimer
             </button>
 
             <button
