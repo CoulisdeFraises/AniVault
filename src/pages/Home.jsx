@@ -255,7 +255,7 @@ export function Home() {
                   ? "bg-teal-500/20 border-teal-500/40 text-teal-300"
                   : "bg-white/5 border-white/10 text-violet-400 hover:bg-teal-500/10 hover:border-teal-500/30 hover:text-teal-400"}`}
             >
-              <CalendarDays size={12} /> Cette semaine
+              <CalendarDays size={12} />
             </button>
 
             {/* Tri — liste déroulante */}
@@ -276,7 +276,7 @@ export function Home() {
                   focus:border-violet-500/50
                   transition-all
                   cursor-pointer"
-                >
+                >git
                 {SORT_OPTIONS.map((opt) => (
                 <option
                     key={opt.key}
