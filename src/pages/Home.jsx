@@ -260,11 +260,21 @@ export function Home() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-1.5 rounded-full text-[11px] font-mono
-                  bg-white/5 border border-white/10 text-violet-300
-                  hover:bg-white/10 hover:text-violet-100
-                  focus:outline-none focus:border-violet-500/50
-                  transition-all cursor-pointer"
+                className="appearance-none
+                  flex items-center gap-1.5
+                  px-3 py-1.5
+                  rounded-fulltext-xs font-mono
+                  border
+                  border-white/10
+                  bg-white/5
+                  text-violet-400
+                  hover:bg-white/10
+                  hover:text-violet-100
+                   focus:outline-none
+                  focus:border-violet-500/50
+                  transition-all
+                  active:scale-95
+                  cursor-pointer"
               >
                 {SORT_OPTIONS.map(opt => (
                   <option key={opt.key} value={opt.key}
