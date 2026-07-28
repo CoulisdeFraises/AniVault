@@ -471,14 +471,6 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             </button>
 
             <button
-              onClick={() => { setLongPressMenu(false); setShowDel(true); }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-rose-500/25 border border-rose-400/40 hover:bg-rose-500/35 text-sm font-semibold text-white transition-colors"
-            >
-              <Trash2 size={16} className="text-rose-200 flex-shrink-0" />
-              Supprimer
-            </button>
-
-            <button
               onClick={() => { setLongPressMenu(false); gesturedRef.current = false; }}
               className="mt-1 text-xs text-white/70 hover:text-white transition-colors font-mono"
             >
