@@ -311,7 +311,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
           }`}
         >
           <div className="absolute inset-y-0 left-0 w-[3px] rounded-l-2xl"
-            style={{ background: `linear-gradient(to bottom,${s.color},${s.color}70,${s.color}10)` }} />
+            style={{ background: `linear-gradient(to bottom,${s.color},${s.color}50,${s.color}10)` }} />
 
           {/* Cover */}
           {coverImg}
