@@ -263,17 +263,28 @@ export function Home() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-1.5 rounded-full text-[11px] font-mono
-                  bg-white/5 border border-white/10 text-violet-300
-                  hover:bg-white/10 hover:text-violet-100
-                  focus:outline-none focus:border-violet-500/50
-                  transition-all cursor-pointer"
-              >
-                {SORT_OPTIONS.map(opt => (
-                  <option key={opt.key} value={opt.key}
-                    className="bg-violet-900 text-violet-100">
+                className="appearance-none h-full
+                  pl-3 pr-8 py-1.5
+                  rounded-full
+                  text-xs font-mono
+                  border border-white/10
+                  bg-white/5
+                  text-violet-400
+                  hover:bg-white/10
+                  hover:text-violet-100
+                  focus:outline-none
+                  focus:border-violet-500/50
+                  transition-all
+                  cursor-pointer"
+                >
+                {SORT_OPTIONS.map((opt) => (
+                <option
+                    key={opt.key}
+                    value={opt.key}
+                    className="bg-violet-900 text-violet-100"
+                >
                     {opt.label}
-                  </option>
+                </option>
                 ))}
               </select>
               {/* Icône chevron */}
