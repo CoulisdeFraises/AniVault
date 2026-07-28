@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { X, Pencil, Star, Loader2, RefreshCw, Film, Tv, Disc2,
          CheckCheck, ChevronRight, Check, Heart, ListPlus, AlertTriangle, WifiOff } from "lucide-react";
@@ -13,6 +13,8 @@ import { SynopsisModal }  from "../components/common/SynopsisModal";
 import { AddToListModal } from "../components/common/AddToListModal";
 import { useLists }       from "../context/ListsContext";
 import { getFormatGroup } from "../utils/format";
+import { Confetti }           from "../components/common/Confetti";
+import { CelebrationBanner }  from "../components/common/CelebrationBanner";
 
 function normalizeSeriesTitle(title) {
   return (title || "")
@@ -110,13 +112,63 @@ export function Details() {
   const [synopsisRec,    setSynopsisRec]   = useState(null);
   const [addToListOpen,  setAddToListOpen] = useState(false);
   const [touchStartY,    setTouchStartY]   = useState(null);
+  const [celebration,    setCelebration]   = useState(null); // null | { tier, title, subtitle }
+
+  const prevSeasonWatchedRef = useRef({});
+  const prevStatusRef        = useRef(null);
+  const celebrationTimerRef  = useRef(null);
 
   useEffect(() => {
     setActiveTVIdx(0); setSeasonCache({});
     setOpen({ tv: false, extra: false, movie: false });
     setOpenEpisodes(false);
     setRefreshResult(null);
-  }, [id]);
+    // Réinitialise le suivi de complétion pour éviter une fausse célébration
+    // en arrivant sur un titre déjà terminé.
+    clearTimeout(celebrationTimerRef.current);
+    setCelebration(null);
+    prevStatusRef.current = entry?.status ?? null;
+    prevSeasonWatchedRef.current = Object.fromEntries((entry?.seasons || []).map((s, i) => [i, s.watchedEpisodes]));
+  }, [id]); // eslint-disable-line
+
+  function triggerCelebration(payload) {
+    clearTimeout(celebrationTimerRef.current);
+    setCelebration(payload);
+    celebrationTimerRef.current = setTimeout(() => setCelebration(null), payload.tier === "series" ? 4200 : 3200);
+  }
+
+  // ── Détection : une saison vient d'être terminée ────────────────────────────
+  useEffect(() => {
+    if (!entry) return;
+    const prevMap = prevSeasonWatchedRef.current;
+    entry.seasons.forEach((s, i) => {
+      const total = s.totalEpisodes;
+      if (total == null || total <= 0) return;
+      const isNowDone = s.watchedEpisodes >= total;
+      const prevWatched = prevMap[i];
+      const wasDone = prevWatched != null && prevWatched >= total;
+      // La série entière qui se termine a sa propre célébration (plus grande) ;
+      // on évite de déclencher les deux en même temps.
+      if (isNowDone && !wasDone && entry.status !== "termine") {
+        triggerCelebration({
+          tier: "season",
+          title: `Saison ${s.number ?? ""} terminée !`.replace("  ", " "),
+          subtitle: entry.title,
+        });
+      }
+    });
+    prevSeasonWatchedRef.current = Object.fromEntries(entry.seasons.map((s, i) => [i, s.watchedEpisodes]));
+  }, [entry?.seasons]); // eslint-disable-line
+
+  // ── Détection : la série entière vient d'être terminée ──────────────────────
+  useEffect(() => {
+    if (!entry) return;
+    const prev = prevStatusRef.current;
+    if (prev != null && prev !== "termine" && entry.status === "termine") {
+      triggerCelebration({ tier: "series", title: "Série terminée !", subtitle: entry.title });
+    }
+    prevStatusRef.current = entry.status;
+  }, [entry?.status]); // eslint-disable-line
 
   useEffect(() => {
     if (!entry) return;
@@ -254,6 +306,15 @@ export function Details() {
   }
 
   return (
+    <>
+      <Confetti active={!!celebration} intensity={celebration?.tier === "series" ? "series" : "season"} />
+      <CelebrationBanner
+        show={!!celebration}
+        tier={celebration?.tier}
+        title={celebration?.title}
+        subtitle={celebration?.subtitle}
+        durationMs={celebration?.tier === "series" ? 4200 : 3200}
+      />
     <div
       className="fixed inset-0 z-50 text-violet-50 bg-black/60 backdrop-blur-sm
         flex items-end
@@ -649,5 +710,6 @@ export function Details() {
       {addToListOpen && <AddToListModal entry={entry} onClose={() => setAddToListOpen(false)} />}
       {editing && <TitleFormModal editingEntry={entry} onClose={() => setEditing(false)} />}
     </div>
+    </>
   );
 }

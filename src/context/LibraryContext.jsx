@@ -64,7 +64,6 @@ export function LibraryProvider({ children }) {
   const [entries, setEntriesState] = useState([]);
   const [loading, setLoading]      = useState(true);
   const [saveError, setSaveError]  = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
   const entriesRef = useRef([]); const saveTimer = useRef(null);
 
   useEffect(() => {
@@ -90,12 +89,6 @@ export function LibraryProvider({ children }) {
   }
 
   function persist(next) {
-    const newlyDone = next.some((e) => {
-      const old = entriesRef.current.find((p) => p.id === e.id);
-      return old && old.status !== "termine" && e.status === "termine";
-    });
-    if (newlyDone) { setShowConfetti(true); setTimeout(() => setShowConfetti(false), 3000); }
-
     applyEntries(next);
 
     // ── Sauvegarde auto rotative ──────────────────────────────────────────
@@ -215,7 +208,7 @@ export function LibraryProvider({ children }) {
 
   return (
     <LibraryContext.Provider value={{
-      entries, setEntries, loading, saveError, showConfetti,
+      entries, setEntries, loading, saveError,
       findDuplicate, saveEntry, deleteEntry,
       incrementEpisode, decrementEpisode, setEpisodeCount,
       markDone, updateRating, updateSeasonTotal, addSeason, deleteSeason,
