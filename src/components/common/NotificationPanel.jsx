@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Bell, X, Check, Trash2, BellOff } from "lucide-react";
 import { useNotificationStore } from "../../hooks/useNotificationStore";
-import { useNotifications }     from "../../hooks/useNotifications";
-import { useLibrary }           from "../../context/LibraryContext";
+import { requestNotificationPermission } from "../../hooks/useNotifications";
 import { useNavigate, useLocation } from "react-router-dom";
 
 function timeAgo(ts) {
@@ -18,8 +17,6 @@ function timeAgo(ts) {
 }
 
 export function NotificationPanel() {
-  const { entries } = useLibrary();
-  const { requestPermission }  = useNotifications(entries);
   const { notifications, unreadCount, markAllRead, markRead, clearAll } = useNotificationStore();
 
   const navigate  = useNavigate();
@@ -62,7 +59,7 @@ export function NotificationPanel() {
   }, [open]);
 
   async function handleRequestPermission() {
-    const granted = await requestPermission();
+    const granted = await requestNotificationPermission();
     setPermGranted(granted);
   }
 

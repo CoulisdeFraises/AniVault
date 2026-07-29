@@ -230,52 +230,43 @@ export function Home() {
             syncProgress={progress} onSyncClick={() => syncAll(true)}
           />
 
-          {/* ── Barre de contrôles : Favoris + Tri ── */}
+          {/* ── Barre de contrôles : Favoris + Calendrier + Tri ── */}
           <div className="flex flex-wrap items-center gap-2 mt-3 mb-4">
             {/* Favoris */}
             <button
               onClick={() => setShowFavoritesOnly(v => !v)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono border
-                transition-all active:scale-95 ${showFavoritesOnly
+              className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-mono border flex-shrink-0
+                transition-all active:scale-95 motion-reduce:transition-none ${showFavoritesOnly
                   ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
                   : "bg-white/5 border-white/10 text-violet-400 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400"}`}
             >
-              <Heart size={12} fill={showFavoritesOnly ? "currentColor" : "none"} /> Favoris
+              <Heart size={12} className="flex-shrink-0" fill={showFavoritesOnly ? "currentColor" : "none"} />
+              Favoris
             </button>
 
             {/* Dans le calendrier */}
             <button
               onClick={() => setShowCalendarOnly(v => !v)}
               disabled={airingIds.size === 0}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono border
-                transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${showCalendarOnly
+              className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-mono border flex-shrink-0
+                transition-all active:scale-95 motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed ${showCalendarOnly
                   ? "bg-teal-500/20 border-teal-500/40 text-teal-300"
                   : "bg-white/5 border-white/10 text-violet-400 hover:bg-teal-500/10 hover:border-teal-500/30 hover:text-teal-400"}`}
             >
-              <CalendarDays size={12} />
+              <CalendarDays size={12} className="flex-shrink-0" />
+              Semaine
             </button>
 
             {/* Tri — liste déroulante */}
-            <div className="relative ml-auto">
+            <div className="relative flex-shrink-0">
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="appearance-none
-                  flex items-center gap-1.5
-                  px-3 py-1.5
-                  rounded-full
-                  text-xs font-mono
-                  border
-                  border-white/10
-                  bg-white/5
-                  text-violet-400
-                  hover:bg-white/10
-                  hover:text-violet-100
-                   focus:outline-none
-                  focus:border-violet-500/50
-                  transition-all
-                  active:scale-95
-                  cursor-pointer"
+                className="appearance-none flex items-center gap-1.5 h-8 pl-3 pr-7 rounded-full
+                  text-xs font-mono border border-white/10 bg-white/5 text-violet-400
+                  hover:bg-white/10 hover:text-violet-100
+                  focus:outline-none focus:border-violet-500/50
+                  transition-all active:scale-95 motion-reduce:transition-none cursor-pointer max-w-[130px]"
               >
                 {SORT_OPTIONS.map(opt => (
                   <option key={opt.key} value={opt.key}

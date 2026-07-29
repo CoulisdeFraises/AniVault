@@ -1,18 +1,21 @@
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { fetchNextAiring } from "../api";
 import { addNotification } from "./useNotificationStore";
+
+// Fonction autonome (pas un hook) : ne dépend d'aucun state React, donc peut
+// être appelée directement depuis n'importe quel composant (ex: NotificationPanel)
+// sans re-déclencher toute la logique de programmation des notifications.
+export async function requestNotificationPermission() {
+  if (!("Notification" in window)) return false;
+  if (Notification.permission === "granted") return true;
+  if (Notification.permission === "denied")  return false;
+  const res = await Notification.requestPermission();
+  return res === "granted";
+}
 
 export function useNotifications(entries) {
   const timersRef    = useRef([]);
   const firedRef     = useRef(new Set()); // évite les doublons sur re-render
-
-  const requestPermission = useCallback(async () => {
-    if (!("Notification" in window)) return false;
-    if (Notification.permission === "granted") return true;
-    if (Notification.permission === "denied")  return false;
-    const res = await Notification.requestPermission();
-    return res === "granted";
-  }, []);
 
   useEffect(() => {
     if (!entries?.length) return;
@@ -66,5 +69,7 @@ export function useNotifications(entries) {
     return () => timersRef.current.forEach(clearTimeout);
   }, [entries]);
 
-  return { requestPermission };
+  // Le hook ne renvoie plus requestPermission — utilise l'export standalone
+  // requestNotificationPermission() ci-dessus, qui ne nécessite pas de monter
+  // ce hook (et donc pas de dupliquer toute la logique de programmation).
 }

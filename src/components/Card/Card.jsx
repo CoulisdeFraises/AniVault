@@ -446,17 +446,17 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
         {/* ── Menu long-press ── */}
         {longPressMenu && (
           <div
-            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/70 backdrop-blur-xl flex flex-col items-center justify-center gap-2 p-4 animate-fadeIn pointer-events-none"
+            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/70 backdrop-blur-xl flex flex-col items-center justify-center gap-1.5 p-3 animate-fadeIn overflow-y-auto"
             onClick={e => e.stopPropagation()}
           >
-            <p className="font-mono text-xs uppercase tracking-widest text-white/90 mb-1 truncate max-w-full px-2 text-center">
+            <p className="font-mono text-xs uppercase tracking-widest text-white/90 mb-0.5 truncate max-w-full px-2 text-center">
               {entry.title}
             </p>
 
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 text-sm font-semibold text-white transition-colors disabled:opacity-60"
+              className="w-full flex items-center gap-3 px-4 py-2 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 active:scale-[0.98] text-sm font-semibold text-white transition-all disabled:opacity-60"
             >
               <RefreshCw size={16} className={`text-white flex-shrink-0 ${refreshing ? "animate-spin" : ""}`} />
               {refreshing ? "Actualisation…" : "Actualiser"}
@@ -464,7 +464,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
 
             <button
               onClick={() => { setLongPressMenu(false); setShowAddToList(true); }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 text-sm font-semibold text-white transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 active:scale-[0.98] text-sm font-semibold text-white transition-all"
             >
               <ListPlus size={16} className="text-white flex-shrink-0" />
               Ajouter à une liste
@@ -472,7 +472,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
 
             <button
               onClick={() => { setLongPressMenu(false); setShowDel(true); }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-rose-500/25 border border-rose-400/40 hover:bg-rose-500/35 text-sm font-semibold text-white transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2 rounded-xl bg-rose-500/25 border border-rose-400/40 hover:bg-rose-500/35 active:scale-[0.98] text-sm font-semibold text-white transition-all"
             >
               <Trash2 size={16} className="text-rose-200 flex-shrink-0" />
               Supprimer
@@ -480,7 +480,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
 
             <button
               onClick={() => { setLongPressMenu(false); gesturedRef.current = false; }}
-              className="mt-1 text-xs text-white/70 hover:text-white transition-colors font-mono"
+              className="mt-0.5 text-xs text-white/70 hover:text-white active:scale-95 transition-all font-mono"
             >
               Annuler
             </button>
