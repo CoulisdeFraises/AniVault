@@ -11,7 +11,7 @@
 // silence). Les appelants qui veulent un simple null-si-échec font leur
 // propre try/catch, comme le reste de l'app le fait déjà.
 
-const MEDIA_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/media`;
+const MEDIA_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/smooth-task`;
 
 // Déduplication des requêtes en vol : si Card.jsx, Details.jsx et les Favoris
 // demandent la même fiche au même moment, une seule requête réseau part ;
