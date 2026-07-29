@@ -293,6 +293,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
         )}
 
         {/* ── Carte principale ── */}
+        <div style={{ position: 'relative' }}></div>
         <div
           ref={cardRef}
           onPointerDown={handlePointerDown}
