@@ -446,6 +446,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
         {/* ── Menu long-press ── */}
         {longPressMenu && (
           <div
+            style={{ position: 'relative' }}
             className="absolute inset-0 z-30 rounded-2xl bg-violet-950/70 backdrop-blur-xl flex flex-col items-center justify-center gap-1.5 p-3 animate-fadeIn overflow-y-auto"
             onClick={e => e.stopPropagation()}
           >
@@ -454,7 +455,10 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             </p>
 
             <button
-              onClick={handleRefresh}
+              onClick={(e) => {
+                e.stopPropagation(); // Bloque la propagation
+                handleRefresh();
+              }}
               disabled={refreshing}
               className="w-full flex items-center gap-3 px-4 py-2 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 active:scale-[0.98] text-sm font-semibold text-white transition-all disabled:opacity-60"
             >
@@ -463,7 +467,11 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             </button>
 
             <button
-              onClick={() => { setLongPressMenu(false); setShowAddToList(true); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setLongPressMenu(false);
+                setShowAddToList(true);
+              }}
               className="w-full flex items-center gap-3 px-4 py-2 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 active:scale-[0.98] text-sm font-semibold text-white transition-all"
             >
               <ListPlus size={16} className="text-white flex-shrink-0" />
@@ -471,7 +479,11 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             </button>
 
             <button
-              onClick={() => { setLongPressMenu(false); setShowDel(true); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setLongPressMenu(false);
+                setShowDel(true);
+              }}
               className="w-full flex items-center gap-3 px-4 py-2 rounded-xl bg-rose-500/25 border border-rose-400/40 hover:bg-rose-500/35 active:scale-[0.98] text-sm font-semibold text-white transition-all"
             >
               <Trash2 size={16} className="text-rose-200 flex-shrink-0" />
@@ -479,7 +491,11 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             </button>
 
             <button
-              onClick={() => { setLongPressMenu(false); gesturedRef.current = false; }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setLongPressMenu(false);
+                gesturedRef.current = false;
+              }}
               className="mt-0.5 text-xs text-white/70 hover:text-white active:scale-95 transition-all font-mono"
             >
               Annuler
