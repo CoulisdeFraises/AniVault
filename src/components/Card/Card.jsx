@@ -178,7 +178,8 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   }
 
   const handleCardClick = (e) => {
-    if (longPressMenu) return; // Ignorer si le menu est ouvert
+    e.stopPropagation(); // Empêche le comportement par défaut
+    if (longPressMenu) return;
     navigate(`/details/${entry.id}`, { state: { backgroundLocation: location } });
   };
 
