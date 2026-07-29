@@ -40,11 +40,11 @@ export function useNotifications(entries) {
           const t = setTimeout(() => {
             firedRef.current.add(key);
 
-            const title = "🎌 AniVault";
+            const title = "NOUVEL EPISODE";
             const body  = `${entry.title} — Épisode ${airing.episode} disponible !`;
 
             // ── Notification in-app (store) ──────────────────────────────
-            addNotification({ title, body, entryId: entry.id, icon: "🎌" });
+            addNotification({ title, body, entryId: entry.id, icon: "glyphs-poly:sparkles" });
 
             // ── Notification navigateur (si permission accordée) ──────────
             if ("Notification" in window && Notification.permission === "granted") {
