@@ -177,10 +177,10 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
     ptrRef.current.id = null;
   }
 
-  function handleCardClick() {
-    if (gesturedRef.current) { gesturedRef.current = false; return; }
+  const handleCardClick = (e) => {
+    if (longPressMenu) return; // Ignorer si le menu est ouvert
     navigate(`/details/${entry.id}`, { state: { backgroundLocation: location } });
-  }
+  };
 
   useEffect(() => {
     if (!longPressMenu && !showQuickRate) return;
@@ -447,7 +447,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
         {/* ── Menu long-press ── */}
         {longPressMenu && (
           <div
-            className="absolute inset-0 z-55 rounded-2xl bg-violet-950/70 backdrop-blur-xl flex flex-col items-center justify-center gap-1.5 p-3 animate-fadeIn overflow-y-auto"
+            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/70 backdrop-blur-xl flex flex-col items-center justify-center gap-1.5 p-3 animate-fadeIn overflow-y-auto"
             onClick={e => e.stopPropagation()}
           >
             <p className="font-mono text-xs uppercase tracking-widest text-white/90 mb-0.5 truncate max-w-full px-2 text-center">
