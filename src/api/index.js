@@ -92,7 +92,10 @@ export async function refreshEntryCard(entry) {
       throw new Error("Ce titre a perdu son lien AniList. Supprime-le puis rajoute-le depuis la recherche pour le relier à nouveau.");
     }
 
-    const { seasons: freshSeasons, anilistIds: freshIds } = await fetchAniListFranchise(seedId);
+    // force: true — un clic sur "Actualiser" doit vraiment aller chercher une
+    // donnée fraîche, pas servir le cache partagé (TTL jusqu'à 24h) qui sert
+    // les autres utilisateurs. Le cache est aussi republié pour tout le monde.
+    const { seasons: freshSeasons, anilistIds: freshIds } = await fetchAniListFranchise(seedId, { force: true });
 
     // Garde-fou : si AniList ne renvoie rien alors qu'on avait déjà des
     // saisons, on n'écrase pas les données existantes — mieux vaut échouer

@@ -1,4 +1,5 @@
 import { cacheGet, cacheSet } from "../services/cache";
+import { getMediaDetails } from "./media";
 
 const ANILIST_QUERY_TTL = 10 * 60 * 1000; // 10 min — assez pour éviter les doublons dans une session, sans figer les données trop longtemps
 
@@ -78,7 +79,7 @@ export async function searchAniList(q) {
 //   2. La phase récursive est supprimée : on ne parcourt que les relations directes
 //      depuis la chaîne TV principale, sans suivre les relations des extras trouvés.
 // -----------------------------------------------------------------------------
-export async function fetchAniListFranchise(startId) {
+export async function fetchAniListFranchise(startId, { force = false } = {}) {
   const NON_TV     = new Set(["OVA", "ONA", "MOVIE", "SPECIAL", "MUSIC"]);
   const TV_FORMATS = new Set(["TV", "TV_SHORT"]);
 
@@ -89,12 +90,16 @@ export async function fetchAniListFranchise(startId) {
 
   const MAX_EXTRAS = 30; // réduit pour éviter les graphes trop larges
 
-  const FULL_QUERY = `query ($id: Int) { Media(id: $id, type: ANIME) {
-    id format episodes title { english romaji }
-    nextAiringEpisode { episode }
-    coverImage { large }
-    relations { edges { relationType node { id type format } } }
-  } }`;
+  // Les lookups par ID passent maintenant par la fonction Edge Supabase
+  // (cache "catalogue" partagé entre tous les utilisateurs). `force` — réservé
+  // au bouton "Actualiser" — court-circuite le TTL pour garantir une donnée
+  // vraiment fraîche plutôt qu'une version en cache jusqu'à 6-24h.
+  // getMediaDetails lève une erreur en cas d'échec réel (429, réseau…) —
+  // elle n'est jamais avalée ici, pour ne pas reproduire le bug de saisons
+  // silencieusement vidées qu'on a corrigé plus tôt.
+  async function fetchMedia(id) {
+    return getMediaDetails("anilist", id, { force });
+  }
 
   function parseEps(m) {
     return m.episodes ?? (m.nextAiringEpisode?.episode != null ? m.nextAiringEpisode.episode - 1 : null);
@@ -105,8 +110,7 @@ export async function fetchAniListFranchise(startId) {
   async function findRoot(id, visited = new Set()) {
     if (visited.has(id)) return id; visited.add(id);
     try {
-      const json = await anilistQuery(FULL_QUERY, { id });
-      const m = json.data?.Media; if (!m) return id;
+      const m = await fetchMedia(id);
       const prequel = m.relations?.edges?.find(
         (e) => e.relationType === "PREQUEL" && e.node.type === "ANIME" && isTVFormat(e.node.format)
       );
@@ -116,8 +120,7 @@ export async function fetchAniListFranchise(startId) {
 
   async function followTVChain(id, visited = new Set()) {
     if (!id || visited.has(id)) return []; visited.add(id);
-    const json = await anilistQuery(FULL_QUERY, { id }); // laisse remonter les erreurs (429, réseau…)
-    const m = json.data?.Media; if (!m) return [];
+    const m = await fetchMedia(id); // laisse remonter les erreurs (429, réseau…)
     const fmt  = m.format ?? "TV";
     const isTV = TV_FORMATS.has(fmt);
     const edges = m.relations?.edges || [];
@@ -135,8 +138,7 @@ export async function fetchAniListFranchise(startId) {
   const extrasMap = new Map();
   async function fetchOneExtra(id, formatHint) {
     if (extrasMap.has(id)) return;
-    const json = await anilistQuery(FULL_QUERY, { id }); // laisse remonter les erreurs (429, réseau…)
-    const m = json.data?.Media; if (!m) return;
+    const m = await fetchMedia(id); // laisse remonter les erreurs (429, réseau…)
     extrasMap.set(id, {
       anilistId: id, format: m.format ?? formatHint, title: parseTitle(m),
       totalEpisodes: parseEps(m), coverImage: m.coverImage?.large ?? null,
@@ -212,9 +214,8 @@ export async function fetchAniListNextSeason(rootId, currentSeasonCount) {
   const v = new Set(); const all = []; let cur = rootId;
   while (cur && !v.has(cur) && all.length <= currentSeasonCount) {
     v.add(cur);
-    const q = `query ($id: Int) { Media(id: $id, type: ANIME) { id episodes coverImage { large } relations { edges { relationType node { id type } } } } }`;
-    let j; try { j = await anilistQuery(q, { id: cur }); } catch { break; }
-    const m = j.data?.Media; if (!m) break;
+    let m; try { m = await getMediaDetails("anilist", cur); } catch { break; }
+    if (!m) break;
     all.push({ id: cur, episodes: m.episodes ?? null, coverImage: m.coverImage?.large ?? null });
     const seq = (m.relations?.edges || []).find((e) => e.relationType === "SEQUEL" && e.node.type === "ANIME");
     if (!seq) break; cur = seq.node.id;
@@ -224,16 +225,8 @@ export async function fetchAniListNextSeason(rootId, currentSeasonCount) {
 }
 
 export async function fetchAniListSeasonData(anilistId) {
-  const q = `query ($id: Int) {
-    Media(id: $id) {
-      idMal
-      episodes
-      nextAiringEpisode { episode }
-    }
-  }`;
   try {
-    const j = await anilistQuery(q, { id: anilistId });
-    const m = j.data?.Media;
+    const m = await getMediaDetails("anilist", anilistId);
     if (!m) return { malId: null, totalEpisodes: null };
     return {
       malId:         m.idMal ?? null,
@@ -275,8 +268,8 @@ async function fetchJikanEpisodes(malId) {
 }
 
 async function fetchAniListIdMal(id) {
-  const q = `query ($id: Int) { Media(id: $id) { idMal } }`;
-  const j = await anilistQuery(q, { id }); return j.data?.Media?.idMal ?? null;
+  const m = await getMediaDetails("anilist", id);
+  return m?.idMal ?? null;
 }
 
 export async function fetchAniListEpisodesBySeasonId(anilistId) {
@@ -288,15 +281,16 @@ export async function fetchAniListEpisodesBySeasonId(anilistId) {
 }
 
 export async function fetchAniListDescription(anilistId) {
-  const q = `query ($id: Int) { Media(id: $id) { description(asHtml: false) } }`;
-  try { const j = await anilistQuery(q, { id: anilistId }); return j.data?.Media?.description?.trim() || null; }
-  catch { return null; }
+  try {
+    const m = await getMediaDetails("anilist", anilistId);
+    return m?.description?.trim() || null;
+  } catch { return null; }
 }
 
 export async function fetchNextAiringAniList(anilistId) {
-  const q = `query ($id: Int) { Media(id: $id, type: ANIME) { nextAiringEpisode { airingAt episode } } }`;
   try {
-    const j = await anilistQuery(q, { id: anilistId }); const n = j.data?.Media?.nextAiringEpisode;
+    const m = await getMediaDetails("anilist", anilistId);
+    const n = m?.nextAiringEpisode;
     return n ? { episode: n.episode, airingAt: n.airingAt * 1000 } : null;
   } catch { return null; }
 }

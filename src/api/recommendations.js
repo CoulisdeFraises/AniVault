@@ -1,4 +1,5 @@
 import { anilistQuery } from "./anilist";
+import { getMediaDetails } from "./media";
 
 function isCultureModeOn() {
   return localStorage.getItem("pref_culture_mode") === "true";
@@ -68,36 +69,16 @@ export async function fetchAniListRecommendations(genres = [], excludeAnilistIds
 // Beaucoup plus pertinent qu'un simple filtre par genre car spécifique au titre,
 // et fonctionne aussi bien pour du contenu adulte (hentai) puisqu'on part du
 // titre lui-même plutôt que d'une liste de genres génériques.
+//
+// Passe par le cache partagé (fonction Edge Supabase) : la fiche de `anilistId`
+// est très probablement déjà en cache (consultée via Details.jsx), donc cet
+// appel ne déclenche souvent aucune requête réseau supplémentaire.
 export async function fetchSimilarTitles(anilistId, excludeAnilistIds = []) {
   if (!anilistId) return [];
   const cultureMode = isCultureModeOn();
 
-  const query = `
-    query ($id: Int) {
-      Media(id: $id, type: ANIME) {
-        genres
-        recommendations(sort: RATING_DESC, perPage: 25) {
-          nodes {
-            mediaRecommendation {
-              id
-              title { english romaji }
-              coverImage { large }
-              genres
-              episodes
-              description(asHtml: false)
-              seasonYear
-              averageScore
-              isAdult
-            }
-          }
-        }
-      }
-    }
-  `;
-
   try {
-    const json  = await anilistQuery(query, { id: anilistId });
-    const media = json.data?.Media;
+    const media = await getMediaDetails("anilist", anilistId);
     const nodes = media?.recommendations?.nodes || [];
     const similar = nodes
       .map((n) => n.mediaRecommendation)
