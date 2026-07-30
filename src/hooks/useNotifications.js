@@ -16,57 +16,76 @@ export async function requestNotificationPermission() {
 export function useNotifications(entries) {
   const timersRef    = useRef([]);
   const firedRef     = useRef(new Set()); // évite les doublons sur re-render
+  const entriesRef   = useRef(entries);
+  entriesRef.current = entries;
 
   useEffect(() => {
-    if (!entries?.length) return;
+    function scheduleAll() {
+      const currentEntries = entriesRef.current;
+      if (!currentEntries?.length) return;
 
-    timersRef.current.forEach(clearTimeout);
-    timersRef.current = [];
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
 
-    const active  = entries.filter((e) => e.status === "en-cours");
-    const MAX_24H = 24 * 60 * 60 * 1000;
+      const active  = currentEntries.filter((e) => e.status === "en-cours");
+      const MAX_24H = 24 * 60 * 60 * 1000;
 
-    active.forEach((entry) => {
-      fetchNextAiring(entry)
-        .then((airing) => {
-          if (!airing?.airingAt) return;
-          const delay = airing.airingAt - Date.now();
-          if (delay <= 0 || delay > MAX_24H) return;
+      active.forEach((entry) => {
+        fetchNextAiring(entry)
+          .then((airing) => {
+            if (!airing?.airingAt) return;
+            const delay = airing.airingAt - Date.now();
+            if (delay <= 0 || delay > MAX_24H) return;
 
-          // Clé unique pour éviter de reprogrammer deux fois le même épisode
-          const key = `${entry.id}-ep${airing.episode}`;
-          if (firedRef.current.has(key)) return;
+            // Clé unique pour éviter de reprogrammer deux fois le même épisode
+            const key = `${entry.id}-ep${airing.episode}`;
+            if (firedRef.current.has(key)) return;
 
-          const t = setTimeout(() => {
-            firedRef.current.add(key);
+            const t = setTimeout(() => {
+              firedRef.current.add(key);
 
-            const title = "NOUVEL EPISODE";
-            const body  = `${entry.title} — Épisode ${airing.episode} disponible !`;
+              const title = "AniVault";
+              const body  = `${entry.title} — Épisode ${airing.episode} disponible !`;
 
-            // ── Notification in-app (store) ──────────────────────────────
-            addNotification({ title, body, entryId: entry.id, icon: "glyphs-poly:sparkles" });
+              // ── Notification in-app (store) ──────────────────────────────
+              addNotification({ title, body, entryId: entry.id, icon: "sparkles", dedupeKey: key });
 
-            // ── Notification navigateur (si permission accordée) ──────────
-            if ("Notification" in window && Notification.permission === "granted") {
-              const n = new Notification(title, {
-                body,
-                icon:  "/logo.png",
-                badge: "/favicon-96x96.png",
-                tag:   `anivault-${entry.id}-${airing.episode}`,
-              });
-              n.onclick = () => {
-                window.focus();
-                window.location.hash = `/details/${entry.id}`;
-              };
-            }
-          }, delay);
+              // ── Notification navigateur (si permission accordée) ──────────
+              if ("Notification" in window && Notification.permission === "granted") {
+                const n = new Notification(title, {
+                  body,
+                  icon:  "/logo.png",
+                  badge: "/favicon-96x96.png",
+                  tag:   `anivault-${entry.id}-${airing.episode}`,
+                });
+                n.onclick = () => {
+                  window.focus();
+                  window.location.hash = `/details/${entry.id}`;
+                };
+              }
+            }, delay);
 
-          timersRef.current.push(t);
-        })
-        .catch(() => {});
-    });
+            timersRef.current.push(t);
+          })
+          .catch(() => {});
+      });
+    }
 
-    return () => timersRef.current.forEach(clearTimeout);
+    // Programmation immédiate (nouvelle entrée ajoutée, statut changé…)
+    scheduleAll();
+
+    // Re-scan périodique : un épisode qui diffuse dans 3 jours n'entre dans
+    // la fenêtre de 24h qu'avec le temps qui passe, pas parce que `entries`
+    // change. Sans ce re-scan, on ne "capte" que ce qui est déjà dans la
+    // fenêtre au moment exact où entries a changé pour une autre raison —
+    // ce qui expliquait des notifications reçues pour certains titres et
+    // pas d'autres, en apparence au hasard.
+    const interval = setInterval(scheduleAll, 15 * 60 * 1000); // toutes les 15 min
+
+    return () => {
+      clearInterval(interval);
+      timersRef.current.forEach(clearTimeout);
+    };
   }, [entries]);
 
   // Le hook ne renvoie plus requestPermission — utilise l'export standalone

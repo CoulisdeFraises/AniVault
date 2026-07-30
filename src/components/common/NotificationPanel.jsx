@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { Bell, X, Check, Trash2, BellOff, Sparkles } from "lucide-react";
 import { useNotificationStore } from "../../hooks/useNotificationStore";
 import { requestNotificationPermission } from "../../hooks/useNotifications";
+import { subscribeToPush } from "../../utils/push";
+import { useAuth } from "../../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 
 function timeAgo(ts) {
@@ -23,6 +25,7 @@ const NOTIF_ICONS = {
 };
 
 export function NotificationPanel() {
+  const { user } = useAuth();
   const { notifications, unreadCount, markAllRead, markRead, clearAll } = useNotificationStore();
 
   const navigate  = useNavigate();
@@ -65,8 +68,13 @@ export function NotificationPanel() {
   }, [open]);
 
   async function handleRequestPermission() {
-    const granted = await requestNotificationPermission();
-    setPermGranted(granted);
+    if (user?.id) {
+      const ok = await subscribeToPush(user.id);
+      setPermGranted(ok);
+    } else {
+      const granted = await requestNotificationPermission();
+      setPermGranted(granted);
+    }
   }
 
   function handleClickNotif(notif) {

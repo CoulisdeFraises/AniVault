@@ -48,17 +48,36 @@ self.addEventListener("fetch", (e) => {
   );
 });
 
-// Réception de notifications push (via useNotifications)
+// Réception de notifications push envoyées par la fonction Edge planifiée
+// (supabase/functions/notify-episodes). Fonctionne même onglet fermé.
 self.addEventListener("push", (e) => {
   const data = e.data?.json() ?? {};
+  const tag  = data.tag || (data.entryId ? `anivault-${data.entryId}-${data.episode ?? ""}` : "anivault");
+
   e.waitUntil(
-    self.registration.showNotification(data.title || "🎌 AniVault", {
-      body:  data.body  || "",
-      icon:  data.icon  || "/logo.png",
-      badge: data.badge || "/favicon-96x96.png",
-      tag:   data.tag   || "anivault",
-      data:  data.data  || {},
-    })
+    Promise.all([
+      self.registration.showNotification(data.title || "AniVault", {
+        body:  data.body  || "",
+        icon:  "/logo.png",
+        badge: "/favicon-96x96.png",
+        tag,
+        data:  { entryId: data.entryId ?? null, iconKey: data.icon || "sparkles" },
+      }),
+      // Best-effort : si une page est déjà ouverte, on lui transmet la
+      // notification pour qu'elle l'ajoute aussi à la liste in-app.
+      // (Si aucune page n'est ouverte, seule la notification OS s'affiche —
+      // pas de moyen synchrone de mettre à jour le store depuis le SW seul.)
+      self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+        list.forEach((client) => client.postMessage({
+          type: "PUSH_RECEIVED",
+          title: data.title || "AniVault",
+          body: data.body || "",
+          entryId: data.entryId ?? null,
+          episode: data.episode ?? null,
+          icon: data.icon || "sparkles",
+        }));
+      }),
+    ])
   );
 });
 

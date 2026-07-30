@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Loader2 }             from "lucide-react";
 import { AuthProvider, useAuth }       from "./context/AuthContext";
@@ -10,6 +10,7 @@ import { InstallPrompt }               from "./components/common/InstallPrompt";
 import { AchievementToast }            from "./components/common/AchievementToast";
 import { useAchievements }             from "./hooks/useAchievements";
 import { useNotifications }            from "./hooks/useNotifications";
+import { addNotification }             from "./hooks/useNotificationStore";
 
 // ── Code splitting ────────────────────────────────────────────────────────────
 // Toutes les pages utilisent des exports NOMMÉS (export function X).
@@ -55,6 +56,24 @@ function AchievementLayer() {
 function NotificationLayer() {
   const { entries } = useLibrary();
   useNotifications(entries);
+
+  // Synchronise les push reçues par le Service Worker (onglet ouvert) avec
+  // la liste in-app. La dedupeKey partage le même format que la programmation
+  // locale (useNotifications.js) pour éviter les doublons entre les deux.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    function handleMessage(event) {
+      if (event.data?.type !== "PUSH_RECEIVED") return;
+      const { title, body, entryId, icon, episode } = event.data;
+      addNotification({
+        title, body, entryId, icon,
+        dedupeKey: entryId != null && episode != null ? `${entryId}-ep${episode}` : null,
+      });
+    }
+    navigator.serviceWorker.addEventListener("message", handleMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", handleMessage);
+  }, []);
+
   return null;
 }
 

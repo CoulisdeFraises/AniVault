@@ -14,10 +14,22 @@ function _notify() { _listeners.forEach((fn) => fn([..._state])); }
 
 /**
  * Ajoute une notification (appelable depuis n'importe quel module/hook).
+ *
+ * `dedupeKey`, si fourni, évite les doublons : le même épisode peut être
+ * signalé à la fois par la programmation locale (onglet ouvert) et par le
+ * push serveur — on ne garde que la première entrée reçue dans la fenêtre
+ * de déduplication.
  */
-export function addNotification({ title, body, entryId = null, icon = "sparkles" }) {
+const DEDUPE_WINDOW_MS = 2 * 60 * 60 * 1000; // 2h
+
+export function addNotification({ title, body, entryId = null, icon = "sparkles", dedupeKey = null }) {
+  if (dedupeKey) {
+    const cutoff = Date.now() - DEDUPE_WINDOW_MS;
+    const alreadySeen = _state.some((n) => n.dedupeKey === dedupeKey && n.createdAt > cutoff);
+    if (alreadySeen) return;
+  }
   _state = [
-    { id: `${Date.now()}-${Math.random()}`, title, body, entryId, icon, readAt: null, createdAt: Date.now() },
+    { id: `${Date.now()}-${Math.random()}`, title, body, entryId, icon, dedupeKey, readAt: null, createdAt: Date.now() },
     ..._state,
   ].slice(0, MAX_NOTIFS);
   _save();
