@@ -1,21 +1,24 @@
+// src/pages/Calendar.jsx
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, RefreshCw, Loader2,
-  ChevronLeft, ChevronRight, X,
+  ChevronLeft, ChevronRight, X, Plus, Check,
 } from "lucide-react";
 import { fetchWeeklySchedule, hasFrenchVersion, isReturningSeries } from "../api/anilist";
 import { hasTMDB, searchTMDBShow, fetchTMDBEpisodeFR, fetchTMDBWatchProvidersFR } from "../api/tmdb";
-import { useLibrary } from "../context/LibraryContext";
+import { useLibrary }  from "../context/LibraryContext";
+import { importResult } from "../api";
 import { BurgerMenu }    from "../components/common/BurgerMenu";
 import { Modal }         from "../components/Modal/Modal";
 import { PullToRefresh } from "../components/common/PullToRefresh";
 import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
 
-const DAY_NAMES = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+const DAY_NAMES            = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 const VISIBLE_DAYS_MOBILE  = 1;
 const VISIBLE_DAYS_DESKTOP = 3;
-const TMDB_CHUNK = 5;
+const TMDB_CHUNK           = 5;
+const SWIPE_THRESHOLD      = 60; // px minimum pour déclencher un changement de jour
 
 function getSeasonLabel() {
   const now = new Date(), month = now.getMonth() + 1, year = now.getFullYear();
@@ -147,36 +150,70 @@ function EpisodeDetailModal({ schedule, initialFrTitle, hasFrFromTmdb, onClose }
 }
 
 // ── Carte épisode ─────────────────────────────────────────────────────────────
-function EpisodeCard({ schedule, showVfBadge, onClick, frTitle, isFrench, isLoadingTitle }) {
+// Restructurée en <div> pour accueillir le bouton Ajouter sans imbriquer des <button>
+function EpisodeCard({ schedule, showVfBadge, onClick, frTitle, isFrench, isLoadingTitle, isInLibrary, onAdd, isAdding }) {
   const time  = new Date(schedule.airingAt * 1000);
   const title = frTitle || schedule.media.title.english || schedule.media.title.romaji;
 
   return (
-    <button
-      onClick={onClick}
-      className="w-full text-left flex gap-2.5 p-2.5 rounded-xl bg-white/5 hover:bg-white/10 active:bg-white/15 active:scale-[0.98] transition-all motion-reduce:transition-none cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"
-    >
-      {schedule.media.coverImage?.medium ? (
-        <img src={schedule.media.coverImage.medium} alt="" className="w-12 h-[72px] object-cover rounded-lg flex-shrink-0" />
-      ) : (
-        <div className="w-12 h-[72px] rounded-lg bg-white/10 flex-shrink-0" />
-      )}
-      <div className="min-w-0 flex-1">
-        <p className={`text-xs font-medium text-violet-100 leading-snug line-clamp-3 transition-opacity duration-300 ${isLoadingTitle ? "opacity-60" : "opacity-100"}`}>
-          {title}
-        </p>
-        {isLoadingTitle && (
-          <div className="h-0.5 w-2/3 mt-1 rounded-full shimmer" />
+    <div className="w-full flex gap-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors overflow-hidden">
+
+      {/* Zone cliquable principale → ouvre le modal détail */}
+      <button
+        onClick={onClick}
+        className="flex gap-2.5 flex-1 min-w-0 p-2.5 text-left active:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400 rounded-xl"
+      >
+        {schedule.media.coverImage?.medium ? (
+          <img src={schedule.media.coverImage.medium} alt="" className="w-12 h-[72px] object-cover rounded-lg flex-shrink-0" />
+        ) : (
+          <div className="w-12 h-[72px] rounded-lg bg-white/10 flex-shrink-0" />
         )}
-        <p className="font-mono text-[10px] text-violet-400 mt-1.5">Ép. {schedule.episode}</p>
-        <p className="font-mono text-[10px] text-violet-500">
-          {time.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-        </p>
-        {showVfBadge && isFrench && (
-          <span className="inline-block mt-1 font-mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/20">VF</span>
+        <div className="min-w-0 flex-1">
+          <p className={`text-xs font-medium text-violet-100 leading-snug line-clamp-3 transition-opacity duration-300 ${isLoadingTitle ? "opacity-60" : "opacity-100"}`}>
+            {title}
+          </p>
+          {isLoadingTitle && <div className="h-0.5 w-2/3 mt-1 rounded-full shimmer" />}
+          <p className="font-mono text-[10px] text-violet-400 mt-1.5">Ép. {schedule.episode}</p>
+          <p className="font-mono text-[10px] text-violet-500">
+            {time.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+          </p>
+          {showVfBadge && isFrench && (
+            <span className="inline-block mt-1 font-mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/20">VF</span>
+          )}
+        </div>
+      </button>
+
+      {/* Bouton Ajouter / badge "Dans ma liste" */}
+      <div className="flex-shrink-0 flex items-center pr-2.5">
+        {isInLibrary ? (
+          // Déjà dans la bibliothèque → badge non cliquable
+          <div
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-teal-500/15 text-teal-400"
+            title="Déjà dans ta liste"
+          >
+            <Check size={12} strokeWidth={2.5} />
+            <span className="font-mono text-[9px] uppercase tracking-wide hidden sm:inline">Ma liste</span>
+          </div>
+        ) : (
+          // Pas encore ajouté → bouton d'ajout
+          <button
+            onClick={(e) => { e.stopPropagation(); onAdd(); }}
+            disabled={isAdding}
+            aria-label={`Ajouter ${title} à ma liste`}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-amber-400/15 border border-amber-400/25 text-amber-400 hover:bg-amber-400/25 active:scale-95 transition-all motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isAdding
+              ? <Loader2 size={12} className="animate-spin" />
+              : <Plus    size={12} strokeWidth={2.5} />
+            }
+            <span className="font-mono text-[9px] uppercase tracking-wide hidden sm:inline">
+              {isAdding ? "Ajout…" : "Ajouter"}
+            </span>
+          </button>
         )}
       </div>
-    </button>
+
+    </div>
   );
 }
 
@@ -195,8 +232,8 @@ function FilterBtn({ active, onClick, children }) {
 
 // ── Page principale ───────────────────────────────────────────────────────────
 export function Calendar() {
-  const navigate    = useNavigate();
-  const { entries: libraryEntries } = useLibrary();
+  const navigate = useNavigate();
+  const { entries: libraryEntries, saveEntry } = useLibrary();
   const VISIBLE_DAYS = useVisibleDays();
 
   const [schedules,        setSchedules]        = useState([]);
@@ -216,11 +253,19 @@ export function Calendar() {
     Math.max(0, Math.min(7 - VISIBLE_DAYS_DESKTOP, todayIndex() - 1))
   );
 
+  // IDs en cours d'ajout (Set de media.id AniList)
+  const [addingIds, setAddingIds] = useState(new Set());
+
+  // ── Swipe : ref pour le gestionnaire de pointeur ──────────────────────────
+  const swipePtr = useRef({ id: null, startX: 0, startY: 0, axis: null });
+
+  // IDs AniList déjà présents dans la bibliothèque
   const libraryAnilistIds = useMemo(
     () => new Set(libraryEntries.flatMap((e) => e.anilistIds || []).map(String)),
     [libraryEntries]
   );
 
+  // ── Chargement semaine ────────────────────────────────────────────────────
   const load = useCallback(async (offset, isRefresh = false) => {
     const cacheKey = `calendar_week_${offset}`;
 
@@ -260,7 +305,7 @@ export function Calendar() {
 
   useEffect(() => { load(weekOffset); }, [weekOffset]);
 
-  // ── Pre-fetch TMDB ──
+  // ── Pre-fetch TMDB (titres FR + dispo) ────────────────────────────────────
   useEffect(() => {
     if (!hasTMDB() || schedules.length === 0) { setTmdbTitles({}); setTmdbFrAvailable({}); return; }
     let cancelled = false;
@@ -295,12 +340,81 @@ export function Calendar() {
     return () => { cancelled = true; };
   }, [schedules]);
 
+  // ── Navigation semaine / jour ─────────────────────────────────────────────
   function prevWeek()      { setSlideDir("from-right"); setGridKey((k) => k + 1); setWeekOffset((w) => w - 1); setDayOffset(0); }
   function nextWeek()      { setSlideDir("from-left");  setGridKey((k) => k + 1); setWeekOffset((w) => w + 1); setDayOffset(0); }
   function thisWeek()      { setSlideDir("from-right"); setGridKey((k) => k + 1); setWeekOffset(0); setDayOffset(Math.max(0, Math.min(7 - VISIBLE_DAYS, todayIndex() - 1))); }
   function handlePrevDay() { setSlideDir("from-right"); setGridKey((k) => k + 1); setDayOffset((d) => Math.max(0, d - 1)); }
   function handleNextDay() { setSlideDir("from-left");  setGridKey((k) => k + 1); setDayOffset((d) => Math.min(7 - VISIBLE_DAYS, d + 1)); }
 
+  // ── Swipe gauche/droite → navigation entre jours ──────────────────────────
+  // Même pattern que Card.jsx : détection d'axe avant de décider si c'est
+  // un swipe horizontal (changement de jour) ou vertical (scroll normal).
+  function handleGridPointerDown(e) {
+    if (e.button > 0) return; // ignore clic droit
+    swipePtr.current = { id: e.pointerId, startX: e.clientX, startY: e.clientY, axis: null };
+  }
+
+  function handleGridPointerMove(e) {
+    if (swipePtr.current.id == null) return;
+    const dx = e.clientX - swipePtr.current.startX;
+    const dy = e.clientY - swipePtr.current.startY;
+
+    // Détermine l'axe dominant dès 8px de déplacement
+    if (!swipePtr.current.axis && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+      swipePtr.current.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+    }
+  }
+
+  function handleGridPointerUp(e) {
+    if (swipePtr.current.id == null) return;
+    const dx = e.clientX - swipePtr.current.startX;
+
+    if (swipePtr.current.axis === "x") {
+      if (dx < -SWIPE_THRESHOLD && canNextDay) handleNextDay();
+      else if (dx > SWIPE_THRESHOLD && canPrevDay) handlePrevDay();
+    }
+
+    swipePtr.current = { id: null, startX: 0, startY: 0, axis: null };
+  }
+
+  function handleGridPointerCancel() {
+    swipePtr.current = { id: null, startX: 0, startY: 0, axis: null };
+  }
+
+  // ── Ajout d'un anime à la bibliothèque ────────────────────────────────────
+  const handleAddToLibrary = useCallback(async (schedule) => {
+    const mediaId = schedule.media.id;
+    if (addingIds.has(mediaId)) return;
+
+    setAddingIds((prev) => new Set([...prev, mediaId]));
+    try {
+      const searchResult = {
+        id:       mediaId,
+        source:   "anilist",
+        title:    schedule.media.title.english || schedule.media.title.romaji,
+        genres:   schedule.media.genres || [],
+        image:    schedule.media.coverImage?.large || schedule.media.coverImage?.medium || null,
+        episodes: schedule.media.episodes ?? null,
+      };
+
+      const imported = await importResult(searchResult);
+      saveEntry(
+        { ...imported, type: "anime", status: "a-voir", rating: 0 },
+        null // null = création, pas édition
+      );
+    } catch (err) {
+      console.error("Erreur lors de l'ajout à la bibliothèque :", err);
+    } finally {
+      setAddingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(mediaId);
+        return next;
+      });
+    }
+  }, [addingIds, saveEntry]);
+
+  // ── Calculs dérivés ───────────────────────────────────────────────────────
   const weekLabel = useMemo(() => {
     if (!weekMonday) return "";
     const end = new Date(weekMonday);
@@ -343,12 +457,6 @@ export function Calendar() {
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
 
-      {/*
-       * PullToRefresh wrappe tout le contenu scrollable.
-       * Appelle load(weekOffset, true) : force le re-fetch en by-passant le cache,
-       * affiche l'indicateur "refreshing" (spinner dans le bouton header) pendant l'opération.
-       * Les modales (EpisodeDetailModal) restent en dehors du wrapper.
-       */}
       <PullToRefresh onRefresh={() => load(weekOffset, true)}>
         <div className="max-w-5xl mx-auto px-3 sm:px-6 pb-6 sm:pb-8 pt-safe-6">
 
@@ -435,9 +543,31 @@ export function Calendar() {
                   <span className="hidden sm:inline text-xs">Préc.</span>
                 </button>
 
-                <p className="font-mono text-[11px] text-violet-500">
-                  {totalVisible} épisode{totalVisible !== 1 ? "s" : ""}
-                </p>
+                <div className="flex flex-col items-center gap-0.5">
+                  <p className="font-mono text-[11px] text-violet-500">
+                    {totalVisible} épisode{totalVisible !== 1 ? "s" : ""}
+                  </p>
+                  {/* Indicateur de position : petits points représentant les 7 jours */}
+                  <div className="flex gap-1 items-center">
+                    {Array.from({ length: 7 }, (_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          const newOffset = Math.max(0, Math.min(7 - VISIBLE_DAYS, i - Math.floor(VISIBLE_DAYS / 2)));
+                          setSlideDir(newOffset > dayOffset ? "from-left" : "from-right");
+                          setGridKey((k) => k + 1);
+                          setDayOffset(newOffset);
+                        }}
+                        aria-label={DAY_NAMES[i]}
+                        className={`rounded-full transition-all motion-reduce:transition-none ${
+                          i >= dayOffset && i < dayOffset + VISIBLE_DAYS
+                            ? "w-3 h-1.5 bg-amber-400"
+                            : "w-1.5 h-1.5 bg-white/20 hover:bg-white/40"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
 
                 <button
                   onClick={handleNextDay}
@@ -449,9 +579,14 @@ export function Calendar() {
                 </button>
               </div>
 
-              {/* ── Grille jours ── */}
+              {/* ── Grille jours — écoute les swipes horizontaux ── */}
               <div
                 key={gridKey}
+                onPointerDown={handleGridPointerDown}
+                onPointerMove={handleGridPointerMove}
+                onPointerUp={handleGridPointerUp}
+                onPointerCancel={handleGridPointerCancel}
+                style={{ touchAction: "pan-y" }} // scroll vertical libre, swipe horizontal capturé
                 className={`grid gap-3 motion-reduce:animate-none ${slideClass} ${
                   VISIBLE_DAYS === 1 ? "grid-cols-1" : "grid-cols-3"
                 }`}
@@ -496,6 +631,9 @@ export function Calendar() {
                               frTitle={tmdbTitles[s.media.id] ?? null}
                               isFrench={isAvailableInFR(s.media)}
                               isLoadingTitle={hasTMDB() && !tmdbTitles[s.media.id]}
+                              isInLibrary={libraryAnilistIds.has(String(s.media.id))}
+                              onAdd={() => handleAddToLibrary(s)}
+                              isAdding={addingIds.has(s.media.id)}
                             />
                           ))
                         )}
@@ -510,7 +648,7 @@ export function Calendar() {
         </div>
       </PullToRefresh>
 
-      {/* ── Modal détail épisode (hors PullToRefresh pour éviter les conflits de touch) ── */}
+      {/* ── Modal détail épisode ── */}
       {selectedSchedule && (
         <EpisodeDetailModal
           schedule={selectedSchedule}
