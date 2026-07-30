@@ -292,13 +292,13 @@ export function Home() {
           {/* ── Widget Continuer à regarder ── */}
           {!loading && <ContinueWatching />}
 
-          {/* ── Barre de repli bibliothèque principale ── */}
+           {/* ── Repli bibliothèque — visible seulement quand il y a des résultats ── */}
           {!loading && sorted.length > 0 && (
             <button
               onClick={() => { haptics.tap(); setMainListCollapsed(v => !v); }}
-              className="w-full flex items-center justify-between px-3 py-2 mb-2 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] text-violet-500 hover:text-violet-300 transition-all active:scale-[0.99] motion-reduce:transition-none group"
+              className="w-full flex items-center justify-between px-3 py-2 mb-2 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] text-violet-500 hover:text-violet-300 transition-all active:scale-[0.99] motion-reduce:transition-none"
             >
-              <span className="font-mono text-[10px] uppercase tracking-widest group-hover:text-violet-300 transition-colors">
+              <span className="font-mono text-[10px] uppercase tracking-widest">
                 Bibliothèque · {sorted.length} titre{sorted.length !== 1 ? "s" : ""}
               </span>
               <ChevronDown
@@ -308,7 +308,7 @@ export function Home() {
             </button>
           )}
 
-          {/* ── Contenu ── */}
+          {/* ── Contenu principal ── */}
           {loading ? (
             <SkeletonGrid count={6} />
 
@@ -329,55 +329,35 @@ export function Home() {
               )}
             </div>
 
-          ) : (
-            // ── Bouton repli + grilles ──────────────────────────────────────
-            <>
-              {/* Barre de repli */}
-              <button
-                onClick={() => { haptics.tap(); setMainListCollapsed(v => !v); }}
-                className="w-full flex items-center justify-between px-3 py-2 mb-2 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] text-violet-500 hover:text-violet-300 transition-all active:scale-[0.99] motion-reduce:transition-none group"
-              >
-                <span className="font-mono text-[10px] uppercase tracking-widest">
-                  Bibliothèque · {sorted.length} titre{sorted.length !== 1 ? "s" : ""}
-                </span>
-                <ChevronDown
-                  size={13}
-                  className={`transition-transform duration-300 motion-reduce:transition-none ${mainListCollapsed ? "rotate-180" : ""}`}
-                />
-              </button>
-
-              {/* Grilles — masquées quand replié */}
-              {!mainListCollapsed && (
-                typeFilter === "all" ? (
-                  <div key={gridKey} className="space-y-8 animate-fadeIn">
-                    {filteredAnime.length > 0 && (
-                      <section>
-                        <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
-                          Animes · {filteredAnime.length}
-                        </p>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                          {filteredAnime.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />)}
-                        </div>
-                      </section>
-                    )}
-                    {filteredSerie.length > 0 && (
-                      <section>
-                        <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
-                          Séries · {filteredSerie.length}
-                        </p>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                          {filteredSerie.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />)}
-                        </div>
-                      </section>
-                    )}
-                  </div>
-                ) : (
-                  <div key={gridKey} className="grid grid-cols-1 lg:grid-cols-2 gap-3 animate-fadeIn">
-                    {sorted.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />)}
-                  </div>
-                )
-              )}
-            </>
+          ) : !mainListCollapsed && (
+            typeFilter === "all" ? (
+              <div key={gridKey} className="space-y-8 animate-fadeIn">
+                {filteredAnime.length > 0 && (
+                  <section>
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
+                      Animes · {filteredAnime.length}
+                    </p>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      {filteredAnime.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />)}
+                    </div>
+                  </section>
+                )}
+                {filteredSerie.length > 0 && (
+                  <section>
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
+                      Séries · {filteredSerie.length}
+                    </p>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      {filteredSerie.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />)}
+                    </div>
+                  </section>
+                )}
+              </div>
+            ) : (
+              <div key={gridKey} className="grid grid-cols-1 lg:grid-cols-2 gap-3 animate-fadeIn">
+                {sorted.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />)}
+              </div>
+            )
           )}
 
           {/* ── Cachette secrète ── */}
