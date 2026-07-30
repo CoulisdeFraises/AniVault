@@ -105,11 +105,11 @@ export async function refreshEntryCard(entry) {
     }
 
     const existingByAnilistId = new Map(
-      entry.seasons.filter((s) => s.anilistId).map((s) => [s.anilistId, s])
+      entry.seasons.filter((s) => s.anilistId != null).map((s) => [String(s.anilistId), s])
     );
 
     const mergedSeasons = freshSeasons.map((freshSeason) => {
-      const existing = existingByAnilistId.get(freshSeason.anilistId);
+      const existing = existingByAnilistId.get(String(freshSeason.anilistId));
       if (existing) {
         return {
           ...freshSeason,
@@ -120,7 +120,18 @@ export async function refreshEntryCard(entry) {
       return { ...freshSeason, watchedEpisodes: 0 };
     });
 
-    const newItems = freshSeasons.filter((s) => !existingByAnilistId.has(s.anilistId));
+    // Garde-fou final : si on avait de la progression avant, qu'il existait
+    // des saisons avec un anilistId reconnu, et qu'AUCUNE ne s'est réappariée
+    // après l'actualisation, quelque chose s'est mal passé dans la correspondance
+    // (ex: chaîne de saisons tronquée, IDs qui ne matchent plus). Mieux vaut
+    // échouer que d'effacer silencieusement la progression de l'utilisateur.
+    const prevWatchedTotal = entry.seasons.reduce((sum, s) => sum + (s.watchedEpisodes || 0), 0);
+    const matchedCount     = freshSeasons.filter((s) => existingByAnilistId.has(String(s.anilistId))).length;
+    if (prevWatchedTotal > 0 && existingByAnilistId.size > 0 && matchedCount === 0) {
+      throw new Error("L'actualisation aurait effacé ta progression (incohérence de correspondance des saisons) — annulée par sécurité. Contacte le support si ça persiste.");
+    }
+
+    const newItems = freshSeasons.filter((s) => !existingByAnilistId.has(String(s.anilistId)));
     return {
       seasons: mergedSeasons,
       anilistIds: freshIds,

@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { haptics } from "../../utils/haptics";
 
 export function EpisodeList({ episodes, totalEpisodes, watched, statusColor, onSetEpisode }) {
   if (episodes.length > 0) {
@@ -10,7 +11,7 @@ export function EpisodeList({ episodes, totalEpisodes, watched, statusColor, onS
           return (
             <li
               key={idx}
-              onClick={() => { if (!isClickable || !onSetEpisode) return; onSetEpisode(isWatched ? idx : idx + 1); }}
+              onClick={() => { if (!isClickable || !onSetEpisode) return; haptics.tap(); onSetEpisode(isWatched ? idx : idx + 1); }}
               className={`flex items-center gap-3 p-2 rounded-lg transition-colors ${isWatched ? "bg-white/5" : ""} ${isClickable ? "cursor-pointer hover:bg-white/10" : ""}`}
             >
               <span className="flex-shrink-0 w-5 h-5 rounded-full border flex items-center justify-center transition-colors"
@@ -38,7 +39,7 @@ export function EpisodeList({ episodes, totalEpisodes, watched, statusColor, onS
         return (
           <li
             key={i}
-            onClick={() => { if (!isClickable || !onSetEpisode) return; onSetEpisode(isWatched ? i : i + 1); }}
+            onClick={() => { if (!isClickable || !onSetEpisode) return; haptics.tap(); onSetEpisode(isWatched ? i : i + 1); }}
             className={`flex items-center gap-3 p-2 rounded-lg ${isWatched ? "bg-white/5" : ""} ${isClickable ? "cursor-pointer hover:bg-white/10" : ""}`}
           >
             <span className="flex-shrink-0 w-5 h-5 rounded-full border flex items-center justify-center"

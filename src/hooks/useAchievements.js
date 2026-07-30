@@ -1,6 +1,7 @@
 import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import { useLibrary } from "../context/LibraryContext";
 import { ACHIEVEMENTS, computeUnlocked } from "../utils/achievements";
+import { haptics } from "../utils/haptics";
 
 const STORAGE_KEY = "anivault:achievements:unlocked";
 
@@ -44,6 +45,7 @@ export function useAchievements() {
 
     newOnes.forEach((a) => seenRef.current.add(a.id));
     saveSeen(seenRef.current);
+    haptics.celebration();
     setQueue((q) => [...q, ...newOnes]);
   }, [unlocked, loading]);
 

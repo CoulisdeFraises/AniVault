@@ -17,6 +17,7 @@ import {
 import { ContinueWatching } from "../components/common/ContinueWatching";
 import { fetchWeeklySchedule } from "../api/anilist";
 import { getCached, setCached, getStaleCached, TTL } from "../lib/cache";
+import { haptics } from "../utils/haptics";
 
 // ── Modal de choix "Ajouter quoi ?" ──────────────────────────────────────────
 function AddChoiceModal({ onAddTitle, onCreateList, onClose }) {
@@ -234,7 +235,7 @@ export function Home() {
           <div className="flex flex-wrap items-center gap-2 mt-3 mb-4">
             {/* Favoris */}
             <button
-              onClick={() => setShowFavoritesOnly(v => !v)}
+              onClick={() => { haptics.tap(); setShowFavoritesOnly(v => !v); }}
               className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-mono border flex-shrink-0
                 transition-all active:scale-95 motion-reduce:transition-none ${showFavoritesOnly
                   ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
@@ -246,7 +247,7 @@ export function Home() {
 
             {/* Dans le calendrier */}
             <button
-              onClick={() => setShowCalendarOnly(v => !v)}
+              onClick={() => { haptics.tap(); setShowCalendarOnly(v => !v); }}
               disabled={airingIds.size === 0}
               className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-mono border flex-shrink-0
                 transition-all active:scale-95 motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed ${showCalendarOnly

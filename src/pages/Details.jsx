@@ -15,6 +15,7 @@ import { useLists }       from "../context/ListsContext";
 import { getFormatGroup } from "../utils/format";
 import { Confetti }           from "../components/common/Confetti";
 import { CelebrationBanner }  from "../components/common/CelebrationBanner";
+import { haptics } from "../utils/haptics";
 
 function normalizeSeriesTitle(title) {
   return (title || "")
@@ -118,6 +119,15 @@ export function Details() {
   const prevStatusRef        = useRef(null);
   const celebrationTimerRef  = useRef(null);
 
+  // Verrou de scroll : Details.jsx est une route à part entière rendue comme
+  // un overlay plein écran (pas une modale via le composant <Modal> partagé),
+  // donc elle doit gérer elle-même le blocage du scroll de la page en dessous.
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prevOverflow; };
+  }, []);
+
   useEffect(() => {
     setActiveTVIdx(0); setSeasonCache({});
     setOpen({ tv: false, extra: false, movie: false });
@@ -134,6 +144,7 @@ export function Details() {
   function triggerCelebration(payload) {
     clearTimeout(celebrationTimerRef.current);
     setCelebration(payload);
+    haptics.celebration();
     celebrationTimerRef.current = setTimeout(() => setCelebration(null), payload.tier === "series" ? 4200 : 3200);
   }
 
@@ -244,6 +255,7 @@ export function Details() {
 
   function handleMarkAllWatched() {
     if (!curTV || curTV.totalEpisodes == null) return;
+    haptics.success();
     setEpisodeCount(entry.id, curTV.globalIndex, curTV.totalEpisodes);
     if (hasNextTV) setTimeout(() => setActiveTVIdx(prev => prev + 1), 300);
   }
@@ -260,6 +272,7 @@ export function Details() {
     try {
       const result = await refreshEntryCard(entry);
       if (!result) {
+        haptics.error();
         setRefreshResult({ status: "unsupported" });
         setTimeout(() => setRefreshResult(null), 5000);
         return;
@@ -272,9 +285,11 @@ export function Details() {
         },
         entry.id
       );
+      haptics.light();
       setRefreshResult({ status: "success", newCount: result.newCount });
       setTimeout(() => setRefreshResult(null), 5000);
     } catch (err) {
+      haptics.error();
       setRefreshResult({ status: "error", message: err?.message });
       setTimeout(() => setRefreshResult(null), 6000);
     }
@@ -370,7 +385,7 @@ export function Details() {
 
               {/* ── Boutons header ── */}
               <div className="flex items-center gap-1 flex-shrink-0">
-                <button onClick={() => toggleFavorite(entry)}
+                <button onClick={() => { haptics.light(); toggleFavorite(entry); }}
                   aria-label={isInFavorites(entry.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
                   className={`p-1.5 rounded-lg transition-colors ${isInFavorites(entry.id) ? "text-pink-400 hover:bg-pink-500/10" : "text-violet-300 hover:bg-white/10 hover:text-pink-300"}`}>
                   <Heart size={14} fill={isInFavorites(entry.id) ? "currentColor" : "none"} />
@@ -428,7 +443,7 @@ export function Details() {
                 {entry.rating > 0 && <Star size={18} fill="#fbbf24" strokeWidth={0} />}
                 {getRatingEmoji(entry.rating) && <span className="text-xl sm:text-3xl">{getRatingEmoji(entry.rating)}</span>}
               </div>
-              <StarRating value={entry.rating} onChange={r => updateRating(entry.id, r)} />
+              <StarRating value={entry.rating} onChange={r => { haptics.tap(); updateRating(entry.id, r); }} />
             </div>
             {entry.notes && <p className="text-[11px] text-violet-300/80 italic mt-1 line-clamp-2">{entry.notes}</p>}
           </div>
@@ -501,10 +516,10 @@ export function Details() {
                       </div>
                       {curTV && (
                         <div className="flex gap-1.5 sm:gap-2 mb-3 flex-wrap">
-                          <button onClick={() => decrementEpisode(entry.id, curTV.globalIndex)}
+                          <button onClick={() => { haptics.tap(); decrementEpisode(entry.id, curTV.globalIndex); }}
                             className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">-1 ép.</button>
                           {(curTV.totalEpisodes == null || curTV.watchedEpisodes < curTV.totalEpisodes) && (
-                            <button onClick={() => incrementEpisode(entry.id, curTV.globalIndex)}
+                            <button onClick={() => { haptics.tap(); incrementEpisode(entry.id, curTV.globalIndex); }}
                               className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">+1 ép.</button>
                           )}
                           {curTV.totalEpisodes != null && curTV.watchedEpisodes < curTV.totalEpisodes && (
@@ -550,15 +565,15 @@ export function Details() {
                             </div>
                             <div className="flex gap-1 flex-shrink-0 pt-0.5">
                               {se.watchedEpisodes > 0 && (
-                                <button onClick={() => decrementEpisode(entry.id, se.globalIndex)}
+                                <button onClick={() => { haptics.tap(); decrementEpisode(entry.id, se.globalIndex); }}
                                   className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95">-1</button>
                               )}
                               {(se.totalEpisodes == null || se.watchedEpisodes < se.totalEpisodes) && (
-                                <button onClick={() => incrementEpisode(entry.id, se.globalIndex)}
+                                <button onClick={() => { haptics.tap(); incrementEpisode(entry.id, se.globalIndex); }}
                                   className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95">+1</button>
                               )}
                               {se.totalEpisodes != null && !done && (
-                                <button onClick={() => setEpisodeCount(entry.id, se.globalIndex, se.totalEpisodes)}
+                                <button onClick={() => { haptics.success(); setEpisodeCount(entry.id, se.globalIndex, se.totalEpisodes); }}
                                   className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 flex items-center">
                                   <CheckCheck size={10} />
                                 </button>
@@ -592,7 +607,7 @@ export function Details() {
                                 <p className="font-mono text-[10px] text-violet-500 mt-0.5">{se.totalEpisodes} épisodes</p>
                               )}
                             </div>
-                            <button onClick={() => setEpisodeCount(entry.id, se.globalIndex, seen ? 0 : (se.totalEpisodes ?? 1))}
+                            <button onClick={() => { haptics.tap(); setEpisodeCount(entry.id, se.globalIndex, seen ? 0 : (se.totalEpisodes ?? 1)); }}
                               className={`font-mono text-[10px] px-2.5 py-1 rounded-full border transition-all active:scale-95 flex-shrink-0 mt-0.5 ${seen ? "bg-teal-500/20 border-teal-500/40 text-teal-300 hover:bg-teal-500/30" : "bg-white/5 border-white/10 text-violet-400 hover:bg-white/10 hover:text-violet-200"}`}>
                               {seen ? "✓ Vu" : "Pas vu"}
                             </button>
@@ -649,10 +664,10 @@ export function Details() {
                     </div>
                     {curTV && (
                       <div className="flex gap-1.5 sm:gap-2 mb-3 flex-wrap">
-                        <button onClick={() => decrementEpisode(entry.id, curTV.globalIndex)}
+                        <button onClick={() => { haptics.tap(); decrementEpisode(entry.id, curTV.globalIndex); }}
                           className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">-1 ép.</button>
                         {(curTV.totalEpisodes == null || curTV.watchedEpisodes < curTV.totalEpisodes) && (
-                          <button onClick={() => incrementEpisode(entry.id, curTV.globalIndex)}
+                          <button onClick={() => { haptics.tap(); incrementEpisode(entry.id, curTV.globalIndex); }}
                             className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">+1 ép.</button>
                         )}
                         {curTV.totalEpisodes != null && curTV.watchedEpisodes < curTV.totalEpisodes && (

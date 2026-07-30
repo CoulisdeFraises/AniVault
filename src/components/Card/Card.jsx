@@ -13,6 +13,7 @@ import { fetchNextAiring, refreshEntryCard } from "../../api";
 import { getShowProgress }  from "../../context/PrefsContext";
 import { AddToListModal }   from "../common/AddToListModal";
 import { getFormatGroup } from "../../utils/format";
+import { haptics } from "../../utils/haptics";
 
 function getResumeStatus(entry) {
   const { watched, total } = seasonTotals(entry.seasons);
@@ -55,6 +56,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   const [swipeDir,  setSwipeDir]  = useState(null); // 'left' | 'right' | null
 
   const cardRef    = useRef(null);
+  const wrapperRef = useRef(null); // englobe la carte ET ses overlays (menu long-press, panneau note/favori)
   const gesturedRef = useRef(false);
   const ptrRef     = useRef({ id: null, startX: 0, startY: 0, timer: null, axis: null });
 
@@ -101,8 +103,9 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
           seasons: result.seasons,
           ...(result.anilistIds ? { anilistIds: result.anilistIds } : {}),
         }, entry.id);
+        haptics.light();
       }
-    } catch (_) {}
+    } catch (_) { haptics.error(); }
     setRefreshing(false);
   }
 
@@ -118,7 +121,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
       timer:  setTimeout(() => {
         gesturedRef.current = true;
         setLongPressMenu(true);
-        navigator.vibrate?.(40);
+        haptics.longPress();
       }, LONG_PRESS_MS),
     };
   }
@@ -156,10 +159,10 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
     if (isSwiping) {
       if (swipeDir === "right") {
         setShowQuickRate(true);
-        navigator.vibrate?.(30);
+        haptics.medium();
       } else if (swipeDir === "left" && canSwipeLeft) {
         setShowAbandonConfirm(true);
-        navigator.vibrate?.(30);
+        haptics.medium();
       }
       setSwipeX(0);
       setIsSwiping(false);
@@ -185,7 +188,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   useEffect(() => {
     if (!longPressMenu && !showQuickRate) return;
     function handleOutside(e) {
-      if (cardRef.current && !cardRef.current.contains(e.target)) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setLongPressMenu(false);
         setShowQuickRate(false);
         gesturedRef.current = false;
@@ -260,7 +263,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   return (
     <>
       {/* ── Wrapper relatif pour les couches de swipe ── */}
-      <div className="relative select-none" style={{ touchAction: "pan-y" }}>
+      <div ref={wrapperRef} className="relative select-none" style={{ touchAction: "pan-y" }}>
 
         {/* Reveal DROITE : Note / Favori (fond ambre) */}
         <div
@@ -454,7 +457,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             </p>
 
             <button
-              onClick={handleRefresh}
+              onClick={() => { haptics.tap(); handleRefresh(); }}
               disabled={refreshing}
               className="w-full flex items-center gap-3 px-4 py-2 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 active:scale-[0.98] text-sm font-semibold text-white transition-all disabled:opacity-60"
             >
@@ -463,7 +466,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             </button>
 
             <button
-              onClick={() => { setLongPressMenu(false); setShowAddToList(true); }}
+              onClick={() => { haptics.tap(); setLongPressMenu(false); setShowAddToList(true); }}
               className="w-full flex items-center gap-3 px-4 py-2 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 active:scale-[0.98] text-sm font-semibold text-white transition-all"
             >
               <ListPlus size={16} className="text-white flex-shrink-0" />
@@ -471,7 +474,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             </button>
 
             <button
-              onClick={() => { setLongPressMenu(false); setShowDel(true); }}
+              onClick={() => { haptics.medium(); setLongPressMenu(false); setShowDel(true); }}
               className="w-full flex items-center gap-3 px-4 py-2 rounded-xl bg-rose-500/25 border border-rose-400/40 hover:bg-rose-500/35 active:scale-[0.98] text-sm font-semibold text-white transition-all"
             >
               <Trash2 size={16} className="text-rose-200 flex-shrink-0" />
@@ -479,7 +482,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             </button>
 
             <button
-              onClick={() => { setLongPressMenu(false); gesturedRef.current = false; }}
+              onClick={() => { haptics.tap(); setLongPressMenu(false); gesturedRef.current = false; }}
               className="mt-0.5 text-xs text-white/70 hover:text-white active:scale-95 transition-all font-mono"
             >
               Annuler
@@ -497,10 +500,10 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
               {entry.title}
             </p>
 
-            <StarRating value={entry.rating} onChange={r => updateRating(entry.id, r)} />
+            <StarRating value={entry.rating} onChange={r => { haptics.tap(); updateRating(entry.id, r); }} />
 
             <button
-              onClick={() => { toggleFavorite(entry); }}
+              onClick={() => { haptics.light(); toggleFavorite(entry); }}
               className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
                 isFavorite
                   ? "bg-pink-500/30 border border-pink-400/50 text-white"
@@ -528,7 +531,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
           title="Supprimer ce titre ?"
           description={<><span className="text-violet-50 font-medium">« {entry.title} »</span> et toute sa progression seront supprimés définitivement.</>}
           confirmLabel="Supprimer"
-          onConfirm={() => { deleteEntry(entry.id); setShowDel(false); }}
+          onConfirm={() => { haptics.medium(); deleteEntry(entry.id); setShowDel(false); }}
           onCancel={() => setShowDel(false)}
         />
       )}
@@ -541,7 +544,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
           title="Abandonner ce titre ?"
           description={<>Tu pourras reprendre <span className="text-violet-50 font-medium">« {entry.title} »</span> à tout moment depuis la carte.</>}
           confirmLabel="Abandonner"
-          onConfirm={() => { handleAbandon(); setShowAbandonConfirm(false); }}
+          onConfirm={() => { haptics.medium(); handleAbandon(); setShowAbandonConfirm(false); }}
           onCancel={() => setShowAbandonConfirm(false)}
         />
       )}

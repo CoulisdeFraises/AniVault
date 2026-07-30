@@ -15,7 +15,7 @@ function _notify() { _listeners.forEach((fn) => fn([..._state])); }
 /**
  * Ajoute une notification (appelable depuis n'importe quel module/hook).
  */
-export function addNotification({ title, body, entryId = null, icon = "🎌" }) {
+export function addNotification({ title, body, entryId = null, icon = "sparkles" }) {
   _state = [
     { id: `${Date.now()}-${Math.random()}`, title, body, entryId, icon, readAt: null, createdAt: Date.now() },
     ..._state,

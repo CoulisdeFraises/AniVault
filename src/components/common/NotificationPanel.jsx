@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Bell, X, Check, Trash2, BellOff } from "lucide-react";
+import { Bell, X, Check, Trash2, BellOff, Sparkles } from "lucide-react";
 import { useNotificationStore } from "../../hooks/useNotificationStore";
 import { requestNotificationPermission } from "../../hooks/useNotifications";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -15,6 +15,12 @@ function timeAgo(ts) {
   if (h < 24) return `Il y a ${h}h`;
   return `Il y a ${d}j`;
 }
+
+// Icônes lucide plutôt que des emojis — extensible si d'autres types de
+// notifications arrivent plus tard (succès débloqué, ami, etc.).
+const NOTIF_ICONS = {
+  sparkles: Sparkles,
+};
 
 export function NotificationPanel() {
   const { notifications, unreadCount, markAllRead, markRead, clearAll } = useNotificationStore();
@@ -130,7 +136,14 @@ export function NotificationPanel() {
               onClick={() => handleClickNotif(n)}
               className={`w-full flex items-start gap-3 px-4 py-3 text-left border-b border-white/5 last:border-0 transition-colors hover:bg-white/5 ${!n.readAt ? "bg-violet-800/20" : ""}`}
             >
-              <span className="text-lg flex-shrink-0 mt-0.5">{n.icon}</span>
+              {(() => {
+                const Icon = NOTIF_ICONS[n.icon] || Sparkles;
+                return (
+                  <span className="flex-shrink-0 mt-0.5 w-7 h-7 rounded-full bg-amber-400/15 border border-amber-400/30 flex items-center justify-center">
+                    <Icon size={13} className="text-amber-300" />
+                  </span>
+                );
+              })()}
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-violet-100 leading-snug">{n.title}</p>
                 <p className="text-[11px] text-violet-400 leading-snug mt-0.5 line-clamp-2">{n.body}</p>

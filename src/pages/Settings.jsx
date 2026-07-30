@@ -88,6 +88,7 @@ export function Settings() {
     defaultFilter: localStorage.getItem("pref_defaultFilter") || "all",
     showProgress:  localStorage.getItem("pref_showProgress") !== "false",
     autoStatus:    localStorage.getItem("pref_autoStatus")   !== "false",
+    haptics:       localStorage.getItem("pref_haptics")      !== "false",
   });
 
   const [confirmClear, setConfirmClear] = useState(false);
@@ -198,6 +199,9 @@ export function Settings() {
         <Row label="Changement de statut automatique" sublabel="Passe à « En cours » / « Terminé » selon les épisodes cochés">
           <Toggle checked={prefs.autoStatus} onChange={(v) => setPref("autoStatus", v)} />
         </Row>
+        <Row label="Retour haptique" sublabel="Petites vibrations sur les actions (favoris, suppression, succès…)">
+          <Toggle checked={prefs.haptics} onChange={(v) => { setPref("haptics", v); if (v) navigator.vibrate?.(20); }} />
+        </Row>
         <Row label="Filtre par défaut" sublabel="Vue affichée à l'ouverture de l'app">
           <select
             value={prefs.defaultFilter}
@@ -251,8 +255,8 @@ export function Settings() {
           label="Réinitialiser les préférences"
           sublabel="Remet tous les paramètres d'affichage à leur valeur par défaut"
           onClick={() => {
-            ["pref_defaultFilter", "pref_showProgress", "pref_autoStatus"].forEach((k) => localStorage.removeItem(k));
-            setPrefs({ defaultFilter: "all", showProgress: true, autoStatus: true });
+            ["pref_defaultFilter", "pref_showProgress", "pref_autoStatus", "pref_haptics"].forEach((k) => localStorage.removeItem(k));
+            setPrefs({ defaultFilter: "all", showProgress: true, autoStatus: true, haptics: true });
           }}
         >
           <RotateCcw size={15} className="text-violet-400" />
