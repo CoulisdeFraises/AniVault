@@ -364,7 +364,7 @@ export function Home() {
                         <select
                           value={cachetteSortBy}
                           onChange={(e) => setCachetteSortBy(e.target.value)}
-                          className="appearance-none flex items-center gap-1.5 h-8 pl-3 pr-7 rounded-full
+                          className="appearance-none flex items-center gap-1.5 h-8 pl-3 pr-7 rounded-full text-[10px] font-mono
                             bg-white/5 border border-white/10 text-violet-400
                             hover:bg-white/10 hover:text-violet-200
                             focus:outline-none focus:border-violet-500/50
