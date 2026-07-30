@@ -271,7 +271,7 @@ export function Home() {
               >
                 {SORT_OPTIONS.map(opt => (
                   <option key={opt.key} value={opt.key}
-                    className="bg-violet-900 text-violet-100">
+                    size = {12} className="bg-violet-900 text-violet-100">
                     {opt.label}
                   </option>
                 ))}
