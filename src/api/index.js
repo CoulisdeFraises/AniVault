@@ -15,6 +15,7 @@ export function search(type, query) {
   return type === "anime" ? searchAniList(query) : searchTVMaze(query);
 }
 
+// ── importResult : branche anilist ───────────────────────────────────────
 export async function importResult(result) {
   const tmdb = await searchTMDBShow(result.title);
 
@@ -30,8 +31,17 @@ export async function importResult(result) {
         coverImage: result.image || null,
         seasons: franchiseData.seasons.length
           ? franchiseData.seasons
-          : [{ number: 1, format: "TV", totalEpisodes: result.episodes ?? null, watchedEpisodes: 0, coverImage: result.image || null }],
-        source: "anilist", anilistIds: franchiseData.anilistIds,
+          : [{
+              number: 1,
+              format: result.format ?? "TV",     // ← format réel (ONA, OVA…)
+              totalEpisodes: result.episodes ?? null,
+              watchedEpisodes: 0,
+              coverImage: result.image || null,
+              anilistId: result.id,              // ← anilistId sur la saison de secours
+            }],
+        source: "anilist",
+        // ← CORRECTIF : si anilistIds est vide (ONA, format non-TV), on garde l'ID source
+        anilistIds: franchiseData.anilistIds.length ? franchiseData.anilistIds : [result.id],
         tmdbId: tmdb?.id ?? null, description: description || null,
       };
     } catch {
@@ -39,7 +49,14 @@ export async function importResult(result) {
         title: result.title, category: "tv",
         genres: translateGenres(result.genres).slice(0, 5),
         coverImage: result.image || null,
-        seasons: [{ number: 1, format: "TV", totalEpisodes: result.episodes ?? null, watchedEpisodes: 0, coverImage: result.image || null }],
+        seasons: [{
+          number: 1,
+          format: result.format ?? "TV",         // ← format réel
+          totalEpisodes: result.episodes ?? null,
+          watchedEpisodes: 0,
+          coverImage: result.image || null,
+          anilistId: result.id,                  // ← anilistId
+        }],
         source: "anilist", anilistIds: [result.id],
         tmdbId: tmdb?.id ?? null, description: null,
       };
@@ -101,7 +118,12 @@ export async function refreshEntryCard(entry) {
     // saisons, on n'écrase pas les données existantes — mieux vaut échouer
     // proprement (l'utilisateur peut réessayer) que de tout remettre à 0.
     if (!freshSeasons.length && entry.seasons?.length) {
-      throw new Error("AniList n'a renvoyé aucune saison — actualisation annulée pour ne pas écraser tes données. Réessaie dans un instant.");
+      const hasProgress = entry.seasons.some(s => (s.watchedEpisodes || 0) > 0);
+      if (hasProgress) {
+        throw new Error("AniList n'a renvoyé aucune saison — actualisation annulée pour ne pas écraser tes données. Réessaie dans un instant.");
+      }
+      // Format ONA/OVA/MOVIE : franchise vide est normale, rien à mettre à jour
+      return null;
     }
 
     const existingByAnilistId = new Map();

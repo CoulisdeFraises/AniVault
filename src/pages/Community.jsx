@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Users, UserPlus, Search, ChevronLeft, Check, X,
   Loader2, Trophy, Film, Clock, UserCheck, UserX,
+  ChevronDown, Heart,
 } from "lucide-react";
 import { useAuth }    from "../context/AuthContext";
 import { BurgerMenu } from "../components/common/BurgerMenu";
@@ -10,6 +11,7 @@ import { Modal }      from "../components/Modal/Modal";
 import {
   fetchFriends, fetchPendingRequests, searchUserByUsername,
   sendFriendRequest, acceptFriendRequest, removeFriend,
+  fetchFriendFavorites,
 } from "../services/community";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -33,6 +35,29 @@ function Avatar({ name, color, size = "md" }) {
 function FriendProfileModal({ friend, onClose, onRemove }) {
   const achievementsCount = Array.isArray(friend.achievements) ? friend.achievements.length : 0;
 
+  // ── Repli succès ─────────────────────────────────────────────────────────
+  const [achievementsOpen, setAchievementsOpen] = useState(false);
+
+  // ── Favoris ──────────────────────────────────────────────────────────────
+  const [favOpen,    setFavOpen]    = useState(false);
+  const [favEntries, setFavEntries] = useState([]);
+  const [favLoading, setFavLoading] = useState(false);
+  const [favLoaded,  setFavLoaded]  = useState(false);
+
+  async function handleToggleFav() {
+    const next = !favOpen;
+    setFavOpen(next);
+    if (next && !favLoaded) {
+      setFavLoading(true);
+      try {
+        const entries = await fetchFriendFavorites(friend.user_id);
+        setFavEntries(entries);
+      } catch { setFavEntries([]); }
+      setFavLoading(false);
+      setFavLoaded(true);
+    }
+  }
+
   return (
     <Modal onClose={onClose} maxWidth="max-w-sm" zIndex="z-50">
       <div>
@@ -48,23 +73,24 @@ function FriendProfileModal({ friend, onClose, onRemove }) {
           </button>
         </div>
 
-        <div className="pt-10 px-5 pb-5">
+        <div className="pt-10 px-5 pb-5 space-y-4">
+
           {/* Identité */}
-          <h2 className="text-lg font-bold text-violet-50" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-            @{friend.username}
-          </h2>
-          {friend.description ? (
-            <p className="text-sm text-violet-300/80 mt-1 leading-relaxed">{friend.description}</p>
-          ) : (
-            <p className="text-xs text-violet-600 mt-1 italic">Pas de description.</p>
-          )}
+          <div>
+            <h2 className="text-lg font-bold text-violet-50" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+              @{friend.username}
+            </h2>
+            {friend.description
+              ? <p className="text-sm text-violet-300/80 mt-1 leading-relaxed">{friend.description}</p>
+              : <p className="text-xs text-violet-600 mt-1 italic">Pas de description.</p>}
+          </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-2 mt-4">
+          <div className="grid grid-cols-3 gap-2">
             {[
-              { icon: <Film size={14} />,   value: friend.entries_count   ?? 0, label: "Titres"    },
-              { icon: <Clock size={14} />,  value: friend.episodes_watched ?? 0, label: "Épisodes"  },
-              { icon: <Trophy size={14} />, value: achievementsCount,             label: "Succès"    },
+              { icon: <Film size={14} />,   value: friend.entries_count    ?? 0, label: "Titres"   },
+              { icon: <Clock size={14} />,  value: friend.episodes_watched ?? 0, label: "Épisodes" },
+              { icon: <Trophy size={14} />, value: achievementsCount,             label: "Succès"   },
             ].map(({ icon, value, label }) => (
               <div key={label} className="rounded-xl bg-white/5 border border-white/5 p-3 text-center">
                 <div className="flex justify-center mb-1 text-violet-400">{icon}</div>
@@ -74,28 +100,80 @@ function FriendProfileModal({ friend, onClose, onRemove }) {
             ))}
           </div>
 
-          {/* Succès débloqués */}
-          {achievementsCount > 0 && (
-            <div className="mt-4">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-2">
-                Succès débloqués · {achievementsCount}
-              </p>
-              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                {friend.achievements.map((id) => (
-                  <span key={id}
-                    className="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/20 font-mono text-[10px] text-amber-300">
-                    🏆 {id}
-                  </span>
-                ))}
+          {/* ── Favoris (collapsible, chargement lazy) ── */}
+          <div className="rounded-xl border border-white/5 overflow-hidden">
+            <button
+              onClick={handleToggleFav}
+              className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/5 transition-colors"
+            >
+              <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-violet-400">
+                <Heart size={12} className={favOpen && favEntries.length > 0 ? "text-pink-400" : ""} />
+                Favoris{favLoaded ? ` · ${favEntries.length}` : ""}
+              </span>
+              {favLoading
+                ? <Loader2 size={12} className="animate-spin text-violet-500" />
+                : <ChevronDown size={12} className={`text-violet-500 transition-transform duration-200 ${favOpen ? "rotate-180" : ""}`} />
+              }
+            </button>
+
+            {favOpen && !favLoading && (
+              <div className="px-3 pb-3">
+                {favEntries.length === 0 ? (
+                  <p className="text-[11px] text-violet-600 font-mono italic py-2">Aucun favori public.</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto overscroll-contain">
+                    {favEntries.map(e => (
+                      <div key={e.entryId} className="flex items-center gap-2 py-1">
+                        {e.coverImage
+                          ? <img src={e.coverImage} alt="" className="w-7 h-10 object-cover rounded flex-shrink-0" />
+                          : <div className="w-7 h-10 rounded bg-white/10 flex-shrink-0" />
+                        }
+                        <p className="text-xs text-violet-200 leading-tight line-clamp-2">{e.title}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+            )}
+          </div>
+
+          {/* ── Succès débloqués (collapsible) ── */}
+          {achievementsCount > 0 && (
+            <div className="rounded-xl border border-white/5 overflow-hidden">
+              <button
+                onClick={() => setAchievementsOpen(v => !v)}
+                className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/5 transition-colors"
+              >
+                <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-violet-400">
+                  <Trophy size={12} className={achievementsOpen ? "text-amber-400" : ""} />
+                  Succès débloqués · {achievementsCount}
+                </span>
+                <ChevronDown size={12} className={`text-violet-500 transition-transform duration-200 ${achievementsOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {achievementsOpen && (
+                <div className="px-3 pb-3">
+                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto overscroll-contain">
+                    {friend.achievements.map(id => (
+                      <span key={id}
+                        className="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/20 font-mono text-[10px] text-amber-300">
+                        🏆 {id}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Actions */}
-          <button onClick={() => { onRemove(friend.friendshipId); onClose(); }}
-            className="mt-4 w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition-colors">
+          {/* Retirer */}
+          <button
+            onClick={() => { onRemove(friend.friendshipId); onClose(); }}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition-colors"
+          >
             <UserX size={14} /> Retirer de mes amis
           </button>
+
         </div>
       </div>
     </Modal>

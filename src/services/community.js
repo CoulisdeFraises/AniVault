@@ -157,3 +157,14 @@ export async function fetchPendingRequests(myId) {
     friendshipId: rows.find(r => r.requester_id === p.user_id)?.id,
   }));
 }
+
+export async function fetchFriendFavorites(userId) {
+  const { data } = await supabase
+    .from("libraries")
+    .select("lists")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const lists   = Array.isArray(data?.lists) ? data.lists : [];
+  const favList = lists.find(l => l.isFavorites);
+  return Array.isArray(favList?.entries) ? favList.entries : [];
+}
