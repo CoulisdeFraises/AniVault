@@ -51,7 +51,11 @@ export function useNotifications(entries) {
               addNotification({ title, body, entryId: entry.id, icon: "sparkles", dedupeKey: key });
 
               // ── Notification navigateur (si permission accordée) ──────────
-              if ("Notification" in window && Notification.permission === "granted") {
+              if (
+                "Notification" in window &&
+                Notification.permission === "granted" &&
+                localStorage.getItem("pref_notifications") !== "false"
+              ) {
                 const n = new Notification(title, {
                   body,
                   icon:  "/logo.png",

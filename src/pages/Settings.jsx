@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, Trash2, Download, Upload, Info, Film, Tv, RotateCcw, ArrowLeft } from "lucide-react";
+import { ChevronRight, Trash2, Download, Upload, Info, Film, Tv, RotateCcw, ArrowLeft, Bell, BellOff } from "lucide-react";
 import { useAuth }    from "../context/AuthContext";
 import { useLibrary } from "../context/LibraryContext";
 import { usePrefs }   from "../context/PrefsContext";
@@ -94,6 +94,28 @@ export function Settings() {
   const [confirmClear, setConfirmClear] = useState(false);
   const [exportDone,   setExportDone]   = useState(false);
   const [importError,  setImportError]  = useState("");
+  
+  // ── Notifications ──────────────────────────────────────────────────────────
+  const [notifPermission, setNotifPermission] = useState(
+    () => ("Notification" in window ? Notification.permission : "unsupported")
+  );
+  const [notifEnabled, setNotifEnabled] = useState(
+    () => localStorage.getItem("pref_notifications") !== "false"
+  );
+
+  async function handleRequestNotif() {
+    const granted = await requestNotificationPermission();
+    setNotifPermission(granted ? "granted" : "denied");
+    if (granted) {
+      localStorage.setItem("pref_notifications", "true");
+      setNotifEnabled(true);
+    }
+  }
+
+  function handleToggleNotif(v) {
+    setNotifEnabled(v);
+    localStorage.setItem("pref_notifications", String(v));
+  }
 
   function setPref(key, value) {
     setPrefs((p) => ({ ...p, [key]: value }));
@@ -218,10 +240,61 @@ export function Settings() {
         </Row>
       </Section>
 
+      {/* ── Notifications ── */}
+      <Section title="Notifications">
+        {notifPermission === "unsupported" ? (
+          <Row
+            label="Notifications push"
+            sublabel="Non supportées sur ce navigateur ou cet appareil."
+          >
+            <BellOff size={15} className="text-violet-600" />
+          </Row>
+
+        ) : notifPermission === "denied" ? (
+          <Row
+            label="Notifications bloquées"
+            sublabel="Autorise AniVault dans les paramètres de ton navigateur pour recevoir des alertes d'épisodes."
+          >
+            <BellOff size={15} className="text-rose-400" />
+          </Row>
+
+        ) : notifPermission === "default" ? (
+          <Row
+            label="Notifications d'épisodes"
+            sublabel="Reçois une alerte quand un épisode de ta liste diffuse dans les 24h."
+          >
+            <button
+              onClick={handleRequestNotif}
+              className="text-xs px-3 py-1.5 rounded-lg bg-amber-400/15 border border-amber-400/25 text-amber-400 hover:bg-amber-400/25 active:scale-95 transition-all font-mono whitespace-nowrap"
+            >
+              Activer
+            </button>
+          </Row>
+
+        ) : (
+          <>
+            <Row
+              label="Notifications d'épisodes"
+              sublabel="Alerte jusqu'à 24h avant la diffusion d'un épisode en cours."
+            >
+              <Toggle checked={notifEnabled} onChange={handleToggleNotif} />
+            </Row>
+            {notifEnabled && (
+              <Row
+                label="Permission accordée"
+                sublabel="Les alertes s'afficheront même si l'app est fermée (selon ton OS)."
+              >
+                <Bell size={15} className="text-teal-400" />
+              </Row>
+            )}
+          </>
+        )}
+      </Section>
+
       {/* ── Contenu — heartbeat quand Culture Mode est ON ── */}
       <Section title="Contenu" heartbeat={cultureMode}>
         <Row
-          label="Mode Culture 🌸"
+          label="Mode Culture 🫦"
           sublabel={
             cultureMode
               ? "Activé — le contenu adulte (Hentai) est accessible."

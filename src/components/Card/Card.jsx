@@ -12,8 +12,8 @@ import { useLibrary }       from "../../context/LibraryContext";
 import { fetchNextAiring, refreshEntryCard } from "../../api";
 import { getShowProgress }  from "../../context/PrefsContext";
 import { AddToListModal }   from "../common/AddToListModal";
-import { getFormatGroup } from "../../utils/format";
-import { haptics } from "../../utils/haptics";
+import { getFormatGroup }   from "../../utils/format";
+import { haptics }          from "../../utils/haptics";
 
 function getResumeStatus(entry) {
   const { watched, total } = seasonTotals(entry.seasons);
@@ -28,9 +28,9 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   const { markDone, deleteEntry, saveEntry, updateRating } = useLibrary();
   const { isInFavorites, toggleFavorite } = useLists();
   const isFavorite = isInFavorites(entry.id);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const seasons  = entry.seasons;
+  const navigate   = useNavigate();
+  const location   = useLocation();
+  const seasons    = entry.seasons;
 
   const tvSeasons    = useMemo(() => seasons.map((s, i) => ({ ...s, globalIndex: i })).filter(s => getFormatGroup(s.format) === "tv"),    [seasons]);
   const extraSeasons = useMemo(() => seasons.map((s, i) => ({ ...s, globalIndex: i })).filter(s => getFormatGroup(s.format) === "extra"), [seasons]);
@@ -42,37 +42,36 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   }, [tvSeasons]);
 
   // ── State UI ──────────────────────────────────────────────────────────────
-  const [showDel,           setShowDel]           = useState(false);
-  const [showAddToList,     setShowAddToList]     = useState(false);
-  const [longPressMenu,     setLongPressMenu]     = useState(false);
-  const [refreshing,        setRefreshing]        = useState(false);
-  const [nextAiring,        setNextAiring]        = useState(null);
-  const [showQuickRate,     setShowQuickRate]     = useState(false);
+  const [showDel,            setShowDel]            = useState(false);
+  const [showAddToList,      setShowAddToList]      = useState(false);
+  const [longPressMenu,      setLongPressMenu]      = useState(false);
+  const [refreshing,         setRefreshing]         = useState(false);
+  const [refreshResult,      setRefreshResult]      = useState(null);
+  // refreshResult: { status: "ok" | "new" | "error", message: string } | null
+  const [nextAiring,         setNextAiring]         = useState(null);
+  const [showQuickRate,      setShowQuickRate]      = useState(false);
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
-  const [refreshResult, setRefreshResult] = useState(null);
 
   // ── State swipe ──────────────────────────────────────────────────────────
   const [swipeX,    setSwipeX]    = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
-  const [swipeDir,  setSwipeDir]  = useState(null); // 'left' | 'right' | null
+  const [swipeDir,  setSwipeDir]  = useState(null);
 
-  const cardRef    = useRef(null);
-  const wrapperRef = useRef(null); // englobe la carte ET ses overlays (menu long-press, panneau note/favori)
+  const cardRef     = useRef(null);
+  const wrapperRef  = useRef(null);
   const gesturedRef = useRef(false);
-  const ptrRef     = useRef({ id: null, startX: 0, startY: 0, timer: null, axis: null });
+  const ptrRef      = useRef({ id: null, startX: 0, startY: 0, timer: null, axis: null });
 
   const isAbandoned = entry.status === "abandonne";
-  const s      = STATUS[entry.status];
-  const dimmed = isAbandoned ? "opacity-50 grayscale" : "";
-  const cur    = tvSeasons[Math.min(activeTVIdx, Math.max(0, tvSeasons.length - 1))] ?? null;
+  const s           = STATUS[entry.status];
+  const dimmed      = isAbandoned ? "opacity-50 grayscale" : "";
+  const cur         = tvSeasons[Math.min(activeTVIdx, Math.max(0, tvSeasons.length - 1))] ?? null;
 
   const { watched: tvW,  total: tvT  } = useMemo(() => seasonTotals(tvSeasons),    [tvSeasons]);
   const { watched: totW, total: totT  } = useMemo(() => seasonTotals(seasons),      [seasons]);
   const { watched: extW, total: extT  } = useMemo(() => seasonTotals(extraSeasons), [extraSeasons]);
-  const filmSeen = movieSeasons.filter(m => m.watchedEpisodes >= (m.totalEpisodes ?? 1)).length;
+  const filmSeen  = movieSeasons.filter(m => m.watchedEpisodes >= (m.totalEpisodes ?? 1)).length;
   const canFinish = entry.status === "en-cours" && tvT != null && tvT > 0 && tvW >= tvT;
-
-  // Swipe droite = note / favori · Swipe gauche = confirmation d'abandon
   const canSwipeLeft = entry.status !== "abandonne";
 
   const showEnProduction = useMemo(() => {
@@ -81,6 +80,17 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
     const lastTV = tvSeasons[tvSeasons.length - 1];
     return lastTV.totalEpisodes == null || lastTV.totalEpisodes === 0;
   }, [entry.status, tvSeasons]);
+
+  // ── FIX : auto-fermeture du menu 1,8s après résultat du refresh ──────────
+  useEffect(() => {
+    if (!refreshResult) return;
+    const t = setTimeout(() => {
+      setLongPressMenu(false);
+      setRefreshResult(null);
+      gesturedRef.current = false; // FIX : reset systématique
+    }, 1800);
+    return () => clearTimeout(t);
+  }, [refreshResult]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
   function handleResume(e) {
@@ -92,9 +102,9 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
     saveEntry({ ...entry, status: "abandonne" }, entry.id);
   }
 
+  // FIX : ne ferme plus le menu immédiatement, affiche le résultat inline
   async function handleRefresh(e) {
     e?.stopPropagation();
-    // ── Ne ferme plus immédiatement : le menu reste visible pendant le fetch ──
     setRefreshing(true);
     setRefreshResult(null);
     try {
@@ -108,20 +118,20 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
         haptics.light();
         setRefreshResult(
           result.hasNewContent
-            ? { status: "new", message: `${result.newCount} nouveauté${result.newCount > 1 ? "s" : ""}` }
-            : { status: "ok",  message: "Déjà à jour" }
+            ? { status: "new",  message: `${result.newCount} nouveauté${result.newCount > 1 ? "s" : ""}` }
+            : { status: "ok",   message: "Déjà à jour" }
         );
       } else {
         setRefreshResult({ status: "ok", message: "Aucune mise à jour" });
       }
-    } catch (err) {
+    } catch (_) {
       haptics.error();
-      setRefreshResult({ status: "error", message: "Erreur lors de l'actualisation" });
+      setRefreshResult({ status: "error", message: "Erreur d'actualisation" });
     }
     setRefreshing(false);
-    // Le menu se fermera seul via l'effect ci-dessus après 1,8s
+    // Le menu se ferme seul via l'effect ci-dessus après 1,8s
   }
-  
+
   // ── Pointer / gestes ──────────────────────────────────────────────────────
   function handlePointerDown(e) {
     if (longPressMenu || e.button > 0) return;
@@ -134,7 +144,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
       timer:  setTimeout(() => {
         gesturedRef.current = true;
         setLongPressMenu(true);
-        setRefreshResult(null); // ← état propre à chaque ouverture
+        setRefreshResult(null); // état propre à chaque ouverture
         haptics.longPress();
       }, LONG_PRESS_MS),
     };
@@ -146,15 +156,10 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
     const dy  = e.clientY - ptrRef.current.startY;
     const adx = Math.abs(dx);
     const ady = Math.abs(dy);
-
-    // Détermine l'axe dominant dès qu'on a bougé de 6px
     if (!ptrRef.current.axis && (adx > 6 || ady > 6)) {
       ptrRef.current.axis = adx > ady ? "x" : "y";
     }
-
-    // Annule le long-press si l'utilisateur bouge
     if (adx > 8 || ady > 8) clearTimeout(ptrRef.current.timer);
-
     if (ptrRef.current.axis === "x") {
       gesturedRef.current = true;
       setIsSwiping(true);
@@ -171,16 +176,9 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
     clearTimeout(ptrRef.current.timer);
     e.currentTarget.releasePointerCapture?.(e.pointerId);
     if (isSwiping) {
-      if (swipeDir === "right") {
-        setShowQuickRate(true);
-        haptics.medium();
-      } else if (swipeDir === "left" && canSwipeLeft) {
-        setShowAbandonConfirm(true);
-        haptics.medium();
-      }
-      setSwipeX(0);
-      setIsSwiping(false);
-      setSwipeDir(null);
+      if (swipeDir === "right")                { setShowQuickRate(true);      haptics.medium(); }
+      else if (swipeDir === "left" && canSwipeLeft) { setShowAbandonConfirm(true); haptics.medium(); }
+      setSwipeX(0); setIsSwiping(false); setSwipeDir(null);
     }
     ptrRef.current.id = null;
   }
@@ -188,9 +186,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   function handlePointerCancel(e) {
     clearTimeout(ptrRef.current.timer);
     e.currentTarget.releasePointerCapture?.(e.pointerId);
-    setSwipeX(0);
-    setIsSwiping(false);
-    setSwipeDir(null);
+    setSwipeX(0); setIsSwiping(false); setSwipeDir(null);
     ptrRef.current.id = null;
   }
 
@@ -205,14 +201,14 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setLongPressMenu(false);
         setShowQuickRate(false);
-        gesturedRef.current = false;
+        gesturedRef.current = false; // FIX : reset à la fermeture par clic extérieur
       }
     }
     document.addEventListener("pointerdown", handleOutside);
     return () => document.removeEventListener("pointerdown", handleOutside);
   }, [longPressMenu, showQuickRate]);
 
-  // ── Animations d'entrée ───────────────────────────────────────────────────
+  // ── Animations ────────────────────────────────────────────────────────────
   useEffect(() => {
     const el = cardRef.current; if (!el) return;
     const d = Math.min(index * 45, 350);
@@ -244,18 +240,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
     prevTvW.current = tvW;
   }, [tvW, tvT]);
 
-  // Auto-fermeture du menu 1,8s après que le résultat du refresh est affiché
-  useEffect(() => {
-    if (!refreshResult) return;
-    const t = setTimeout(() => {
-      setLongPressMenu(false);
-      setRefreshResult(null);
-      gesturedRef.current = false; // ← reset systématique ici aussi
-    }, 1800);
-    return () => clearTimeout(t);
-  }, [refreshResult]);
-
-  // ── Rendu de la cover ─────────────────────────────────────────────────────
+  // ── Cover ─────────────────────────────────────────────────────────────────
   const coverImg = (() => {
     const img = cur?.coverImage || (activeTVIdx === 0 ? entry.coverImage : null);
     const fb  = tvSeasons[0]?.coverImage || entry.coverImage;
@@ -287,32 +272,21 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
 
   return (
     <>
-      {/* ── Wrapper relatif pour les couches de swipe ── */}
       <div ref={wrapperRef} className="relative select-none" style={{ touchAction: "pan-y" }}>
 
-        {/* Reveal DROITE : Note / Favori (fond ambre) */}
-        <div
-          className="absolute inset-0 rounded-2xl flex items-center pl-5 pointer-events-none"
-          style={{
-            background: "rgb(251 191 36 / 0.18)",
-            opacity: swipeX > 0 ? swipeRevealOpacity(swipeX, "right") : 0,
-          }}
-        >
+        {/* Reveal DROITE */}
+        <div className="absolute inset-0 rounded-2xl flex items-center pl-5 pointer-events-none"
+          style={{ background: "rgb(251 191 36 / 0.18)", opacity: swipeX > 0 ? swipeRevealOpacity(swipeX, "right") : 0 }}>
           <div className="flex flex-col items-center gap-0.5">
             <span className="text-2xl">⭐</span>
             <span className="font-mono text-[9px] text-amber-300 uppercase tracking-wide">Note / Favori</span>
           </div>
         </div>
 
-        {/* Reveal GAUCHE : Abandonner (fond rose) */}
+        {/* Reveal GAUCHE */}
         {canSwipeLeft && (
-          <div
-            className="absolute inset-0 rounded-2xl flex items-center justify-end pr-5 pointer-events-none"
-            style={{
-              background: "rgb(244 63 94 / 0.18)",
-              opacity: swipeX < 0 ? swipeRevealOpacity(swipeX, "left") : 0,
-            }}
-          >
+          <div className="absolute inset-0 rounded-2xl flex items-center justify-end pr-5 pointer-events-none"
+            style={{ background: "rgb(244 63 94 / 0.18)", opacity: swipeX < 0 ? swipeRevealOpacity(swipeX, "left") : 0 }}>
             <div className="flex flex-col items-center gap-0.5">
               <span className="text-2xl">💤</span>
               <span className="font-mono text-[9px] text-rose-300 uppercase tracking-wide">Abandonner ?</span>
@@ -341,12 +315,9 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
           <div className="absolute inset-y-0 left-0 w-[3px] rounded-l-2xl"
             style={{ background: `linear-gradient(to bottom,${s.color},${s.color}50,${s.color}10)` }} />
 
-          {/* Cover */}
           {coverImg}
 
-          {/* Contenu principal */}
           <div className="flex-1 min-w-0 flex flex-col gap-1.5 sm:gap-2 relative z-10">
-            {/* En-tête : badges + titre (sans boutons) */}
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                 <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-violet-300 whitespace-nowrap ${dimmed}`}>
@@ -378,7 +349,6 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
               })()}
             </div>
 
-            {/* Genres */}
             {entry.genres.length > 0 && (
               <div className={`flex gap-1 overflow-hidden ${dimmed}`}>
                 {entry.genres.slice(0, 3).map(g =>
@@ -390,7 +360,6 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
               </div>
             )}
 
-            {/* Stats de progression */}
             <div className={`flex flex-wrap gap-1.5 ${isAbandoned ? dimmed : ""}`}>
               {tvSeasons.length > 0 && (
                 <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-violet-300 whitespace-nowrap">
@@ -417,7 +386,6 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
               )}
             </div>
 
-            {/* Bouton "Série terminée" */}
             {canFinish && !isAbandoned && (
               <button onClick={e => { e.stopPropagation(); markDone(entry.id); }}
                 className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg bg-teal-400/15 text-teal-300 hover:bg-teal-400/25 active:scale-95 transition-transform motion-reduce:transition-none">
@@ -426,12 +394,10 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             )}
           </div>
 
-          {/* ── Colonne droite : boutons Modifier/Supprimer + Note ── */}
           <div
             className={`flex flex-col items-center gap-2 pl-2 sm:pl-3 border-l border-white/5 min-w-[40px] sm:min-w-[48px] flex-shrink-0 relative z-10 ${dimmed}`}
             onClick={e => e.stopPropagation()}
           >
-            {/* Boutons edit / delete — maintenant au-dessus de la note */}
             {!isAbandoned && (
               <div className="flex flex-col gap-0.5">
                 <button onClick={() => onEdit(entry)} aria-label="Modifier"
@@ -444,8 +410,6 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
                 </button>
               </div>
             )}
-
-            {/* Note */}
             <div className="flex flex-col items-center justify-center gap-0.5 mt-auto">
               <p className="font-mono text-[9px] uppercase tracking-widest text-violet-400 hidden sm:block">Note</p>
               <div className="flex items-center gap-0.5">
@@ -460,7 +424,6 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             </div>
           </div>
 
-          {/* Overlay "Reprendre" si abandonné */}
           {isAbandoned && (
             <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl pointer-events-none">
               <button onClick={handleResume}
@@ -481,7 +444,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
               {entry.title}
             </p>
 
-            {/* ── Actualiser : reste ouvert, affiche le résultat inline ── */}
+            {/* Actualiser — reste ouvert, résultat inline, auto-fermeture */}
             <button
               onClick={(e) => { e.stopPropagation(); haptics.tap(); handleRefresh(e); }}
               disabled={refreshing || !!refreshResult}
@@ -495,63 +458,41 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
                   : "bg-white/15 border-white/25 hover:bg-white/20 disabled:opacity-60"
               }`}
             >
-              <RefreshCw
-                size={16}
-                className={`flex-shrink-0 transition-colors ${
-                  refreshing                        ? "animate-spin text-white"  :
-                  refreshResult?.status === "new"   ? "text-teal-300"            :
-                  refreshResult?.status === "error" ? "text-rose-300"            :
-                  refreshResult?.status === "ok"    ? "text-teal-300"            :
-                  "text-white"
-                }`}
-              />
+              <RefreshCw size={16} className={`flex-shrink-0 transition-colors ${
+                refreshing                        ? "animate-spin text-white" :
+                refreshResult?.status === "new"   ? "text-teal-300"          :
+                refreshResult?.status === "error" ? "text-rose-300"          :
+                refreshResult?.status === "ok"    ? "text-teal-300"          :
+                "text-white"
+              }`} />
               <span>
-                {refreshing                        ? "Actualisation…"          :
-                refreshResult?.status === "ok"    ? `✓ ${refreshResult.message}` :
-                refreshResult?.status === "new"   ? `✨ ${refreshResult.message}` :
-                refreshResult?.status === "error" ? "✗ Erreur d'actualisation" :
-                "Actualiser"}
+                {refreshing                        ? "Actualisation…"                :
+                 refreshResult?.status === "ok"    ? `✓ ${refreshResult.message}`   :
+                 refreshResult?.status === "new"   ? `✨ ${refreshResult.message}`  :
+                 refreshResult?.status === "error" ? "✗ Erreur d'actualisation"     :
+                 "Actualiser"}
               </span>
             </button>
 
-            {/* ── Ajouter à une liste ── */}
+            {/* FIX : stopPropagation explicite + gesturedRef reset sur chaque bouton */}
             <button
-              onClick={(e) => {
-                e.stopPropagation();                  // ← explicite sur le bouton
-                haptics.tap();
-                setLongPressMenu(false);
-                gesturedRef.current = false;          // ← reset
-                setShowAddToList(true);
-              }}
+              onClick={(e) => { e.stopPropagation(); haptics.tap(); setLongPressMenu(false); gesturedRef.current = false; setShowAddToList(true); }}
               className="w-full flex items-center gap-3 px-4 py-2 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 active:scale-[0.98] text-sm font-semibold text-white transition-all"
             >
               <ListPlus size={16} className="text-white flex-shrink-0" />
               Ajouter à une liste
             </button>
 
-            {/* ── Supprimer ── */}
             <button
-              onClick={(e) => {
-                e.stopPropagation();                  // ← explicite sur le bouton
-                haptics.medium();
-                setLongPressMenu(false);
-                gesturedRef.current = false;          // ← reset
-                setShowDel(true);
-              }}
+              onClick={(e) => { e.stopPropagation(); haptics.medium(); setLongPressMenu(false); gesturedRef.current = false; setShowDel(true); }}
               className="w-full flex items-center gap-3 px-4 py-2 rounded-xl bg-rose-500/25 border border-rose-400/40 hover:bg-rose-500/35 active:scale-[0.98] text-sm font-semibold text-white transition-all"
             >
               <Trash2 size={16} className="text-rose-200 flex-shrink-0" />
               Supprimer
             </button>
 
-            {/* ── Annuler ── */}
             <button
-              onClick={(e) => {
-                e.stopPropagation();                  // ← explicite sur le bouton
-                haptics.tap();
-                setLongPressMenu(false);
-                gesturedRef.current = false;
-              }}
+              onClick={(e) => { e.stopPropagation(); haptics.tap(); setLongPressMenu(false); gesturedRef.current = false; }}
               className="mt-0.5 text-xs text-white/70 hover:text-white active:scale-95 transition-all font-mono"
             >
               Annuler
@@ -568,9 +509,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             <p className="font-mono text-xs uppercase tracking-widest text-white/90 truncate max-w-full px-2 text-center">
               {entry.title}
             </p>
-
             <StarRating value={entry.rating} onChange={r => { haptics.tap(); updateRating(entry.id, r); }} />
-
             <button
               onClick={() => { haptics.light(); toggleFavorite(entry); }}
               className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
@@ -582,11 +521,8 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
               <Heart size={16} fill={isFavorite ? "currentColor" : "none"} className={isFavorite ? "text-pink-200" : "text-white"} />
               {isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
             </button>
-
-            <button
-              onClick={() => setShowQuickRate(false)}
-              className="mt-1 text-xs text-white/70 hover:text-white transition-colors font-mono"
-            >
+            <button onClick={() => setShowQuickRate(false)}
+              className="mt-1 text-xs text-white/70 hover:text-white transition-colors font-mono">
               Fermer
             </button>
           </div>
