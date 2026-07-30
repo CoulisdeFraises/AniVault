@@ -104,9 +104,11 @@ export async function refreshEntryCard(entry) {
       throw new Error("AniList n'a renvoyé aucune saison — actualisation annulée pour ne pas écraser tes données. Réessaie dans un instant.");
     }
 
-    const existingByAnilistId = new Map(
-      entry.seasons.filter((s) => s.anilistId != null).map((s) => [String(s.anilistId), s])
-    );
+    const existingByAnilistId = new Map();
+    entry.seasons.forEach((s, i) => {
+      const id = s.anilistId ?? entry.anilistIds?.[i];
+      if (id != null) existingByAnilistId.set(String(id), id === s.anilistId ? s : { ...s, anilistId: id });
+    });
 
     const mergedSeasons = freshSeasons.map((freshSeason) => {
       const existing = existingByAnilistId.get(String(freshSeason.anilistId));
@@ -127,7 +129,7 @@ export async function refreshEntryCard(entry) {
     // échouer que d'effacer silencieusement la progression de l'utilisateur.
     const prevWatchedTotal = entry.seasons.reduce((sum, s) => sum + (s.watchedEpisodes || 0), 0);
     const matchedCount     = freshSeasons.filter((s) => existingByAnilistId.has(String(s.anilistId))).length;
-    if (prevWatchedTotal > 0 && existingByAnilistId.size > 0 && matchedCount === 0) {
+    if (prevWatchedTotal > 0 && freshSeasons.length > 0 && matchedCount === 0) {
       throw new Error("L'actualisation aurait effacé ta progression (incohérence de correspondance des saisons) — annulée par sécurité. Contacte le support si ça persiste.");
     }
 

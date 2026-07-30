@@ -108,8 +108,15 @@ export function LibraryProvider({ children }) {
       const watched = total != null
         ? Math.min(total, forceAll ? total : Math.max(0, Number(s.watchedEpisodes) || 0))
         : Math.max(0, Number(s.watchedEpisodes) || 0);
-      return { number: s.number, format: s.format ?? "TV", title: s.title ?? null,
-               totalEpisodes: total, watchedEpisodes: watched, coverImage: s.coverImage ?? null };
+      return {
+        number: s.number,
+        format: s.format ?? "TV",
+        title: s.title ?? null,
+        totalEpisodes: total,
+        watchedEpisodes: watched,
+        coverImage: s.coverImage ?? null,
+        ...(s.anilistId != null ? { anilistId: s.anilistId } : {}),
+      };
     });
     const cleaned = {
       ...form, title: form.title.trim(), seasons,
