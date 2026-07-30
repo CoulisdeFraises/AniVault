@@ -65,7 +65,7 @@ function AddChoiceModal({ onAddTitle, onCreateList, onClose }) {
 const SORT_OPTIONS = [
   { key: "date",     label: "Récents"           },
   { key: "title",    label: "A → Z"             },
-  { key: "rating",   label: "Meilleures notes"  },
+  { key: "rating",   label: "Notes"  },
   { key: "progress", label: "Progression"       },
 ];
 
