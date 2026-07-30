@@ -102,7 +102,13 @@ export async function fetchAniListFranchise(startId, { force = false } = {}) {
   }
 
   function parseEps(m) {
-    return m.episodes ?? (m.nextAiringEpisode?.episode != null ? m.nextAiringEpisode.episode - 1 : null);
+    const explicit   = m.episodes ?? null;
+    const fromAiring = m.nextAiringEpisode?.episode != null
+      ? m.nextAiringEpisode.episode - 1   // épisodes déjà diffusés = prochain - 1
+      : null;
+    // Si AniList dit 2 épisodes mais que l'épisode 7 arrive, on sait qu'il y en a ≥ 6
+    if (explicit != null && fromAiring != null) return Math.max(explicit, fromAiring);
+    return explicit ?? fromAiring ?? null;
   }
   function parseTitle(m) { return m.title?.english || m.title?.romaji || null; }
   function isTVFormat(fmt) { return fmt == null || TV_FORMATS.has(fmt); }
@@ -206,7 +212,30 @@ export async function fetchAniListFranchise(startId, { force = false } = {}) {
       anilistId: m.anilistId })),
   ];
 
-  const anilistIds = tvOnlyChain.map((m) => m.anilistId);
+  let anilistIds = tvOnlyChain.map((m) => m.anilistId);
+
+  // ── Fallback ONA/OVA/MOVIE ────────────────────────────────────────────────
+  // Si la traversal TV n'a rien produit (ex: anime au format ONA standalone),
+  // on inclut l'ID de départ directement comme saison unique plutôt que de
+  // retourner un objet vide qui ferait croire à une "source non reconnue".
+  // fetchMedia(startId) est déjà en cache (appelé dans findRoot) → pas de
+  // requête réseau supplémentaire.
+  if (seasons.length === 0) {
+    try {
+      const m   = await fetchMedia(startId);
+      const fmt = m.format ?? "ONA";
+      seasons.push({
+        number:        1,
+        format:        fmt,
+        title:         parseTitle(m),
+        totalEpisodes: parseEps(m),
+        watchedEpisodes: 0,
+        coverImage:    m.coverImage?.large ?? null,
+        anilistId:     startId,
+      });
+      anilistIds = [startId];
+    } catch { /* réseau indisponible — on retourne ce qu'on a */ }
+  }
   return { seasons, anilistIds };
 }
 
