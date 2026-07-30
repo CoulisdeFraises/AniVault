@@ -49,6 +49,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   const [nextAiring,        setNextAiring]        = useState(null);
   const [showQuickRate,     setShowQuickRate]     = useState(false);
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
+  const [refreshResult, setRefreshResult] = useState(null);
 
   // ── State swipe ──────────────────────────────────────────────────────────
   const [swipeX,    setSwipeX]    = useState(0);
@@ -93,8 +94,9 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
 
   async function handleRefresh(e) {
     e?.stopPropagation();
-    setLongPressMenu(false);
+    // ── Ne ferme plus immédiatement : le menu reste visible pendant le fetch ──
     setRefreshing(true);
+    setRefreshResult(null);
     try {
       const result = await refreshEntryCard(entry);
       if (result) {
@@ -104,11 +106,22 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
           ...(result.anilistIds ? { anilistIds: result.anilistIds } : {}),
         }, entry.id);
         haptics.light();
+        setRefreshResult(
+          result.hasNewContent
+            ? { status: "new", message: `${result.newCount} nouveauté${result.newCount > 1 ? "s" : ""}` }
+            : { status: "ok",  message: "Déjà à jour" }
+        );
+      } else {
+        setRefreshResult({ status: "ok", message: "Aucune mise à jour" });
       }
-    } catch (_) { haptics.error(); }
+    } catch (err) {
+      haptics.error();
+      setRefreshResult({ status: "error", message: "Erreur lors de l'actualisation" });
+    }
     setRefreshing(false);
+    // Le menu se fermera seul via l'effect ci-dessus après 1,8s
   }
-
+  
   // ── Pointer / gestes ──────────────────────────────────────────────────────
   function handlePointerDown(e) {
     if (longPressMenu || e.button > 0) return;
@@ -121,6 +134,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
       timer:  setTimeout(() => {
         gesturedRef.current = true;
         setLongPressMenu(true);
+        setRefreshResult(null); // ← état propre à chaque ouverture
         haptics.longPress();
       }, LONG_PRESS_MS),
     };
@@ -229,6 +243,17 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
     }
     prevTvW.current = tvW;
   }, [tvW, tvT]);
+
+  // Auto-fermeture du menu 1,8s après que le résultat du refresh est affiché
+  useEffect(() => {
+    if (!refreshResult) return;
+    const t = setTimeout(() => {
+      setLongPressMenu(false);
+      setRefreshResult(null);
+      gesturedRef.current = false; // ← reset systématique ici aussi
+    }, 1800);
+    return () => clearTimeout(t);
+  }, [refreshResult]);
 
   // ── Rendu de la cover ─────────────────────────────────────────────────────
   const coverImg = (() => {
@@ -456,33 +481,77 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
               {entry.title}
             </p>
 
+            {/* ── Actualiser : reste ouvert, affiche le résultat inline ── */}
             <button
-              onClick={() => { haptics.tap(); handleRefresh(); }}
-              disabled={refreshing}
-              className="w-full flex items-center gap-3 px-4 py-2 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 active:scale-[0.98] text-sm font-semibold text-white transition-all disabled:opacity-60"
+              onClick={(e) => { e.stopPropagation(); haptics.tap(); handleRefresh(e); }}
+              disabled={refreshing || !!refreshResult}
+              className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl border text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:cursor-default ${
+                refreshResult?.status === "new"
+                  ? "bg-teal-500/20 border-teal-400/40"
+                  : refreshResult?.status === "error"
+                  ? "bg-rose-500/20 border-rose-400/40"
+                  : refreshResult?.status === "ok"
+                  ? "bg-white/10 border-white/20"
+                  : "bg-white/15 border-white/25 hover:bg-white/20 disabled:opacity-60"
+              }`}
             >
-              <RefreshCw size={16} className={`text-white flex-shrink-0 ${refreshing ? "animate-spin" : ""}`} />
-              {refreshing ? "Actualisation…" : "Actualiser"}
+              <RefreshCw
+                size={16}
+                className={`flex-shrink-0 transition-colors ${
+                  refreshing                        ? "animate-spin text-white"  :
+                  refreshResult?.status === "new"   ? "text-teal-300"            :
+                  refreshResult?.status === "error" ? "text-rose-300"            :
+                  refreshResult?.status === "ok"    ? "text-teal-300"            :
+                  "text-white"
+                }`}
+              />
+              <span>
+                {refreshing                        ? "Actualisation…"          :
+                refreshResult?.status === "ok"    ? `✓ ${refreshResult.message}` :
+                refreshResult?.status === "new"   ? `✨ ${refreshResult.message}` :
+                refreshResult?.status === "error" ? "✗ Erreur d'actualisation" :
+                "Actualiser"}
+              </span>
             </button>
 
+            {/* ── Ajouter à une liste ── */}
             <button
-              onClick={() => { haptics.tap(); setLongPressMenu(false); setShowAddToList(true); }}
+              onClick={(e) => {
+                e.stopPropagation();                  // ← explicite sur le bouton
+                haptics.tap();
+                setLongPressMenu(false);
+                gesturedRef.current = false;          // ← reset
+                setShowAddToList(true);
+              }}
               className="w-full flex items-center gap-3 px-4 py-2 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 active:scale-[0.98] text-sm font-semibold text-white transition-all"
             >
               <ListPlus size={16} className="text-white flex-shrink-0" />
               Ajouter à une liste
             </button>
 
+            {/* ── Supprimer ── */}
             <button
-              onClick={() => { haptics.medium(); setLongPressMenu(false); setShowDel(true); }}
+              onClick={(e) => {
+                e.stopPropagation();                  // ← explicite sur le bouton
+                haptics.medium();
+                setLongPressMenu(false);
+                gesturedRef.current = false;          // ← reset
+                setShowDel(true);
+              }}
               className="w-full flex items-center gap-3 px-4 py-2 rounded-xl bg-rose-500/25 border border-rose-400/40 hover:bg-rose-500/35 active:scale-[0.98] text-sm font-semibold text-white transition-all"
             >
               <Trash2 size={16} className="text-rose-200 flex-shrink-0" />
               Supprimer
             </button>
 
+            {/* ── Annuler ── */}
             <button
-              onClick={() => { haptics.tap(); setLongPressMenu(false); gesturedRef.current = false; }}
+              onClick={(e) => {
+                e.stopPropagation();                  // ← explicite sur le bouton
+                haptics.tap();
+                setLongPressMenu(false);
+                gesturedRef.current = false;
+              }}
               className="mt-0.5 text-xs text-white/70 hover:text-white active:scale-95 transition-all font-mono"
             >
               Annuler
