@@ -259,7 +259,7 @@ export function Home() {
             </button>
 
             {/* Tri — liste déroulante */}
-            <div className="relative flex-shrink-0">
+            <div size = {12} className="relative flex-shrink-0">
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
@@ -271,7 +271,7 @@ export function Home() {
               >
                 {SORT_OPTIONS.map(opt => (
                   <option key={opt.key} value={opt.key}
-                    size = {12} className="bg-violet-900 text-violet-100">
+                    className="bg-violet-900 text-violet-100">
                     {opt.label}
                   </option>
                 ))}
