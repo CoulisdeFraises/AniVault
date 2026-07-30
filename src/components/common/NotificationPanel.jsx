@@ -53,6 +53,8 @@ export function NotificationPanel() {
     if (unreadCount > 0) setTimeout(markAllRead, 800);
   }
 
+  function closePanel() {setOpen(false)}
+
   useEffect(() => {
     if (!open) return;
     function handleOutside(e) {
@@ -180,7 +182,7 @@ export function NotificationPanel() {
     <>
       <button
         ref={btnRef}
-        onClick={openPanel}
+        onClick={open ? closePanel : openPanel}
         aria-label="Notifications"
         className="relative h-9 w-9 flex items-center justify-center rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
       >
