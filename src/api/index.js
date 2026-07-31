@@ -246,6 +246,13 @@ export async function fetchSeasonInfo(entry, seasonIndex) {
         ]);
         return { episodes, totalEpisodes: seasonData.totalEpisodes };
       }
+
+      // Aucun anilistId retrouvable pour cette saison : le lien vers AniList
+      // est perdu (ex: séquelle d'un ancien bug de sync qui a vidé
+      // anilistIds), pas juste une donnée manquante côté API. On le signale
+      // explicitement pour que l'UI puisse orienter vers un rajout du titre
+      // plutôt que d'afficher un simple "inconnu" silencieux.
+      return { episodes: [], totalEpisodes: null, reason: "lost-link" };
     }
 
     return { episodes: [], totalEpisodes: null };

@@ -230,6 +230,7 @@ export function Details() {
   const curTV   = tvSeasons[activeTVIdx] ?? null;
   const watched = curTV?.watchedEpisodes || 0;
   const curEps  = seasonCache[activeTVIdx]?.episodes || [];
+  const curEpsReason = seasonCache[activeTVIdx]?.reason ?? null;
   const hasNextTV = activeTVIdx < tvSeasons.length - 1;
 
   const { watched: tvW, total: tvT }   = seasonTotals(tvSeasons);
@@ -537,6 +538,7 @@ export function Details() {
                       {loadingEps
                         ? <div className="flex items-center gap-2 text-violet-400 text-sm py-4"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
                         : <EpisodeList episodes={curEps} totalEpisodes={curTV?.totalEpisodes} watched={watched}
+                        unknownReason={curEpsReason}
                             statusColor={s.color} onSetEpisode={v => curTV && setEpisodeCount(entry.id, curTV.globalIndex, v)} />}
                     </div>
                   )}
@@ -685,6 +687,7 @@ export function Details() {
                     {loadingEps
                       ? <div className="flex items-center gap-2 text-violet-400 text-sm py-6"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
                       : <EpisodeList episodes={curEps} totalEpisodes={curTV?.totalEpisodes} watched={watched}
+                        unknownReason={curEpsReason}
                           statusColor={s.color} onSetEpisode={v => curTV && setEpisodeCount(entry.id, curTV.globalIndex, v)} />
                     }
                   </div>
