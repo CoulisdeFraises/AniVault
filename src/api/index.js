@@ -1,4 +1,4 @@
-import { searchTMDBShow, fetchTMDBSeason } from "./tmdb";
+import { searchTMDBShow, fetchTMDBSeason, hasTMDB } from "./tmdb";
 import {
   searchAniList, fetchAniListFranchise, fetchAniListNextSeason,
   fetchAniListSeasonData, fetchAniListEpisodesBySeasonId,
@@ -10,7 +10,6 @@ import {
 } from "./tvmaze";
 import { withCache }       from "../services/cache";
 import { translateGenres } from "../utils/genres";
-import { searchTMDBShow, fetchTMDBSeason, hasTMDB } from "./tmdb";
 
 export function search(type, query) {
   return type === "anime" ? searchAniList(query) : searchTVMaze(query);
