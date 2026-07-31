@@ -183,6 +183,14 @@ export function Details() {
 
   useEffect(() => {
     if (!entry) return;
+
+    // ── Pas de saison TV → pas d'info à fetcher ──────────────────────────
+    // Pour les entrées film-only ou extra-only (ONA, OVA, MOVIE),
+    // tvSeasons est vide et curTV = null. Appeler fetchSeasonInfo ici
+    // fetche la saison à l'index 0 (le film/OVA) comme si c'était une
+    // saison TV, ce qui ne sert à rien et provoque "0/? ép. vus" fantôme.
+    if (tvSeasons.length === 0) { setLoadingEps(false); return; }
+
     let cancelled = false;
     setLoadingEps(true);
     (async () => {

@@ -323,6 +323,16 @@ export async function fetchAniListDescription(anilistId) {
   } catch { return null; }
 }
 
+export async function fetchAniListTitles(anilistId) {
+  try {
+    const m = await getMediaDetails("anilist", anilistId);
+    return {
+      english: m?.title?.english || null,
+      romaji:  m?.title?.romaji  || null,
+    };
+  } catch { return { english: null, romaji: null }; }
+}
+
 export async function fetchNextAiringAniList(anilistId) {
   try {
     const m = await getMediaDetails("anilist", anilistId);
