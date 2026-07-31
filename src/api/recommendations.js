@@ -13,6 +13,7 @@ function mapMedia(m) {
     image:       m.coverImage?.large,
     genres:      m.genres || [],
     episodes:    m.episodes,
+    format:      m.format ?? null,
     year:        m.seasonYear,
     score:       m.averageScore,
     description: m.description,
@@ -42,6 +43,7 @@ export async function fetchAniListRecommendations(genres = [], excludeAnilistIds
           coverImage { large }
           genres
           episodes
+          format
           description(asHtml: false)
           seasonYear
           averageScore

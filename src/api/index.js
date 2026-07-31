@@ -10,6 +10,7 @@ import {
 } from "./tvmaze";
 import { withCache }       from "../services/cache";
 import { translateGenres } from "../utils/genres";
+import { searchTMDBShow, fetchTMDBSeason, hasTMDB } from "./tmdb";
 
 export function search(type, query) {
   return type === "anime" ? searchAniList(query) : searchTVMaze(query);
@@ -25,22 +26,46 @@ export async function importResult(result) {
         fetchAniListFranchise(result.id),
         tmdb?.overview ? Promise.resolve(tmdb.overview) : fetchAniListDescription(result.id),
       ]);
+
+      // Saisons de base depuis AniList
+      let seasons = franchiseData.seasons.length
+        ? franchiseData.seasons
+        : [{
+            number: 1,
+            format: result.format ?? "TV",
+            totalEpisodes: result.episodes ?? null,
+            watchedEpisodes: 0,
+            coverImage: result.image || null,
+            anilistId: result.id,
+          }];
+
+      // ── Enrichissement TMDB ─────────────────────────────────────────────
+      // Pour les séries à exactement 1 saison TV, on croise avec TMDB saison 1 :
+      // la correspondance est fiable (pas de risque de mismatch de numérotation)
+      // et TMDB est souvent plus précis pendant la diffusion.
+      const tvSeasonCount = seasons.filter(
+        s => !["MOVIE", "OVA", "ONA", "SPECIAL", "MUSIC"].includes(s.format)
+      ).length;
+
+      if (hasTMDB() && tmdb?.id && tvSeasonCount === 1) {
+        const tmdbS = await fetchTMDBSeason(tmdb.id, 1).catch(() => null);
+        if (tmdbS?.totalEpisodes) {
+          seasons = seasons.map(s => {
+            if (["MOVIE", "OVA", "ONA", "SPECIAL", "MUSIC"].includes(s.format)) return s;
+            return {
+              ...s,
+              totalEpisodes: Math.max(s.totalEpisodes ?? 0, tmdbS.totalEpisodes),
+            };
+          });
+        }
+      }
+
       return {
         title: result.title, category: "tv",
         genres: translateGenres(result.genres).slice(0, 5),
         coverImage: result.image || null,
-        seasons: franchiseData.seasons.length
-          ? franchiseData.seasons
-          : [{
-              number: 1,
-              format: result.format ?? "TV",     // ← format réel (ONA, OVA…)
-              totalEpisodes: result.episodes ?? null,
-              watchedEpisodes: 0,
-              coverImage: result.image || null,
-              anilistId: result.id,              // ← anilistId sur la saison de secours
-            }],
+        seasons,
         source: "anilist",
-        // ← CORRECTIF : si anilistIds est vide (ONA, format non-TV), on garde l'ID source
         anilistIds: franchiseData.anilistIds.length ? franchiseData.anilistIds : [result.id],
         tmdbId: tmdb?.id ?? null, description: description || null,
       };
@@ -51,11 +76,11 @@ export async function importResult(result) {
         coverImage: result.image || null,
         seasons: [{
           number: 1,
-          format: result.format ?? "TV",         // ← format réel
+          format: result.format ?? "TV",
           totalEpisodes: result.episodes ?? null,
           watchedEpisodes: 0,
           coverImage: result.image || null,
-          anilistId: result.id,                  // ← anilistId
+          anilistId: result.id,
         }],
         source: "anilist", anilistIds: [result.id],
         tmdbId: tmdb?.id ?? null, description: null,
@@ -232,27 +257,51 @@ export async function fetchSeasonInfo(entry, seasonIndex) {
 
     // ── AniList ─────────────────────────────────────────────────────────
     if (entry.source === "anilist") {
-      const season = entry.seasons[seasonIndex];
-      const anilistId =
-        entry.anilistIds?.[seasonIndex] ??
-        season?.anilistId ??
-        null;
+      const season    = entry.seasons[seasonIndex];
+      const anilistId = entry.anilistIds?.[seasonIndex] ?? season?.anilistId ?? null;
 
-      if (anilistId) {
-        // fetchAniListSeasonData retourne { malId, totalEpisodes }
-        const [episodes, seasonData] = await Promise.all([
-          fetchAniListEpisodesBySeasonId(anilistId),
-          fetchAniListSeasonData(anilistId),
-        ]);
-        return { episodes, totalEpisodes: seasonData.totalEpisodes };
+      if (!anilistId) return { episodes: [], totalEpisodes: null, reason: "lost-link" };
+
+      // Toutes les sources en parallèle
+      const [anilistData, jikanEps, tmdbSeason] = await Promise.all([
+        fetchAniListSeasonData(anilistId),
+        fetchAniListEpisodesBySeasonId(anilistId),
+        hasTMDB() && entry.tmdbId
+          ? fetchTMDBSeason(entry.tmdbId, seasonNumber).catch(() => null)
+          : Promise.resolve(null),
+      ]);
+
+      // ── Fusion des noms d'épisodes ───────────────────────────────────────
+      // Priorité : TMDB (noms FR) > Jikan/MAL (noms EN)
+      // On garde tous les épisodes des deux sources (union par numéro).
+      let episodes;
+      if (tmdbSeason?.episodes?.length) {
+        const tmdbMap  = new Map(tmdbSeason.episodes.map(e => [e.number, e.name]));
+        const jikanMap = new Map(jikanEps.map(e => [e.number, e.name]));
+        const allNums  = new Set([...tmdbMap.keys(), ...jikanMap.keys()]);
+        episodes = [...allNums]
+          .sort((a, b) => a - b)
+          .map(num => ({
+            number: num,
+            name:   tmdbMap.get(num) || jikanMap.get(num) || null,
+          }));
+      } else {
+        episodes = jikanEps;
       }
 
-      // Aucun anilistId retrouvable pour cette saison : le lien vers AniList
-      // est perdu (ex: séquelle d'un ancien bug de sync qui a vidé
-      // anilistIds), pas juste une donnée manquante côté API. On le signale
-      // explicitement pour que l'UI puisse orienter vers un rajout du titre
-      // plutôt que d'afficher un simple "inconnu" silencieux.
-      return { episodes: [], totalEpisodes: null, reason: "lost-link" };
+      // ── Meilleur total d'épisodes ────────────────────────────────────────
+      // On prend le MAX de toutes les sources disponibles :
+      //  • AniList  → fiable pour les séries terminées
+      //  • TMDB     → à jour pour les séries en cours de diffusion
+      //  • episodes.length → borne inférieure garantie vraie
+      const candidates = [
+        anilistData.totalEpisodes,
+        tmdbSeason?.totalEpisodes ?? null,
+        episodes.length > 0 ? episodes.length : null,
+      ].filter(n => n != null && n > 0);
+      const totalEpisodes = candidates.length ? Math.max(...candidates) : null;
+
+      return { episodes, totalEpisodes };
     }
 
     return { episodes: [], totalEpisodes: null };
