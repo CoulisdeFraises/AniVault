@@ -194,9 +194,7 @@ export function Home() {
       const statusOk   = selectedStatuses.length === 0 || selectedStatuses.includes(e.status);
       const favOk      = !showFavoritesOnly || favoritesEntryIds.has(e.id);
       const calendarOk = !showCalendarOnly  || isAiringThisWeek(e);
-      const searchOk = !q
-        || e.title.toLowerCase().includes(q)
-        || (e.altTitles || []).some(t => t.toLowerCase().includes(q))
+      const searchOk = !q || e.title.toLowerCase().includes(q)
         || (e.genres || []).some((g) => g.toLowerCase().includes(q))
         || (e.notes || "").toLowerCase().includes(q);
       return statusOk && favOk && calendarOk && searchOk;
