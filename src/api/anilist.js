@@ -60,6 +60,7 @@ export async function searchAniList(q) {
     .filter(m => cultureMode || !m.genres?.includes("Hentai"))
     .slice(0, 6)
     .map((m) => ({ source: "anilist", id: m.id, title: m.title.english || m.title.romaji,
+      titleRomaji: m.title.romaji || null, titleEnglish: m.title.english || null,
       year: m.seasonYear, image: m.coverImage?.large, episodes: m.episodes,
       genres: m.genres || [], format: m.format ?? null }));
 }
@@ -106,8 +107,13 @@ export async function fetchAniListFranchise(startId, { force = false } = {}) {
     const fromAiring = m.nextAiringEpisode?.episode != null
       ? m.nextAiringEpisode.episode - 1   // épisodes déjà diffusés = prochain - 1
       : null;
-    // Si AniList dit 2 épisodes mais que l'épisode 7 arrive, on sait qu'il y en a ≥ 6
-    if (explicit != null && fromAiring != null) return Math.max(explicit, fromAiring);
+    // Tant que la série est EN COURS de diffusion, le nombre d'épisodes
+    // réellement disponibles est celui déjà diffusé — jamais le total annoncé
+    // à l'avance (ex : AniList sait déjà que la saison fera 12 épisodes, mais
+    // seuls 5 sont sortis pour l'instant : il faut afficher 5, pas 12).
+    // Une fois la série terminée (ou tout autre statut sans diffusion active),
+    // le total explicite d'AniList est fiable et définitif.
+    if (m.status === "RELEASING") return fromAiring ?? explicit ?? null;
     return explicit ?? fromAiring ?? null;
   }
   function parseTitle(m) { return m.title?.english || m.title?.romaji || null; }
@@ -257,12 +263,14 @@ export async function fetchAniListSeasonData(anilistId) {
   try {
     const m = await getMediaDetails("anilist", anilistId);
     if (!m) return { malId: null, totalEpisodes: null };
-    return {
-      malId:         m.idMal ?? null,
-      totalEpisodes: m.episodes ?? (m.nextAiringEpisode?.episode != null
-        ? m.nextAiringEpisode.episode - 1
-        : null),
-    };
+    const fromAiring = m.nextAiringEpisode?.episode != null ? m.nextAiringEpisode.episode - 1 : null;
+    // Tant que la diffusion est en cours, seul le nombre d'épisodes déjà
+    // sortis compte — jamais le total annoncé à l'avance par AniList
+    // (voir le même correctif dans fetchAniListFranchise/parseEps).
+    const totalEpisodes = m.status === "RELEASING"
+      ? (fromAiring ?? m.episodes ?? null)
+      : (m.episodes ?? fromAiring ?? null);
+    return { malId: m.idMal ?? null, totalEpisodes };
   } catch {
     return { malId: null, totalEpisodes: null };
   }

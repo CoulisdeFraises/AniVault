@@ -195,6 +195,9 @@ export function Home() {
       const favOk      = !showFavoritesOnly || favoritesEntryIds.has(e.id);
       const calendarOk = !showCalendarOnly  || isAiringThisWeek(e);
       const searchOk = !q || e.title.toLowerCase().includes(q)
+        || (e.titleFrench  || "").toLowerCase().includes(q)
+        || (e.titleEnglish || "").toLowerCase().includes(q)
+        || (e.titleRomaji  || "").toLowerCase().includes(q)
         || (e.genres || []).some((g) => g.toLowerCase().includes(q))
         || (e.notes || "").toLowerCase().includes(q);
       return statusOk && favOk && calendarOk && searchOk;

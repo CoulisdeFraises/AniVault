@@ -18,6 +18,12 @@ export function search(type, query) {
 // ── importResult : branche anilist ───────────────────────────────────────
 export async function importResult(result) {
   const tmdb = await searchTMDBShow(result.title);
+  // TMDB est interrogé en fr-FR : son "name" est donc le titre français quand
+  // il existe. On l'affiche en priorité, mais on garde aussi les variantes
+  // romaji/anglais/français pour que la recherche dans la bibliothèque
+  // fonctionne quel que soit le nom que l'utilisateur tape.
+  const titleFrench  = tmdb?.name || null;
+  const displayTitle = titleFrench || result.title;
 
   if (result.source === "anilist") {
     try {
@@ -26,7 +32,8 @@ export async function importResult(result) {
         tmdb?.overview ? Promise.resolve(tmdb.overview) : fetchAniListDescription(result.id),
       ]);
       return {
-        title: result.title, category: "tv",
+        title: displayTitle, category: "tv",
+        titleRomaji: result.titleRomaji ?? null, titleEnglish: result.titleEnglish ?? null, titleFrench,
         genres: translateGenres(result.genres).slice(0, 5),
         coverImage: result.image || null,
         seasons: franchiseData.seasons.length
@@ -46,7 +53,8 @@ export async function importResult(result) {
       };
     } catch {
       return {
-        title: result.title, category: "tv",
+        title: displayTitle, category: "tv",
+        titleRomaji: result.titleRomaji ?? null, titleEnglish: result.titleEnglish ?? null, titleFrench,
         genres: translateGenres(result.genres).slice(0, 5),
         coverImage: result.image || null,
         seasons: [{
@@ -70,7 +78,8 @@ export async function importResult(result) {
     ]);
     const tvSeasons = seasons.map((s) => ({ ...s, format: "TV" }));
     return {
-      title: result.title, category: "tv",
+      title: displayTitle, category: "tv",
+      titleFrench,
       genres: translateGenres(result.genres).slice(0, 5),
       coverImage: result.image || null,
       seasons: tvSeasons.length ? tvSeasons : [{ number: 1, format: "TV", totalEpisodes: null, watchedEpisodes: 0 }],
@@ -79,7 +88,8 @@ export async function importResult(result) {
     };
   } catch {
     return {
-      title: result.title, category: "tv",
+      title: displayTitle, category: "tv",
+      titleFrench,
       genres: translateGenres(result.genres).slice(0, 5),
       coverImage: result.image || null,
       seasons: [{ number: 1, format: "TV", totalEpisodes: null, watchedEpisodes: 0 }],
@@ -269,16 +279,28 @@ export async function fetchSeasonInfo(entry, seasonIndex) {
       // déjà tout couvert).
       const finalTotal = totalEpisodes ?? tmdbTotal ?? null;
       const namedByTMDB = new Map(tmdbEpisodes.map((e) => [e.number, e.name]).filter(([, n]) => n));
-      const stillMissing = finalTotal != null && namedByTMDB.size < finalTotal;
 
+      // On tente Jikan si AniList/TMDB n'ont donné AUCUN total (fréquent pour
+      // les OVA/ONA mal documentées), ou si un total est connu mais que TMDB
+      // n'a pas nommé tous les épisodes attendus.
+      const stillMissing = finalTotal == null || namedByTMDB.size < finalTotal;
       let jikanEpisodes = [];
       if (stillMissing) {
         jikanEpisodes = await fetchAniListEpisodesBySeasonId(anilistId);
       }
       const namedByJikan = new Map(jikanEpisodes.map((e) => [e.number, e.name]).filter(([, n]) => n));
 
-      // Fusion : TMDB prioritaire, Jikan en complément, générique en dernier.
-      const rowCount = Math.max(finalTotal || 0, tmdbEpisodes.length, jikanEpisodes.length);
+      // Le total vient d'AniList en priorité (déjà fiable pour "en cours" vs
+      // "terminé"). Si vraiment aucune des trois sources ne le connaît, on se
+      // rabat sur la taille de la liste nommée obtenue plutôt que de rester
+      // bloqué à "inconnu".
+      const resolvedTotal = finalTotal ?? (tmdbEpisodes.length || jikanEpisodes.length || null);
+
+      // IMPORTANT : le nombre de lignes suit le total résolu, JAMAIS un max
+      // brut des tailles de liste — sinon une saison TMDB mal alignée (qui
+      // regrouperait par erreur plusieurs saisons/cours AniList en une seule)
+      // peut gonfler le compte à tort (ex: 49 au lieu de 24).
+      const rowCount = resolvedTotal || 0;
       const episodes = rowCount > 0
         ? Array.from({ length: rowCount }, (_, i) => {
             const number = i + 1;
@@ -286,7 +308,7 @@ export async function fetchSeasonInfo(entry, seasonIndex) {
           })
         : [];
 
-      return { episodes, totalEpisodes: finalTotal };
+      return { episodes, totalEpisodes: resolvedTotal };
     }
 
     return { episodes: [], totalEpisodes: null };
