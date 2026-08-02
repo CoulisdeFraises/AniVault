@@ -15,7 +15,7 @@ import { PullToRefresh } from "../components/common/PullToRefresh";
 import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
 
 const DAY_NAMES            = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-const VISIBLE_DAYS_MOBILE  = 2;
+const VISIBLE_DAYS_MOBILE  = 1;
 const VISIBLE_DAYS_DESKTOP = 3;
 const TMDB_CHUNK           = 5;
 const SWIPE_THRESHOLD      = 60; // px minimum pour déclencher un changement de jour
