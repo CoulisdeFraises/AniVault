@@ -8,6 +8,7 @@ import {
 import { useAuth }    from "../context/AuthContext";
 import { BurgerMenu } from "../components/common/BurgerMenu";
 import { Modal }      from "../components/Modal/Modal";
+import { Avatar }     from "../components/common/Avatar";
 import {
   fetchFriends, fetchPendingRequests, searchUserByUsername,
   sendFriendRequest, acceptFriendRequest, removeFriend,
@@ -15,22 +16,6 @@ import {
 } from "../services/community";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function getInitials(name) {
-  if (!name) return "?";
-  const p = name.trim().split(/\s+/);
-  return p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : name.slice(0, 2).toUpperCase();
-}
-
-function Avatar({ name, color, size = "md" }) {
-  const sz = size === "lg" ? "w-16 h-16 text-xl" : size === "sm" ? "w-8 h-8 text-xs" : "w-10 h-10 text-sm";
-  return (
-    <div className={`${sz} rounded-full flex items-center justify-center font-bold text-white flex-shrink-0`}
-      style={{ backgroundColor: color || "#7c3aed" }}>
-      {getInitials(name)}
-    </div>
-  );
-}
-
 // ── Modal profil ami ──────────────────────────────────────────────────────────
 function FriendProfileModal({ friend, onClose, onRemove }) {
   const achievementsCount = Array.isArray(friend.achievements) ? friend.achievements.length : 0;
@@ -65,7 +50,7 @@ function FriendProfileModal({ friend, onClose, onRemove }) {
         {/* Bannière + avatar */}
         <div className="relative h-20 bg-gradient-to-br from-violet-800 to-violet-950 flex items-end px-5 pb-0">
           <div className="absolute -bottom-8 left-5">
-            <Avatar name={friend.username} color={friend.avatar_color} size="lg" />
+            <Avatar name={friend.username} color={friend.avatar_color} photoUrl={friend.avatar_url} size="lg" />
           </div>
           <button onClick={onClose}
             className="absolute top-3 right-3 p-1.5 rounded-full bg-black/30 hover:bg-black/50 text-white/70 hover:text-white transition-colors">
@@ -185,7 +170,7 @@ function FriendCard({ friend, onClick }) {
   return (
     <button onClick={onClick}
       className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/5 hover:bg-white/10 active:scale-[0.98] transition-all text-left">
-      <Avatar name={friend.username} color={friend.avatar_color} />
+      <Avatar name={friend.username} color={friend.avatar_color} photoUrl={friend.avatar_url} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-violet-100 truncate">@{friend.username}</p>
         {friend.description
@@ -312,7 +297,7 @@ export function Community() {
             </p>
             {pending.map(req => (
               <div key={req.friendshipId} className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5">
-                <Avatar name={req.username} color={req.avatar_color} size="sm" />
+                <Avatar name={req.username} color={req.avatar_color} photoUrl={req.avatar_url} size="sm" />
                 <p className="flex-1 text-sm font-medium text-violet-100">@{req.username}</p>
                 <button onClick={() => handleAccept(req.friendshipId)}
                   className="p-1.5 rounded-lg bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-all">
@@ -353,7 +338,7 @@ export function Community() {
 
           {searchResult && (
             <div className="mt-3 flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 animate-fadeIn">
-              <Avatar name={searchResult.username} color={searchResult.avatar_color} />
+              <Avatar name={searchResult.username} color={searchResult.avatar_color} photoUrl={searchResult.avatar_url} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-violet-100">@{searchResult.username}</p>
                 {searchResult.description && (

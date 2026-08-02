@@ -38,12 +38,38 @@ export async function fetchMyProfile(userId) {
   return data;
 }
 
-export async function updateProfileMeta(userId, { description, avatar_color }) {
+export async function updateProfileMeta(userId, { description, avatar_color, avatar_url, companion }) {
   const updates = { updated_at: new Date().toISOString() };
   if (description  !== undefined) updates.description  = description;
   if (avatar_color !== undefined) updates.avatar_color = avatar_color;
+  if (avatar_url   !== undefined) updates.avatar_url   = avatar_url;
+  if (companion    !== undefined) updates.companion    = companion;
   const { error } = await supabase.from("profiles").update(updates).eq("user_id", userId);
   if (error) throw error;
+}
+
+/**
+ * Upload une photo de profil dans le bucket "avatars" (dossier = user_id,
+ * conformément aux policies RLS) et retourne l'URL publique.
+ */
+export async function uploadAvatarPhoto(userId, file) {
+  const ext  = file.name.split(".").pop() || "jpg";
+  const path = `${userId}/avatar.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("avatars")
+    .upload(path, file, { upsert: true, cacheControl: "3600" });
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+  // Casse le cache navigateur/CDN après un remplacement de photo.
+  const bustedUrl = `${data.publicUrl}?v=${Date.now()}`;
+  await updateProfileMeta(userId, { avatar_url: bustedUrl });
+  return bustedUrl;
+}
+
+export async function removeAvatarPhoto(userId) {
+  await updateProfileMeta(userId, { avatar_url: null });
 }
 
 export async function changeUsername(userId, username) {

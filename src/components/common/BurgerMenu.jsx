@@ -4,17 +4,10 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Menu, Home, User, Calendar, Settings, LogOut, Clock, Sparkles, Users, ListPlus, Database } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { ExportImportModal } from "./ExportImportModal";
-
-function getInitials(name) {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  return parts.length >= 2
-    ? (parts[0][0] + parts[1][0]).toUpperCase()
-    : name.slice(0, 2).toUpperCase();
-}
+import { Avatar } from "./Avatar";
 
 export function BurgerMenu() {
-  const { user, profile, logout } = useAuth();
+  const { user, profile, userProfile, logout } = useAuth();
   const navigate    = useNavigate();
   const location    = useLocation();
   const buttonRef   = useRef(null);
@@ -69,10 +62,7 @@ export function BurgerMenu() {
       </div>
 
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
-        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-          style={{ backgroundColor: avatarColor }}>
-          {getInitials(profile)}
-        </div>
+        <Avatar name={profile} color={avatarColor} photoUrl={userProfile?.avatar_url} size="md" />
         <div className="min-w-0">
           <p className="text-sm font-semibold text-violet-50 truncate">{profile}</p>
           <p className="text-[10px] text-violet-400 truncate">{user?.email}</p>

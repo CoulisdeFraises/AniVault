@@ -2,30 +2,24 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate }        from "react-router-dom";
 import {
   Loader2, Check, Lock, Trash2, ArrowLeft,
-  ChevronDown, Eye, EyeOff, KeyRound, AlertTriangle, Copy,
+  ChevronDown, Eye, EyeOff, KeyRound, AlertTriangle, Copy, Camera, X as XIcon,
 } from "lucide-react";
 import { supabase }        from "../lib/supabase";
 import { useAuth }         from "../context/AuthContext";
 import { useLibrary }      from "../context/LibraryContext";
 import { BurgerMenu }      from "../components/common/BurgerMenu";
+import { Avatar }          from "../components/common/Avatar";
 import { Modal }           from "../components/Modal/Modal";
 import { useAchievements } from "../hooks/useAchievements";
 import { ACHIEVEMENT_CATEGORIES } from "../utils/achievements";
-import { updateProfileMeta, changeUsername, syncProfileStats } from "../services/community";
+import { updateProfileMeta, changeUsername, syncProfileStats, uploadAvatarPhoto, removeAvatarPhoto } from "../services/community";
 import { useLists, fetchUserFavorites } from "../context/ListsContext";
+import { COMPANIONS } from "../utils/companions";
 
 const AVATAR_COLORS = [
   "#7c3aed", "#f59e0b", "#0ea5e9", "#10b981",
   "#f43f5e", "#8b5cf6", "#06b6d4", "#f97316",
 ];
-
-function getInitials(name) {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  return parts.length >= 2
-    ? (parts[0][0] + parts[1][0]).toUpperCase()
-    : name.slice(0, 2).toUpperCase();
-}
 
 const Section = ({ title, children }) => (
   <div className="rounded-2xl bg-violet-900/30 border border-white/5 overflow-hidden animate-fadeInUp">
@@ -325,6 +319,10 @@ export function Profile() {
   const [username,        setUsername]        = useState(userProfile?.username || profile || "");
   const [description,     setDescription]     = useState(userProfile?.description || "");
   const [color,           setColor]           = useState(userProfile?.avatar_color || AVATAR_COLORS[0]);
+  const [companion,       setCompanion]       = useState(userProfile?.companion || "default");
+  const [avatarUrl,       setAvatarUrl]       = useState(userProfile?.avatar_url || null);
+  const [uploadingPhoto,  setUploadingPhoto]  = useState(false);
+  const [photoError,      setPhotoError]      = useState("");
   const [savingProfile,   setSavingProfile]   = useState(false);
   const [profileMsg,      setProfileMsg]      = useState({ type: "", text: "" });
   const [copiedId,        setCopiedId]        = useState(false);
@@ -372,6 +370,38 @@ export function Profile() {
     });
   }
 
+  async function handlePhotoSelect(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // permet de re-choisir le même fichier plus tard
+    if (!file) return;
+
+    setPhotoError("");
+    if (!file.type.startsWith("image/")) { setPhotoError("Le fichier doit être une image."); return; }
+    if (file.size > 5 * 1024 * 1024) { setPhotoError("Image trop lourde (5 Mo max)."); return; }
+
+    setUploadingPhoto(true);
+    try {
+      const url = await uploadAvatarPhoto(user.id, file);
+      setAvatarUrl(url);
+      await refreshProfile();
+    } catch (err) {
+      setPhotoError(err.message || "Échec de l'envoi de la photo.");
+    }
+    setUploadingPhoto(false);
+  }
+
+  async function handlePhotoRemove() {
+    setUploadingPhoto(true);
+    try {
+      await removeAvatarPhoto(user.id);
+      setAvatarUrl(null);
+      await refreshProfile();
+    } catch (err) {
+      setPhotoError(err.message || "Échec de la suppression.");
+    }
+    setUploadingPhoto(false);
+  }
+
   async function handleSaveProfile() {
     if (!username.trim()) return;
     setSavingProfile(true);
@@ -382,7 +412,7 @@ export function Profile() {
         if (!canChangeUsername) throw new Error(`Pseudo modifiable dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}.`);
         await changeUsername(user.id, newUsername);
       }
-      await updateProfileMeta(user.id, { description: description.trim(), avatar_color: color });
+      await updateProfileMeta(user.id, { description: description.trim(), avatar_color: color, companion });
       await supabase.auth.updateUser({ data: { avatar_color: color } });
       await refreshProfile();
       setProfileMsg({ type: "success", text: "Profil mis à jour !" });
@@ -437,18 +467,74 @@ export function Profile() {
       {/* Identité */}
       <Section title="Identité">
         <div className="flex flex-col items-center gap-5 px-5 pt-6 pb-4">
-          <div
-            className="w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold text-white shadow-lg select-none transition-colors motion-reduce:transition-none"
-            style={{ backgroundColor: color }}>
-            {getInitials(username)}
+          <div className="relative">
+            <Avatar name={username} color={color} photoUrl={avatarUrl} size="xl"
+              className="shadow-lg" />
+            {uploadingPhoto && (
+              <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+                <Loader2 size={20} className="animate-spin text-white" />
+              </div>
+            )}
+            <label
+              htmlFor="avatar-upload"
+              title="Changer la photo"
+              className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-violet-700 hover:bg-violet-600 border-2 border-violet-950 flex items-center justify-center cursor-pointer transition-colors motion-reduce:transition-none"
+            >
+              <Camera size={14} className="text-white" />
+            </label>
+            <input id="avatar-upload" type="file" accept="image/*" className="hidden"
+              onChange={handlePhotoSelect} disabled={uploadingPhoto} />
+            {avatarUrl && (
+              <button
+                onClick={handlePhotoRemove}
+                title="Retirer la photo"
+                disabled={uploadingPhoto}
+                className="absolute bottom-0 left-0 w-8 h-8 rounded-full bg-rose-600 hover:bg-rose-500 border-2 border-violet-950 flex items-center justify-center transition-colors motion-reduce:transition-none disabled:opacity-50"
+              >
+                <XIcon size={14} className="text-white" />
+              </button>
+            )}
           </div>
+          {photoError && <p className="text-xs text-rose-400 -mt-2">{photoError}</p>}
+
           <div className="text-center">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400 mb-2">Couleur de l'avatar</p>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400 mb-2">
+              Couleur de l'avatar {avatarUrl && <span className="text-violet-600">(utilisée si tu retires la photo)</span>}
+            </p>
             <div className="flex gap-2 justify-center">
               {AVATAR_COLORS.map((c) => (
                 <button key={c} onClick={() => setColor(c)} aria-label={`Couleur ${c}`}
                   className="w-7 h-7 rounded-full hover:scale-110 transition-transform motion-reduce:transition-none"
                   style={{ backgroundColor: c, outline: color === c ? "3px solid white" : "none", outlineOffset: "2px" }} />
+              ))}
+            </div>
+          </div>
+
+          <div className="text-center w-full">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400 mb-2">
+              Compagnon <span className="text-violet-600 normal-case tracking-normal">— change les émojis de note</span>
+            </p>
+            <div className="flex gap-2 justify-center flex-wrap">
+              {COMPANIONS.filter((c) => c.id !== "default").map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setCompanion(c.id)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-left transition-all active:scale-95 motion-reduce:transition-none ${
+                    companion === c.id
+                      ? "bg-white/10 border-white/25"
+                      : "bg-white/[0.03] border-white/5 hover:bg-white/5"
+                  }`}
+                >
+                  <span className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold text-white"
+                    style={{ backgroundColor: c.swatch }}>
+                    {c.name[0]}
+                  </span>
+                  <span className="min-w-0">
+                    <p className="text-xs font-semibold text-violet-100">{c.name}</p>
+                    <p className="text-[10px] text-violet-500 truncate max-w-[140px]">{c.description}</p>
+                  </span>
+                  {companion === c.id && <Check size={14} className="text-emerald-400 flex-shrink-0 ml-1" />}
+                </button>
               ))}
             </div>
           </div>

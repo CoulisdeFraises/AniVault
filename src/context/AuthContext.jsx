@@ -15,6 +15,9 @@ export function AuthProvider({ children }) {
       await initProfile(u);
       const p = await fetchMyProfile(u.id);
       setUserProfile(p);
+      // Cache local pour un accès synchrone rapide (ex: getRatingEmoji dans
+      // les listes de cartes, qui ne peut pas attendre un fetch async).
+      if (p?.companion) localStorage.setItem("pref_companion", p.companion);
     } catch (_) {}
   }
 
@@ -59,6 +62,7 @@ export function AuthProvider({ children }) {
     if (!user) return;
     const p = await fetchMyProfile(user.id);
     setUserProfile(p);
+    if (p?.companion) localStorage.setItem("pref_companion", p.companion);
   }, [user]);
 
   // Nom affiché — priorité : profil public > user_metadata

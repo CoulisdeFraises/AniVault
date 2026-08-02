@@ -1,14 +1,24 @@
 import { useState } from "react";
 import { Star } from "lucide-react";
+import { RATING_EMOJIS } from "../../utils/companions";
 
-export function getRatingEmoji(rating) {
+/**
+ * getRatingEmoji — retourne l'émoji correspondant à une note (1-10), selon
+ * le compagnon choisi sur le profil. Si `companionId` n'est pas fourni,
+ * lit la préférence mise en cache (synchronisée depuis le profil Supabase
+ * par AuthContext) pour un accès synchrone rapide dans les listes de cartes.
+ */
+export function getRatingEmoji(rating, companionId) {
   if (!rating) return null;
-  if (rating <= 2) return "😭";
-  if (rating <= 4) return "😞";
-  if (rating === 5) return "😐";
-  if (rating <= 7) return "😊";
-  if (rating <= 9) return "😁";
-  return "🤩";
+  const id = companionId || (typeof localStorage !== "undefined" ? localStorage.getItem("pref_companion") : null) || "default";
+  const emojis = RATING_EMOJIS[id] || RATING_EMOJIS.default;
+  const band =
+    rating <= 2 ? 0 :
+    rating <= 4 ? 1 :
+    rating === 5 ? 2 :
+    rating <= 7 ? 3 :
+    rating <= 9 ? 4 : 5;
+  return emojis[band];
 }
 
 export function RatingMeter({ value, onChange, size = "sm" }) {
