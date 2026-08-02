@@ -18,42 +18,58 @@ export function isPushSupported() {
 /**
  * Demande la permission, s'abonne au push du navigateur, et enregistre
  * l'abonnement dans Supabase (push_subscriptions) pour cet utilisateur.
- * Retourne true si tout s'est bien passé.
+ * Retourne { ok, reason? } — reason est un message lisible en cas d'échec,
+ * pour que l'UI puisse enfin dire CE QUI a échoué au lieu de rester muette.
  */
 export async function subscribeToPush(userId) {
-  if (!isPushSupported() || !userId) return false;
+  if (!isPushSupported()) return { ok: false, reason: "Les notifications push ne sont pas supportées sur ce navigateur/appareil." };
+  if (!userId) return { ok: false, reason: "Utilisateur non connecté." };
 
   const granted = await requestNotificationPermission();
-  if (!granted) return false;
+  if (!granted) return { ok: false, reason: "Permission refusée par le navigateur." };
 
+  let registration;
   try {
-    const registration = await navigator.serviceWorker.ready;
+    registration = await navigator.serviceWorker.ready;
+  } catch {
+    return { ok: false, reason: "Le Service Worker n'est pas disponible (essaie de recharger la page)." };
+  }
 
-    let subscription = await registration.pushManager.getSubscription();
+  let subscription;
+  try {
+    subscription = await registration.pushManager.getSubscription();
     if (!subscription) {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
     }
-
-    const raw = subscription.toJSON();
-    const { error } = await supabase.from("push_subscriptions").upsert(
-      {
-        user_id:  userId,
-        endpoint: raw.endpoint,
-        p256dh:   raw.keys.p256dh,
-        auth:     raw.keys.auth,
-      },
-      { onConflict: "endpoint" }
-    );
-
-    if (error) { console.error("Impossible d'enregistrer l'abonnement push :", error); return false; }
-    return true;
   } catch (err) {
     console.error("Échec de l'abonnement push :", err);
-    return false;
+    return { ok: false, reason: `Échec de l'abonnement navigateur : ${err.message || err}` };
   }
+
+  const raw = subscription.toJSON();
+  const { error } = await supabase.from("push_subscriptions").upsert(
+    {
+      user_id:  userId,
+      endpoint: raw.endpoint,
+      p256dh:   raw.keys.p256dh,
+      auth:     raw.keys.auth,
+    },
+    { onConflict: "endpoint" }
+  );
+
+  if (error) {
+    console.error("Impossible d'enregistrer l'abonnement push :", error);
+    // Message le plus courant : la table n'existe pas encore (SQL pas exécuté).
+    const reason = /relation .* does not exist/i.test(error.message)
+      ? "La table push_subscriptions n'existe pas encore côté Supabase — exécute le script SQL avant de réessayer."
+      : `Échec de l'enregistrement : ${error.message}`;
+    return { ok: false, reason };
+  }
+
+  return { ok: true };
 }
 
 /** Désabonne l'appareil courant du push (Réglages → désactiver notifications). */

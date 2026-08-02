@@ -37,6 +37,8 @@ export function NotificationPanel() {
   const [permGranted, setPermGranted] = useState(
     () => "Notification" in window && Notification.permission === "granted"
   );
+  const [subscribeError, setSubscribeError] = useState(null);
+  const [subscribing,    setSubscribing]    = useState(false);
 
   function openPanel() {
     const rect = btnRef.current?.getBoundingClientRect();
@@ -70,13 +72,18 @@ export function NotificationPanel() {
   }, [open]);
 
   async function handleRequestPermission() {
+    setSubscribing(true);
+    setSubscribeError(null);
     if (user?.id) {
-      const ok = await subscribeToPush(user.id);
-      setPermGranted(ok);
+      const result = await subscribeToPush(user.id);
+      setPermGranted(result.ok);
+      if (!result.ok) setSubscribeError(result.reason);
     } else {
       const granted = await requestNotificationPermission();
       setPermGranted(granted);
+      if (!granted) setSubscribeError("Permission refusée par le navigateur.");
     }
+    setSubscribing(false);
   }
 
   function handleClickNotif(notif) {
@@ -122,12 +129,16 @@ export function NotificationPanel() {
       </div>
 
       {/* Permission banner */}
-      {!permGranted && (
-        <div className="px-4 py-3 border-b border-white/5 bg-amber-400/5 flex-shrink-0">
-          <p className="text-[11px] text-amber-300 mb-2">Active les notifications pour être alerté quand un épisode sort.</p>
-          <button onClick={handleRequestPermission}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-400/20 text-amber-300 text-[11px] font-medium hover:bg-amber-400/30 active:scale-95 transition-all">
-            <Bell size={11} /> Activer les notifications
+      {(!permGranted || subscribeError) && (
+        <div className={`px-4 py-3 border-b border-white/5 flex-shrink-0 ${subscribeError ? "bg-rose-500/5" : "bg-amber-400/5"}`}>
+          <p className={`text-[11px] mb-2 ${subscribeError ? "text-rose-300" : "text-amber-300"}`}>
+            {subscribeError || "Active les notifications pour être alerté quand un épisode sort."}
+          </p>
+          <button onClick={handleRequestPermission} disabled={subscribing}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium active:scale-95 transition-all disabled:opacity-50 ${
+              subscribeError ? "bg-rose-400/20 text-rose-300 hover:bg-rose-400/30" : "bg-amber-400/20 text-amber-300 hover:bg-amber-400/30"
+            }`}>
+            <Bell size={11} /> {subscribing ? "…" : subscribeError ? "Réessayer" : "Activer les notifications"}
           </button>
         </div>
       )}
