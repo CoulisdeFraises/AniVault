@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { search, importResult } from "../api";
 
-// query === "" désactive la recherche (utilisé quand ce n'est pas le type actif)
 export function useSeries(query) {
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -16,7 +15,8 @@ export function useSeries(query) {
     setSearching(true);
     const t = setTimeout(async () => {
       try {
-        const r = await search("serie", query); // ← "serie" au lieu de "anime"
+        // Utilisez `limit` pour contrôler le nombre de résultats
+        const r = await search("serie", query, 30); // ← 30 résultats maximum
         setResults(r);
         setError(r.length === 0 ? "Aucun résultat." : "");
       } catch {

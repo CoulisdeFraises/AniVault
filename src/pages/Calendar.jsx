@@ -250,7 +250,7 @@ export function Calendar() {
   const [gridKey,          setGridKey]           = useState(0);
   const [slideDir,         setSlideDir]          = useState("none");
   const [dayOffset,        setDayOffset]         = useState(() =>
-    Math.max(0, Math.min(7 - VISIBLE_DAYS_DESKTOP, todayIndex() - 1))
+    Math.max(0, Math.min(7 - VISIBLE_DAYS, todayIndex() - 1))
   );
 
   // IDs en cours d'ajout (Set de media.id AniList)
@@ -293,7 +293,7 @@ export function Calendar() {
       if (stale) {
         setSchedules(stale.schedules);
         setWeekMonday(toDate(stale.monday));
-        setError("⚠️ Connexion indisponible — données hors-ligne affichées.");
+        setError(err?.message ? `⚠️ ${err.message} — données précédentes affichées.` : "⚠️ Connexion indisponible — données hors-ligne affichées.");
       } else {
         setError(err?.message || "Impossible de charger le calendrier. Vérifie ta connexion et réessaie.");
       }

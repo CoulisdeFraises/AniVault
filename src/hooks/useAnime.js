@@ -16,7 +16,8 @@ export function useAnime(query) {
     setSearching(true);
     const t = setTimeout(async () => {
       try {
-        const r = await search("anime", query);
+        // Utilisez `limit` pour contrôler le nombre de résultats
+        const r = await search("anime", query, 30); // ← 30 résultats maximum
         setResults(r);
         setError(r.length === 0 ? "Aucun résultat." : "");
       } catch {

@@ -372,14 +372,24 @@ export async function fetchWeeklySchedule(o = 0) {
   const all = []; let page = 1, hasNext = true;
   while (hasNext && page <= 6) {
     let res;
-    try {
-      res = await fetch("https://graphql.anilist.co", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ query: q, variables: { start, end, page } }),
-      });
-    } catch { throw new Error("Impossible de joindre AniList. Vérifie ta connexion."); }
-    if (res.status === 429) { await new Promise((r) => setTimeout(r, 2500)); continue; }
+    let attempt = 0;
+    while (true) {
+      try {
+        res = await fetch("https://graphql.anilist.co", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ query: q, variables: { start, end, page } }),
+        });
+      } catch { throw new Error("Impossible de joindre AniList. Vérifie ta connexion."); }
+
+      if (res.status === 429) {
+        if (attempt >= 4) throw new Error("AniList est temporairement saturé (calendrier). Réessaie dans quelques instants.");
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+        attempt++;
+        continue;
+      }
+      break;
+    }
     if (!res.ok) throw new Error(`AniList a répondu avec une erreur (${res.status}).`);
     const j = await res.json();
     if (j.errors?.length) throw new Error(j.errors[0].message || "Erreur GraphQL AniList.");
