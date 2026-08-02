@@ -17,7 +17,7 @@ export async function getMediaDetails(source, id) {
 }
 
 export async function search(query, type) {
-  const limit = 50; // Augmenter ce nombre selon vos besoins
-  const res = await fetch(`https://<your-supabase-url>/functions/v1/media/search?query=${encodeURIComponent(query)}&type=${type}&limit=${limit}`);
+  const limit = 30; // Augmenter ce nombre selon vos besoins
+  const res = await fetch(`https://dcgdsgpjtfxlujpvkplk.supabase.co/functions/v1/search_limit?query=${encodeURIComponent(query)}&type=${type}&limit=${limit}`);
   return await res.json();
 }
