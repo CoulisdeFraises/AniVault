@@ -5,6 +5,8 @@ import { useAuth }    from "../context/AuthContext";
 import { useLibrary } from "../context/LibraryContext";
 import { usePrefs }   from "../context/PrefsContext";
 import { BurgerMenu } from "../components/common/BurgerMenu";
+import { requestNotificationPermission } from "../hooks/useNotifications";
+import { subscribeToPush, unsubscribeFromPush } from "../utils/push";
 
 const STORAGE_KEY = "playlog-entries";
 
@@ -41,13 +43,14 @@ const Row = ({ label, sublabel, children, onClick, danger = false }) => (
 );
 
 // ── Toggle standard ───────────────────────────────────────────────────────────
-const Toggle = ({ checked, onChange }) => (
+const Toggle = ({ checked, onChange, disabled = false }) => (
   <button
     type="button"
     role="switch"
     aria-checked={checked}
+    disabled={disabled}
     onClick={() => onChange(!checked)}
-    className={`relative w-9 h-5 rounded-full transition-colors duration-300 motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${checked ? "bg-amber-400" : "bg-white/20"}`}
+    className={`relative w-9 h-5 rounded-full transition-colors duration-300 motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:opacity-50 ${checked ? "bg-amber-400" : "bg-white/20"}`}
   >
     <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-300 motion-reduce:transition-none ${checked ? "translate-x-4" : "translate-x-0"}`} />
   </button>
@@ -77,7 +80,7 @@ const CultureToggle = ({ checked, onChange }) => (
 
 export function Settings() {
   const navigate = useNavigate();
-  const { profile, logout } = useAuth();
+  const { profile, user, logout } = useAuth();
   const { cultureMode, setCultureMode } = usePrefs();
   const libraryCtx = useLibrary?.() ?? {};
   const entries = libraryCtx.entries ?? (() => {
@@ -102,19 +105,46 @@ export function Settings() {
   const [notifEnabled, setNotifEnabled] = useState(
     () => localStorage.getItem("pref_notifications") !== "false"
   );
+  const [notifSubscribed, setNotifSubscribed] = useState(null); // null = pas encore vérifié
+  const [notifError,      setNotifError]      = useState(null);
+  const [notifBusy,       setNotifBusy]       = useState(false);
 
   async function handleRequestNotif() {
-    const granted = await requestNotificationPermission();
-    setNotifPermission(granted ? "granted" : "denied");
-    if (granted) {
-      localStorage.setItem("pref_notifications", "true");
+    setNotifBusy(true);
+    setNotifError(null);
+    const result = await subscribeToPush(user?.id);
+    setNotifPermission("Notification" in window ? Notification.permission : "unsupported");
+    if (result.ok) {
+      setNotifSubscribed(true);
       setNotifEnabled(true);
+      localStorage.setItem("pref_notifications", "true");
+    } else {
+      setNotifSubscribed(false);
+      setNotifError(result.reason);
     }
+    setNotifBusy(false);
   }
 
-  function handleToggleNotif(v) {
-    setNotifEnabled(v);
-    localStorage.setItem("pref_notifications", String(v));
+  async function handleToggleNotif(v) {
+    setNotifBusy(true);
+    setNotifError(null);
+    if (v) {
+      const result = await subscribeToPush(user?.id);
+      if (result.ok) {
+        setNotifEnabled(true);
+        setNotifSubscribed(true);
+        localStorage.setItem("pref_notifications", "true");
+      } else {
+        setNotifError(result.reason);
+        setNotifEnabled(false); // le toggle ne reste pas allumé si l'abonnement a échoué
+      }
+    } else {
+      await unsubscribeFromPush();
+      setNotifEnabled(false);
+      setNotifSubscribed(false);
+      localStorage.setItem("pref_notifications", "false");
+    }
+    setNotifBusy(false);
   }
 
   function setPref(key, value) {
@@ -265,9 +295,10 @@ export function Settings() {
           >
             <button
               onClick={handleRequestNotif}
-              className="text-xs px-3 py-1.5 rounded-lg bg-amber-400/15 border border-amber-400/25 text-amber-400 hover:bg-amber-400/25 active:scale-95 transition-all font-mono whitespace-nowrap"
+              disabled={notifBusy}
+              className="text-xs px-3 py-1.5 rounded-lg bg-amber-400/15 border border-amber-400/25 text-amber-400 hover:bg-amber-400/25 active:scale-95 transition-all font-mono whitespace-nowrap disabled:opacity-50"
             >
-              Activer
+              {notifBusy ? "…" : "Activer"}
             </button>
           </Row>
 
@@ -277,14 +308,28 @@ export function Settings() {
               label="Notifications d'épisodes"
               sublabel="Alerte jusqu'à 24h avant la diffusion d'un épisode en cours."
             >
-              <Toggle checked={notifEnabled} onChange={handleToggleNotif} />
+              <Toggle checked={notifEnabled} onChange={handleToggleNotif} disabled={notifBusy} />
             </Row>
-            {notifEnabled && (
+            {notifEnabled && notifSubscribed === true && (
               <Row
-                label="Permission accordée"
+                label="Abonnement actif"
                 sublabel="Les alertes s'afficheront même si l'app est fermée (selon ton OS)."
               >
                 <Bell size={15} className="text-teal-400" />
+              </Row>
+            )}
+            {notifEnabled && notifSubscribed === false && (
+              <Row
+                label="Abonnement incomplet"
+                sublabel={notifError || "La permission est accordée mais l'abonnement push n'a pas pu être enregistré."}
+              >
+                <button
+                  onClick={handleRequestNotif}
+                  disabled={notifBusy}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-rose-400/15 border border-rose-400/25 text-rose-300 hover:bg-rose-400/25 active:scale-95 transition-all font-mono whitespace-nowrap disabled:opacity-50"
+                >
+                  {notifBusy ? "…" : "Réessayer"}
+                </button>
               </Row>
             )}
           </>
