@@ -6,6 +6,7 @@ import { useCountUp }           from "../../hooks/useCountUp";
 import { BurgerMenu }           from "../common/BurgerMenu";
 import { NotificationPanel }    from "../common/NotificationPanel";  // ← AJOUT
 import { calcWatchTime }        from "../../utils/watchTime";
+import { useNavigate } from "react-router-dom";
 
 function FilterChip({ active, onClick, children, colorClass }) {
   return (
@@ -31,6 +32,7 @@ export function Header({
   const { entries, loading } = useLibrary();
   const searchRef = useRef(null);
   const [searchFocused, setSearchFocused] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     function h(e) {
@@ -83,10 +85,13 @@ export function Header({
             {/* ── Cloche notifications ── */}
             <NotificationPanel />
             <BurgerMenu />
-            <button onClick={onAddClick}
-              className="h-9 flex items-center gap-1.5 bg-amber-400 text-violet-950 font-semibold text-sm px-4 rounded-xl hover:bg-amber-300 active:scale-95 transition-all motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
-              <Plus size={16} />
-              <span className="hidden sm:inline">Ajouter</span>
+            <button
+              onClick={() => navigate("/search")}
+              title="Rechercher et ajouter un titre"
+              className="h-9 flex items-center gap-1.5 bg-amber-400 text-violet-950 font-semibold text-sm px-3 sm:px-4 rounded-xl hover:bg-amber-300 active:scale-95 transition-all motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+            >
+              <Search size={16} />
+              <span className="hidden sm:inline">Rechercher</span>
             </button>
           </div>
         </div>
@@ -140,9 +145,11 @@ export function Header({
       </div>
 
       {/* Bouton ajouter */}
-      <button onClick={onAddClick}
-        className="w-full flex items-center justify-center gap-2 mb-4 py-2.5 rounded-xl border border-dashed border-amber-400/30 text-amber-400/70 hover:bg-amber-400/8 hover:border-amber-400/60 hover:text-amber-400 transition-all text-sm font-medium active:scale-[0.99] motion-reduce:transition-none">
-        <Plus size={15} /> Ajouter un titre
+      <button
+        onClick={() => navigate("/search")}
+        className="w-full flex items-center justify-center gap-2 mb-4 py-2.5 rounded-xl border border-dashed border-amber-400/30 text-amber-400/70 hover:bg-amber-400/8 hover:border-amber-400/60 hover:text-amber-400 transition-all text-sm font-medium active:scale-[0.99] motion-reduce:transition-none"
+      >
+        <Search size={15} /> Rechercher un titre à ajouter
       </button>
 
       {/* Filtre type */}

@@ -58,7 +58,6 @@ export async function searchAniList(q) {
   const json  = await anilistQuery(query, { search: q });
   return (json.data?.Page?.media || [])
     .filter(m => cultureMode || !m.genres?.includes("Hentai"))
-    .slice(0, 6)
     .map((m) => ({ source: "anilist", id: m.id, title: m.title.english || m.title.romaji,
       titleRomaji: m.title.romaji || null, titleEnglish: m.title.english || null,
       year: m.seasonYear, image: m.coverImage?.large, episodes: m.episodes,

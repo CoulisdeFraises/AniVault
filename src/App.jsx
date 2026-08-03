@@ -25,6 +25,7 @@ const History         = lazy(() => import("./pages/History")        .then(m => (
 const Recommendations = lazy(() => import("./pages/Recommendations").then(m => ({ default: m.Recommendations })));
 const Community       = lazy(() => import("./pages/Community")      .then(m => ({ default: m.Community })));
 const Lists           = lazy(() => import("./pages/Lists")          .then(m => ({ default: m.Lists })));
+const SearchPage = lazy(() => import("./pages/Search").then(m => ({ default: m.SearchPage })));
 
 // ── Loaders ───────────────────────────────────────────────────────────────────
 const AppLoader = () => (

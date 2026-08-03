@@ -10,7 +10,7 @@ import { emptyForm } from "../../utils/entry";
 import { useLibrary } from "../../context/LibraryContext";
 import { importResult } from "../../api";
 
-export function TitleFormModal({ editingEntry, onClose }) {
+export function TitleFormModal({ editingEntry, onClose, onSave }) {
   const { findDuplicate, saveEntry } = useLibrary();
   const editingId = editingEntry?.id ?? null;
 
@@ -38,7 +38,7 @@ export function TitleFormModal({ editingEntry, onClose }) {
 
   function toggleGenre(g) { setForm((f) => ({ ...f, genres: f.genres.includes(g) ? f.genres.filter((x) => x !== g) : [...f.genres, g] })); }
   function addCustomGenre() { const g = genreInput.trim(); if (g && !form.genres.includes(g)) setForm((f) => ({ ...f, genres: [...f.genres, g] })); setGenreInput(""); }
-  function commit() { saveEntry(form, editingId); onClose(); }
+  function commit() { saveEntry(form, editingId); onSave?.(); onClose(); }
   function handleSubmit(e) {
     e.preventDefault();
     if (!form.title.trim()) { setFormError("Le titre est obligatoire."); return; }

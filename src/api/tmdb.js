@@ -36,6 +36,33 @@ export async function searchTMDBShow(title) {
   });
 }
 
+// ── Recherche de films ────────────────────────────────────────────────────────
+export async function searchTMDBMovies(query) {
+  if (!TMDB_BEARER_TOKEN) return [];
+  return withCache(`tmdb:movies:${query.toLowerCase()}`, CACHE_TTL, async () => {
+    try {
+      const res = await fetch(
+        `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(query)}&language=fr-FR&page=1`,
+        { headers: tmdbHeaders() }
+      );
+      if (!res.ok) return [];
+      const json = await res.json();
+      return (json.results || []).map((m) => ({
+        source: "tmdb_movie",
+        id:       m.id,
+        title:    m.title || m.original_title,
+        year:     m.release_date ? parseInt(m.release_date.slice(0, 4)) : null,
+        image:    m.poster_path ? `https://image.tmdb.org/t/p/w342${m.poster_path}` : null,
+        overview: m.overview?.trim() || null,
+        genreIds: m.genre_ids || [],
+        format:   "MOVIE",
+      }));
+    } catch {
+      return [];
+    }
+  });
+}
+
 // ── Disponibilité sur les plateformes françaises ──────────────────────────────
 // Endpoint TMDB : GET /tv/{id}/watch/providers
 // results.FR contient les offres streaming disponibles en France

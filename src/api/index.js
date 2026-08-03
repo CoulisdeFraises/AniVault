@@ -10,13 +10,51 @@ import {
 } from "./tvmaze";
 import { withCache }       from "../services/cache";
 import { translateGenres } from "../utils/genres";
+import { searchTMDBShow, fetchTMDBSeason, searchTMDBMovies } from "./tmdb";
+
+// Mapping IDs genres TMDB → labels français
+const TMDB_MOVIE_GENRES = {
+  28: "Action", 12: "Aventure", 16: "Animation", 35: "Comédie",
+  80: "Crime", 99: "Documentaire", 18: "Drame", 10751: "Famille",
+  14: "Fantastique", 36: "Histoire", 27: "Horreur", 10402: "Musique",
+  9648: "Mystère", 10749: "Romance", 878: "Science-Fiction",
+  53: "Thriller", 10752: "Guerre", 37: "Western",
+};
 
 export function search(type, query) {
-  return type === "anime" ? searchAniList(query) : searchTVMaze(query);
+  if (type === "film")  return searchTMDBMovies(query);
+  if (type === "anime") return searchAniList(query);
+  return searchTVMaze(query);
 }
 
 // ── importResult : branche anilist ───────────────────────────────────────
 export async function importResult(result) {
+  // ── Court-circuit : film TMDB (titre et synopsis déjà en FR) ─────────────
+  if (result.source === "tmdb_movie") {
+    return {
+      title:      result.title,
+      type:       "serie",          // classé comme série (live-action)
+      category:   "movie",
+      titleFrench: result.title,
+      coverImage: result.image || null,
+      genres:     (result.genreIds || [])
+                    .map((id) => TMDB_MOVIE_GENRES[id])
+                    .filter(Boolean)
+                    .slice(0, 5),
+      seasons: [{
+        number:          1,
+        format:          "MOVIE",
+        totalEpisodes:   1,
+        watchedEpisodes: 0,
+        coverImage:      result.image || null,
+      }],
+      source:      "tmdb_movie",
+      tmdbId:      result.id,
+      description: result.overview || null,
+    };
+  }
+
+  // ── Cas AniList & TVmaze : enrichissement TMDB optionnel ────────────────
   const tmdb = await searchTMDBShow(result.title);
   // TMDB est interrogé en fr-FR : son "name" est donc le titre français quand
   // il existe. On l'affiche en priorité, mais on garde aussi les variantes
