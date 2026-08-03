@@ -332,13 +332,6 @@ export async function fetchNextAiringAniList(anilistId) {
   } catch { return null; }
 }
 
-function getWeekBounds(o = 0) {
-  const now = new Date(), dow = now.getDay(), toMon = dow === 0 ? -6 : 1 - dow;
-  const mon = new Date(now); mon.setDate(now.getDate() + toMon + o * 7); mon.setHours(0,0,0,0);
-  const sun = new Date(mon); sun.setDate(mon.getDate() + 7); sun.setHours(0,0,0,0);
-  return { start: Math.floor(mon.getTime()/1000), end: Math.floor(sun.getTime()/1000), monday: mon };
-}
-
 const FR_SITES = new Set(["ADN","Wakanim","Anime Digital Network"]);
 const FR_URLS  = ["animedigitalnetwork.fr","wakanim.tv/fr","adn."];
 
@@ -348,59 +341,23 @@ export function hasFrenchVersion(media) {
     (l.url && FR_URLS.some((p)=>l.url.includes(p))));
 }
 
-export async function fetchWeeklySchedule(o = 0) {
-  const { start, end, monday } = getWeekBounds(o);
-  const q = `
-    query($start: Int, $end: Int, $page: Int) {
-      Page(page: $page, perPage: 50) {
-        pageInfo { hasNextPage }
-        airingSchedules(airingAt_greater: $start, airingAt_lesser: $end, sort: TIME) {
-          id airingAt episode
-          media {
-            id idMal
-            title { romaji english }
-            description(asHtml: false)
-            coverImage { medium large }
-            externalLinks { site language type url }
-            countryOfOrigin isAdult format
-            relations { edges { relationType node { type } } }
-          }
-        }
-      }
-    }
-  `;
-  const all = []; let page = 1, hasNext = true;
-  while (hasNext && page <= 6) {
-    let res;
-    let attempt = 0;
-    while (true) {
-      try {
-        res = await fetch("https://graphql.anilist.co", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ query: q, variables: { start, end, page } }),
-        });
-      } catch { throw new Error("Impossible de joindre AniList. Vérifie ta connexion."); }
+export async function fetchWeeklySchedule(o = 0, { force = false } = {}) {
+  const qs = new URLSearchParams({ mode: "schedule", offset: String(o) });
+  if (force) qs.set("force", "1");
 
-      if (res.status === 429) {
-        if (attempt >= 4) throw new Error("AniList est temporairement saturé (calendrier). Réessaie dans quelques instants.");
-        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
-        attempt++;
-        continue;
-      }
-      break;
-    }
-    if (!res.ok) throw new Error(`AniList a répondu avec une erreur (${res.status}).`);
-    const j = await res.json();
-    if (j.errors?.length) throw new Error(j.errors[0].message || "Erreur GraphQL AniList.");
-    const pd = j.data?.Page; if (!pd) break;
-    all.push(...(pd.airingSchedules || []).filter((s) => {
-      if (s.media?.isAdult) return false;
-      const co = s.media?.countryOfOrigin; return !co || co === "JP";
-    }));
-    hasNext = pd.pageInfo?.hasNextPage; page++;
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/smooth-task?${qs.toString()}`;
+  let response;
+  try {
+    response = await fetch(url);
+  } catch {
+    throw new Error("Impossible de joindre le service AniVault. Vérifie ta connexion.");
   }
-  return { schedules: all, monday };
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || `Erreur HTTP: ${response.status}`);
+  }
+  const data = await response.json();
+  return { schedules: data.schedules || [], monday: new Date(data.monday) };
 }
 
 export function isReturningSeries(media) {
