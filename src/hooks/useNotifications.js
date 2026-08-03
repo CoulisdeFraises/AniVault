@@ -52,20 +52,21 @@ export function useNotifications(entries) {
 
               // ── Notification navigateur (si permission accordée) ──────────
               if (
-                "Notification" in window &&
+                "serviceWorker" in navigator &&
                 Notification.permission === "granted" &&
                 localStorage.getItem("pref_notifications") !== "false"
               ) {
-                const n = new Notification(title, {
-                  body,
-                  icon:  "/logo.png",
-                  badge: "/favicon-96x96.png",
-                  tag:   `anivault-${entry.id}-${airing.episode}`,
-                });
-                n.onclick = () => {
-                  window.focus();
-                  window.location.hash = `/details/${entry.id}`;
-                };
+                navigator.serviceWorker.ready
+                  .then((reg) =>
+                    reg.showNotification(title, {
+                      body,
+                      icon:  "/logo.png",
+                      badge: "/favicon-96x96.png",
+                      tag:   `anivault-${entry.id}-${airing.episode}`,
+                      data:  { entryId: entry.id },
+                    })
+                  )
+                  .catch(() => {});
               }
             }, delay);
 
