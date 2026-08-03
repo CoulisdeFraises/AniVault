@@ -317,19 +317,19 @@ export function Community() {
           <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
             Ajouter un ami
           </p>
-          <div className="flex gap-2">
-            <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-950/60 border border-white/10 focus-within:border-violet-500/60">
+          <div className="flex w-full gap-2">
+            <div className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-950/60 border border-white/10 focus-within:border-violet-500/60">
               <Search size={14} className="text-violet-500 flex-shrink-0" />
               <input
                 value={searchQuery}
                 onChange={e => { setSearchQuery(e.target.value); setSearchError(""); setSearchResult(null); }}
                 onKeyDown={e => e.key === "Enter" && handleSearch()}
                 placeholder="Rechercher par pseudo…"
-                className="flex-1 bg-transparent text-base sm:text-sm text-violet-50 placeholder-violet-500 focus:outline-none"
+                className="flex-1 min-w-0 bg-transparent text-base sm:text-sm text-violet-50 placeholder-violet-500 focus:outline-none"
               />
             </div>
             <button onClick={handleSearch} disabled={searching || !searchQuery.trim()}
-              className="h-9 px-4 rounded-xl bg-amber-400 text-violet-950 font-semibold text-sm hover:bg-amber-300 active:scale-95 transition-all disabled:opacity-50">
+              className="h-9 shrink-0 px3 sm:px-4 rounded-xl bg-amber-400 text-violet-950 font-semibold text-sm hover:bg-amber-300 active:scale-95 transition-all disabled:opacity-50 whitespace-nowrap">
               {searching ? <Loader2 size={14} className="animate-spin" /> : "Chercher"}
             </button>
           </div>
