@@ -1,5 +1,5 @@
 import { useMemo, useRef, useEffect, useState } from "react";
-import { Plus, Film, Tv, RefreshCw, X, Search } from "lucide-react";
+import { Plus, Film, Tv, Clapperboard, RefreshCw, X, Search } from "lucide-react";
 import { STATUS, STATUS_ORDER } from "../../utils/status";
 import { useLibrary }           from "../../context/LibraryContext";
 import { useCountUp }           from "../../hooks/useCountUp";
@@ -45,7 +45,12 @@ export function Header({
     return () => window.removeEventListener("keydown", h);
   }, []);
 
-  const byType       = useMemo(() => typeFilter === "all" ? entries : entries.filter(e => e.type === typeFilter), [entries, typeFilter]);
+  const byType = useMemo(() => {
+    if (typeFilter === "all")   return entries;
+    if (typeFilter === "film")  return entries.filter(e => e.category === "movie");
+    if (typeFilter === "serie") return entries.filter(e => e.type === "serie" && e.category !== "movie");
+    return entries.filter(e => e.type === typeFilter); // "anime"
+  }, [entries, typeFilter]);
   const topGenres    = useMemo(() => { const t = {}; entries.forEach(e => e.genres.forEach(g => { t[g] = (t[g] || 0) + 1; })); return Object.entries(t).sort((a, b) => b[1] - a[1]).slice(0, 3); }, [entries]);
   const totalWatched = useMemo(() => entries.reduce((s, e) => s + e.seasons.reduce((s2, se) => s2 + (se.watchedEpisodes || 0), 0), 0), [entries]);
   const totalKnown   = useMemo(() => entries.reduce((s, e) => s + e.seasons.reduce((s2, se) => s2 + (se.totalEpisodes || 0), 0), 0), [entries]);
@@ -155,7 +160,7 @@ export function Header({
       {/* Filtre type */}
       <div className="flex justify-center mb-5">
         <div className="inline-flex rounded-full bg-white/5 border border-white/10 p-0.5">
-          {[{ key: "all", label: "Tout", icon: null }, { key: "anime", label: "Animes", icon: <Film size={12} /> }, { key: "serie", label: "Séries", icon: <Tv size={12} /> }].map(({ key, label, icon }) => (
+          {[{ key: "all", label: "Tout", icon: null }, { key: "anime", label: "Animes", icon: <Film size={12} /> }, { key: "serie", label: "Séries", icon: <Tv size={12} /> }, { key: "film",  label: "Films",   icon: <Clapperboard size={12} /> }].map(({ key, label, icon }) => (
             <button key={key} onClick={() => onTypeFilterChange(key)}
               className={`flex items-center gap-1.5 px-6 py-1.5 rounded-full text-xs font-medium transition-all duration-200 active:scale-95 motion-reduce:transition-none ${typeFilter === key ? "bg-amber-400 text-violet-950 font-semibold shadow-sm" : "text-violet-300 hover:text-violet-100"}`}>
               {icon}{label}

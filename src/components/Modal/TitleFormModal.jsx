@@ -15,7 +15,9 @@ export function TitleFormModal({ editingEntry, onClose, onSave }) {
   const editingId = editingEntry?.id ?? null;
 
   const [form, setForm] = useState(() =>
-    editingEntry ? { ...editingEntry, seasons: editingEntry.seasons.map((s) => ({ ...s })) } : emptyForm
+    editingEntry
+      ? { ...emptyForm, ...editingEntry, seasons: editingEntry.seasons.map((s) => ({ ...s })) }
+      : emptyForm
   );
   const [genreInput, setGenreInput]             = useState("");
   const [formError, setFormError]               = useState("");

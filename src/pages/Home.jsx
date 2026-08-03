@@ -179,9 +179,12 @@ export function Home() {
   const hiddenFullEntries = useMemo(() => entries.filter(e => hiddenListEntries.has(e.id)),  [entries, hiddenListEntries]);
   const sortedHiddenEntries = useMemo(() => sortEntries(hiddenFullEntries, cachetteSortBy), [hiddenFullEntries, cachetteSortBy]);
 
-  const byType = useMemo(
-    () => typeFilter === "all" ? visibleEntries : visibleEntries.filter((e) => e.type === typeFilter),
-    [visibleEntries, typeFilter]);
+  const byType = useMemo(() => {
+    if (typeFilter === "all")   return visibleEntries;
+    if (typeFilter === "film")  return visibleEntries.filter(e => e.category === "movie");
+    if (typeFilter === "serie") return visibleEntries.filter(e => e.type === "serie" && e.category !== "movie");
+    return visibleEntries.filter(e => e.type === typeFilter); // "anime"
+  }, [visibleEntries, typeFilter]);
 
   const isAiringThisWeek = useCallback(
     (e) => (e.anilistIds || []).some((id) => airingIds.has(String(id))),
@@ -207,7 +210,8 @@ export function Home() {
   const sorted = useMemo(() => sortEntries(filtered, sortBy), [filtered, sortBy]);
 
   const filteredAnime = useMemo(() => sorted.filter((e) => e.type === "anime"), [sorted]);
-  const filteredSerie = useMemo(() => sorted.filter((e) => e.type === "serie"),  [sorted]);
+  const filteredSerie = useMemo(() => sorted.filter((e) => e.type === "serie" && e.category !== "movie"), [sorted]);
+  const filteredFilm = useMemo(() => sorted.filter((e) => e.category === "movie"), [sorted]);
 
   const openNewForm    = () => { setShowAddChoice(false); setEditingEntry(null); setShowForm(true); };
   const openEditForm   = (entry) => { setEditingEntry(entry); setShowForm(true); };
