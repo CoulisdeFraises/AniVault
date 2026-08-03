@@ -330,7 +330,7 @@ export function Community() {
             </div>
             <button onClick={handleSearch} disabled={searching || !searchQuery.trim()}
               className="h-9 shrink-0 px3 sm:px-4 rounded-xl bg-amber-400 text-violet-950 font-semibold text-sm hover:bg-amber-300 active:scale-95 transition-all disabled:opacity-50 whitespace-nowrap">
-              {searching ? <Loader2 size={14} className="animate-spin" /> : "Chercher"}
+              {searching ? <Loader2 size={14} className="animate-spin" /> : " Chercher "}
             </button>
           </div>
 
