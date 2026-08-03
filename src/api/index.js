@@ -1,4 +1,4 @@
-import { searchTMDBShow, fetchTMDBSeason } from "./tmdb";
+import { searchTMDBShow, fetchTMDBSeason, searchTMDBMovies } from "./tmdb";
 import {
   searchAniList, fetchAniListFranchise, fetchAniListNextSeason,
   fetchAniListSeasonData, fetchAniListEpisodesBySeasonId,
@@ -10,7 +10,6 @@ import {
 } from "./tvmaze";
 import { withCache }       from "../services/cache";
 import { translateGenres } from "../utils/genres";
-import { searchTMDBShow, fetchTMDBSeason, searchTMDBMovies } from "./tmdb";
 
 // Mapping IDs genres TMDB → labels français
 const TMDB_MOVIE_GENRES = {
