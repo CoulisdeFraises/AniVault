@@ -114,6 +114,10 @@ const AppRoutes = () => {
             element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="*"
             element={<Navigate to="/" replace />} />
+          <Route path="/search"
+            element={<ProtectedRoute><SearchPage /></ProtectedRoute>} />
+          <Route path="*"
+            element={<Navigate to="/" replace />} />
         </Routes>
 
         {backgroundLocation && (
