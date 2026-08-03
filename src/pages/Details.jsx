@@ -95,10 +95,12 @@ export function Details() {
   const tvSeasons    = useMemo(() => (entry?.seasons || []).map((s, i) => ({ ...s, globalIndex: i })).filter(s => getFormatGroup(s.format) === "tv"),    [entry?.seasons]);
   const extraSeasons = useMemo(() => (entry?.seasons || []).map((s, i) => ({ ...s, globalIndex: i })).filter(s => getFormatGroup(s.format) === "extra"),  [entry?.seasons]);
   const movieSeasons = useMemo(() => (entry?.seasons || []).map((s, i) => ({ ...s, globalIndex: i })).filter(s => getFormatGroup(s.format) === "movie"),  [entry?.seasons]);
-  const hasMulti = [tvSeasons.length > 0, extraSeasons.length > 0, movieSeasons.length > 0].filter(Boolean).length > 1;
+  const isStandaloneFilm = tvSeasons.length === 0 && extraSeasons.length === 0 && movieSeasons.length > 0;
+  const hasMulti = [tvSeasons.length > 0, extraSeasons.length > 0, movieSeasons.length > 0]
+    .filter(Boolean).length > 1 || isStandaloneFilm;
 
   const [activeTVIdx,    setActiveTVIdx]   = useState(0);
-  const [open,           setOpen]          = useState({ tv: false, extra: false, movie: false });
+  const [open,           setOpen]          = useState({ tv: false, extra: false, movie: isStandaloneFilm });
   const [openEpisodes,   setOpenEpisodes]  = useState(false);
   const [seasonCache,    setSeasonCache]   = useState({});
   const [loadingEps,     setLoadingEps]    = useState(false);
@@ -130,7 +132,12 @@ export function Details() {
 
   useEffect(() => {
     setActiveTVIdx(0); setSeasonCache({});
-    setOpen({ tv: false, extra: false, movie: false });
+    setOpen({
+      tv: false,
+      extra: false,
+      movie: (entry?.seasons || []).length > 0 &&
+            (entry?.seasons || []).every(s => getFormatGroup(s.format) === "movie"),
+    });
     setOpenEpisodes(false);
     setRefreshResult(null);
     // Réinitialise le suivi de complétion pour éviter une fausse célébration
