@@ -1,4 +1,5 @@
-import { X, Star, Plus, Loader2, Eye } from "lucide-react";
+import { X, Star, Plus, Loader2} from "lucide-react";
+import { EyePlus } from "../icons";
 import { Modal } from "../Modal/Modal";
 
 export function SynopsisModal({ rec, onClose, onAdd, onAddSeen, adding, alreadyInLib }) {
@@ -71,7 +72,7 @@ export function SynopsisModal({ rec, onClose, onAdd, onAddSeen, adding, alreadyI
                   disabled={adding}
                   className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-teal-500/15 border border-teal-500/25 text-teal-300 text-sm font-medium hover:bg-teal-500/25 active:scale-95 transition-all disabled:opacity-50"
                 >
-                  {adding ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
+                  {adding ? <Loader2 size={14} className="animate-spin" /> : <EyePlus size={14} />}
                   Marquer comme vu
                 </button>
               )}
