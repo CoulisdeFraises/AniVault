@@ -66,3 +66,18 @@ export function useNotificationStore() {
 
   return { notifications, unreadCount, markAllRead, markRead, clearAll };
 }
+
+// ── Écouteur des messages du Service Worker (ajouté ici) ─────────────────────
+if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+ navigator.serviceWorker.addEventListener("message", (event) => {
+   if (event.data && event.data.type === "PUSH_RECEIVED") {
+     addNotification({
+       title: event.data.title,
+       body: event.data.body,
+       entryId: event.data.entryId,
+       icon: event.data.icon,
+       dedupeKey: event.data.entryId && event.data.episode ? `${event.data.entryId}-${event.data.episode}` : null,
+     });
+   }
+ });
+}
