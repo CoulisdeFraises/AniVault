@@ -214,3 +214,61 @@ export async function fetchTMDBDiscoverSeries(genreIds = [], excludeTmdbIds = []
     }
   });
 }
+
+// ── Titres similaires — Film ──────────────────────────────────────────────────
+export async function fetchTMDBSimilarMovies(tmdbId, excludeTmdbIds = []) {
+  if (!TMDB_BEARER_TOKEN || !tmdbId) return [];
+  return withCache(`tmdb:similar:mv:${tmdbId}`, CACHE_TTL, async () => {
+    try {
+      const res = await fetch(
+        `https://api.themoviedb.org/3/movie/${tmdbId}/similar?language=fr-FR&page=1`,
+        { headers: tmdbHeaders() }
+      );
+      if (!res.ok) return [];
+      const json = await res.json();
+      return (json.results || [])
+        .filter((m) => !excludeTmdbIds.includes(m.id))
+        .slice(0, 20)
+        .map((m) => ({
+          source:      "tmdb_movie",
+          id:          m.id,
+          title:       m.title || m.original_title,
+          image:       m.poster_path ? `https://image.tmdb.org/t/p/w342${m.poster_path}` : null,
+          year:        m.release_date ? parseInt(m.release_date.slice(0, 4)) : null,
+          score:       m.vote_average ? Math.round(m.vote_average * 10) : 0,
+          description: m.overview?.trim() || null,
+          genres:      [],
+          format:      "MOVIE",
+        }));
+    } catch { return []; }
+  });
+}
+
+// ── Titres similaires — Série TV ──────────────────────────────────────────────
+export async function fetchTMDBSimilarSeries(tmdbId, excludeTmdbIds = []) {
+  if (!TMDB_BEARER_TOKEN || !tmdbId) return [];
+  return withCache(`tmdb:similar:tv:${tmdbId}`, CACHE_TTL, async () => {
+    try {
+      const res = await fetch(
+        `https://api.themoviedb.org/3/tv/${tmdbId}/similar?language=fr-FR&page=1`,
+        { headers: tmdbHeaders() }
+      );
+      if (!res.ok) return [];
+      const json = await res.json();
+      return (json.results || [])
+        .filter((s) => !excludeTmdbIds.includes(s.id))
+        .slice(0, 20)
+        .map((s) => ({
+          source:      "tmdb_tv",
+          id:          s.id,
+          title:       s.name || s.original_name,
+          image:       s.poster_path ? `https://image.tmdb.org/t/p/w342${s.poster_path}` : null,
+          year:        s.first_air_date ? parseInt(s.first_air_date.slice(0, 4)) : null,
+          score:       s.vote_average ? Math.round(s.vote_average * 10) : 0,
+          description: s.overview?.trim() || null,
+          genres:      [],
+          format:      "TV",
+        }));
+    } catch { return []; }
+  });
+}
