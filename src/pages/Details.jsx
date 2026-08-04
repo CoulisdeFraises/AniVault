@@ -259,7 +259,7 @@ export function Details() {
 
     fetchPromise.then((results) => {
       if (!cancelled) {
-        setRecs(results.slice(0, 20));
+        setRecs((results || []).filter(Boolean).slice(0, 20));
         setLoadingRecs(false);
       }
     }).catch(() => {
@@ -268,6 +268,17 @@ export function Details() {
 
     return () => { cancelled = true; };
   }, [entry?.id]); // eslint-disable-line
+
+  const libraryAnilistIds = useMemo(() => new Set(entries.flatMap(e => e.anilistIds || [])), [entries]);
+  const libraryTmdbIds    = useMemo(() => new Set(entries.map(e => e.tmdbId).filter(Boolean)), [entries]);
+  const dedupedRecs = useMemo(() => {
+    const seen = new Set();
+    return recs.filter(rec => {
+      const key = normalizeSeriesTitle(rec.title);
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    });
+  }, [recs]);
 
   if (!entry) return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm text-violet-50 flex items-center justify-center p-4 z-50">
@@ -289,18 +300,6 @@ export function Details() {
   const { watched: extW, total: extT } = seasonTotals(extraSeasons);
   const filmSeen  = movieSeasons.filter(m => m.watchedEpisodes >= (m.totalEpisodes ?? 1)).length;
   const canFinish = entry.status === "en-cours" && tvT != null && tvT > 0 && tvW >= tvT;
-
-  const libraryAnilistIds = useMemo(() => new Set(entries.flatMap(e => e.anilistIds || [])), [entries]);
-  const libraryTmdbIds    = useMemo(() => new Set(entries.map(e => e.tmdbId).filter(Boolean)), [entries]);
-
-  const dedupedRecs = useMemo(() => {
-    const seen = new Set();
-    return recs.filter(rec => {
-      const key = normalizeSeriesTitle(rec.title);
-      if (seen.has(key)) return false;
-      seen.add(key); return true;
-    });
-  }, [recs]);
 
   const displayImage  = curTV?.coverImage || (activeTVIdx === 0 ? entry.coverImage : null);
   const fallbackImage = tvSeasons[0]?.coverImage || entry.coverImage;
