@@ -250,7 +250,7 @@ export function Calendar() {
   const [gridKey,          setGridKey]           = useState(0);
   const [slideDir,         setSlideDir]          = useState("none");
   const [dayOffset,        setDayOffset]         = useState(() =>
-    Math.max(0, Math.min(7 - VISIBLE_DAYS, todayIndex() - 1))
+    Math.max(0, Math.min(7 - VISIBLE_DAYS, todayIndex() - (VISIBLE_DAYS > 1 ? 1 : 0)))
   );
 
   // IDs en cours d'ajout (Set de media.id AniList)
