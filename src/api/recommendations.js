@@ -1,5 +1,12 @@
 import { anilistQuery } from "./anilist";
 import { getMediaDetails } from "./media";
+import {
+  fetchTMDBDiscoverMovies,
+  fetchTMDBDiscoverSeries,
+  hasTMDB,
+  GENRE_TO_TMDB_MOVIE_ID,
+  GENRE_TO_TMDB_TV_ID,
+} from "./tmdb";
 
 function isCultureModeOn() {
   return localStorage.getItem("pref_culture_mode") === "true";
@@ -100,4 +107,64 @@ export async function fetchSimilarTitles(anilistId, excludeAnilistIds = []) {
   } catch {
     return [];
   }
+}
+
+// ── Utilitaires TMDB ──────────────────────────────────────────────────────────
+function genresToTmdbIds(genres, mapping) {
+  const ids = new Set();
+  genres.forEach((g) => {
+    const id = mapping[g.toLowerCase()];
+    if (id) ids.add(id);
+  });
+  return [...ids];
+}
+
+function topGenresFromEntries(entries, type) {
+  const subset =
+    type === "film"
+      ? entries.filter((e) => e.category === "movie")
+      : entries.filter((e) => e.type === "serie" && e.category !== "movie");
+  const tally = {};
+  subset.forEach((e) => {
+    const w = e.status === "termine" || e.status === "en-cours" ? 2 : 1;
+    (e.genres || []).forEach((g) => { tally[g] = (tally[g] || 0) + w; });
+  });
+  return Object.entries(tally)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([g]) => g);
+}
+
+// Recommandations de films via TMDB Discover (basé sur les genres de la biblio)
+export async function fetchTMDBMovieRecommendations(entries = []) {
+  if (!hasTMDB()) return { recs: [], topGenres: [], noTmdb: true };
+
+  const topGenres = topGenresFromEntries(entries, "film");
+  let genreIds = genresToTmdbIds(topGenres, GENRE_TO_TMDB_MOVIE_ID);
+  // Fallback générique si aucun genre mappé (Action, Drama, Comedy)
+  if (!genreIds.length) genreIds = [28, 18, 35];
+
+  const excludeIds = entries
+    .filter((e) => e.category === "movie" && e.source === "tmdb_movie")
+    .map((e) => e.id);
+
+  const recs = await fetchTMDBDiscoverMovies(genreIds, excludeIds);
+  return { recs, topGenres };
+}
+
+// Recommandations de séries via TMDB Discover (basé sur les genres de la biblio)
+export async function fetchTMDBSeriesRecommendations(entries = []) {
+  if (!hasTMDB()) return { recs: [], topGenres: [], noTmdb: true };
+
+  const topGenres = topGenresFromEntries(entries, "serie");
+  let genreIds = genresToTmdbIds(topGenres, GENRE_TO_TMDB_TV_ID);
+  // Fallback générique si aucun genre mappé (Drama, Comedy, Action)
+  if (!genreIds.length) genreIds = [18, 35, 10759];
+
+  const excludeIds = entries
+    .filter((e) => e.type === "serie" && e.category !== "movie" && e.tmdbId)
+    .map((e) => e.tmdbId);
+
+  const recs = await fetchTMDBDiscoverSeries(genreIds, excludeIds);
+  return { recs, topGenres };
 }

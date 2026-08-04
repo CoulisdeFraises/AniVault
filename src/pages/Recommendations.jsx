@@ -1,16 +1,24 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Loader2, Film, WifiOff } from "lucide-react";
-import { useLibrary } from "../context/LibraryContext";
-import { BurgerMenu } from "../components/common/BurgerMenu";
-import { TitleFormModal } from "../components/Modal/TitleFormModal";
-import { SynopsisModal }  from "../components/common/SynopsisModal";
-import { PullToRefresh }  from "../components/common/PullToRefresh";
-import { fetchAniListRecommendations } from "../api/recommendations";
-import { importResult } from "../api";
+import {
+  ChevronLeft, Loader2, Film, Tv, Clapperboard, WifiOff,
+} from "lucide-react";
+import { useLibrary }          from "../context/LibraryContext";
+import { BurgerMenu }          from "../components/common/BurgerMenu";
+import { TitleFormModal }      from "../components/Modal/TitleFormModal";
+import { SynopsisModal }       from "../components/common/SynopsisModal";
+import { PullToRefresh }       from "../components/common/PullToRefresh";
+import {
+  fetchAniListRecommendations,
+  fetchTMDBMovieRecommendations,
+  fetchTMDBSeriesRecommendations,
+} from "../api/recommendations";
+import { hasTMDB }             from "../api/tmdb";
+import { importResult }        from "../api";
 import { getCached, getStaleCached, setCached, removeCached, TTL } from "../lib/cache";
-import { toEnglishGenres } from "../utils/genres";
+import { toEnglishGenres }     from "../utils/genres";
 
+// ── Normalisation titre pour dédoublonnage ────────────────────────────────────
 function normalizeSeriesTitle(title) {
   return (title || "")
     .replace(/\s*:?\s*(season|saison|part|cour)\s*\d+/gi, "")
@@ -21,6 +29,7 @@ function normalizeSeriesTitle(title) {
     .toLowerCase();
 }
 
+// ── Carte de recommandation ───────────────────────────────────────────────────
 function RecCard({ rec, onClick }) {
   return (
     <div
@@ -29,7 +38,10 @@ function RecCard({ rec, onClick }) {
     >
       <div className="aspect-[2/3] w-full overflow-hidden">
         {rec.image ? (
-          <img src={rec.image} alt={rec.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none" />
+          <img
+            src={rec.image} alt={rec.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none"
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-violet-900/50">
             <Film size={24} className="text-violet-600" />
@@ -37,108 +49,189 @@ function RecCard({ rec, onClick }) {
         )}
       </div>
       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-2 pt-8">
-        <p className="font-mono text-[10px] text-white leading-tight line-clamp-2 mb-0.5" title={rec.title}>{rec.title}</p>
+        <p className="font-mono text-[10px] text-white leading-tight line-clamp-2 mb-0.5" title={rec.title}>
+          {rec.title}
+        </p>
         <div className="flex items-center gap-1.5">
-          {rec.score > 0 && <span className="font-mono text-[9px] text-amber-400">★ {(rec.score / 10).toFixed(1)}</span>}
-          {rec.year && <span className="font-mono text-[9px] text-violet-500">{rec.year}</span>}
+          {rec.score > 0 && (
+            <span className="font-mono text-[9px] text-amber-400">★ {(rec.score / 10).toFixed(1)}</span>
+          )}
+          {rec.year && (
+            <span className="font-mono text-[9px] text-violet-500">{rec.year}</span>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-export function Recommendations() {
-  const navigate = useNavigate();
-  const { entries } = useLibrary();
+// ── Onglets ───────────────────────────────────────────────────────────────────
+const TABS = [
+  { key: "anime", label: "Animes", Icon: Film        },
+  { key: "serie", label: "Séries", Icon: Tv          },
+  { key: "film",  label: "Films",  Icon: Clapperboard },
+];
 
+// ── Page Recommandations ──────────────────────────────────────────────────────
+export function Recommendations() {
+  const navigate       = useNavigate();
+  const { entries }    = useLibrary();
+
+  const [activeTab,    setActiveTab]    = useState("anime");
   const [recs,         setRecs]         = useState([]);
   const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState("");
+  const [error,        setError]        = useState("");   // "" | "no_tmdb" | message
   const [isStale,      setIsStale]      = useState(false);
+  const [tabTopGenres, setTabTopGenres] = useState([]);
   const [adding,       setAdding]       = useState(null);
   const [editingEntry, setEditingEntry] = useState(null);
   const [synopsisRec,  setSynopsisRec]  = useState(null);
 
-  const topGenres = useMemo(() => {
+  // ── Données animes (AniList) ───────────────────────────────────────────────
+  const animeTopGenres = useMemo(() => {
     const tally = {};
     entries.forEach((e) => {
-      const weight = (e.status === "termine" || e.status === "en-cours") ? 2 : 1;
-      (e.genres || []).forEach((g) => { tally[g] = (tally[g] || 0) + weight; });
+      if (e.type !== "anime") return;
+      const w = (e.status === "termine" || e.status === "en-cours") ? 2 : 1;
+      (e.genres || []).forEach((g) => { tally[g] = (tally[g] || 0) + w; });
     });
-    return Object.entries(tally)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([g]) => g);
+    return Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([g]) => g);
   }, [entries]);
 
-  const topGenresEN = useMemo(() => toEnglishGenres(topGenres), [topGenres]);
-  const libraryIds  = useMemo(() => new Set(entries.flatMap((e) => e.anilistIds || [])), [entries]);
-
-  const cacheKey = useMemo(
-    () => `recs_en_${[...topGenresEN].sort().join("_")}`,
-    [topGenresEN]
+  const animeTopGenresEN = useMemo(() => toEnglishGenres(animeTopGenres), [animeTopGenres]);
+  const libraryIds       = useMemo(() => new Set(entries.flatMap((e) => e.anilistIds || [])), [entries]);
+  const animeCacheKey    = useMemo(
+    () => `recs_en_${[...animeTopGenresEN].sort().join("_")}`,
+    [animeTopGenresEN]
   );
 
-  // ── Fetch initial (avec cache) ─────────────────────────────────────────────
+  // ── Fetch selon l'onglet ───────────────────────────────────────────────────
   useEffect(() => {
-    if (!topGenresEN.length) { setLoading(false); return; }
+    let cancelled = false;
 
-    const cached = getCached(cacheKey);
-    if (cached) {
-      setRecs(cached);
+    async function load() {
+      setLoading(true);
+      setError("");
       setIsStale(false);
-      setLoading(false);
-      return;
+
+      // ── Animes ────────────────────────────────────────────────────────────
+      if (activeTab === "anime") {
+        if (!animeTopGenresEN.length) { setLoading(false); return; }
+        const cached = getCached(animeCacheKey);
+        if (cached) {
+          if (!cancelled) { setRecs(cached); setTabTopGenres(animeTopGenres); setLoading(false); }
+          return;
+        }
+        try {
+          const data = await fetchAniListRecommendations(animeTopGenresEN, [...libraryIds]);
+          setCached(animeCacheKey, data, TTL.RECOMMENDATIONS);
+          if (!cancelled) { setRecs(data); setTabTopGenres(animeTopGenres); setLoading(false); }
+        } catch {
+          const stale = getStaleCached(animeCacheKey);
+          if (!cancelled) {
+            if (stale) { setRecs(stale); setIsStale(true); setLoading(false); }
+            else { setError("Impossible de charger les recommandations. Vérifie ta connexion."); setLoading(false); }
+          }
+        }
+
+      // ── Films ─────────────────────────────────────────────────────────────
+      } else if (activeTab === "film") {
+        if (!hasTMDB()) {
+          if (!cancelled) { setError("no_tmdb"); setLoading(false); }
+          return;
+        }
+        const ck = "recs_film_tmdb";
+        const cached = getCached(ck);
+        if (cached) {
+          if (!cancelled) { setRecs(cached.recs); setTabTopGenres(cached.topGenres || []); setLoading(false); }
+          return;
+        }
+        try {
+          const { recs: data, topGenres } = await fetchTMDBMovieRecommendations(entries);
+          setCached(ck, { recs: data, topGenres }, TTL.RECOMMENDATIONS);
+          if (!cancelled) { setRecs(data); setTabTopGenres(topGenres); setLoading(false); }
+        } catch {
+          const stale = getStaleCached(ck);
+          if (!cancelled) {
+            if (stale) { setRecs(stale.recs); setTabTopGenres(stale.topGenres || []); setIsStale(true); setLoading(false); }
+            else { setError("Impossible de charger les recommandations."); setLoading(false); }
+          }
+        }
+
+      // ── Séries ────────────────────────────────────────────────────────────
+      } else {
+        if (!hasTMDB()) {
+          if (!cancelled) { setError("no_tmdb"); setLoading(false); }
+          return;
+        }
+        const ck = "recs_serie_tmdb";
+        const cached = getCached(ck);
+        if (cached) {
+          if (!cancelled) { setRecs(cached.recs); setTabTopGenres(cached.topGenres || []); setLoading(false); }
+          return;
+        }
+        try {
+          const { recs: data, topGenres } = await fetchTMDBSeriesRecommendations(entries);
+          setCached(ck, { recs: data, topGenres }, TTL.RECOMMENDATIONS);
+          if (!cancelled) { setRecs(data); setTabTopGenres(topGenres); setLoading(false); }
+        } catch {
+          const stale = getStaleCached(ck);
+          if (!cancelled) {
+            if (stale) { setRecs(stale.recs); setTabTopGenres(stale.topGenres || []); setIsStale(true); setLoading(false); }
+            else { setError("Impossible de charger les recommandations."); setLoading(false); }
+          }
+        }
+      }
     }
 
-    setLoading(true);
-    setError("");
-    setIsStale(false);
+    load();
+    return () => { cancelled = true; };
+  }, [activeTab, animeCacheKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    fetchAniListRecommendations(topGenresEN, [...libraryIds])
-      .then((data) => {
-        setCached(cacheKey, data, TTL.RECOMMENDATIONS);
-        setRecs(data);
-        setLoading(false);
-      })
-      .catch(() => {
-        const stale = getStaleCached(cacheKey);
-        if (stale) {
-          setRecs(stale);
-          setIsStale(true);
-          setLoading(false);
-        } else {
-          setError("Impossible de charger les recommandations. Vérifie ta connexion.");
-          setLoading(false);
-        }
-      });
-  }, [cacheKey]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  /**
-   * handlePullRefresh — déclenché par le pull-to-refresh.
-   * Invalide le cache et refetch sans passer en mode "loading" complet
-   * (le contenu actuel reste visible pendant que l'indicateur PTR tourne).
-   */
+  // ── Pull-to-refresh ────────────────────────────────────────────────────────
   async function handlePullRefresh() {
-    if (!topGenresEN.length) return;
-    removeCached(cacheKey);
-    setError("");
-    setIsStale(false);
-    try {
-      const data = await fetchAniListRecommendations(topGenresEN, [...libraryIds]);
-      setCached(cacheKey, data, TTL.RECOMMENDATIONS);
-      setRecs(data);
-    } catch {
-      const stale = getStaleCached(cacheKey);
-      if (stale) {
-        setRecs(stale);
-        setIsStale(true);
-      } else {
-        setError("Impossible de charger les recommandations. Vérifie ta connexion.");
+    setError(""); setIsStale(false);
+
+    if (activeTab === "anime") {
+      if (!animeTopGenresEN.length) return;
+      removeCached(animeCacheKey);
+      try {
+        const data = await fetchAniListRecommendations(animeTopGenresEN, [...libraryIds]);
+        setCached(animeCacheKey, data, TTL.RECOMMENDATIONS);
+        setRecs(data); setTabTopGenres(animeTopGenres);
+      } catch {
+        const stale = getStaleCached(animeCacheKey);
+        if (stale) { setRecs(stale); setIsStale(true); }
+        else setError("Impossible de charger les recommandations. Vérifie ta connexion.");
+      }
+    } else if (activeTab === "film") {
+      const ck = "recs_film_tmdb";
+      removeCached(ck);
+      try {
+        const { recs: data, topGenres } = await fetchTMDBMovieRecommendations(entries);
+        setCached(ck, { recs: data, topGenres }, TTL.RECOMMENDATIONS);
+        setRecs(data); setTabTopGenres(topGenres);
+      } catch {
+        const stale = getStaleCached(ck);
+        if (stale) { setRecs(stale.recs); setTabTopGenres(stale.topGenres || []); setIsStale(true); }
+        else setError("Impossible de charger les recommandations.");
+      }
+    } else {
+      const ck = "recs_serie_tmdb";
+      removeCached(ck);
+      try {
+        const { recs: data, topGenres } = await fetchTMDBSeriesRecommendations(entries);
+        setCached(ck, { recs: data, topGenres }, TTL.RECOMMENDATIONS);
+        setRecs(data); setTabTopGenres(topGenres);
+      } catch {
+        const stale = getStaleCached(ck);
+        if (stale) { setRecs(stale.recs); setTabTopGenres(stale.topGenres || []); setIsStale(true); }
+        else setError("Impossible de charger les recommandations.");
       }
     }
   }
 
+  // ── Dédoublonnage ─────────────────────────────────────────────────────────
   const dedupedRecs = useMemo(() => {
     const seen = new Set();
     return recs.filter((rec) => {
@@ -162,36 +255,63 @@ export function Recommendations() {
     }
   }
 
+  const isNoTmdb      = error === "no_tmdb";
+  const displayGenres = activeTab === "anime" ? animeTopGenres : tabTopGenres;
+
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-
-      {/*
-       * PullToRefresh wrappe uniquement le contenu scrollable (pas les modales).
-       * handlePullRefresh invalide le cache et refetch sans bloquer l'affichage.
-       */}
       <PullToRefresh onRefresh={handlePullRefresh}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-8 pt-safe-8">
 
+          {/* ── En-tête ── */}
           <div className="flex items-start justify-between mb-6">
             <div>
-              <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 transition-colors mb-2">
+              <button onClick={() => navigate(-1)}
+                className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 transition-colors mb-2">
                 <ChevronLeft size={16} /> Retour
               </button>
               <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">Basé sur tes goûts</p>
-              <h1 className="text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Recommandations</h1>
+              <h1 className="text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                Recommandations
+              </h1>
             </div>
             <BurgerMenu />
           </div>
 
-          {topGenres.length > 0 && (
+          {/* ── Sélecteur Anime / Séries / Films ── */}
+          <div className="flex justify-center mb-6">
+            <div className="inline-flex rounded-full bg-white/5 border border-white/10 p-0.5">
+              {TABS.map(({ key, label, Icon }) => (
+                <button
+                  key={key}
+                  onClick={() => { if (activeTab !== key) { setActiveTab(key); setRecs([]); setError(""); } }}
+                  className={`flex items-center gap-1.5 px-5 py-1.5 rounded-full text-xs font-medium transition-all duration-200
+                    active:scale-95 motion-reduce:transition-none ${
+                    activeTab === key
+                      ? "bg-amber-400 text-violet-950 font-semibold shadow-sm"
+                      : "text-violet-300 hover:text-violet-100"
+                  }`}
+                >
+                  <Icon size={12} />{label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Genres utilisés ── */}
+          {displayGenres.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-5">
               <span className="text-[11px] text-violet-400 font-mono uppercase tracking-wide self-center">Basé sur :</span>
-              {topGenres.map((g) => (
-                <span key={g} className="px-2.5 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[11px] font-mono">{g}</span>
+              {displayGenres.map((g) => (
+                <span key={g}
+                  className="px-2.5 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[11px] font-mono">
+                  {g}
+                </span>
               ))}
             </div>
           )}
 
+          {/* ── Bannière hors-ligne ── */}
           {isStale && (
             <div className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 text-sm animate-fadeIn">
               <WifiOff size={14} className="flex-shrink-0" />
@@ -199,27 +319,47 @@ export function Recommendations() {
             </div>
           )}
 
+          {/* ── Contenu principal ── */}
           {loading ? (
             <div className="flex flex-col items-center justify-center py-32 gap-3">
               <Loader2 size={28} className="animate-spin text-violet-400" />
               <p className="text-sm text-violet-400 font-mono">Recherche de recommandations…</p>
             </div>
+
+          ) : isNoTmdb ? (
+            <div className="text-center py-20 rounded-2xl border border-dashed border-white/10 animate-fadeIn">
+              <Clapperboard size={32} className="text-violet-500 mx-auto mb-3" />
+              <p className="text-violet-300 mb-2">Clé TMDB requise</p>
+              <p className="text-sm text-violet-500 max-w-xs mx-auto leading-relaxed">
+                Ajoute ta clé dans{" "}
+                <span className="font-mono text-violet-300">.env.local</span> :{" "}
+                <span className="font-mono text-amber-400">VITE_TMDB_TOKEN=…</span>
+              </p>
+            </div>
+
           ) : error ? (
-            <div className="text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">{error}</div>
-          ) : topGenres.length === 0 ? (
+            <div className="text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">
+              {error}
+            </div>
+
+          ) : displayGenres.length === 0 && activeTab === "anime" ? (
             <div className="text-center py-20 rounded-2xl border border-dashed border-white/10">
               <Film size={32} className="text-violet-500 mx-auto mb-3" />
               <p className="text-violet-300 mb-1">Pas encore assez de données</p>
-              <p className="text-sm text-violet-500">Ajoute des titres à ta bibliothèque pour recevoir des recommandations personnalisées.</p>
+              <p className="text-sm text-violet-500">
+                Ajoute des titres à ta bibliothèque pour recevoir des recommandations.
+              </p>
             </div>
+
           ) : dedupedRecs.length === 0 ? (
             <div className="text-center py-20">
               <p className="text-violet-400">Aucune recommandation trouvée pour ces genres.</p>
             </div>
+
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 sm:gap-3">
               {dedupedRecs.map((rec) => (
-                <RecCard key={rec.id} rec={rec} onClick={() => setSynopsisRec(rec)} />
+                <RecCard key={`${rec.source}-${rec.id}`} rec={rec} onClick={() => setSynopsisRec(rec)} />
               ))}
             </div>
           )}

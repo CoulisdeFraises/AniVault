@@ -63,7 +63,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   const ptrRef      = useRef({ id: null, startX: 0, startY: 0, timer: null, axis: null });
 
   const isAbandoned = entry.status === "abandonne";
-  const s           = STATUS[entry.status];
+  const s           = STATUS[entry.status] ?? STATUS["a-voir"];
   const dimmed      = isAbandoned ? "opacity-50 grayscale" : "";
   const cur         = tvSeasons[Math.min(activeTVIdx, Math.max(0, tvSeasons.length - 1))] ?? null;
 
