@@ -764,7 +764,7 @@ export function Details() {
                     {dedupedRecs.map(rec => (
                       <RecCard key={`${rec.source}-${rec.id}`} rec={rec} onAdd={handleAddRec}
                         adding={addingId === rec.id}
-                        alreadyInLib={libraryAnilistIds.has(synopsisRec.id) || libraryTmdbIds.has(synopsisRec.id)}
+                        alreadyInLib={libraryAnilistIds.has(rec.id) || libraryTmdbIds.has(rec.id)}
                         onClick={() => setSynopsisRec(rec)} />
                     ))}
                   </div>}
