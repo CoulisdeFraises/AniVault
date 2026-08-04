@@ -1,7 +1,7 @@
-import { X, Star, Plus, Loader2 } from "lucide-react";
+import { X, Star, Plus, Loader2, Eye } from "lucide-react";
 import { Modal } from "../Modal/Modal";
 
-export function SynopsisModal({ rec, onClose, onAdd, adding, alreadyInLib }) {
+export function SynopsisModal({ rec, onClose, onAdd, onAddSeen, adding, alreadyInLib }) {
   if (!rec) return null;
   return (
     <Modal onClose={onClose} maxWidth="max-w-sm" zIndex="z-[70]">
@@ -30,7 +30,8 @@ export function SynopsisModal({ rec, onClose, onAdd, adding, alreadyInLib }) {
         </div>
 
         <div className="p-4 space-y-3">
-          <h3 className="text-base font-bold text-violet-50 leading-tight" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+          <h3 className="text-base font-bold text-violet-50 leading-tight"
+            style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
             {rec.title}
           </h3>
 
@@ -52,11 +53,29 @@ export function SynopsisModal({ rec, onClose, onAdd, adding, alreadyInLib }) {
           {alreadyInLib ? (
             <p className="text-center font-mono text-[11px] text-violet-500 py-1">✓ Déjà dans ta liste</p>
           ) : (
-            <button onClick={() => onAdd(rec)} disabled={adding}
-              className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-amber-400/20 border border-amber-400/30 text-amber-300 text-sm font-medium hover:bg-amber-400/30 active:scale-95 transition-all disabled:opacity-50">
-              {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-              Ajouter à ma liste
-            </button>
+            <div className="space-y-2">
+              {/* Ajouter → ouvre le formulaire de confirmation */}
+              <button
+                onClick={() => onAdd(rec)}
+                disabled={adding}
+                className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-amber-400/20 border border-amber-400/30 text-amber-300 text-sm font-medium hover:bg-amber-400/30 active:scale-95 transition-all disabled:opacity-50"
+              >
+                {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                Ajouter à ma liste
+              </button>
+
+              {/* Marquer comme vu — uniquement si le handler est fourni */}
+              {onAddSeen && (
+                <button
+                  onClick={() => onAddSeen(rec)}
+                  disabled={adding}
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-teal-500/15 border border-teal-500/25 text-teal-300 text-sm font-medium hover:bg-teal-500/25 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {adding ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
+                  Marquer comme vu
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>

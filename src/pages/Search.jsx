@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate }        from "react-router-dom";
 import {
   ArrowLeft, Search, Loader2,
-  Film, Tv, Clapperboard, X, Plus, Check,
+  Film, Tv, Clapperboard, X, Plus, Check, Eye,
 } from "lucide-react";
 import { useAnime }           from "../hooks/useAnime";
 import { useSeries }          from "../hooks/useSeries";
@@ -10,6 +10,7 @@ import { useMovies }          from "../hooks/useMovies";
 import { importResult }       from "../api";
 import { useLibrary }         from "../context/LibraryContext";
 import { TitleFormModal }     from "../components/Modal/TitleFormModal";
+import { SynopsisModal }      from "../components/common/SynopsisModal";
 import { FORMAT_TO_CATEGORY, CATEGORY_LABELS, CATEGORY_ICONS } from "../utils/entry";
 
 // ── Couleurs badges format ────────────────────────────────────────────────────
@@ -24,6 +25,26 @@ const TABS = [
   { key: "serie", label: "Série",  icon: Tv,           source: "TVmaze"  },
   { key: "film",  label: "Film",   icon: Clapperboard, source: "TMDB"    },
 ];
+
+// ── Convertit un résultat de recherche au format attendu par SynopsisModal ────
+function toRec(r) {
+  return {
+    source:      r.source,
+    id:          r.id,
+    title:       r.title,
+    image:       r.image        ?? null,
+    year:        r.year         ?? null,
+    score:       r.averageScore ?? r.score ?? 0,
+    episodes:    r.episodes     ?? null,
+    genres:      r.genres       ?? [],
+    description: r.overview     ?? r.description ?? null,
+    format:      r.format       ?? null,
+    // Champs utiles pour importResult (conservés tels quels)
+    genreIds:    r.genreIds     ?? [],
+    titleRomaji: r.titleRomaji  ?? null,
+    titleEnglish: r.titleEnglish ?? null,
+  };
+}
 
 // ── Squelette de chargement ───────────────────────────────────────────────────
 function SkeletonResult() {
@@ -44,13 +65,14 @@ export function SearchPage() {
   const inputRef   = useRef(null);
   const { saveEntry, findDuplicate } = useLibrary();
 
-  const [type,       setType]       = useState("anime");
-  const [query,      setQuery]      = useState("");
-  const [prefill,    setPrefill]    = useState(null);   // données préchargées → modal
-  const [importing,  setImporting]  = useState(false);
-  const [quickAdding, setQuickAdding] = useState(null);  // clé du résultat en cours d'ajout rapide
-  const [quickAdded,  setQuickAdded]  = useState(() => new Set()); // clés déjà ajoutées cette session
-  const [quickError,  setQuickError]  = useState(null);  // { key, message }
+  const [type,           setType]           = useState("anime");
+  const [query,          setQuery]          = useState("");
+  const [selectedResult, setSelectedResult] = useState(null);  // → SynopsisModal
+  const [prefill,        setPrefill]        = useState(null);  // → TitleFormModal
+  const [importing,      setImporting]      = useState(false); // spinner dans SynopsisModal
+  const [quickAdding,    setQuickAdding]    = useState(null);  // clé en cours d'ajout rapide
+  const [quickAdded,     setQuickAdded]     = useState(() => new Set());
+  const [quickError,     setQuickError]     = useState(null);
 
   // Hooks de recherche (seul le type actif est interrogé)
   const anime  = useAnime (type === "anime" ? query : "");
@@ -67,11 +89,17 @@ export function SearchPage() {
   // Autofocus à l'ouverture + après changement d'onglet
   useEffect(() => { inputRef.current?.focus(); }, [type]);
 
-  // Sélection d'un résultat → import puis ouverture du modal de confirmation
-  async function handleSelect(result) {
+  // ── Clic sur un résultat → ouvre la SynopsisModal ─────────────────────────
+  function handleSelect(result) {
+    setSelectedResult(result);
+  }
+
+  // ── Depuis SynopsisModal : "Ajouter à ma liste" → TitleFormModal ──────────
+  async function handleSynopsisAdd(rec) {
     setImporting(true);
     try {
-      const data = await importResult(result);
+      const data = await importResult(rec);
+      setSelectedResult(null);
       setPrefill(data);
     } catch {
       // silencieux : l'utilisateur peut réessayer
@@ -80,9 +108,27 @@ export function SearchPage() {
     }
   }
 
-  // Ajout rapide : importe et enregistre directement, sans passer par le
-  // formulaire de relecture — pratique pour enchaîner plusieurs ajouts sans
-  // rouvrir la recherche à chaque fois.
+  // ── Depuis SynopsisModal : "Marquer comme vu" → sauvegarde directe ────────
+  async function handleSynopsisAddSeen(rec) {
+    setImporting(true);
+    try {
+      const data = await importResult(rec);
+      const seenSeasons = data.seasons.map((s) => ({
+        ...s,
+        watchedEpisodes: s.totalEpisodes ?? 1,
+      }));
+      saveEntry({ ...data, seasons: seenSeasons, status: "termine" }, null);
+      // Marque comme ajouté pour les boutons de la liste
+      setQuickAdded((prev) => new Set(prev).add(`${rec.source}-${rec.id}`));
+      setSelectedResult(null);
+    } catch {
+      // silencieux
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  // ── Ajout rapide "+" → À voir ─────────────────────────────────────────────
   async function handleQuickAdd(e, result) {
     e.stopPropagation();
     const key = `${result.source}-${result.id}`;
@@ -109,17 +155,57 @@ export function SearchPage() {
     }
   }
 
+  // ── Ajout rapide "👁" → Terminé (tous les épisodes cochés) ───────────────
+  async function handleQuickAddSeen(e, result) {
+    e.stopPropagation();
+    const key     = `${result.source}-${result.id}`;
+    const seenKey = `seen-${key}`;
+    if (quickAdding || quickAdded.has(key)) return;
+
+    const dup = findDuplicate(result.title);
+    if (dup) {
+      setQuickError({ key, message: "Déjà dans ta bibliothèque" });
+      setTimeout(() => setQuickError(null), 2500);
+      return;
+    }
+
+    setQuickAdding(seenKey);
+    setQuickError(null);
+    try {
+      const data = await importResult(result);
+      const seenSeasons = data.seasons.map((s) => ({
+        ...s,
+        watchedEpisodes: s.totalEpisodes ?? 1,
+      }));
+      saveEntry({ ...data, seasons: seenSeasons, status: "termine" }, null);
+      setQuickAdded((prev) => new Set(prev).add(key));
+    } catch {
+      setQuickError({ key, message: "Échec de l'ajout — réessaie" });
+      setTimeout(() => setQuickError(null), 2500);
+    } finally {
+      setQuickAdding(null);
+    }
+  }
+
   function handleTypeChange(key) {
     setType(key);
     setQuery("");
+    setSelectedResult(null);
     setPrefill(null);
   }
 
+  // ── Rec pour SynopsisModal ────────────────────────────────────────────────
+  const selectedRec = selectedResult ? toRec(selectedResult) : null;
+  const selectedKey = selectedResult ? `${selectedResult.source}-${selectedResult.id}` : null;
+  const isAlreadyInLib =
+    selectedResult
+      ? (!!findDuplicate(selectedResult.title) || quickAdded.has(selectedKey))
+      : false;
+
   return (
-    <div
-      className="min-h-screen bg-violet-950 text-violet-50"
-      style={{ fontFamily: "'Inter', sans-serif" }}
-    >
+    <div className="min-h-screen bg-violet-950 text-violet-50"
+      style={{ fontFamily: "'Inter', sans-serif" }}>
+
       {/* ── Barre supérieure ─────────────────────────────────────────────── */}
       <div
         className="sticky top-0 z-40 bg-violet-950/95 backdrop-blur-md border-b border-white/5 px-4 sm:px-6"
@@ -133,10 +219,8 @@ export function SearchPage() {
           >
             <ArrowLeft size={18} />
           </button>
-          <h1
-            className="text-lg font-bold tracking-tight"
-            style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-          >
+          <h1 className="text-lg font-bold tracking-tight"
+            style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
             Ajouter un titre
           </h1>
         </div>
@@ -165,10 +249,8 @@ export function SearchPage() {
 
         {/* Input de recherche */}
         <div className="relative mb-6">
-          <Search
-            size={16}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-violet-500 pointer-events-none"
-          />
+          <Search size={16}
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-violet-500 pointer-events-none" />
           <input
             ref={inputRef}
             value={query}
@@ -189,66 +271,74 @@ export function SearchPage() {
               <X size={14} />
             </button>
           )}
-          {searching && !query && (
+          {searching && (
             <Loader2 size={15} className="absolute right-4 top-1/2 -translate-y-1/2 text-violet-500 animate-spin" />
           )}
         </div>
 
         {/* ── États ──────────────────────────────────────────────────────── */}
 
-        {/* Import en cours */}
-        {importing && (
-          <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <Loader2 size={28} className="animate-spin text-amber-400" />
-            <p className="text-sm text-violet-400">Import de la franchise en cours…</p>
-          </div>
-        )}
-
         {/* Chargement des résultats */}
-        {!importing && searching && (
+        {searching && (
           <div className="space-y-1">
             {[...Array(6)].map((_, i) => <SkeletonResult key={i} />)}
           </div>
         )}
 
-        {/* Erreur / message */}
-        {!importing && !searching && error && (
+        {/* Erreur */}
+        {!searching && error && (
           <div className="text-center py-16">
             <Search size={40} className="mx-auto mb-3 text-violet-700" />
             <p className="text-violet-400 text-sm">{error}</p>
           </div>
         )}
 
-        {/* Prompt initial (pas encore de recherche) */}
-        {!importing && !searching && !error && query.trim().length < 2 && (
+        {/* Prompt initial */}
+        {!searching && !error && query.trim().length < 2 && (
           <div className="text-center py-16">
             <activeTab.icon size={44} className="mx-auto mb-3 text-violet-800" />
             <p className="text-violet-500 text-sm">
               Tape au moins 2 caractères pour lancer la recherche
             </p>
-            <p className="text-violet-600 text-xs mt-1">
-              Source : {activeTab.source}
-            </p>
+            <p className="text-violet-600 text-xs mt-1">Source : {activeTab.source}</p>
           </div>
         )}
 
         {/* Résultats */}
-        {!importing && !searching && results.length > 0 && (
+        {!searching && results.length > 0 && (
           <>
             <p className="text-[11px] text-violet-500 uppercase tracking-wider mb-3 font-medium">
               {results.length} résultat{results.length > 1 ? "s" : ""} · {activeTab.source}
             </p>
+
+            {/* Légende des boutons d'action */}
+            <div className="flex items-center gap-3 mb-3 px-1">
+              <span className="text-[10px] text-violet-600 font-mono ml-auto flex items-center gap-3">
+                <span className="flex items-center gap-1">
+                  <Plus size={10} className="text-violet-500" /> À voir
+                </span>
+                <span className="flex items-center gap-1">
+                  <Eye size={10} className="text-teal-500" /> Vu
+                </span>
+              </span>
+            </div>
+
             <ul className="space-y-1.5">
               {results.map((r) => {
-                const cat   = FORMAT_TO_CATEGORY[r.format] ?? "tv";
-                const badge = FORMAT_BADGE_COLOR[cat] ?? FORMAT_BADGE_COLOR.tv;
-                const key   = `${r.source}-${r.id}`;
-                const isAdding = quickAdding === key;
-                const isAdded  = quickAdded.has(key);
-                const rowError = quickError?.key === key ? quickError.message : null;
+                const cat      = FORMAT_TO_CATEGORY[r.format] ?? "tv";
+                const badge    = FORMAT_BADGE_COLOR[cat] ?? FORMAT_BADGE_COLOR.tv;
+                const key      = `${r.source}-${r.id}`;
+                const seenKey  = `seen-${key}`;
+                const isAdding     = quickAdding === key;
+                const isSeenAdding = quickAdding === seenKey;
+                const isAdded      = quickAdded.has(key);
+                const rowError     = quickError?.key === key ? quickError.message : null;
+
                 return (
                   <li key={key}>
-                    <div className="w-full flex items-center gap-2 p-2 rounded-2xl hover:bg-white/8 border border-transparent hover:border-white/10 transition-all group">
+                    <div className="w-full flex items-center gap-2 p-2 rounded-2xl hover:bg-white/[0.05] border border-transparent hover:border-white/10 transition-all group">
+
+                      {/* Zone cliquable → SynopsisModal */}
                       <button
                         type="button"
                         onClick={() => handleSelect(r)}
@@ -257,8 +347,7 @@ export function SearchPage() {
                         {/* Poster */}
                         {r.image
                           ? <img
-                              src={r.image}
-                              alt=""
+                              src={r.image} alt=""
                               className="w-14 h-20 object-cover rounded-xl flex-shrink-0 shadow-lg group-hover:shadow-violet-900/40"
                             />
                           : <div className="w-14 h-20 rounded-xl bg-white/10 flex-shrink-0 flex items-center justify-center">
@@ -271,14 +360,11 @@ export function SearchPage() {
                           <p className="text-sm font-semibold text-violet-50 truncate leading-snug">
                             {r.title}
                           </p>
-                          {/* Titre romaji pour les animes */}
                           {r.titleRomaji && r.titleRomaji !== r.title && (
                             <p className="text-[11px] text-violet-400 truncate">{r.titleRomaji}</p>
                           )}
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            <span className="text-xs text-violet-400 font-mono">
-                              {r.year || "—"}
-                            </span>
+                            <span className="text-xs text-violet-400 font-mono">{r.year || "—"}</span>
                             {r.format && (
                               <span className={`font-mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full ${badge}`}>
                                 {CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}
@@ -291,26 +377,50 @@ export function SearchPage() {
                         </div>
                       </button>
 
-                      {/* Ajout rapide : importe et enregistre directement, sans
-                          rouvrir la recherche ni le formulaire de relecture. */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleQuickAdd(e, r)}
-                        disabled={isAdding || isAdded}
-                        aria-label={isAdded ? "Déjà ajouté" : "Ajouter directement"}
-                        title={isAdded ? "Ajouté" : "Ajout rapide"}
-                        className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center border transition-all active:scale-90 motion-reduce:transition-none disabled:active:scale-100 ${
-                          isAdded
-                            ? "bg-teal-500/20 border-teal-500/30 text-teal-300"
-                            : "bg-white/5 border-white/10 text-violet-400 hover:bg-amber-400/15 hover:border-amber-400/30 hover:text-amber-300"
-                        }`}
-                      >
-                        {isAdding
-                          ? <Loader2 size={15} className="animate-spin" />
-                          : isAdded
-                            ? <Check size={15} />
-                            : <Plus size={15} />}
-                      </button>
+                      {/* ── Boutons d'action rapide ── */}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+
+                        {/* 👁 Ajout rapide comme "Vu" (terminé) */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleQuickAddSeen(e, r)}
+                          disabled={isAdding || isSeenAdding || isAdded}
+                          aria-label="Marquer comme vu"
+                          title="Ajouter comme vu"
+                          className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all active:scale-90 motion-reduce:transition-none disabled:active:scale-100 ${
+                            isAdded
+                              ? "bg-teal-500/20 border-teal-500/30 text-teal-300"
+                              : "bg-white/5 border-white/10 text-violet-500 hover:bg-teal-500/15 hover:border-teal-500/30 hover:text-teal-300"
+                          }`}
+                        >
+                          {isSeenAdding
+                            ? <Loader2 size={14} className="animate-spin" />
+                            : isAdded
+                              ? <Check size={14} className="text-teal-300" />
+                              : <Eye size={14} />}
+                        </button>
+
+                        {/* + Ajout rapide "À voir" */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleQuickAdd(e, r)}
+                          disabled={isAdding || isSeenAdding || isAdded}
+                          aria-label={isAdded ? "Déjà ajouté" : "Ajouter à voir"}
+                          title={isAdded ? "Ajouté" : "Ajouter à voir"}
+                          className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all active:scale-90 motion-reduce:transition-none disabled:active:scale-100 ${
+                            isAdded
+                              ? "bg-teal-500/20 border-teal-500/30 text-teal-300"
+                              : "bg-white/5 border-white/10 text-violet-400 hover:bg-amber-400/15 hover:border-amber-400/30 hover:text-amber-300"
+                          }`}
+                        >
+                          {isAdding
+                            ? <Loader2 size={14} className="animate-spin" />
+                            : isAdded
+                              ? <Check size={14} />
+                              : <Plus size={14} />}
+                        </button>
+
+                      </div>
                     </div>
                   </li>
                 );
@@ -324,7 +434,19 @@ export function SearchPage() {
         )}
       </div>
 
-      {/* ── Modal de confirmation (formulaire prérempli) ──────────────────── */}
+      {/* ── SynopsisModal — détails + boutons Ajouter / Vu ──────────────── */}
+      {selectedRec && (
+        <SynopsisModal
+          rec={selectedRec}
+          onClose={() => setSelectedResult(null)}
+          onAdd={handleSynopsisAdd}
+          onAddSeen={handleSynopsisAddSeen}
+          adding={importing}
+          alreadyInLib={isAlreadyInLib}
+        />
+      )}
+
+      {/* ── TitleFormModal — confirmation/édition après import ───────────── */}
       {prefill && (
         <TitleFormModal
           editingEntry={prefill}

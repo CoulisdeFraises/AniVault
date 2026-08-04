@@ -115,7 +115,7 @@ export async function importResult(result) {
     ]);
     const tvSeasons = seasons.map((s) => ({ ...s, format: "TV" }));
     return {
-      title: displayTitle, category: "tv",
+      title: displayTitle, type: "serie", category: "tv",
       titleFrench,
       genres: translateGenres(result.genres).slice(0, 5),
       coverImage: result.image || null,
@@ -125,7 +125,7 @@ export async function importResult(result) {
     };
   } catch {
     return {
-      title: displayTitle, category: "tv",
+      title: displayTitle, type: "serie", category: "tv",
       titleFrench,
       genres: translateGenres(result.genres).slice(0, 5),
       coverImage: result.image || null,
