@@ -1,5 +1,5 @@
 import { X, Star, Plus, Loader2} from "lucide-react";
-import { EyePlus } from "../icons";
+import { EyePlus } from "./icons";
 import { Modal } from "../Modal/Modal";
 
 export function SynopsisModal({ rec, onClose, onAdd, onAddSeen, adding, alreadyInLib }) {
