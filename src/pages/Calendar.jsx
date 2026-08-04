@@ -619,7 +619,7 @@ export function Calendar() {
                         </p>
                       </div>
 
-                      <div className="p-2.5 sm:p-3 flex-1 space-y-2 overflow-y-auto overscroll-contain max-h-[60vh] sm:max-h-[70vh]">
+                      <div className="p-2.5 sm:p-3 flex-1 space-y-2 overflow-y-auto overscroll-auto max-h-[60vh] sm:max-h-[70vh]">
                         {entries.length === 0 ? (
                           <p className="text-[11px] text-violet-600 font-mono text-center py-8">Aucun épisode</p>
                         ) : (
