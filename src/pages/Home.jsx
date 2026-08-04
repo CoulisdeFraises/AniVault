@@ -112,6 +112,7 @@ export function Home() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showCalendarOnly,  setShowCalendarOnly]  = useState(false);
   const [airingIds,         setAiringIds]         = useState(new Set());
+  const [todaySchedules,    setTodaySchedules]    = useState([]);
   const [cachetteOpen,      setCachetteOpen]      = useState(false);
   const [cachetteRevealed,  setCachetteRevealed]  = useState(false);
   const [cachetteSortBy,    setCachetteSortBy]    = useState("date");
@@ -142,6 +143,13 @@ export function Home() {
     function applySchedules(schedules) {
       if (cancelled) return;
       setAiringIds(new Set((schedules || []).map((s) => String(s.media?.id)).filter(Boolean)));
+
+      // Épisodes qui diffusent aujourd'hui (heure locale), pour le carrousel
+      // "Sort aujourd'hui" sur la homepage.
+      const now       = new Date();
+      const dayStart  = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000;
+      const dayEnd    = dayStart + 86400;
+      setTodaySchedules((schedules || []).filter((s) => s.airingAt >= dayStart && s.airingAt < dayEnd));
     }
 
     const cached = getCached(cacheKey);
@@ -190,6 +198,22 @@ export function Home() {
     (e) => (e.anilistIds || []).some((id) => airingIds.has(String(id))),
     [airingIds]
   );
+
+  // ── Épisodes du jour pour les titres de la bibliothèque ──────────────────
+  const todayAiringEntries = useMemo(() => {
+    if (!todaySchedules.length || !entries.length) return [];
+    const byAnilistId = new Map();
+    entries.forEach((e) => (e.anilistIds || []).forEach((id) => byAnilistId.set(String(id), e)));
+
+    return todaySchedules
+      .map((s) => {
+        const entry = byAnilistId.get(String(s.media?.id));
+        if (!entry) return null;
+        return { entry, episode: s.episode, airingAt: s.airingAt, cover: s.media?.coverImage?.large || entry.coverImage };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.airingAt - b.airingAt);
+  }, [todaySchedules, entries]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -297,7 +321,7 @@ export function Home() {
           )}
 
           {/* ── Widget Continuer à regarder ── */}
-          {!loading && <ContinueWatching />}
+          {!loading && <ContinueWatching todayAiring={todayAiringEntries} />}
 
            {/* ── Repli bibliothèque — visible seulement quand il y a des résultats ── */}
           {!loading && sorted.length > 0 && (

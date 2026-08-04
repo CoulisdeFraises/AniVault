@@ -2,12 +2,13 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate }        from "react-router-dom";
 import {
   ArrowLeft, Search, Loader2,
-  Film, Tv, Clapperboard, X,
+  Film, Tv, Clapperboard, X, Plus, Check,
 } from "lucide-react";
 import { useAnime }           from "../hooks/useAnime";
 import { useSeries }          from "../hooks/useSeries";
 import { useMovies }          from "../hooks/useMovies";
 import { importResult }       from "../api";
+import { useLibrary }         from "../context/LibraryContext";
 import { TitleFormModal }     from "../components/Modal/TitleFormModal";
 import { FORMAT_TO_CATEGORY, CATEGORY_LABELS, CATEGORY_ICONS } from "../utils/entry";
 
@@ -41,11 +42,15 @@ function SkeletonResult() {
 export function SearchPage() {
   const navigate   = useNavigate();
   const inputRef   = useRef(null);
+  const { saveEntry, findDuplicate } = useLibrary();
 
   const [type,       setType]       = useState("anime");
   const [query,      setQuery]      = useState("");
   const [prefill,    setPrefill]    = useState(null);   // données préchargées → modal
   const [importing,  setImporting]  = useState(false);
+  const [quickAdding, setQuickAdding] = useState(null);  // clé du résultat en cours d'ajout rapide
+  const [quickAdded,  setQuickAdded]  = useState(() => new Set()); // clés déjà ajoutées cette session
+  const [quickError,  setQuickError]  = useState(null);  // { key, message }
 
   // Hooks de recherche (seul le type actif est interrogé)
   const anime  = useAnime (type === "anime" ? query : "");
@@ -72,6 +77,35 @@ export function SearchPage() {
       // silencieux : l'utilisateur peut réessayer
     } finally {
       setImporting(false);
+    }
+  }
+
+  // Ajout rapide : importe et enregistre directement, sans passer par le
+  // formulaire de relecture — pratique pour enchaîner plusieurs ajouts sans
+  // rouvrir la recherche à chaque fois.
+  async function handleQuickAdd(e, result) {
+    e.stopPropagation();
+    const key = `${result.source}-${result.id}`;
+    if (quickAdding || quickAdded.has(key)) return;
+
+    const dup = findDuplicate(result.title);
+    if (dup) {
+      setQuickError({ key, message: "Déjà dans ta bibliothèque" });
+      setTimeout(() => setQuickError(null), 2500);
+      return;
+    }
+
+    setQuickAdding(key);
+    setQuickError(null);
+    try {
+      const data = await importResult(result);
+      saveEntry(data, null);
+      setQuickAdded((prev) => new Set(prev).add(key));
+    } catch {
+      setQuickError({ key, message: "Échec de l'ajout — réessaie" });
+      setTimeout(() => setQuickError(null), 2500);
+    } finally {
+      setQuickAdding(null);
     }
   }
 
@@ -208,51 +242,76 @@ export function SearchPage() {
               {results.map((r) => {
                 const cat   = FORMAT_TO_CATEGORY[r.format] ?? "tv";
                 const badge = FORMAT_BADGE_COLOR[cat] ?? FORMAT_BADGE_COLOR.tv;
+                const key   = `${r.source}-${r.id}`;
+                const isAdding = quickAdding === key;
+                const isAdded  = quickAdded.has(key);
+                const rowError = quickError?.key === key ? quickError.message : null;
                 return (
-                  <li key={`${r.source}-${r.id}`}>
-                    <button
-                      type="button"
-                      onClick={() => handleSelect(r)}
-                      className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/8 border border-transparent hover:border-white/10 text-left transition-all active:scale-[0.99] motion-reduce:transition-none group"
-                    >
-                      {/* Poster */}
-                      {r.image
-                        ? <img
-                            src={r.image}
-                            alt=""
-                            className="w-14 h-20 object-cover rounded-xl flex-shrink-0 shadow-lg group-hover:shadow-violet-900/40"
-                          />
-                        : <div className="w-14 h-20 rounded-xl bg-white/10 flex-shrink-0 flex items-center justify-center">
-                            <activeTab.icon size={20} className="text-violet-600" />
-                          </div>
-                      }
+                  <li key={key}>
+                    <div className="w-full flex items-center gap-2 p-2 rounded-2xl hover:bg-white/8 border border-transparent hover:border-white/10 transition-all group">
+                      <button
+                        type="button"
+                        onClick={() => handleSelect(r)}
+                        className="flex-1 min-w-0 flex items-center gap-3 p-1 text-left active:scale-[0.99] motion-reduce:transition-none"
+                      >
+                        {/* Poster */}
+                        {r.image
+                          ? <img
+                              src={r.image}
+                              alt=""
+                              className="w-14 h-20 object-cover rounded-xl flex-shrink-0 shadow-lg group-hover:shadow-violet-900/40"
+                            />
+                          : <div className="w-14 h-20 rounded-xl bg-white/10 flex-shrink-0 flex items-center justify-center">
+                              <activeTab.icon size={20} className="text-violet-600" />
+                            </div>
+                        }
 
-                      {/* Infos */}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-violet-50 truncate leading-snug">
-                          {r.title}
-                        </p>
-                        {/* Titre romaji pour les animes */}
-                        {r.titleRomaji && r.titleRomaji !== r.title && (
-                          <p className="text-[11px] text-violet-400 truncate">{r.titleRomaji}</p>
-                        )}
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <span className="text-xs text-violet-400 font-mono">
-                            {r.year || "—"}
-                          </span>
-                          {r.format && (
-                            <span className={`font-mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full ${badge}`}>
-                              {CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}
+                        {/* Infos */}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-violet-50 truncate leading-snug">
+                            {r.title}
+                          </p>
+                          {/* Titre romaji pour les animes */}
+                          {r.titleRomaji && r.titleRomaji !== r.title && (
+                            <p className="text-[11px] text-violet-400 truncate">{r.titleRomaji}</p>
+                          )}
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <span className="text-xs text-violet-400 font-mono">
+                              {r.year || "—"}
                             </span>
+                            {r.format && (
+                              <span className={`font-mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full ${badge}`}>
+                                {CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}
+                              </span>
+                            )}
+                          </div>
+                          {rowError && (
+                            <p className="text-[10px] text-rose-400 mt-1">{rowError}</p>
                           )}
                         </div>
-                      </div>
+                      </button>
 
-                      {/* Indicateur d'action */}
-                      <span className="text-[11px] text-violet-500 group-hover:text-amber-400 transition-colors flex-shrink-0 hidden sm:block">
-                        Ajouter →
-                      </span>
-                    </button>
+                      {/* Ajout rapide : importe et enregistre directement, sans
+                          rouvrir la recherche ni le formulaire de relecture. */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleQuickAdd(e, r)}
+                        disabled={isAdding || isAdded}
+                        aria-label={isAdded ? "Déjà ajouté" : "Ajouter directement"}
+                        title={isAdded ? "Ajouté" : "Ajout rapide"}
+                        className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center border transition-all active:scale-90 motion-reduce:transition-none disabled:active:scale-100 ${
+                          isAdded
+                            ? "bg-teal-500/20 border-teal-500/30 text-teal-300"
+                            : "bg-white/5 border-white/10 text-violet-400 hover:bg-amber-400/15 hover:border-amber-400/30 hover:text-amber-300"
+                        }`}
+                      >
+                        {isAdding
+                          ? <Loader2 size={15} className="animate-spin" />
+                          : isAdded
+                            ? <Check size={15} />
+                            : <Plus size={15} />}
+                      </button>
+                    </div>
                   </li>
                 );
               })}
