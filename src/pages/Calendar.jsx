@@ -284,7 +284,7 @@ export function Calendar() {
     setError("");
 
     try {
-      const { schedules: data, monday } = await fetchWeeklySchedule(offset);
+      const { schedules: data, monday } = await fetchWeeklySchedule(offset, { force: isRefresh });
       setCached(cacheKey, { schedules: data, monday }, TTL.CALENDAR);
       setSchedules(data);
       setWeekMonday(toDate(monday));
@@ -451,7 +451,7 @@ export function Calendar() {
   const visibleDays   = byDay.slice(dayOffset, dayOffset + VISIBLE_DAYS);
   const canPrevDay    = dayOffset > 0;
   const canNextDay    = dayOffset + VISIBLE_DAYS < 7;
-  const todayMidnight = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); }, []);
+  const todayDateString = useMemo(() => new Date().toDateString(), []);
   const totalVisible  = visibleDays.reduce((sum, d) => sum + d.entries.length, 0);
   const slideClass    = slideDir === "from-left" ? "animate-slideFromLeft" : slideDir === "from-right" ? "animate-slideFromRight" : "";
 
@@ -593,7 +593,7 @@ export function Calendar() {
                 }`}
               >
                 {visibleDays.map(({ date, entries }, i) => {
-                  const isToday   = date.getTime() === todayMidnight;
+                  const isToday   = date.toDateString() === todayDateString;
                   const globalIdx = dayOffset + i;
 
                   return (
