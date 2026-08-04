@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate }        from "react-router-dom";
-import { ArrowLeft, Search, Loader2, Film, Tv, Clapperboard, X, Plus, Check } from "lucide-react";
+import { ArrowLeft, Search, Loader2, Film, Tv, Clapperboard, X, Plus, Check, Eye } from "lucide-react";
 import { EyePlus } from "../components/common/icons";
 import { mdiEyePlus } from '@mdi/js';
 import { useAnime }           from "../hooks/useAnime";

@@ -1,4 +1,4 @@
-import { X, Star, Plus, Loader2} from "lucide-react";
+import { X, Star, Plus, Loader2, Eye} from "lucide-react";
 import { EyePlus } from "./icons";
 import { Modal } from "../Modal/Modal";
 
