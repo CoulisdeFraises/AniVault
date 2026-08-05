@@ -9,7 +9,7 @@
   justify-content: center;
   align-items: center;
   z-index: 9999;
-  transition: opacity 0.8s ease-out; /* Allongé à 0.8s */
+  transition: opacity 0.8s ease-out;
   overflow: hidden;
 }
 
@@ -28,6 +28,12 @@
 /* Application du zoom et du fondu global sur 0.8s */
 .splash-content.animating {
   animation: zoom-out-fade 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.splash-logo-container {
+  position: relative;
+  display: inline-block;
+  padding: 40px;
 }
 
 .splash-logo {
@@ -117,6 +123,18 @@
   }
   50% {
     transform: scale(1.06);
+  }
+}
+
+/* INDISPENSABLE : Animation de l'explosion des particules */
+@keyframes explode {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--x), var(--y)) scale(0.3);
+    opacity: 0;
   }
 }
 

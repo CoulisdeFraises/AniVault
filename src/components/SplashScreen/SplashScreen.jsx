@@ -36,7 +36,7 @@ const SplashScreen = ({ onFinish }) => {
             className="splash-logo"
           />
         </div>
-        <h1 className="splash-title">AniVault</h1>
+        <h1 className="splash-title">ANIVAULT</h1>
       </div>
     </div>
   );
