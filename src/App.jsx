@@ -14,8 +14,6 @@ import { addNotification }             from "./hooks/useNotificationStore";
 import SplashScreen                    from "./components/SplashScreen/SplashScreen";
 
 // ── Code splitting ────────────────────────────────────────────────────────────
-// Toutes les pages utilisent des exports NOMMÉS (export function X).
-// React.lazy nécessite un export DEFAULT → on le mappe avec .then().
 const Home            = lazy(() => import("./pages/Home")           .then(m => ({ default: m.Home })));
 const Details         = lazy(() => import("./pages/Details")        .then(m => ({ default: m.Details })));
 const Login           = lazy(() => import("./pages/Login")          .then(m => ({ default: m.Login })));
@@ -59,9 +57,6 @@ function NotificationLayer() {
   const { entries } = useLibrary();
   useNotifications(entries);
 
-  // Synchronise les push reçues par le Service Worker (onglet ouvert) avec
-  // la liste in-app. La dedupeKey partage le même format que la programmation
-  // locale (useNotifications.js) pour éviter les doublons entre les deux.
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
     function handleMessage(event) {
@@ -81,7 +76,7 @@ function NotificationLayer() {
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 const AppRoutes = () => {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const location           = useLocation();
   const backgroundLocation = location.state?.backgroundLocation;
 
@@ -93,8 +88,9 @@ const AppRoutes = () => {
 
       <Suspense fallback={<PageLoader />}>
         <Routes location={backgroundLocation || location}>
+          {/* Correction : On retire le loader d'auth bloquant sur /login pour enchaîner directement */}
           <Route path="/login"
-            element={loading ? <AppLoader /> : user ? <Navigate to="/" replace /> : <Login />} />
+            element={user ? <Navigate to="/" replace /> : <Login />} />
           <Route path="/profile"
             element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/calendar"
@@ -135,7 +131,6 @@ const AppRoutes = () => {
 
 // ── App root ──────────────────────────────────────────────────────────────────
 const App = () => {
-  // État pour gérer l'affichage du splash screen au démarrage
   const [showSplash, setShowSplash] = useState(true);
 
   return (

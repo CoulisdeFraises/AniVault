@@ -1,87 +1,100 @@
 .splash-screen {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: #1a1a1a; /* Couleur de fond sombre, à adapter */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999; /* S'assure que le splash screen est au-dessus de tout */
-  transition: opacity 0.5s ease-out; /* Transition pour la disparition */
+ position: fixed;
+ top: 0;
+ left: 0;
+ width: 100vw;
+ height: 100vh;
+ background-color: #2e1065; /* Fond violet sombre
+ display: flex;
+ justify-content: center;
+ align-items: center;
+ z-index: 9999;
+ transition: opacity 0.5s ease-out;
 }
-
-.splash-screen.fade-in {
-  opacity: 1;
-}
-
 .splash-screen.fade-out {
-  opacity: 0;
+ opacity: 0;
 }
-
 .splash-content {
-  text-align: center;
-  animation: pop-in 0.8s ease-out; /* Animation d'apparition du contenu */
+ text-align: center;
+ display: flex;
+ flex-direction: column;
+ align-items: center;
+ /* Déclenche l'animation de zoom/fondu global vers la fin (durée 0.6s) */
+ animation: zoom-out-fade 0.6s ease-in-out forwards;
+ animation-delay: 2.8s; /* Se déclenche un tout petit peu avant la fin des 3 secondes */
 }
-
+.splash-logo-container {
+ position: relative;
+ display: inline-block;
+ padding: 20px;
+}
 .splash-logo {
-  width: 150px; /* Taille du logo, à adapter */
-  height: auto;
-  margin-bottom: 20px;
-  animation: pulse 2s infinite; /* Animation subtile sur le logo */
+ width: 140px;
+ height: auto;
+ position: relative;
+ z-index: 2;
+ /* Animation de respiration continue pendant le chargement */
+ animation: breathe 3s ease-in-out infinite;
 }
-
+/* L'aura lumineuse (discrète au début, brille fort à la fin) */
+.splash-glow {
+ position: absolute;
+ top: 50%;
+ left: 50%;
+ transform: translate(-50%, -50%);
+ width: 120px;
+ height: 120px;
+ background: radial-gradient(circle, #fbbf24 0%, #fbbf2473 50%, transparent 80%);
+ border-radius: 50%;
+ filter: blur(15px);
+ z-index: 1;
+ opacity: 0.3;
+ /* Devient ultra-brillante juste avant la transition */
+ animation: aura-glow 3s ease-in-out infinite;
+}
 .splash-title {
-  font-size: 3rem;
-  color: #fff;
-  margin: 0;
-  font-weight: bold;
+ font-family: 'Space Grotesk', sans-serif;
+ font-size: 2.5rem;
+ color: #fff;
+ margin-top: 15px;
+ font-weight: 700;
+ letter-spacing: 1px;
 }
-
 /* --- Keyframes des animations --- */
-
-/* Animation d'apparition du contenu (zoom et fondu) */
-@keyframes pop-in {
-  0% {
-    transform: scale(0.5);
-    opacity: 0;
-  }
-  70% {
-    transform: scale(1.05);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+/* 1. Le logo respire (effet de gonflement / dégonflement subtil) */
+@keyframes breathe {
+ 0%, 100% {
+   transform: scale(1);
+ }
+ 50% {
+   transform: scale(1.08);
+ }
 }
-
-/* Animation de pulsation du logo */
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-  100% {
-    transform: scale(1);
-  }
+/* 2. L'aura qui pulse et s'intensifie à la fin */
+@keyframes aura-glow {
+ 0%, 100% {
+   transform: translate(-50%, -50%) scale(1);
+   opacity: 0.3;
+ }
+ 50% {
+   transform: translate(-50%, -50%) scale(1.2);
+   opacity: 0.6;
+ }
+ /* Pic de brillance juste avant l'ouverture */
+ 95% {
+   transform: translate(-50%, -50%) scale(2.2);
+   opacity: 1;
+   filter: blur(25px);
+ }
 }
-
-/* Indicateur de chargement simple */
-.loader {
-  border: 4px solid #f3f3f3; /* Light grey */
-  border-top: 4px solid #3498db; /* Blue */
-  border-radius: 50%;
-  width: 30px;
-  height: 30px;
-  animation: spin 1s linear infinite;
-  margin: 20px auto 0;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+/* 3. Zoom vers l'avant et fondu au moment de basculer sur l'application */
+@keyframes zoom-out-fade {
+ 0% {
+   transform: scale(1);
+   opacity: 1;
+ }
+ 100% {
+   transform: scale(1.6);
+   opacity: 0;
+ }
 }

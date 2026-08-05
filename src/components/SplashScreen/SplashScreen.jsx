@@ -1,34 +1,36 @@
 import React, { useEffect, useState } from 'react';
-import './SplashScreen.css'; // Nous allons créer ce fichier CSS juste après
+import './SplashScreen.css';
 
 const SplashScreen = ({ onFinish }) => {
-  const [isVisible, setIsVisible] = useState(true);
+  const [isFadingOut, setIsFadingOut] = useState(false);
 
   useEffect(() => {
-    // Définit la durée de l'animation (en millisecondes)
-    // Doit correspondre à la durée définie dans le CSS
+    // Durée totale du splash screen avant de déclencher la fin (ex: 3 secondes)
     const timer = setTimeout(() => {
-      setIsVisible(false); // Déclenche l'animation de sortie
-      // Appelle la fonction onFinish après la fin de l'animation de sortie (ici 500ms)
+      setIsFadingOut(true);
+      
+      // Laisse le temps à l'animation CSS de zoom/fondu de se terminer (0.6s)
       setTimeout(() => {
         onFinish();
-      }, 500);
+      }, 600);
 
-    }, 3000); // Le splash screen reste affiché pendant 3 secondes
+    }, 2800);
 
     return () => clearTimeout(timer);
   }, [onFinish]);
 
   return (
-    <div className={`splash-screen ${isVisible ? 'fade-in' : 'fade-out'}`}>
+    <div className={`splash-screen ${isFadingOut ? 'fade-out' : ''}`}>
       <div className="splash-content">
-        <img
-            src="/logo.png" // Chemin vers votre logo dans le dossier public
-            alt="AniVault Logo"
+        <div className="splash-logo-container">
+          <div className="splash-glow"></div>
+          <img 
+            src="/logo.png" 
+            alt="AniVault Logo" 
             className="splash-logo"
-        />
+          />
+        </div>
         <h1 className="splash-title">AniVault</h1>
-        <div className="loader"></div> {/* Un petit indicateur de chargement optionnel */}
       </div>
     </div>
   );
