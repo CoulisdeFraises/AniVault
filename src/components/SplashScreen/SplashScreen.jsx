@@ -20,6 +20,14 @@ const SplashScreen = ({ onFinish }) => {
   return (
     <div className="splash-screen">
       <div className={`splash-content ${isAnimating ? 'animating' : ''}`}>
+        
+        {/* Conteneur des particules dorées */}
+        <div className="splash-particles">
+          {[...Array(10)].map((_, i) => (
+            <span key={i} className="particle"></span>
+          ))}
+        </div>
+
         <div className="splash-logo-container">
           <div className="splash-glow"></div>
           <img 
@@ -28,7 +36,7 @@ const SplashScreen = ({ onFinish }) => {
             className="splash-logo"
           />
         </div>
-        <h1 className="splash-title">ANIVAULT</h1>
+        <h1 className="splash-title">AniVault</h1>
       </div>
     </div>
   );
