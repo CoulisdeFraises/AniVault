@@ -9,6 +9,7 @@ import { STATUS, seasonTotals }    from "../utils/status";
 import { useLibrary }              from "../context/LibraryContext";
 import { fetchSeasonInfo, importResult, refreshEntryCard } from "../api";
 import { fetchAniListRecommendations, fetchSimilarTitles } from "../api/recommendations";
+import { fetchTMDBSimilarMovies, fetchTMDBSimilarSeries, hasTMDB } from "../api/tmdb";
 import { SynopsisModal }  from "../components/common/SynopsisModal";
 import { AddToListModal } from "../components/common/AddToListModal";
 import { useLists }       from "../context/ListsContext";
@@ -208,33 +209,68 @@ export function Details() {
   }, [entry?.id, activeTVIdx]); // eslint-disable-line
 
   useEffect(() => {
-    if (!entry || entry.type !== "anime") { setRecs([]); return; }
+    if (!entry) { setRecs([]); return; }
     let cancelled = false;
-    setLoadingRecs(true); setRecs([]);
-    const excludeIds  = entries.flatMap(e => e.anilistIds || []);
-    const anilistId    = entry.anilistIds?.[0] ?? entry.seasons?.find(s => s.anilistId)?.anilistId ?? null;
+    setLoadingRecs(true);
+    setRecs([]);
 
-    const fetchPromise = anilistId
-      ? fetchSimilarTitles(anilistId, excludeIds)
-      : (entry.genres?.length ? fetchAniListRecommendations(entry.genres, excludeIds) : Promise.resolve([]));
+    const isFilm  = entry.category === "movie";
+    const isSerie = entry.type === "serie" && !isFilm;
+    const isAnime = entry.type === "anime";
 
-    fetchPromise.then(results => {
-      if (!cancelled) { setRecs(results.slice(0, 20)); setLoadingRecs(false); }
+    let fetchPromise;
+
+    if (isAnime) {
+      // ── Anime → AniList similar ──────────────────────────────────────────
+      const excludeIds = entries.flatMap((e) => e.anilistIds || []);
+      const anilistId  = entry.anilistIds?.[0]
+        ?? entry.seasons?.find((s) => s.anilistId)?.anilistId
+        ?? null;
+      fetchPromise = anilistId
+        ? fetchSimilarTitles(anilistId, excludeIds)
+        : entry.genres?.length
+          ? fetchAniListRecommendations(entry.genres, excludeIds)
+          : Promise.resolve([]);
+
+    } else if (isFilm && hasTMDB()) {
+      // ── Film → TMDB similar movies ───────────────────────────────────────
+      const excludeIds = entries
+        .filter((e) => e.category === "movie" && e.tmdbId)
+        .map((e) => e.tmdbId);
+      fetchPromise = entry.tmdbId
+        ? fetchTMDBSimilarMovies(entry.tmdbId, excludeIds)
+        : Promise.resolve([]);
+
+    } else if (isSerie && hasTMDB()) {
+      // ── Série → TMDB similar TV shows ────────────────────────────────────
+      const excludeIds = entries
+        .filter((e) => e.tmdbId)
+        .map((e) => e.tmdbId);
+      fetchPromise = entry.tmdbId
+        ? fetchTMDBSimilarSeries(entry.tmdbId, excludeIds)
+        : Promise.resolve([]);
+
+    } else {
+      // Pas de token TMDB ou cas non géré
+      setRecs([]);
+      setLoadingRecs(false);
+      return;
+    }
+
+    fetchPromise.then((results) => {
+      if (!cancelled) {
+        setRecs((results || []).filter(Boolean).slice(0, 20));
+        setLoadingRecs(false);
+      }
+    }).catch(() => {
+      if (!cancelled) setLoadingRecs(false);
     });
+
     return () => { cancelled = true; };
   }, [entry?.id]); // eslint-disable-line
 
-  if (!entry) return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm text-violet-50 flex items-center justify-center p-4 z-50">
-      <div className="text-center">
-        <p className="text-violet-300 mb-4">Ce titre n'existe plus.</p>
-        <button onClick={() => navigate("/")} className="text-amber-300 hover:text-amber-200 text-sm font-medium">Retour à l'accueil</button>
-      </div>
-    </div>
-  );
-
-  const s       = STATUS[entry.status];
-  const curTV   = tvSeasons[activeTVIdx] ?? null;
+  const s       = STATUS[entry.status] ?? STATUS["a-voir"];
+  const curTV = tvSeasons[activeTVIdx] ?? null
   const watched = curTV?.watchedEpisodes || 0;
   const curEps  = seasonCache[activeTVIdx]?.episodes || [];
   const curEpsReason = seasonCache[activeTVIdx]?.reason ?? null;
@@ -245,16 +281,37 @@ export function Details() {
   const filmSeen  = movieSeasons.filter(m => m.watchedEpisodes >= (m.totalEpisodes ?? 1)).length;
   const canFinish = entry.status === "en-cours" && tvT != null && tvT > 0 && tvW >= tvT;
 
-  const libraryAnilistIds = useMemo(() => new Set(entries.flatMap(e => e.anilistIds || [])), [entries]);
+  const libraryAnilistIds = useMemo(
+    () => new Set(entries.flatMap((e) => e.anilistIds || [])),
+    [entries]
+  );
+  const libraryTmdbIds = useMemo(
+    () => new Set(entries.map((e) => e.tmdbId).filter(Boolean)),
+    [entries]
+  );
 
   const dedupedRecs = useMemo(() => {
     const seen = new Set();
-    return recs.filter(rec => {
-      const key = normalizeSeriesTitle(rec.title);
-      if (seen.has(key)) return false;
-      seen.add(key); return true;
-    });
+    return recs
+      .filter(Boolean)                          // ← garde-fou null
+      .filter((rec) => {
+        const key = normalizeSeriesTitle(rec.title);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
   }, [recs]);
+
+  if (!entry) return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm text-violet-50 flex items-center justify-center p-4 z-50">
+      <div className="text-center">
+        <p className="text-violet-300 mb-4">Ce titre n'existe plus.</p>
+        <button onClick={() => navigate("/")} className="text-amber-300 hover:text-amber-200 text-sm font-medium">
+          Retour à l'accueil
+        </button>
+      </div>
+    </div>
+  );
 
   const displayImage  = curTV?.coverImage || (activeTVIdx === 0 ? entry.coverImage : null);
   const fallbackImage = tvSeasons[0]?.coverImage || entry.coverImage;
@@ -309,7 +366,7 @@ export function Details() {
     setAddingId(rec.id);
     try {
       const imported = await importResult(rec);
-      saveEntry({ ...imported, type: "anime", status: "a-voir", rating: 0, notes: "" }, null);
+      saveEntry({ ...imported, status: "a-voir", rating: 0, notes: "" }, null);
       haptics.light();
     } catch (_) {}
     finally { setAddingId(null); }
@@ -719,8 +776,9 @@ export function Details() {
                 ? <div className="flex items-center justify-center py-8"><Loader2 size={18} className="animate-spin text-violet-500" /></div>
                 : <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none px-3 sm:px-4">
                     {dedupedRecs.map(rec => (
-                      <RecCard key={rec.id} rec={rec} onAdd={handleAddRec}
-                        adding={addingId === rec.id} alreadyInLib={libraryAnilistIds.has(rec.id)}
+                      <RecCard key={`${rec.source}-${rec.id}`} rec={rec} onAdd={handleAddRec}
+                        adding={addingId === rec.id}
+                        alreadyInLib={libraryAnilistIds.has(rec.id) || libraryTmdbIds.has(rec.id)}
                         onClick={() => setSynopsisRec(rec)} />
                     ))}
                   </div>}
@@ -732,7 +790,8 @@ export function Details() {
       {synopsisRec && (
         <SynopsisModal rec={synopsisRec} onClose={() => setSynopsisRec(null)}
           onAdd={handleAddRec} adding={addingId === synopsisRec.id}
-          alreadyInLib={libraryAnilistIds.has(synopsisRec.id)} />
+          alreadyInLib={libraryAnilistIds.has(rec.id) || libraryTmdbIds.has(rec.id)}
+          onClick={() => setSynopsisRec(rec)} />
       )}
       {addToListOpen && <AddToListModal entry={entry} onClose={() => setAddToListOpen(false)} />}
       {editing && <TitleFormModal editingEntry={entry} onClose={() => setEditing(false)} />}
