@@ -12,7 +12,7 @@ const SplashScreen = ({ onFinish }) => {
         onFinish();
       }, 600);
 
-    }, 2500);
+    }, 3200);
 
     return () => clearTimeout(timer);
   }, [onFinish]);
