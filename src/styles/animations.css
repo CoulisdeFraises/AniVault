@@ -44,7 +44,7 @@
 
 /* ── Halo pulsant (badge Aujourd'hui) ──────────────────────── */
 @keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0  6px 1px rgba(251, 191, 36, 0.45); }
+  0%, 100% { box-shadow: 0 0  6px 1px #fbbf2473; }
   50%       { box-shadow: 0 0 14px 5px rgba(251, 191, 36, 0.80); }
 }
 
