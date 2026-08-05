@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Loader2 }             from "lucide-react";
 import { AuthProvider, useAuth }       from "./context/AuthContext";
@@ -11,6 +11,7 @@ import { AchievementToast }            from "./components/common/AchievementToas
 import { useAchievements }             from "./hooks/useAchievements";
 import { useNotifications }            from "./hooks/useNotifications";
 import { addNotification }             from "./hooks/useNotificationStore";
+import SplashScreen                    from "./components/SplashScreen/SplashScreen";
 
 // ── Code splitting ────────────────────────────────────────────────────────────
 // Toutes les pages utilisent des exports NOMMÉS (export function X).
@@ -25,7 +26,7 @@ const History         = lazy(() => import("./pages/History")        .then(m => (
 const Recommendations = lazy(() => import("./pages/Recommendations").then(m => ({ default: m.Recommendations })));
 const Community       = lazy(() => import("./pages/Community")      .then(m => ({ default: m.Community })));
 const Lists           = lazy(() => import("./pages/Lists")          .then(m => ({ default: m.Lists })));
-const SearchPage = lazy(() => import("./pages/Search").then(m => ({ default: m.SearchPage })));
+const SearchPage      = lazy(() => import("./pages/Search")         .then(m => ({ default: m.SearchPage })));
 
 // ── Loaders ───────────────────────────────────────────────────────────────────
 const AppLoader = () => (
@@ -112,8 +113,6 @@ const AppRoutes = () => {
             element={<ProtectedRoute><Details /></ProtectedRoute>} />
           <Route path="/settings"
             element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          <Route path="*"
-            element={<Navigate to="/" replace />} />
           <Route path="/search"
             element={<ProtectedRoute><SearchPage /></ProtectedRoute>} />
           <Route path="*"
@@ -135,18 +134,27 @@ const AppRoutes = () => {
 };
 
 // ── App root ──────────────────────────────────────────────────────────────────
-const App = () => (
-  <ErrorBoundary>
-    <AuthProvider>
-      <LibraryProvider>
-        <ListsProvider>
-          <PrefsProvider>
-            <AppRoutes />
-          </PrefsProvider>
-        </ListsProvider>
-      </LibraryProvider>
-    </AuthProvider>
-  </ErrorBoundary>
-);
+const App = () => {
+  // État pour gérer l'affichage du splash screen au démarrage
+  const [showSplash, setShowSplash] = useState(true);
+
+  return (
+    <ErrorBoundary>
+      {showSplash ? (
+        <SplashScreen onFinish={() => setShowSplash(false)} />
+      ) : (
+        <AuthProvider>
+          <LibraryProvider>
+            <ListsProvider>
+              <PrefsProvider>
+                <AppRoutes />
+              </PrefsProvider>
+            </ListsProvider>
+          </LibraryProvider>
+        </AuthProvider>
+      )}
+    </ErrorBoundary>
+  );
+};
 
 export default App;
