@@ -269,6 +269,19 @@ export function Details() {
     return () => { cancelled = true; };
   }, [entry?.id]); // eslint-disable-line
 
+  // ── Guard : entry introuvable (chargement en cours ou ID invalide) ──────
+  if (!entry) return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm text-violet-50 flex items-center justify-center p-4 z-50">
+      <div className="text-center">
+        <p className="text-violet-300 mb-4">Ce titre n'existe plus.</p>
+        <button onClick={() => navigate("/")} className="text-amber-300 hover:text-amber-200 text-sm font-medium">
+          Retour à l'accueil
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── Dérivations — entry est garantie non-null à partir d'ici ───────────
   const s       = STATUS[entry.status] ?? STATUS["a-voir"];
   const curTV = tvSeasons[activeTVIdx] ?? null
   const watched = curTV?.watchedEpisodes || 0;
@@ -293,7 +306,7 @@ export function Details() {
   const dedupedRecs = useMemo(() => {
     const seen = new Set();
     return recs
-      .filter(Boolean)                          // ← garde-fou null
+      .filter(Boolean)
       .filter((rec) => {
         const key = normalizeSeriesTitle(rec.title);
         if (seen.has(key)) return false;
@@ -301,17 +314,6 @@ export function Details() {
         return true;
       });
   }, [recs]);
-
-  if (!entry) return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm text-violet-50 flex items-center justify-center p-4 z-50">
-      <div className="text-center">
-        <p className="text-violet-300 mb-4">Ce titre n'existe plus.</p>
-        <button onClick={() => navigate("/")} className="text-amber-300 hover:text-amber-200 text-sm font-medium">
-          Retour à l'accueil
-        </button>
-      </div>
-    </div>
-  );
 
   const displayImage  = curTV?.coverImage || (activeTVIdx === 0 ? entry.coverImage : null);
   const fallbackImage = tvSeasons[0]?.coverImage || entry.coverImage;
@@ -790,8 +792,7 @@ export function Details() {
       {synopsisRec && (
         <SynopsisModal rec={synopsisRec} onClose={() => setSynopsisRec(null)}
           onAdd={handleAddRec} adding={addingId === synopsisRec.id}
-          alreadyInLib={libraryAnilistIds.has(rec.id) || libraryTmdbIds.has(rec.id)}
-          onClick={() => setSynopsisRec(rec)} />
+          alreadyInLib={libraryAnilistIds.has(synopsisRec.id) || libraryTmdbIds.has(synopsisRec.id)} />
       )}
       {addToListOpen && <AddToListModal entry={entry} onClose={() => setAddToListOpen(false)} />}
       {editing && <TitleFormModal editingEntry={entry} onClose={() => setEditing(false)} />}

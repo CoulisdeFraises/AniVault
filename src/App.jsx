@@ -26,18 +26,26 @@ const Community       = lazy(() => import("./pages/Community")      .then(m => (
 const Lists           = lazy(() => import("./pages/Lists")          .then(m => ({ default: m.Lists })));
 const SearchPage      = lazy(() => import("./pages/Search")         .then(m => ({ default: m.SearchPage })));
 
-const AppLoader = () => (
-  <div className="min-h-screen bg-violet-950 flex items-center justify-center">
-    <Loader2 size={28} className="animate-spin text-violet-400" />
-  </div>
-);
+// ── Loaders ───────────────────────────────────────────────────────────────────
 
+/** Loader inline pour les navigations lazy entre pages */
 const PageLoader = () => (
   <div className="min-h-[60vh] flex items-center justify-center">
-    <Loader2 size={20} className="animate-spin text-violet-500" />
+    <div className="flex flex-col items-center gap-3">
+      <Loader2 size={22} className="animate-spin text-violet-500" />
+      <div className="w-28 h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" />
+    </div>
   </div>
 );
 
+/** Loader plein-écran — filet de sécurité (normalement masqué par le splash) */
+const AppLoader = () => (
+  <div className="min-h-screen bg-violet-950 flex items-center justify-center">
+    <Loader2 size={26} className="animate-spin text-violet-500" />
+  </div>
+);
+
+// ── Route protégée ────────────────────────────────────────────────────────────
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return <AppLoader />;
@@ -70,6 +78,7 @@ function NotificationLayer() {
   return null;
 }
 
+// ── Routes ────────────────────────────────────────────────────────────────────
 const AppRoutes = () => {
   const { user } = useAuth();
   const location           = useLocation();
@@ -123,26 +132,50 @@ const AppRoutes = () => {
   );
 };
 
-const App = () => {
-  const [showSplash, setShowSplash] = useState(true);
+// ── SplashGate — orchestre splash + chargement réel ───────────────────────────
+//
+// Placé DANS les providers afin de pouvoir lire authLoading + libLoading.
+// Le splash reste affiché tant que :
+//   • son animation interne n'a pas terminé (≈ 3,4 s)
+//   • OU que l'auth / la bibliothèque sont encore en cours de chargement.
+// Cela supprime les loaders nus (AppLoader / PageLoader) au premier rendu.
+//
+function SplashGate() {
+  const { loading: authLoading } = useAuth();
+  const { loading: libLoading  } = useLibrary();
+  const isLoading                = authLoading || libLoading;
+  const [splashDone, setSplashDone] = useState(false);
 
-  return (
-    <ErrorBoundary>
-      {showSplash ? (
-        <SplashScreen onFinish={() => setShowSplash(false)} />
-      ) : (
-        <AuthProvider>
-          <LibraryProvider>
-            <ListsProvider>
-              <PrefsProvider>
-                <AppRoutes />
-              </PrefsProvider>
-            </ListsProvider>
-          </LibraryProvider>
-        </AuthProvider>
-      )}
-    </ErrorBoundary>
-  );
-};
+  // Tant que le splash n'est pas terminé OU qu'un chargement est en cours
+  if (!splashDone || isLoading) {
+    return (
+      <SplashScreen
+        onFinish={() => setSplashDone(true)}
+        isLoading={isLoading}
+      />
+    );
+  }
+
+  return <AppRoutes />;
+}
+
+// ── App racine ────────────────────────────────────────────────────────────────
+//
+// Providers EN DEHORS de SplashGate : les contextes sont montés dès le départ,
+// ce qui permet à SplashGate de lire leurs états de chargement.
+//
+const App = () => (
+  <ErrorBoundary>
+    <AuthProvider>
+      <LibraryProvider>
+        <ListsProvider>
+          <PrefsProvider>
+            <SplashGate />
+          </PrefsProvider>
+        </ListsProvider>
+      </LibraryProvider>
+    </AuthProvider>
+  </ErrorBoundary>
+);
 
 export default App;
