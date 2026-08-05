@@ -9,7 +9,8 @@
   justify-content: center;
   align-items: center;
   z-index: 9999;
-  transition: opacity 0.4s ease-out;
+  transition: opacity 0.8s ease-out; /* Allongé à 0.8s */
+  overflow: hidden;
 }
 
 .splash-screen.fade-out {
@@ -21,17 +22,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-}
-
-/* Application du zoom et du fondu global UNIQUEMENT à la fin */
-.splash-content.animating {
-  animation: zoom-out-fade 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-.splash-logo-container {
   position: relative;
-  display: inline-block;
-  padding: 40px; /* Espace pour laisser respirer l'aura */
+}
+
+/* Application du zoom et du fondu global sur 0.8s */
+.splash-content.animating {
+  animation: zoom-out-fade 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .splash-logo {
@@ -98,7 +94,7 @@
 
 /* Déclenchement de l'explosion des particules à la fin */
 .splash-content.animating .particle {
-  animation: explode 0.6s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+  animation: explode 0.8s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
 }
 
 /* Génération de trajectoires aléatoires pour chaque particule */
