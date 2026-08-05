@@ -1,100 +1,98 @@
 .splash-screen {
- position: fixed;
- top: 0;
- left: 0;
- width: 100vw;
- height: 100vh;
- background-color: #2e1065; /* Fond violet sombre
- display: flex;
- justify-content: center;
- align-items: center;
- z-index: 9999;
- transition: opacity 0.5s ease-out;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #2e1065;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  transition: opacity 0.4s ease-out;
 }
+
 .splash-screen.fade-out {
- opacity: 0;
+  opacity: 0;
 }
+
 .splash-content {
- text-align: center;
- display: flex;
- flex-direction: column;
- align-items: center;
- /* Déclenche l'animation de zoom/fondu global vers la fin (durée 0.6s) */
- animation: zoom-out-fade 0.6s ease-in-out forwards;
- animation-delay: 2.8s; /* Se déclenche un tout petit peu avant la fin des 3 secondes */
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
+
+/* Application du zoom et du fondu global UNIQUEMENT à la fin */
+.splash-content.animating {
+  animation: zoom-out-fade 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
 .splash-logo-container {
- position: relative;
- display: inline-block;
- padding: 20px;
+  position: relative;
+  display: inline-block;
+  padding: 40px; /* Espace pour laisser respirer l'aura */
 }
+
 .splash-logo {
- width: 140px;
- height: auto;
- position: relative;
- z-index: 2;
- /* Animation de respiration continue pendant le chargement */
- animation: breathe 3s ease-in-out infinite;
+  width: 140px;
+  height: auto;
+  position: relative;
+  z-index: 2;
+  animation: breathe 3s ease-in-out infinite;
 }
-/* L'aura lumineuse (discrète au début, brille fort à la fin) */
+
+/* L'aura harmonieuse : grand halo diffus et élégant */
 .splash-glow {
- position: absolute;
- top: 50%;
- left: 50%;
- transform: translate(-50%, -50%);
- width: 120px;
- height: 120px;
- background: radial-gradient(circle, #fbbf24 0%, #fbbf2473 50%, transparent 80%);
- border-radius: 50%;
- filter: blur(15px);
- z-index: 1;
- opacity: 0.3;
- /* Devient ultra-brillante juste avant la transition */
- animation: aura-glow 3s ease-in-out infinite;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, #a855f759 0%, #8b5cf61a 50%, transparent 75%);
+  border-radius: 50%;
+  filter: blur(25px);
+  z-index: 1;
+  opacity: 0.5;
+  transition: all 0.6s ease-in-out;
 }
+
+/* Quand la transition finale se déclenche, l'aura s'embrase harmonieusement */
+.splash-content.animating .splash-glow {
+  transform: translate(-50%, -50%) scale(2);
+  background: radial-gradient(circle, #fbbf24 0%, #fbbf2473 60%, transparent 90%);
+  filter: blur(40px);
+  opacity: 1;
+}
+
 .splash-title {
- font-family: 'Space Grotesk', sans-serif;
- font-size: 2.5rem;
- color: #fff;
- margin-top: 15px;
- font-weight: 700;
- letter-spacing: 1px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 2.8rem;
+  color: #fff;
+  margin-top: 15px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
 }
-/* --- Keyframes des animations --- */
-/* 1. Le logo respire (effet de gonflement / dégonflement subtil) */
+
+/* --- Keyframes --- */
+
 @keyframes breathe {
- 0%, 100% {
-   transform: scale(1);
- }
- 50% {
-   transform: scale(1.08);
- }
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
 }
-/* 2. L'aura qui pulse et s'intensifie à la fin */
-@keyframes aura-glow {
- 0%, 100% {
-   transform: translate(-50%, -50%) scale(1);
-   opacity: 0.3;
- }
- 50% {
-   transform: translate(-50%, -50%) scale(1.2);
-   opacity: 0.6;
- }
- /* Pic de brillance juste avant l'ouverture */
- 95% {
-   transform: translate(-50%, -50%) scale(2.2);
-   opacity: 1;
-   filter: blur(25px);
- }
-}
-/* 3. Zoom vers l'avant et fondu au moment de basculer sur l'application */
+
 @keyframes zoom-out-fade {
- 0% {
-   transform: scale(1);
-   opacity: 1;
- }
- 100% {
-   transform: scale(1.6);
-   opacity: 0;
- }
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
 }

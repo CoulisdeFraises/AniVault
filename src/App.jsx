@@ -26,7 +26,6 @@ const Community       = lazy(() => import("./pages/Community")      .then(m => (
 const Lists           = lazy(() => import("./pages/Lists")          .then(m => ({ default: m.Lists })));
 const SearchPage      = lazy(() => import("./pages/Search")         .then(m => ({ default: m.SearchPage })));
 
-// ── Loaders ───────────────────────────────────────────────────────────────────
 const AppLoader = () => (
   <div className="min-h-screen bg-violet-950 flex items-center justify-center">
     <Loader2 size={28} className="animate-spin text-violet-400" />
@@ -39,20 +38,17 @@ const PageLoader = () => (
   </div>
 );
 
-// ── Route protégée ────────────────────────────────────────────────────────────
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return <AppLoader />;
   return user ? children : <Navigate to="/login" replace />;
 };
 
-// ── Succès toast ──────────────────────────────────────────────────────────────
 function AchievementLayer() {
   const { currentToast, dismissToast } = useAchievements();
   return <AchievementToast achievement={currentToast} onDone={dismissToast} />;
 }
 
-// ── Notifications épisodes ────────────────────────────────────────────────────
 function NotificationLayer() {
   const { entries } = useLibrary();
   useNotifications(entries);
@@ -74,7 +70,6 @@ function NotificationLayer() {
   return null;
 }
 
-// ── Routes ────────────────────────────────────────────────────────────────────
 const AppRoutes = () => {
   const { user } = useAuth();
   const location           = useLocation();
@@ -88,7 +83,6 @@ const AppRoutes = () => {
 
       <Suspense fallback={<PageLoader />}>
         <Routes location={backgroundLocation || location}>
-          {/* Correction : On retire le loader d'auth bloquant sur /login pour enchaîner directement */}
           <Route path="/login"
             element={user ? <Navigate to="/" replace /> : <Login />} />
           <Route path="/profile"
@@ -129,7 +123,6 @@ const AppRoutes = () => {
   );
 };
 
-// ── App root ──────────────────────────────────────────────────────────────────
 const App = () => {
   const [showSplash, setShowSplash] = useState(true);
 
