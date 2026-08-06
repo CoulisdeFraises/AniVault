@@ -35,7 +35,6 @@ export function NotificationToast() {
         backdrop-blur-md rounded-2xl
         px-4 py-3 shadow-2xl
         flex items-start gap-3
-        relative overflow-hidden
         animate-slideDown
       "
       role="alert"
@@ -66,7 +65,7 @@ export function NotificationToast() {
       </button>
 
       {/* Barre de progression */}
-      <div className="absolute bottom-0 left-0 right-0 h-[2px] rounded-b-2xl">
+      <div className="absolute bottom-0 left-0 right-0 h-[2px] rounded-b-2xl overflow-hidden">
         <div
           className="h-full bg-gradient-to-r from-violet-500 to-amber-400 origin-left"
           style={{ animation: "toast-progress 4.5s linear forwards" }}
