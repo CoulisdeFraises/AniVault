@@ -50,24 +50,6 @@ export function useNotifications(entries) {
               // ── Notification in-app (store) ──────────────────────────────
               addNotification({ title, body, entryId: entry.id, icon: "sparkles", dedupeKey: key });
 
-              // ── Notification navigateur (si permission accordée) ──────────
-              if (
-                "serviceWorker" in navigator &&
-                Notification.permission === "granted" &&
-                localStorage.getItem("pref_notifications") !== "false"
-              ) {
-                navigator.serviceWorker.ready
-                  .then((reg) =>
-                    reg.showNotification(title, {
-                      body,
-                      icon:  "/logo.png",
-                      badge: "/favicon-96x96.png",
-                      tag:   `anivault-${entry.id}-${airing.episode}`,
-                      data:  { entryId: entry.id },
-                    })
-                  )
-                  .catch(() => {});
-              }
             }, delay);
 
             timersRef.current.push(t);
