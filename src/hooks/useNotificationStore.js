@@ -10,7 +10,23 @@ let _state     = (() => {
 })();
 
 function _save()   { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_state)); } catch {} }
-function _notify() { _listeners.forEach((fn) => fn([..._state]));}
+function _notify() { 
+  _listeners.forEach((fn) => fn([..._state]));
+  
+  // Mise à jour sécurisée du badge
+  try {
+    if (typeof navigator !== "undefined" && "setAppBadge" in navigator) {
+      const unread = _state.filter((n) => !n.readAt).length;
+      if (unread > 0) {
+        navigator.setAppBadge(unread).catch(() => {});
+      } else if ("clearAppBadge" in navigator) {
+        navigator.clearAppBadge().catch(() => {});
+      }
+    }
+  } catch (err) {
+    // Ignore silencieusement si l'API n'est pas disponible dans ce contexte
+  }
+}
 
 /**
  * Ajoute une notification (appelable depuis n'importe quel module/hook).
