@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNotificationStore } from "../hooks/useNotificationStore";
+import { useNotificationStore } from "../../hooks/useNotificationStore";
 import { Bell, X } from "lucide-react";
 
 export function NotificationToast() {
