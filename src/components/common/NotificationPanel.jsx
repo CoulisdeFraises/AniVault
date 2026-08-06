@@ -18,49 +18,52 @@ function timeAgo(ts) {
   return `Il y a ${d}j`;
 }
 
-// Icônes lucide plutôt que des emojis — extensible si d'autres types de
-// notifications arrivent plus tard (succès débloqué, ami, etc.).
-const NOTIF_ICONS = {
-  sparkles: Sparkles,
-};
+const NOTIF_ICONS = { sparkles: Sparkles };
 
 export function NotificationPanel() {
   const { user } = useAuth();
   const { notifications, unreadCount, markAllRead, markRead, clearAll } = useNotificationStore();
 
-  const navigate  = useNavigate();
-  const location  = useLocation();
-  const btnRef    = useRef(null);
-  const panelRef  = useRef(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const btnRef   = useRef(null);
+  const panelRef = useRef(null);
+
   const [open, setOpen] = useState(false);
   const [pos,  setPos]  = useState({ top: 0, right: 0, maxWidth: 320 });
-  const [permGranted, setPermGranted] = useState(
+
+  const [permGranted,     setPermGranted]     = useState(
     () => "Notification" in window && Notification.permission === "granted"
   );
-  const [subscribeError, setSubscribeError] = useState(null);
-  const [subscribing,    setSubscribing]    = useState(false);
+  const [subscribeError,  setSubscribeError]  = useState(null);
+  const [subscribing,     setSubscribing]     = useState(false);
 
+  // ── Ouverture ────────────────────────────────────────────────────────────
   function openPanel() {
     const rect = btnRef.current?.getBoundingClientRect();
     if (rect) {
-      const MARGIN   = 8;
-      const panelW   = Math.min(320, window.innerWidth - MARGIN * 2);
-      // right = distance depuis le bord droit de la fenêtre
-      const rawRight = window.innerWidth - rect.right;
-      // On clamp pour que le panneau ne déborde pas à gauche
+      const MARGIN      = 8;
+      const panelW      = Math.min(320, window.innerWidth - MARGIN * 2);
+      const rawRight    = window.innerWidth - rect.right;
       const clampedRight = Math.max(MARGIN, Math.min(rawRight, window.innerWidth - panelW - MARGIN));
       setPos({ top: rect.bottom + MARGIN, right: clampedRight, maxWidth: panelW });
     }
     setOpen(true);
-    if (unreadCount > 0) setTimeout(markAllRead, 800);
+    // Marque comme lu après un court délai (laisse le temps à l'animation de s'afficher)
+    if (unreadCount > 0) {
+      setTimeout(markAllRead, 800);
+    }
   }
 
-  function closePanel() {setOpen(false)}
+  function closePanel() { setOpen(false); }
 
+  // ── Fermeture au clic extérieur / Échap ─────────────────────────────────
   useEffect(() => {
     if (!open) return;
     function handleOutside(e) {
-      if (!btnRef.current?.contains(e.target) && !panelRef.current?.contains(e.target)) setOpen(false);
+      if (!btnRef.current?.contains(e.target) && !panelRef.current?.contains(e.target)) {
+        setOpen(false);
+      }
     }
     function handleKey(e) { if (e.key === "Escape") setOpen(false); }
     document.addEventListener("mousedown", handleOutside);
@@ -71,6 +74,7 @@ export function NotificationPanel() {
     };
   }, [open]);
 
+  // ── Permission / abonnement push ─────────────────────────────────────────
   async function handleRequestPermission() {
     setSubscribing(true);
     setSubscribeError(null);
@@ -89,30 +93,34 @@ export function NotificationPanel() {
   function handleClickNotif(notif) {
     markRead(notif.id);
     setOpen(false);
-    if (notif.entryId) navigate(`/details/${notif.entryId}`, { state: { backgroundLocation: location } });
+    if (notif.entryId) {
+      navigate(`/details/${notif.entryId}`, { state: { backgroundLocation: location } });
+    }
   }
 
+  // ── Rendu du panneau (portal) ────────────────────────────────────────────
   const panel = open && createPortal(
     <div
       ref={panelRef}
       style={{
-        position: "fixed",
-        top: pos.top,
-        right: pos.right,
-        zIndex: 9999,
-        width: pos.maxWidth,
-        // Hauteur max : ne pas dépasser le bas de l'écran (avec 8px de marge)
+        position:  "fixed",
+        top:       pos.top,
+        right:     pos.right,
+        zIndex:    9999,
+        width:     pos.maxWidth,
         maxHeight: `calc(100dvh - ${pos.top + 8}px)`,
       }}
       className="rounded-2xl bg-violet-900 border border-white/10 shadow-2xl overflow-hidden flex flex-col animate-fadeIn"
     >
-      {/* Header */}
+      {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
         <div className="flex items-center gap-2">
           <Bell size={14} className="text-amber-400" />
           <p className="font-semibold text-sm text-violet-50">Notifications</p>
           {unreadCount > 0 && (
-            <span className="bg-rose-500 text-white font-mono text-[9px] px-1.5 py-0.5 rounded-full">{unreadCount}</span>
+            <span className="bg-rose-500 text-white font-mono text-[9px] px-1.5 py-0.5 rounded-full">
+              {unreadCount}
+            </span>
           )}
         </div>
         <div className="flex items-center gap-1">
@@ -122,13 +130,14 @@ export function NotificationPanel() {
               <Trash2 size={12} />
             </button>
           )}
-          <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg text-violet-500 hover:text-violet-200 hover:bg-white/10 transition-colors">
+          <button onClick={closePanel}
+            className="p-1.5 rounded-lg text-violet-500 hover:text-violet-200 hover:bg-white/10 transition-colors">
             <X size={13} />
           </button>
         </div>
       </div>
 
-      {/* Permission banner */}
+      {/* ── Bannière permission ── */}
       {(!permGranted || subscribeError) && (
         <div className={`px-4 py-3 border-b border-white/5 flex-shrink-0 ${subscribeError ? "bg-rose-500/5" : "bg-amber-400/5"}`}>
           <p className={`text-[11px] mb-2 ${subscribeError ? "text-rose-300" : "text-amber-300"}`}>
@@ -136,14 +145,17 @@ export function NotificationPanel() {
           </p>
           <button onClick={handleRequestPermission} disabled={subscribing}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium active:scale-95 transition-all disabled:opacity-50 ${
-              subscribeError ? "bg-rose-400/20 text-rose-300 hover:bg-rose-400/30" : "bg-amber-400/20 text-amber-300 hover:bg-amber-400/30"
+              subscribeError
+                ? "bg-rose-400/20 text-rose-300 hover:bg-rose-400/30"
+                : "bg-amber-400/20 text-amber-300 hover:bg-amber-400/30"
             }`}>
-            <Bell size={11} /> {subscribing ? "…" : subscribeError ? "Réessayer" : "Activer les notifications"}
+            <Bell size={11} />
+            {subscribing ? "…" : subscribeError ? "Réessayer" : "Activer les notifications"}
           </button>
         </div>
       )}
 
-      {/* Liste — scrollable */}
+      {/* ── Liste ── */}
       <div className="overflow-y-auto flex-1 overscroll-contain">
         {notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 gap-2">
@@ -151,32 +163,30 @@ export function NotificationPanel() {
             <p className="text-[11px] text-violet-500 font-mono">Aucune notification</p>
           </div>
         ) : (
-          notifications.map((n) => (
-            <button
-              key={n.id}
-              onClick={() => handleClickNotif(n)}
-              className={`w-full flex items-start gap-3 px-4 py-3 text-left border-b border-white/5 last:border-0 transition-colors hover:bg-white/5 ${!n.readAt ? "bg-violet-800/20" : ""}`}
-            >
-              {(() => {
-                const Icon = NOTIF_ICONS[n.icon] || Sparkles;
-                return (
-                  <span className="flex-shrink-0 mt-0.5 w-7 h-7 rounded-full bg-amber-400/15 border border-amber-400/30 flex items-center justify-center">
-                    <Icon size={13} className="text-amber-300" />
-                  </span>
-                );
-              })()}
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-violet-100 leading-snug">{n.title}</p>
-                <p className="text-[11px] text-violet-400 leading-snug mt-0.5 line-clamp-2">{n.body}</p>
-                <p className="font-mono text-[10px] text-violet-600 mt-1">{timeAgo(n.createdAt)}</p>
-              </div>
-              {!n.readAt && <span className="w-2 h-2 rounded-full bg-rose-400 flex-shrink-0 mt-1.5" />}
-            </button>
-          ))
+          notifications.map((n) => {
+            const Icon = NOTIF_ICONS[n.icon] || Sparkles;
+            return (
+              <button
+                key={n.id}
+                onClick={() => handleClickNotif(n)}
+                className={`w-full flex items-start gap-3 px-4 py-3 text-left border-b border-white/5 last:border-0 transition-colors hover:bg-white/5 ${!n.readAt ? "bg-violet-800/20" : ""}`}
+              >
+                <span className="flex-shrink-0 mt-0.5 w-7 h-7 rounded-full bg-amber-400/15 border border-amber-400/30 flex items-center justify-center">
+                  <Icon size={13} className="text-amber-300" />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-violet-100 leading-snug">{n.title}</p>
+                  <p className="text-[11px] text-violet-400 leading-snug mt-0.5 line-clamp-2">{n.body}</p>
+                  <p className="font-mono text-[10px] text-violet-600 mt-1">{timeAgo(n.createdAt)}</p>
+                </div>
+                {!n.readAt && <span className="w-2 h-2 rounded-full bg-rose-400 flex-shrink-0 mt-1.5" />}
+              </button>
+            );
+          })
         )}
       </div>
 
-      {/* Footer */}
+      {/* ── Footer ── */}
       {unreadCount > 0 && (
         <div className="px-4 py-2.5 border-t border-white/5 flex-shrink-0">
           <button onClick={markAllRead}
@@ -189,12 +199,14 @@ export function NotificationPanel() {
     document.body
   );
 
+  // ── Bouton cloche ────────────────────────────────────────────────────────
   return (
     <>
       <button
         ref={btnRef}
         onClick={open ? closePanel : openPanel}
         aria-label="Notifications"
+        aria-expanded={open}
         className="relative h-9 w-9 flex items-center justify-center rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
       >
         <Bell size={15} className="text-violet-400" />
