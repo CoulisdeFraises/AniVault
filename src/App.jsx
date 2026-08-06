@@ -12,6 +12,7 @@ import { useAchievements }             from "./hooks/useAchievements";
 import { useNotifications }            from "./hooks/useNotifications";
 import { addNotification }             from "./hooks/useNotificationStore";
 import SplashScreen                    from "./components/SplashScreen/SplashScreen";
+import { NotificationToast}            from "./components/common/NotificationToast";
 
 // ── Code splitting ────────────────────────────────────────────────────────────
 const Home            = lazy(() => import("./pages/Home")           .then(m => ({ default: m.Home })));
@@ -127,6 +128,7 @@ const AppRoutes = () => {
       </Suspense>
 
       <AchievementLayer />
+      <NotificationToast />
       <InstallPrompt />
     </div>
   );

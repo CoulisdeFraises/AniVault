@@ -55,34 +55,41 @@ self.addEventListener("push", (e) => {
   const tag  = data.tag || (data.entryId ? `anivault-${data.entryId}-${data.episode ?? ""}` : "anivault");
 
   e.waitUntil(
-    Promise.all([
-      self.registration.showNotification(data.title || "AniVault", {
-        body:  data.body  || "",
-        icon:  "/logo.png",
-        badge: "/favicon-96x96.png",
-        tag,
-        data:  { entryId: data.entryId ?? null, iconKey: data.icon || "sparkles" },
-      }),
-      // Met à jour le badge de l'application directement depuis le Service Worker (si supporté)
-      (async () => {
-        if ("setAppBadge" in self.navigator) {
-          try {
-            // Optionnel : tu peux incrémenter ou fixer un badge
-            await self.navigator.setAppBadge(1);
-          } catch {}
-        }
-      })(),
-      self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
-        list.forEach((client) => client.postMessage({
-          type: "PUSH_RECEIVED",
-          title: data.title || "AniVault",
-          body: data.body || "",
-          entryId: data.entryId ?? null,
-          episode: data.episode ?? null,
-          icon: data.icon || "sparkles",
-        }));
-      }),
-    ])
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      // Vérifie si au moins un onglet/fenêtre est actuellement ouvert et visible
+      const isAppOpen = list.some((client) => client.visibilityState === "visible");
+
+      const tasks = [];
+
+      // 1. Si l'app est FERMÉE ou en ARRIÈRE-PLAN : on affiche la notif système OS
+      if (!isAppOpen) {
+        tasks.push(
+          self.registration.showNotification(data.title || "AniVault", {
+            body:  data.body  || "",
+            icon:  "/logo.png",
+            badge: "/favicon-96x96.png",
+            tag,
+            data:  { entryId: data.entryId ?? null, iconKey: data.icon || "sparkles" },
+          })
+        );
+      }
+
+      // 2. Dans tous les cas, on prévient les clients ouverts pour mettre à jour le store/panel
+      tasks.push(
+        Promise.all(
+          list.map((client) => client.postMessage({
+            type: "PUSH_RECEIVED",
+            title: data.title || "AniVault",
+            body: data.body || "",
+            entryId: data.entryId ?? null,
+            episode: data.episode ?? null,
+            icon: data.icon || "sparkles",
+          }))
+        )
+      );
+
+      return Promise.all(tasks);
+    })
   );
 });
 
