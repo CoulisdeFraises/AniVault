@@ -101,6 +101,16 @@ export function Recommendations() {
 
   const animeTopGenresEN = useMemo(() => toEnglishGenres(animeTopGenres), [animeTopGenres]);
   const libraryIds       = useMemo(() => new Set(entries.flatMap((e) => e.anilistIds || [])), [entries]);
+  const libraryTmdbIds   = useMemo(() => new Set(entries.map((e) => e.tmdbId).filter(Boolean)), [entries]);
+  const libraryTitles    = useMemo(() => {
+    const set = new Set();
+    entries.forEach((e) => {
+      [e.title, e.titleRomaji, e.titleEnglish, e.titleFrench].forEach((t) => {
+        if (t) set.add(normalizeSeriesTitle(t));
+      });
+    });
+    return set;
+  }, [entries]);
   const animeCacheKey    = useMemo(
     () => `recs_en_${[...animeTopGenresEN].sort().join("_")}`,
     [animeTopGenresEN]
@@ -243,8 +253,17 @@ export function Recommendations() {
     }).slice(0, 20);
   }, [recs]);
 
+  // Vérifie l'appartenance à la bibliothèque quelle que soit la source
+  // (AniList ou TMDB) + filet de sécurité par titre normalisé, pour éviter
+  // les doublons croisés (ex : un titre présent à la fois côté AniList et TMDB).
+  function isInLibrary(rec) {
+    if (libraryIds.has(rec.id)) return true;
+    if ((rec.source === "tmdb_movie" || rec.source === "tmdb_tv") && libraryTmdbIds.has(rec.id)) return true;
+    return libraryTitles.has(normalizeSeriesTitle(rec.title));
+  }
+
   async function handleAdd(rec) {
-    if (libraryIds.has(rec.id)) { setSynopsisRec(null); return; } // garde-fou pour les doublons
+    if (isInLibrary(rec)) { setSynopsisRec(null); return; } // garde-fou pour les doublons
     setAdding(rec.id);
     try {
       const prefilled = await importResult(rec);
@@ -376,7 +395,7 @@ export function Recommendations() {
           onClose={() => setSynopsisRec(null)}
           onAdd={handleAdd}
           adding={adding === synopsisRec.id}
-          alreadyInLib={libraryIds.has(synopsisRec.id)}
+          alreadyInLib={isInLibrary(synopsisRec)}
         />
       )}
 

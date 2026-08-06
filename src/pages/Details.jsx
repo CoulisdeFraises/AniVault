@@ -364,7 +364,7 @@ export function Details() {
   }
 
   async function handleAddRec(rec) {
-    if (libraryAnilistIds.has(rec.id)) return; // garde-fou doublon
+    if (libraryAnilistIds.has(rec.id) || libraryTmdbIds.has(rec.id)) return; // garde-fou doublon
     setAddingId(rec.id);
     try {
       const imported = await importResult(rec);
