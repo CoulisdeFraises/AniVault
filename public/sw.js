@@ -63,10 +63,15 @@ self.addEventListener("push", (e) => {
         tag,
         data:  { entryId: data.entryId ?? null, iconKey: data.icon || "sparkles" },
       }),
-      // Best-effort : si une page est déjà ouverte, on lui transmet la
-      // notification pour qu'elle l'ajoute aussi à la liste in-app.
-      // (Si aucune page n'est ouverte, seule la notification OS s'affiche —
-      // pas de moyen synchrone de mettre à jour le store depuis le SW seul.)
+      // Met à jour le badge de l'application directement depuis le Service Worker (si supporté)
+      (async () => {
+        if ("setAppBadge" in self.navigator) {
+          try {
+            // Optionnel : tu peux incrémenter ou fixer un badge
+            await self.navigator.setAppBadge(1);
+          } catch {}
+        }
+      })(),
       self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
         list.forEach((client) => client.postMessage({
           type: "PUSH_RECEIVED",
