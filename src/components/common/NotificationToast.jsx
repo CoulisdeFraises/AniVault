@@ -78,7 +78,7 @@ export function NotificationToast() {
           to   { transform: scaleX(0); }
         }
         @keyframes slideDown {
-          from { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+          from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
           to   { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
         .animate-slideDown {
