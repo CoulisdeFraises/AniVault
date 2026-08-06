@@ -95,15 +95,24 @@ export async function subscribeToPush(userId) {
 export async function syncSubscription(userId) {
   if (!userId || !isPushSupported()) return;
   if (Notification.permission !== "granted") return;
+  if (localStorage.getItem("pref_notifications") === "false") return;
 
   try {
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
-    if (!subscription) return; // pas de souscription navigateur → rien à sync
+
+    // ── Cas : le navigateur a perdu la souscription (après déploiement,
+    //    update du SW, rotation automatique…).
+    //    Si la pref est active et la permission accordée → on re-souscrit
+    //    silencieusement, sans demander quoi que ce soit à l'utilisateur.
+    if (!subscription) {
+      await subscribeToPush(userId);
+      return;
+    }
 
     const raw = subscription.toJSON();
 
-    // Vérifie si la ligne existe déjà en base avec le bon endpoint
+    // Vérifie si Supabase a déjà la bonne ligne
     const { data } = await supabase
       .from("push_subscriptions")
       .select("endpoint")
@@ -111,9 +120,9 @@ export async function syncSubscription(userId) {
       .eq("endpoint", raw.endpoint)
       .maybeSingle();
 
-    if (data) return; // déjà à jour → on ne touche pas
+    if (data) return; // déjà à jour
 
-    // Pas à jour → on réécrit (supprime tout pour cet user, insère le courant)
+    // Ligne absente ou obsolète → on réécrit
     await supabase.from("push_subscriptions").delete().eq("user_id", userId);
     await supabase.from("push_subscriptions").insert({
       user_id:  userId,
@@ -122,7 +131,7 @@ export async function syncSubscription(userId) {
       auth:     raw.keys.auth,
     });
   } catch {
-    // Sync silencieuse — on n'expose pas l'erreur à l'UI
+    // silencieux
   }
 }
 
