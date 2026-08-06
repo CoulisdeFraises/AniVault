@@ -29,7 +29,7 @@ export function NotificationToast() {
   return (
     <div
       className="
-        fixed top-10 left-1/2 -translate-x-1/2 z-[9998]
+        fixed top-13 left-1/2 -translate-x-1/2 z-[9998]
         max-w-sm w-[92%]
         bg-violet-950/95 border border-violet-500/30
         backdrop-blur-md rounded-2xl
