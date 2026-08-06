@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNotificationStore } from "../../hooks/useNotificationStore"; // Ajuste le chemin si besoin
+import { useNotificationStore } from "../hooks/useNotificationStore";
 import { Bell, X } from "lucide-react";
 
 export function NotificationToast() {
@@ -9,17 +9,18 @@ export function NotificationToast() {
   useEffect(() => {
     if (!notifications.length) return;
     const latest = notifications[0];
-    // On s'assure qu'on ne l'a pas déjà affichée et qu'elle n'est pas lue
+
     if (!latest.readAt) {
       setCurrentToast(latest);
       const timer = setTimeout(() => setCurrentToast(null), 4000);
       return () => clearTimeout(timer);
     }
-  }, [notifications[0]?.id]); // Se déclenche uniquement si l'ID de la dernière notif change
+  }, [notifications[0]?.id]);
+
   if (!currentToast) return null;
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 max-w-sm w-full bg-violet-950/90 border border-violet-500/30 backdrop-blur-md rounded-2xl p-4 shadow-2xl animate-slide-up flex items-start gap-3">
+    <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 max-w-md w-[90%] bg-violet-950/95 border border-violet-500/30 backdrop-blur-md rounded-2xl p-4 shadow-2xl animate-bounce-down flex items-start gap-3">
       <div className="p-2 rounded-xl bg-amber-400/15 text-amber-400 mt-0.5">
         <Bell size={18} />
       </div>
