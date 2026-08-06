@@ -124,6 +124,7 @@ export function Settings() {
         if (subscription) {
           setNotifSubscribed(true);
           setNotifEnabled(true);
+          localStorage.setItem("pref_notifications", "true");
         } else {
           setNotifSubscribed(false);
         }
