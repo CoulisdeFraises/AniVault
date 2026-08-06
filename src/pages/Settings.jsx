@@ -5,6 +5,7 @@ import { useAuth }    from "../context/AuthContext";
 import { useLibrary } from "../context/LibraryContext";
 import { usePrefs }   from "../context/PrefsContext";
 import { BurgerMenu } from "../components/common/BurgerMenu";
+import { useEffect } from "react";
 import { requestNotificationPermission } from "../hooks/useNotifications";
 import { subscribeToPush, unsubscribeFromPush } from "../utils/push";
 
@@ -108,6 +109,32 @@ export function Settings() {
   const [notifSubscribed, setNotifSubscribed] = useState(null); // null = pas encore vérifié
   const [notifError,      setNotifError]      = useState(null);
   const [notifBusy,       setNotifBusy]       = useState(false);
+
+  
+  // ── Vérification automatique de l'abonnement au chargement ───────────────────
+  useEffect(() => {
+    async function checkExistingSubscription() {
+      if (!isPushSupported() || Notification.permission !== "granted") {
+        setNotifSubscribed(false);
+        return;
+      }
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription) {
+          setNotifSubscribed(true);
+          setNotifEnabled(true);
+        } else {
+          setNotifSubscribed(false);
+        }
+      } catch (err) {
+        console.error("Erreur lors de la vérification de l'abonnement push :", err);
+        setNotifSubscribed(false);
+      }
+    }
+
+    checkExistingSubscription();
+  }, []);
 
   async function handleRequestNotif() {
     setNotifBusy(true);
