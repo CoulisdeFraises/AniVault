@@ -70,8 +70,9 @@ const SORT_OPTIONS = [
 ];
 
 function sortEntries(entries, sortBy) {
-  if (sortBy === "date") return entries;
   return [...entries].sort((a, b) => {
+    if (sortBy === "date")
+      return (b.updatedAt || 0) - (a.updatedAt || 0);
     if (sortBy === "title")
       return a.title.localeCompare(b.title, "fr", { sensitivity: "base" });
     if (sortBy === "rating")

@@ -22,6 +22,13 @@ function sanitizeEntry(e) {
     rating:       typeof e.rating === "number" ? Math.min(10, Math.max(0, e.rating)) : 0,
     genres:       Array.isArray(e.genres) ? e.genres.filter(g => typeof g === "string") : [],
     watchHistory: Array.isArray(e.watchHistory) ? e.watchHistory : [],
+    // Entrées existantes sans updatedAt : on estime à partir du dernier épisode
+    // pointé comme vu dans l'historique, sinon 0 (ira en bas du tri "Récents").
+    updatedAt:    typeof e.updatedAt === "number"
+      ? e.updatedAt
+      : (Array.isArray(e.watchHistory) && e.watchHistory.length
+          ? Math.max(...e.watchHistory.map(h => h.watchedAt || 0))
+          : 0),
     seasons: Array.isArray(e.seasons) && e.seasons.length > 0
       ? e.seasons.map(s => ({
           ...s,
@@ -123,6 +130,7 @@ export function LibraryProvider({ children }) {
       rating: Math.min(10, Math.max(0, Number(form.rating) || 0)),
       id: editingId || Date.now().toString(),
       watchHistory: editingId ? (entriesRef.current.find((e) => e.id === editingId)?.watchHistory || []) : [],
+      updatedAt: Date.now(),
     };
     persist(editingId
       ? entriesRef.current.map((e) => e.id === editingId ? cleaned : e)
@@ -143,17 +151,17 @@ export function LibraryProvider({ children }) {
       });
       const history = [...(e.watchHistory || []),
         { seasonIndex, episode: seasons[seasonIndex].watchedEpisodes, watchedAt: now }];
-      return { ...e, seasons, status: auto ? autoStatus(e, seasons) : e.status, watchHistory: history };
+      return { ...e, seasons, status: auto ? autoStatus(e, seasons) : e.status, watchHistory: history, updatedAt: now };
     }));
   }, [user]);
 
   const decrementEpisode = useCallback((id, seasonIndex) => {
-    const auto = shouldAutoStatus();
+    const now = Date.now(); const auto = shouldAutoStatus();
     persist(entriesRef.current.map((e) => {
       if (e.id !== id) return e;
       const seasons = e.seasons.map((s, i) =>
         i !== seasonIndex ? s : { ...s, watchedEpisodes: Math.max(0, s.watchedEpisodes - 1) });
-      return { ...e, seasons, status: auto ? autoStatus(e, seasons) : e.status };
+      return { ...e, seasons, status: auto ? autoStatus(e, seasons) : e.status, updatedAt: now };
     }));
   }, [user]);
 
@@ -175,21 +183,22 @@ export function LibraryProvider({ children }) {
         : [];
       return { ...e, seasons,
         status: auto ? autoStatus(e, seasons) : e.status,
-        watchHistory: [...(e.watchHistory || []), ...hist] };
+        watchHistory: [...(e.watchHistory || []), ...hist],
+        updatedAt: now };
     }));
   }, [user]);
 
   const markDone = useCallback((id) =>
-    persist(entriesRef.current.map((e) => e.id === id ? { ...e, status: "termine" } : e)), [user]);
+    persist(entriesRef.current.map((e) => e.id === id ? { ...e, status: "termine", updatedAt: Date.now() } : e)), [user]);
 
   const updateRating = useCallback((id, rating) =>
-    persist(entriesRef.current.map((e) => e.id === id ? { ...e, rating } : e)), [user]);
+    persist(entriesRef.current.map((e) => e.id === id ? { ...e, rating, updatedAt: Date.now() } : e)), [user]);
 
   const updateSeasonTotal = useCallback((id, seasonIndex, totalEpisodes) => {
     persist(entriesRef.current.map((e) => {
       if (e.id !== id) return e;
       const seasons = e.seasons.map((s, i) => i === seasonIndex ? { ...s, totalEpisodes } : s);
-      return { ...e, seasons, status: autoStatus(e, seasons) };
+      return { ...e, seasons, status: autoStatus(e, seasons), updatedAt: Date.now() };
     }));
   }, [user]);
 
@@ -201,7 +210,7 @@ export function LibraryProvider({ children }) {
         watchedEpisodes: 0, coverImage: seasonData.coverImage ?? null };
       const newIds = seasonData.anilistId
         ? [...(e.anilistIds || []), seasonData.anilistId] : (e.anilistIds || []);
-      return { ...e, seasons: [...e.seasons, newSeason], anilistIds: newIds };
+      return { ...e, seasons: [...e.seasons, newSeason], anilistIds: newIds, updatedAt: Date.now() };
     }));
   }, [user]);
 
@@ -209,7 +218,7 @@ export function LibraryProvider({ children }) {
     persist(entriesRef.current.map((e) => {
       if (e.id !== id || e.seasons.length <= 1) return e;
       const seasons = e.seasons.filter((_, i) => i !== seasonIndex).map((s, i) => ({ ...s, number: i + 1 }));
-      return { ...e, seasons, status: autoStatus(e, seasons) };
+      return { ...e, seasons, status: autoStatus(e, seasons), updatedAt: Date.now() };
     }));
   }, [user]);
 
