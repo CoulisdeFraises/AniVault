@@ -125,6 +125,12 @@ export function Settings() {
           setNotifSubscribed(true);
           setNotifEnabled(true);
           localStorage.setItem("pref_notifications", "true");
+
+          // ← AJOUT : re-synchronise avec Supabase si la ligne a disparu
+          // (sans demander de permission à l'utilisateur)
+          if (user?.id) {
+            subscribeToPush(user.id).catch(() => {});
+          }
         } else {
           setNotifSubscribed(false);
         }

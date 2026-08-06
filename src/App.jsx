@@ -13,6 +13,7 @@ import { useNotifications }            from "./hooks/useNotifications";
 import { addNotification }             from "./hooks/useNotificationStore";
 import SplashScreen                    from "./components/SplashScreen/SplashScreen";
 import { NotificationToast}            from "./components/common/NotificationToast";
+import { syncSubscription }            from "./utils/push";
 
 // ── Code splitting ────────────────────────────────────────────────────────────
 const Home            = lazy(() => import("./pages/Home")           .then(m => ({ default: m.Home })));
@@ -60,8 +61,19 @@ function AchievementLayer() {
 
 function NotificationLayer() {
   const { entries } = useLibrary();
+  const { user }    = useAuth();          // ← ajouter
   useNotifications(entries);
 
+  // ── Auto-sync souscription push au démarrage ──────────────────────────
+  // Garantit que Supabase a toujours la souscription courante, même si
+  // l'utilisateur n'a jamais ouvert Settings depuis son dernier login.
+  useEffect(() => {
+    if (!user?.id) return;
+    if (localStorage.getItem("pref_notifications") === "false") return;
+    syncSubscription(user.id);            // silencieux, ne demande pas de permission
+  }, [user?.id]);
+
+  // ── Listener SW (push reçu quand l'app est ouverte) ──────────────────
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
     function handleMessage(event) {
