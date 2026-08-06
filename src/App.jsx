@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Loader2 }             from "lucide-react";
 import { AuthProvider, useAuth }       from "./context/AuthContext";
@@ -13,7 +13,7 @@ import { useNotifications }            from "./hooks/useNotifications";
 import { addNotification }             from "./hooks/useNotificationStore";
 import SplashScreen                    from "./components/SplashScreen/SplashScreen";
 import { NotificationToast}            from "./components/common/NotificationToast";
-import { syncSubscription }            from "./utils/push";
+import { syncSubscription, syncMissedNotifications } from "./utils/push";
 
 // ── Code splitting ────────────────────────────────────────────────────────────
 const Home            = lazy(() => import("./pages/Home")           .then(m => ({ default: m.Home })));
@@ -62,6 +62,7 @@ function AchievementLayer() {
 function NotificationLayer() {
   const { entries } = useLibrary();
   const { user }    = useAuth();          // ← ajouter
+  const syncedRef   = useRef(false);      // évite de re-fetch à chaque changement d'entries
   useNotifications(entries);
 
   // ── Auto-sync souscription push au démarrage ──────────────────────────
@@ -72,6 +73,17 @@ function NotificationLayer() {
     if (localStorage.getItem("pref_notifications") === "false") return;
     syncSubscription(user.id);            // silencieux, ne demande pas de permission
   }, [user?.id]);
+
+  // ── Rattrapage des notifs envoyées pendant que l'app était fermée ─────
+  // On attend que `entries` soit chargé (pour reconstruire les titres),
+  // puis on ne fetch qu'une fois par session.
+  useEffect(() => {
+    if (!user?.id) return;
+    if (localStorage.getItem("pref_notifications") === "false") return;
+    if (syncedRef.current || !entries?.length) return;
+    syncedRef.current = true;
+    syncMissedNotifications(user.id, entries);
+  }, [user?.id, entries]);
 
   // ── Listener SW (push reçu quand l'app est ouverte) ──────────────────
   useEffect(() => {

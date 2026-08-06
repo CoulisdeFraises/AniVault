@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { requestNotificationPermission } from "../hooks/useNotifications";
+import { addNotification } from "../hooks/useNotificationStore";
 
 const VAPID_PUBLIC_KEY = "BCLIfy6xHabWEamC07LKr_JUqxOTkLQ5H4zRoCNbFZppNdMUvri2g25nwuiDg2RP5-UfeoxrJg2QCz3NEuKQ3jE";
 
@@ -133,6 +134,69 @@ export async function syncSubscription(userId) {
   } catch {
     // silencieux
   }
+}
+
+// ── Rattrapage des notifications manquées (app fermée au moment du push) ────
+//
+// La fonction Edge notify-episodes insère une ligne dans `sent_notifications`
+// (user_id, entry_key, episode, sent_at) AVANT d'envoyer le push. Cette table
+// ne contient pas de titre/body : on les reconstruit ici à partir de `entries`
+// (bibliothèque locale), en reproduisant la construction de `entry_key` faite
+// côté edge function (`${source}_${id}`).
+const LAST_SYNC_KEY = "anivault:notif-last-sync";
+
+function buildEntryKey(entry) {
+  if (entry.source === "anilist" && entry.anilistIds?.length) {
+    return `anilist_${entry.anilistIds[entry.anilistIds.length - 1]}`;
+  }
+  if (entry.source === "tvmaze" && entry.tvmazeId) {
+    return `tvmaze_${entry.tvmazeId}`;
+  }
+  return null;
+}
+
+/**
+ * syncMissedNotifications — va chercher dans `sent_notifications` tout ce
+ * qui a été envoyé depuis le dernier passage, et réinjecte ça dans le store
+ * local (NotificationPanel) via addNotification. Le dedupeKey utilisé ici
+ * (`${entry.id}-ep${episode}`) est identique à celui utilisé pour les push
+ * reçus app ouverte (App.jsx), donc pas de doublon si les deux mécanismes
+ * se chevauchent.
+ */
+export async function syncMissedNotifications(userId, entries = []) {
+  if (!userId) return;
+
+  const since = localStorage.getItem(LAST_SYNC_KEY) || new Date(0).toISOString();
+  const nowIso = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("sent_notifications")
+    .select("entry_key, episode, sent_at")
+    .eq("user_id", userId)
+    .gt("sent_at", since)
+    .order("sent_at", { ascending: true });
+
+  if (error) {
+    console.error("Échec de la récupération des notifications manquées :", error);
+    return;
+  }
+
+  data?.forEach((row) => {
+    const entry = entries.find((e) => buildEntryKey(e) === row.entry_key);
+    const body  = entry
+      ? `${entry.title} — Épisode ${row.episode} disponible !`
+      : `Épisode ${row.episode} disponible !`;
+
+    addNotification({
+      title: "Prépare toi !",
+      body,
+      entryId: entry?.id ?? null,
+      icon: "sparkles",
+      dedupeKey: entry ? `${entry.id}-ep${row.episode}` : `${row.entry_key}-ep${row.episode}`,
+    });
+  });
+
+  localStorage.setItem(LAST_SYNC_KEY, nowIso);
 }
 
 /** Désabonne l'appareil courant du push. */
