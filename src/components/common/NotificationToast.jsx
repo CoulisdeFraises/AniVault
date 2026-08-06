@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNotificationStore } from "../hooks/useNotificationStore"; // Ajuste le chemin si besoin
+import { useNotificationStore } from "../../hooks/useNotificationStore"; // Ajuste le chemin si besoin
 import { Bell, X } from "lucide-react";
 
 export function NotificationToast() {
