@@ -10,17 +10,7 @@ let _state     = (() => {
 })();
 
 function _save()   { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_state)); } catch {} }
-function _notify() { _listeners.forEach((fn) => fn([..._state]));
-  // ── Mise à jour de la pastille (Badge) sur l'icône de l'app ──
- if ("setAppBadge" in navigator) {
-   const unread = _state.filter((n) => !n.readAt).length;
-   if (unread > 0) {
-     navigator.setAppBadge(unread).catch(() => {});
-   } else {
-     navigator.clearAppBadge?.().catch(() => {});
-   }
- }
-}
+function _notify() { _listeners.forEach((fn) => fn([..._state]));}
 
 /**
  * Ajoute une notification (appelable depuis n'importe quel module/hook).
