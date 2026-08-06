@@ -133,15 +133,13 @@ export function Header({
       </div>
 
       {/* Filtre type */}
-      <div className="flex justify-center mb-5">
-        <div className="inline-flex rounded-full bg-white/5 border border-white/10 p-0.5">
-          {[{ key: "all", label: "Tout", icon: null }, { key: "anime", label: "Animes", icon: <Film size={12} /> }, { key: "serie", label: "Séries", icon: <Tv size={12} /> }, { key: "film",  label: "Films",   icon: <Clapperboard size={12} /> }].map(({ key, label, icon }) => (
-            <button key={key} onClick={() => onTypeFilterChange(key)}
-              className={`flex items-center gap-1.5 px-6 py-1.5 rounded-full text-xs font-medium transition-all duration-200 active:scale-95 motion-reduce:transition-none ${typeFilter === key ? "bg-amber-400 text-violet-950 font-semibold shadow-sm" : "text-violet-300 hover:text-violet-100"}`}>
-              {icon}{label}
-            </button>
-          ))}
-        </div>
+      <div className="flex rounded-2xl bg-white/5 border border-white/10 p-0.5 mb-5">
+        {[{ key: "all", label: "Tout", icon: null }, { key: "anime", label: "Animes", icon: <Film size={12} /> }, { key: "serie", label: "Séries", icon: <Tv size={12} /> }, { key: "film",  label: "Films",   icon: <Clapperboard size={12} /> }].map(({ key, label, icon }) => (
+          <button key={key} onClick={() => onTypeFilterChange(key)}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 active:scale-95 motion-reduce:transition-none ${typeFilter === key ? "bg-amber-400 text-violet-950 font-semibold shadow-sm" : "text-violet-300 hover:text-violet-100"}`}>
+            {icon}{label}
+          </button>
+        ))}
       </div>
     </>
   );
