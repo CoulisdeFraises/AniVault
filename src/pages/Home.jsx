@@ -12,9 +12,10 @@ import { useLists, HIDDEN_LIST_ID } from "../context/ListsContext";
 import { useSync }          from "../hooks/useSync";
 import {
   Film, Tv, ListPlus, X, Heart, Eye, EyeOff,
-  ChevronDown, CalendarDays,
+  ChevronDown, SlidersHorizontal,
 } from "lucide-react";
 import { ContinueWatching } from "../components/common/ContinueWatching";
+import { FilterPanel }      from "../components/common/FilterPanel";
 import { fetchWeeklySchedule } from "../api/anilist";
 import { getCached, setCached, getStaleCached, TTL } from "../lib/cache";
 import { haptics } from "../utils/haptics";
@@ -63,10 +64,12 @@ function AddChoiceModal({ onAddTitle, onCreateList, onClose }) {
 
 // ── Options de tri ────────────────────────────────────────────────────────────
 const SORT_OPTIONS = [
-  { key: "date",     label: "Récents"           },
-  { key: "title",    label: "A → Z"             },
-  { key: "rating",   label: "Notes"  },
-  { key: "progress", label: "Progression"       },
+  { key: "date",        label: "Récents"    },
+  { key: "title",       label: "A → Z"      },
+  { key: "title-desc",  label: "Z → A"      },
+  { key: "rating",      label: "Notes +"    },
+  { key: "rating-asc",  label: "Notes -"    },
+  { key: "progress",    label: "Progression" },
 ];
 
 function sortEntries(entries, sortBy) {
@@ -75,8 +78,12 @@ function sortEntries(entries, sortBy) {
       return (b.updatedAt || 0) - (a.updatedAt || 0);
     if (sortBy === "title")
       return a.title.localeCompare(b.title, "fr", { sensitivity: "base" });
+    if (sortBy === "title-desc")
+      return b.title.localeCompare(a.title, "fr", { sensitivity: "base" });
     if (sortBy === "rating")
       return (b.rating || 0) - (a.rating || 0);
+    if (sortBy === "rating-asc")
+      return (a.rating || 0) - (b.rating || 0);
     if (sortBy === "progress") {
       const pct = (e) => {
         const tot = e.seasons.reduce((s, se) => s + (se.totalEpisodes || 0), 0);
@@ -118,6 +125,7 @@ export function Home() {
   const [cachetteRevealed,  setCachetteRevealed]  = useState(false);
   const [cachetteSortBy,    setCachetteSortBy]    = useState("date");
   const [mainListCollapsed, setMainListCollapsed] = useState(false);
+  const [showFilterPanel,   setShowFilterPanel]   = useState(false);
 
   useEffect(() => {
     const p = {};
@@ -244,6 +252,7 @@ export function Home() {
 
   const isSearchActive = searchQuery.trim().length > 0;
   const gridKey = `${typeFilter}-${selectedStatuses.join(",")}-${searchQuery}-${showFavoritesOnly}-${showCalendarOnly}-${sortBy}`;
+  const activeFilterCount = selectedStatuses.length + (showCalendarOnly ? 1 : 0) + (sortBy !== "date" ? 1 : 0);
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50 flex flex-col"
@@ -257,14 +266,14 @@ export function Home() {
       <PullToRefresh onRefresh={() => syncAll(true)}>
         <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-8">
           <Header
-            typeFilter={typeFilter} selectedStatuses={selectedStatuses} searchQuery={searchQuery}
-            onTypeFilterChange={setTypeFilter} onToggleStatus={toggleStatus}
-            onClearFilters={() => setSelectedStatuses([])} onSearchChange={setSearchQuery}
+            typeFilter={typeFilter} searchQuery={searchQuery}
+            onTypeFilterChange={setTypeFilter}
+            onSearchChange={setSearchQuery}
             onAddClick={() => setShowAddChoice(true)} syncing={syncing}
             syncProgress={progress} onSyncClick={() => syncAll(true)}
           />
 
-          {/* ── Barre de contrôles : Favoris + Calendrier + Tri ── */}
+          {/* ── Barre de contrôles : Favoris + Filtres ── */}
           <div className="flex flex-wrap items-center gap-2 mt-3 mb-4">
             {/* Favoris */}
             <button
@@ -278,40 +287,22 @@ export function Home() {
               Favoris
             </button>
 
-            {/* Dans le calendrier */}
+            {/* Filtres (statut + semaine + tri) regroupés ── */}
             <button
-              onClick={() => { haptics.tap(); setShowCalendarOnly(v => !v); }}
-              disabled={airingIds.size === 0}
+              onClick={() => { haptics.tap(); setShowFilterPanel(true); }}
               className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-mono border flex-shrink-0
-                transition-all active:scale-95 motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed ${showCalendarOnly
-                  ? "bg-teal-500/20 border-teal-500/40 text-teal-300"
-                  : "bg-white/5 border-white/10 text-violet-400 hover:bg-teal-500/10 hover:border-teal-500/30 hover:text-teal-400"}`}
+                transition-all active:scale-95 motion-reduce:transition-none ${activeFilterCount > 0
+                  ? "bg-violet-600/30 border-violet-500/50 text-violet-200"
+                  : "bg-white/5 border-white/10 text-violet-400 hover:bg-white/10 hover:text-violet-100"}`}
             >
-              <CalendarDays size={12} className="flex-shrink-0" />
-              Semaine
+              <SlidersHorizontal size={12} className="flex-shrink-0" />
+              Filtres
+              {activeFilterCount > 0 && (
+                <span className="flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-amber-400 text-violet-950 text-[10px] font-bold">
+                  {activeFilterCount}
+                </span>
+              )}
             </button>
-
-            {/* Tri — liste déroulante */}
-            <div size = {12} className="relative flex-shrink-0">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="appearance-none flex items-center gap-1.5 h-8 pl-3 pr-7 rounded-full
-                  text-xs font-mono border border-white/10 bg-white/5 text-violet-400
-                  hover:bg-white/10 hover:text-violet-100
-                  focus:outline-none focus:border-violet-500/50
-                  transition-all active:scale-95 motion-reduce:transition-none cursor-pointer max-w-[130px]"
-              >
-                {SORT_OPTIONS.map(opt => (
-                  <option key={opt.key} value={opt.key}
-                    className="bg-violet-900 text-violet-100">
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              {/* Icône chevron */}
-              <ChevronDown size={11} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-violet-500" />
-            </div>
           </div>
 
           {saveError && (
@@ -381,6 +372,16 @@ export function Home() {
                     </p>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                       {filteredSerie.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />)}
+                    </div>
+                  </section>
+                )}
+                {filteredFilm.length > 0 && (
+                  <section>
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
+                      Films · {filteredFilm.length}
+                    </p>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      {filteredFilm.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />)}
                     </div>
                   </section>
                 )}
@@ -458,6 +459,16 @@ export function Home() {
       {showAddChoice && (
         <AddChoiceModal onAddTitle={openNewForm} onCreateList={handleCreateList}
           onClose={() => setShowAddChoice(false)} />
+      )}
+      {showFilterPanel && (
+        <FilterPanel
+          selectedStatuses={selectedStatuses} onToggleStatus={toggleStatus}
+          onClearStatuses={() => setSelectedStatuses([])}
+          showCalendarOnly={showCalendarOnly} onToggleCalendar={() => setShowCalendarOnly(v => !v)}
+          calendarDisabled={airingIds.size === 0}
+          sortBy={sortBy} onSortChange={setSortBy}
+          onClose={() => setShowFilterPanel(false)}
+        />
       )}
       {showForm && (
         <TitleFormModal editingEntry={editingEntry}

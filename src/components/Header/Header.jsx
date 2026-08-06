@@ -1,6 +1,5 @@
 import { useMemo, useRef, useEffect, useState } from "react";
 import { Plus, Film, Tv, Clapperboard, RefreshCw, X, Search } from "lucide-react";
-import { STATUS, STATUS_ORDER } from "../../utils/status";
 import { useLibrary }           from "../../context/LibraryContext";
 import { useCountUp }           from "../../hooks/useCountUp";
 import { BurgerMenu }           from "../common/BurgerMenu";
@@ -8,24 +7,9 @@ import { NotificationPanel }    from "../common/NotificationPanel";  // ← AJOU
 import { calcWatchTime }        from "../../utils/watchTime";
 import { useNavigate } from "react-router-dom";
 
-function FilterChip({ active, onClick, children, colorClass }) {
-  return (
-    <button onClick={onClick}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all active:scale-95 motion-reduce:transition-none whitespace-nowrap ${active ? colorClass || "bg-violet-600 border-violet-500 text-white" : "bg-white/5 border-white/10 text-violet-300 hover:bg-white/10 hover:text-violet-100 hover:scale-[1.03]"}`}>
-      {children}
-    </button>
-  );
-}
-const STATUS_CHIP_COLOR = {
-  "en-cours":  "bg-amber-400/90 border-amber-400 text-violet-950",
-  "termine":   "bg-teal-400/90 border-teal-400 text-violet-950",
-  "a-voir":    "bg-sky-400/90 border-sky-400 text-violet-950",
-  "abandonne": "bg-rose-400/90 border-rose-400 text-violet-950",
-};
-
 export function Header({
-  typeFilter, selectedStatuses = [], searchQuery = "",
-  onTypeFilterChange, onToggleStatus, onClearFilters,
+  typeFilter, searchQuery = "",
+  onTypeFilterChange,
   onSearchChange, onAddClick,
   syncing = false, syncProgress = { current: 0, total: 0 }, onSyncClick,
 }) {
@@ -59,7 +43,6 @@ export function Header({
   const animTotal    = useCountUp(entries.length);
   const animEnCours  = useCountUp(byType.filter(e => e.status === "en-cours").length);
   const animWatched  = useCountUp(totalWatched);
-  const hasFilters   = selectedStatuses.length > 0;
   const isSearch     = searchQuery.trim().length > 0;
 
   return (
@@ -149,14 +132,6 @@ export function Header({
         </div>
       </div>
 
-      {/* Bouton ajouter */}
-      <button
-        onClick={() => navigate("/search")}
-        className="w-full flex items-center justify-center gap-2 mb-4 py-2.5 rounded-xl border border-dashed border-amber-400/30 text-amber-400/70 hover:bg-amber-400/8 hover:border-amber-400/60 hover:text-amber-400 transition-all text-sm font-medium active:scale-[0.99] motion-reduce:transition-none"
-      >
-        <Search size={15} /> Rechercher un titre à ajouter
-      </button>
-
       {/* Filtre type */}
       <div className="flex justify-center mb-5">
         <div className="inline-flex rounded-full bg-white/5 border border-white/10 p-0.5">
@@ -165,27 +140,6 @@ export function Header({
               className={`flex items-center gap-1.5 px-6 py-1.5 rounded-full text-xs font-medium transition-all duration-200 active:scale-95 motion-reduce:transition-none ${typeFilter === key ? "bg-amber-400 text-violet-950 font-semibold shadow-sm" : "text-violet-300 hover:text-violet-100"}`}>
               {icon}{label}
             </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Filtres statut */}
-      <div className="rounded-2xl bg-violet-900/20 border border-white/5 p-4 mb-5">
-        <div className="flex items-center justify-between mb-3">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500">Statut</p>
-          {hasFilters && (
-            <button onClick={onClearFilters}
-              className="flex items-center gap-1 text-[10px] font-mono text-violet-400 hover:text-violet-200 transition-colors motion-reduce:transition-none">
-              <X size={10} /> Réinitialiser
-            </button>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {STATUS_ORDER.map(k => (
-            <FilterChip key={k} active={selectedStatuses.includes(k)} onClick={() => onToggleStatus(k)} colorClass={STATUS_CHIP_COLOR[k]}>
-              <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${STATUS[k].dot}`} />
-              {STATUS[k].label}
-            </FilterChip>
           ))}
         </div>
       </div>
