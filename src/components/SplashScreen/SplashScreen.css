@@ -6,6 +6,8 @@
 .splash-screen {
   position: fixed;
   inset: 0;
+  height: 100vh;   /* fallback pour anciens navigateurs */
+  height: 100dvh;  /* recalculée avec la barre d'outils iOS / mode standalone */
   display: flex;
   flex-direction: column;
   align-items: center;
