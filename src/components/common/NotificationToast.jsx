@@ -29,13 +29,15 @@ export function NotificationToast() {
   return (
     <div
       className="
-        fixed top-5 left-1/2 -translate-x-1/2 z-[9998]
+        fixed top-10 left-1/2 -translate-x-1/2 z-[9998]
         max-w-sm w-[92%]
         bg-violet-950/95 border border-violet-500/30
         backdrop-blur-md rounded-2xl
         px-4 py-3 shadow-2xl
         flex items-start gap-3
         animate-slideDown
+        relative
+        overflow-hidden
       "
       role="alert"
       aria-live="polite"
@@ -65,7 +67,7 @@ export function NotificationToast() {
       </button>
 
       {/* Barre de progression */}
-      <div className="absolute bottom-0 left-0 right-0 h-[2px] rounded-b-2xl overflow-hidden">
+      <div className="absolute bottom-0 left-0 right-0 h-[2px]">
         <div
           className="h-full bg-gradient-to-r from-violet-500 to-amber-400 origin-left"
           style={{ animation: "toast-progress 4.5s linear forwards" }}
@@ -78,7 +80,7 @@ export function NotificationToast() {
           to   { transform: scaleX(0); }
         }
         @keyframes slideDown {
-          from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+          from { opacity: 0; transform: translateX(-50%) translateY(-12px); }
           to   { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
         .animate-slideDown {
