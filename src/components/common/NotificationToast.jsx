@@ -29,7 +29,7 @@ export function NotificationToast() {
   return (
     <div
       className="
-        fixed top-13 left-1/2 -translate-x-1/2 z-[9998]
+        fixed top-18 left-1/2 -translate-x-1/2 z-[9998]
         max-w-sm w-[92%]
         bg-violet-950/95 border border-violet-500/30
         backdrop-blur-md rounded-2xl
@@ -65,7 +65,7 @@ export function NotificationToast() {
       </button>
 
       {/* Barre de progression */}
-      <div className="absolute bottom-0 left-0 right-0 h-[2px] rounded-b-2xl overflow-hidden">
+      <div className="absolute bottom-0 left-0 right-0 h-[2px] rounded-b-2xl">
         <div
           className="h-full bg-gradient-to-r from-violet-500 to-amber-400 origin-left"
           style={{ animation: "toast-progress 4.5s linear forwards" }}
