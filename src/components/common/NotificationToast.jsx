@@ -6,20 +6,16 @@ export function NotificationToast() {
   const { notifications } = useNotificationStore();
   const [currentToast, setCurrentToast] = useState(null);
 
-  // Surveille l'ajout de la toute dernière notification reçue
   useEffect(() => {
     if (!notifications.length) return;
     const latest = notifications[0];
-
-    // Si la notification est très récente (moins de 3 secondes) et non lue, on affiche le toast
-    const isRecent = Date.now() - latest.createdAt < 3000;
-    if (isRecent && !latest.readAt) {
+    // On s'assure qu'on ne l'a pas déjà affichée et qu'elle n'est pas lue
+    if (!latest.readAt) {
       setCurrentToast(latest);
-      const timer = setTimeout(() => setCurrentToast(null), 4000); // Disparaît après 4s
+      const timer = setTimeout(() => setCurrentToast(null), 4000);
       return () => clearTimeout(timer);
     }
-  }, [notifications]);
-
+  }, [notifications[0]?.id]); // Se déclenche uniquement si l'ID de la dernière notif change
   if (!currentToast) return null;
 
   return (
