@@ -5,7 +5,7 @@ import {
   ArrowLeft, ArrowRight, RefreshCw, Loader2,
   ChevronLeft, ChevronRight, X, Plus, Check,
 } from "lucide-react";
-import { fetchWeeklySchedule, hasFrenchVersion, isReturningSeries } from "../api/anilist";
+import { fetchWeeklySchedule, isReturningSeries } from "../api/anilist";
 import { hasTMDB, searchTMDBShow, fetchTMDBEpisodeFR } from "../api/tmdb";
 import { useLibrary }  from "../context/LibraryContext";
 import { importResult } from "../api";
@@ -63,7 +63,6 @@ function EpisodeDetailModal({ schedule, initialFrTitle, onClose }) {
   const rawTitle        = schedule.media.title.english || schedule.media.title.romaji;
   const displayTitle    = frTitle    || rawTitle;
   const displaySynopsis = frSynopsis || stripHtml(schedule.media.description) || null;
-  const isFr            = hasFrenchVersion(schedule.media);
   const airingDate      = new Date(schedule.airingAt * 1000);
   const cover           = schedule.media.coverImage?.large || schedule.media.coverImage?.medium;
 
@@ -124,7 +123,6 @@ function EpisodeDetailModal({ schedule, initialFrTitle, onClose }) {
               <span className="font-mono text-[11px] text-amber-400 font-semibold">Épisode {schedule.episode}</span>
               {!loading && episodeName && <span className="font-mono text-[11px] text-violet-300 truncate max-w-[160px]">— {episodeName}</span>}
               {loading && <span className="h-2 w-24 rounded bg-white/10 animate-pulse" />}
-              {isFr && <span className="font-mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/20">VF dispo</span>}
             </div>
           </div>
           {loading ? (
@@ -151,7 +149,7 @@ function EpisodeDetailModal({ schedule, initialFrTitle, onClose }) {
 
 // ── Carte épisode ─────────────────────────────────────────────────────────────
 // Restructurée en <div> pour accueillir le bouton Ajouter sans imbriquer des <button>
-function EpisodeCard({ schedule, showVfBadge, onClick, frTitle, isFrench, isLoadingTitle, isInLibrary, onAdd, isAdding }) {
+function EpisodeCard({ schedule, onClick, frTitle, isLoadingTitle, isInLibrary, onAdd, isAdding }) {
   const time  = new Date(schedule.airingAt * 1000);
   const title = frTitle || schedule.media.title.english || schedule.media.title.romaji;
 
@@ -177,9 +175,6 @@ function EpisodeCard({ schedule, showVfBadge, onClick, frTitle, isFrench, isLoad
           <p className="font-mono text-[10px] text-violet-500">
             {time.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
           </p>
-          {showVfBadge && isFrench && (
-            <span className="inline-block mt-1 font-mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/20">VF</span>
-          )}
         </div>
       </button>
 
@@ -245,7 +240,6 @@ export function Calendar() {
   const [selectedSchedule, setSelectedSchedule]  = useState(null);
   const [tmdbTitles,       setTmdbTitles]        = useState({});
   const [contentFilter,    setContentFilter]     = useState("all");
-  const [langFilter,       setLangFilter]        = useState("all");
   const [gridKey,          setGridKey]           = useState(0);
   const [slideDir,         setSlideDir]          = useState("none");
   const [dayOffset,        setDayOffset]         = useState(() =>
@@ -305,10 +299,11 @@ export function Calendar() {
   useEffect(() => { load(weekOffset); }, [weekOffset]);
 
   // ── Pre-fetch TMDB (titres FR uniquement) ──────────────────────────────────
-  // NB : on n'utilise plus les watch/providers TMDB pour deviner la VF — cet
-  // endpoint indique juste que le titre est diffusable en France (souvent en
-  // VOSTFR seulement), pas qu'un doublage français existe. Seul le champ
-  // `language` des externalLinks AniList (cf. hasFrenchVersion) fait foi.
+  // NB : la détection "VF disponible" a été retirée — aucune source de données
+  // gratuite/fiable ne permet de distinguer VF et VOSTFR (ni AniList, ni les
+  // watch/providers TMDB, qui n'indiquent que la dispo régionale, pas la
+  // langue du doublage). Ce fetch ne sert donc plus qu'à récupérer les titres
+  // français des séries pour l'affichage.
   useEffect(() => {
     if (!hasTMDB() || schedules.length === 0) { setTmdbTitles({}); return; }
     let cancelled = false;
@@ -423,11 +418,6 @@ export function Calendar() {
     return `${fmt(weekMonday)} – ${fmt(end)}`;
   }, [weekMonday]);
 
-  const isAvailableInFR = useCallback(
-    (media) => hasFrenchVersion(media),
-    []
-  );
-
   const byDay = useMemo(() => {
     if (!weekMonday) return [];
     return Array.from({ length: 7 }, (_, i) => {
@@ -437,7 +427,6 @@ export function Calendar() {
       const dayEnd   = dayStart + 86400;
       const entries  = schedules.filter((s) => {
         if (s.airingAt < dayStart || s.airingAt >= dayEnd) return false;
-        if (langFilter    === "vf"        && !isAvailableInFR(s.media)) return false;
         if (contentFilter === "mylibrary") return libraryAnilistIds.has(String(s.media.id));
         if (contentFilter === "new")       return !isReturningSeries(s.media);
         if (contentFilter === "returning") return  isReturningSeries(s.media);
@@ -445,7 +434,7 @@ export function Calendar() {
       });
       return { date: day, entries };
     });
-  }, [schedules, weekMonday, langFilter, contentFilter, libraryAnilistIds, isAvailableInFR]);
+  }, [schedules, weekMonday, contentFilter, libraryAnilistIds]);
 
   const visibleDays   = byDay.slice(dayOffset, dayOffset + VISIBLE_DAYS);
   const canPrevDay    = dayOffset > 0;
@@ -511,18 +500,10 @@ export function Calendar() {
               <span className="sm:hidden">Reprises</span>
               <span className="hidden sm:inline">Séries qui reprennent</span>
             </FilterBtn>
-            <span className="w-px h-4 bg-white/20 flex-shrink-0" aria-hidden />
-            <FilterBtn active={langFilter === "all"} onClick={() => setLangFilter("all")}>VO</FilterBtn>
-            <FilterBtn active={langFilter === "vf"}  onClick={() => setLangFilter("vf")}>VF</FilterBtn>
           </div>
 
           {error && (
             <div className="mb-5 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">{error}</div>
-          )}
-          {langFilter === "vf" && !loading && (
-            <p className="text-[11px] text-violet-500 font-mono mb-4">
-              ℹ Les horaires sont ceux de la diffusion VO.
-            </p>
           )}
 
           {loading ? (
@@ -626,10 +607,8 @@ export function Calendar() {
                             <EpisodeCard
                               key={s.id}
                               schedule={s}
-                              showVfBadge={langFilter === "all"}
                               onClick={() => setSelectedSchedule(s)}
                               frTitle={tmdbTitles[s.media.id] ?? null}
-                              isFrench={isAvailableInFR(s.media)}
                               isLoadingTitle={hasTMDB() && !tmdbTitles[s.media.id]}
                               isInLibrary={libraryAnilistIds.has(String(s.media.id))}
                               onAdd={() => handleAddToLibrary(s)}

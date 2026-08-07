@@ -331,16 +331,13 @@ export async function fetchNextAiringAniList(anilistId) {
   } catch { return null; }
 }
 
-// AniList expose un champ `language` par lien externe qui indique la langue
-// réellement proposée par ce lien (ex: "French" quand le doublage FR existe).
-// On se fie UNIQUEMENT à ce champ : la simple présence d'un lien vers une
-// plateforme française (ADN, Wakanim…) ne prouve pas qu'un doublage VF
-// existe — ces plateformes diffusent énormément de titres en VOSTFR
-// uniquement (simulcasts), d'où les faux positifs "VF" observés.
-export function hasFrenchVersion(media) {
-  return (media.externalLinks||[]).some((l) =>
-    l.language === "French" || l.language === "fr");
-}
+// NB : la détection "VF disponible" (ex hasFrenchVersion) a été retirée.
+// Testé sur des titres réels (ex: Magilumiere), le champ `language` des
+// externalLinks AniList n'indique PAS la langue du doublage — il est souvent
+// vide/null même pour un lien de streaming réel, et vaut la langue du SITE
+// (pas du contenu) pour les liens sociaux/info. Aucune source gratuite et
+// fiable n'existe pour distinguer VF et VOSTFR ; mieux vaut ne rien afficher
+// que d'afficher une info fausse.
 
 export async function fetchWeeklySchedule(o = 0, { force = false } = {}) {
   const qs = new URLSearchParams({ mode: "schedule", offset: String(o) });
