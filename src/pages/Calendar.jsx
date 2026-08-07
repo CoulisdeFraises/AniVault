@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronRight, X, Plus, Check,
 } from "lucide-react";
 import { fetchWeeklySchedule, hasFrenchVersion, isReturningSeries } from "../api/anilist";
-import { hasTMDB, searchTMDBShow, fetchTMDBEpisodeFR, fetchTMDBWatchProvidersFR } from "../api/tmdb";
+import { hasTMDB, searchTMDBShow, fetchTMDBEpisodeFR } from "../api/tmdb";
 import { useLibrary }  from "../context/LibraryContext";
 import { importResult } from "../api";
 import { BurgerMenu }    from "../components/common/BurgerMenu";
@@ -54,7 +54,7 @@ function stripHtml(html) {
 }
 
 // ── Modal détail épisode ──────────────────────────────────────────────────────
-function EpisodeDetailModal({ schedule, initialFrTitle, hasFrFromTmdb, onClose }) {
+function EpisodeDetailModal({ schedule, initialFrTitle, onClose }) {
   const [loading,     setLoading]     = useState(true);
   const [frTitle,     setFrTitle]     = useState(initialFrTitle ?? null);
   const [frSynopsis,  setFrSynopsis]  = useState(null);
@@ -63,7 +63,7 @@ function EpisodeDetailModal({ schedule, initialFrTitle, hasFrFromTmdb, onClose }
   const rawTitle        = schedule.media.title.english || schedule.media.title.romaji;
   const displayTitle    = frTitle    || rawTitle;
   const displaySynopsis = frSynopsis || stripHtml(schedule.media.description) || null;
-  const isFr            = hasFrFromTmdb || hasFrenchVersion(schedule.media);
+  const isFr            = hasFrenchVersion(schedule.media);
   const airingDate      = new Date(schedule.airingAt * 1000);
   const cover           = schedule.media.coverImage?.large || schedule.media.coverImage?.medium;
 
@@ -244,7 +244,6 @@ export function Calendar() {
   const [weekOffset,       setWeekOffset]        = useState(0);
   const [selectedSchedule, setSelectedSchedule]  = useState(null);
   const [tmdbTitles,       setTmdbTitles]        = useState({});
-  const [tmdbFrAvailable,  setTmdbFrAvailable]   = useState({});
   const [contentFilter,    setContentFilter]     = useState("all");
   const [langFilter,       setLangFilter]        = useState("all");
   const [gridKey,          setGridKey]           = useState(0);
@@ -305,9 +304,13 @@ export function Calendar() {
 
   useEffect(() => { load(weekOffset); }, [weekOffset]);
 
-  // ── Pre-fetch TMDB (titres FR + dispo) ────────────────────────────────────
+  // ── Pre-fetch TMDB (titres FR uniquement) ──────────────────────────────────
+  // NB : on n'utilise plus les watch/providers TMDB pour deviner la VF — cet
+  // endpoint indique juste que le titre est diffusable en France (souvent en
+  // VOSTFR seulement), pas qu'un doublage français existe. Seul le champ
+  // `language` des externalLinks AniList (cf. hasFrenchVersion) fait foi.
   useEffect(() => {
-    if (!hasTMDB() || schedules.length === 0) { setTmdbTitles({}); setTmdbFrAvailable({}); return; }
+    if (!hasTMDB() || schedules.length === 0) { setTmdbTitles({}); return; }
     let cancelled = false;
     const uniqueMedia = [...new Map(schedules.map((s) => [s.media.id, s.media])).values()];
 
@@ -317,25 +320,21 @@ export function Calendar() {
         const chunk = uniqueMedia.slice(i, i + TMDB_CHUNK);
         const results = await Promise.allSettled(
           chunk.map(async (media) => {
-            const tmdb  = await searchTMDBShow(media.title.english || media.title.romaji);
-            const hasFR = tmdb?.id ? await fetchTMDBWatchProvidersFR(tmdb.id).catch(() => false) : false;
-            return { id: media.id, name: tmdb?.name ?? null, hasFR };
+            const tmdb = await searchTMDBShow(media.title.english || media.title.romaji);
+            return { id: media.id, name: tmdb?.name ?? null };
           })
         );
         if (cancelled) return;
-        const pt = {}, pf = {};
+        const pt = {};
         results.forEach((r) => {
           if (r.status !== "fulfilled") return;
-          if (r.value.name)  pt[r.value.id] = r.value.name;
-          if (r.value.hasFR) pf[r.value.id] = true;
+          if (r.value.name) pt[r.value.id] = r.value.name;
         });
         if (Object.keys(pt).length) setTmdbTitles((p) => ({ ...p, ...pt }));
-        if (Object.keys(pf).length) setTmdbFrAvailable((p) => ({ ...p, ...pf }));
       }
     }
 
     setTmdbTitles({});
-    setTmdbFrAvailable({});
     fetchTmdbData();
     return () => { cancelled = true; };
   }, [schedules]);
@@ -425,8 +424,8 @@ export function Calendar() {
   }, [weekMonday]);
 
   const isAvailableInFR = useCallback(
-    (media) => tmdbFrAvailable[media.id] || hasFrenchVersion(media),
-    [tmdbFrAvailable]
+    (media) => hasFrenchVersion(media),
+    []
   );
 
   const byDay = useMemo(() => {
@@ -654,7 +653,6 @@ export function Calendar() {
         <EpisodeDetailModal
           schedule={selectedSchedule}
           initialFrTitle={tmdbTitles[selectedSchedule.media.id] ?? null}
-          hasFrFromTmdb={!!tmdbFrAvailable[selectedSchedule.media.id]}
           onClose={() => setSelectedSchedule(null)}
         />
       )}

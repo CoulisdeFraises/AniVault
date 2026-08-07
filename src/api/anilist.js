@@ -331,13 +331,15 @@ export async function fetchNextAiringAniList(anilistId) {
   } catch { return null; }
 }
 
-const FR_SITES = new Set(["ADN","Wakanim","Anime Digital Network"]);
-const FR_URLS  = ["animedigitalnetwork.fr","wakanim.tv/fr","adn."];
-
+// AniList expose un champ `language` par lien externe qui indique la langue
+// réellement proposée par ce lien (ex: "French" quand le doublage FR existe).
+// On se fie UNIQUEMENT à ce champ : la simple présence d'un lien vers une
+// plateforme française (ADN, Wakanim…) ne prouve pas qu'un doublage VF
+// existe — ces plateformes diffusent énormément de titres en VOSTFR
+// uniquement (simulcasts), d'où les faux positifs "VF" observés.
 export function hasFrenchVersion(media) {
   return (media.externalLinks||[]).some((l) =>
-    FR_SITES.has(l.site) || (l.language==="French"||l.language==="fr") ||
-    (l.url && FR_URLS.some((p)=>l.url.includes(p))));
+    l.language === "French" || l.language === "fr");
 }
 
 export async function fetchWeeklySchedule(o = 0, { force = false } = {}) {
