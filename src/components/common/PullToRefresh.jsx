@@ -3,6 +3,29 @@ import { RefreshCw } from "lucide-react";
 
 const THRESHOLD = 80; // pixels à tirer avant de déclencher
 
+// Remonte l'arbre DOM depuis la cible du toucher pour trouver le conteneur
+// réellement scrollable sous le doigt (ex : la liste d'épisodes d'un jour
+// dans le Calendrier, qui scrolle indépendamment de la fenêtre). Sans ça,
+// PullToRefresh ne regarde que window.scrollY, qui reste à 0 dans les pages
+// où le scroll se fait dans un conteneur interne — il s'arme alors à tort
+// et bloque le scroll de ce conteneur (cf. bug calendrier).
+function findScrollableAncestor(node) {
+  while (node && node !== document.body && node !== document.documentElement) {
+    if (node.nodeType === 1) {
+      const style = window.getComputedStyle(node);
+      const canScrollY = /(auto|scroll)/.test(style.overflowY);
+      if (canScrollY && node.scrollHeight > node.clientHeight + 1) return node;
+    }
+    node = node.parentNode;
+  }
+  return null; // aucun conteneur interne : c'est bien la fenêtre qui scrolle
+}
+
+function getRelevantScrollTop(scrollEl) {
+  if (scrollEl) return scrollEl.scrollTop;
+  return window.scrollY || document.documentElement.scrollTop || 0;
+}
+
 /**
  * Pull-to-refresh corrigé pour PWA mobile.
  *
@@ -21,9 +44,10 @@ export function PullToRefresh({ onRefresh, children }) {
   // phase : "idle" | "pulling" | "ready" | "refreshing"
 
   // Refs mutables — accessibles dans les handlers sans stale closure
-  const startYRef   = useRef(null);
-  const phaseRef    = useRef("idle");
-  const onRefreshRef = useRef(onRefresh);
+  const startYRef      = useRef(null);
+  const phaseRef       = useRef("idle");
+  const onRefreshRef   = useRef(onRefresh);
+  const scrollElRef    = useRef(null); // conteneur scrollable sous le doigt, s'il y en a un
 
   // Garder onRefreshRef à jour sans re-enregistrer les listeners
   useEffect(() => { onRefreshRef.current = onRefresh; }, [onRefresh]);
@@ -38,8 +62,12 @@ export function PullToRefresh({ onRefresh, children }) {
       // body via overflow:hidden à l'ouverture — on réutilise ce signal
       // plutôt que de coordonner un état séparé entre composants).
       if (document.body.style.overflow === "hidden") return;
-      // N'activer que si on est en haut de la page
-      const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+      // Cherche si le doigt est posé sur un conteneur avec son propre scroll
+      // (ex : liste du jour dans le Calendrier) plutôt que sur la fenêtre.
+      const scrollEl = findScrollableAncestor(e.target);
+      scrollElRef.current = scrollEl;
+      // N'activer que si ce conteneur (ou la fenêtre, à défaut) est en haut
+      const scrollTop = getRelevantScrollTop(scrollEl);
       if (scrollTop > 4) return;
       startYRef.current = e.touches[0].clientY;
     }
