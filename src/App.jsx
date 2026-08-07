@@ -8,6 +8,7 @@ import { ListsProvider }               from "./context/ListsContext";
 import { ErrorBoundary }               from "./components/common/ErrorBoundary";
 import { InstallPrompt }               from "./components/common/InstallPrompt";
 import { AchievementToast }            from "./components/common/AchievementToast";
+import { BottomNav }                   from "./components/common/BottomNav";
 import { useAchievements }             from "./hooks/useAchievements";
 import { useNotifications }            from "./hooks/useNotifications";
 import { addNotification }             from "./hooks/useNotificationStore";
@@ -150,6 +151,8 @@ const AppRoutes = () => {
           </Routes>
         )}
       </Suspense>
+
+      {user && <BottomNav />}
 
       <AchievementLayer />
       <NotificationToast />
