@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
 import { seasonTotals, autoStatus } from "../utils/status";
+import { normalizeSeriesTitle } from "../utils/titles";
 
 const LibraryContext = createContext(null);
 const SAVE_DEBOUNCE_MS  = 800;
@@ -110,8 +111,19 @@ export function LibraryProvider({ children }) {
     saveTimer.current = setTimeout(() => saveToSupabase(entriesRef.current), SAVE_DEBOUNCE_MS);
   }
 
-  const findDuplicate = useCallback((title, editingId) =>
-    entriesRef.current.find((e) => e.id !== editingId && e.title.toLowerCase().trim() === title.toLowerCase().trim()) ?? null, []);
+  // Compare en titre "normalisé" (sans suffixe de saison/partie : "Blue Box"
+  // et "Blue Box Season 2" sont donc bien reconnus comme le même titre) et
+  // non plus en égalité stricte, sinon une saison ultérieure d'une œuvre
+  // déjà en bibliothèque passe à travers le garde-fou et crée un doublon.
+  const findDuplicate = useCallback((title, editingId) => {
+    const key = normalizeSeriesTitle(title);
+    if (!key) return null;
+    return entriesRef.current.find((e) => {
+      if (e.id === editingId) return false;
+      const candidates = [e.title, e.titleFrench, e.titleRomaji, e.titleEnglish].filter(Boolean);
+      return candidates.some((t) => normalizeSeriesTitle(t) === key);
+    }) ?? null;
+  }, []);
 
   const saveEntry = useCallback((form, editingId) => {
     const forceAll = !editingId && form.status === "termine";

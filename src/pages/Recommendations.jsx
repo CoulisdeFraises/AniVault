@@ -18,17 +18,7 @@ import { importResult }        from "../api";
 import { getCached, getStaleCached, setCached, removeCached, TTL } from "../lib/cache";
 import { toEnglishGenres }     from "../utils/genres";
 import { haptics } from "../utils/haptics";
-
-// ── Normalisation titre pour dédoublonnage ────────────────────────────────────
-function normalizeSeriesTitle(title) {
-  return (title || "")
-    .replace(/\s*:?\s*(season|saison|part|cour)\s*\d+/gi, "")
-    .replace(/\s+\d+(st|nd|rd|th)\s+season/gi, "")
-    .replace(/\s+s\d+$/i, "")
-    .replace(/\s+\d+$/, "")
-    .trim()
-    .toLowerCase();
-}
+import { normalizeSeriesTitle } from "../utils/titles";
 
 // ── Carte de recommandation ───────────────────────────────────────────────────
 function RecCard({ rec, onClick }) {

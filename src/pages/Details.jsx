@@ -17,15 +17,7 @@ import { getFormatGroup } from "../utils/format";
 import { Confetti }           from "../components/common/Confetti";
 import { CelebrationBanner }  from "../components/common/CelebrationBanner";
 import { haptics } from "../utils/haptics";
-
-function normalizeSeriesTitle(title) {
-  return (title || "")
-    .replace(/\s*:?\s*(season|saison|part|cour)\s*\d+/gi, "")
-    .replace(/\s+\d+(st|nd|rd|th)\s+season/gi, "")
-    .replace(/\s+s\d+$/i, "")
-    .replace(/\s+\d+$/, "")
-    .trim().toLowerCase();
-}
+import { normalizeSeriesTitle } from "../utils/titles";
 
 function EpisodeSlider({ watched, total, entryId, globalIndex, setEpisodeCount }) {
   const pct = total > 0 ? (watched / total) * 100 : 0;
@@ -314,6 +306,24 @@ export function Details() {
     () => new Set(entries.map((e) => e.tmdbId).filter(Boolean).map(Number)),
     [entries]
   );
+  // Filet de sécurité par titre : les IDs seuls ne suffisent pas (une œuvre
+  // peut avoir été ajoutée via une autre source, ou son ID de saison peut
+  // différer de celui renvoyé par les recommandations). On recoupe donc
+  // aussi sur le titre normalisé, comme sur la page Recommandations.
+  const libraryTitles = useMemo(
+    () => new Set(
+      entries.flatMap((e) => [e.title, e.titleFrench, e.titleRomaji, e.titleEnglish])
+        .filter(Boolean)
+        .map(normalizeSeriesTitle)
+    ),
+    [entries]
+  );
+  function isRecAlreadyInLibrary(rec) {
+    const recId = Number(rec.id);
+    return libraryAnilistIds.has(recId)
+      || libraryTmdbIds.has(recId)
+      || libraryTitles.has(normalizeSeriesTitle(rec.title));
+  }
 
   const dedupedRecs = useMemo(() => {
     const seen = new Set();
@@ -376,8 +386,7 @@ export function Details() {
   }
 
   async function handleAddRec(rec) {
-    const recId = Number(rec.id);
-    if (libraryAnilistIds.has(recId) || libraryTmdbIds.has(recId)) return; // garde-fou doublon
+    if (isRecAlreadyInLibrary(rec)) return; // garde-fou doublon (ID ou titre)
     setAddingId(rec.id);
     setAddError(null);
     try {
@@ -798,7 +807,7 @@ export function Details() {
                     {dedupedRecs.map(rec => (
                       <RecCard key={`${rec.source}-${rec.id}`} rec={rec} onAdd={handleAddRec}
                         adding={addingId === rec.id}
-                        alreadyInLib={libraryAnilistIds.has(Number(rec.id)) || libraryTmdbIds.has(Number(rec.id))}
+                        alreadyInLib={isRecAlreadyInLibrary(rec)}
                         onClick={() => setSynopsisRec(rec)} />
                     ))}
                   </div>}
@@ -815,7 +824,7 @@ export function Details() {
       {synopsisRec && (
         <SynopsisModal rec={synopsisRec} onClose={() => setSynopsisRec(null)}
           onAdd={handleAddRec} adding={addingId === synopsisRec.id}
-          alreadyInLib={libraryAnilistIds.has(Number(synopsisRec.id)) || libraryTmdbIds.has(Number(synopsisRec.id))} />
+          alreadyInLib={isRecAlreadyInLibrary(synopsisRec)} />
       )}
       {addToListOpen && <AddToListModal entry={entry} onClose={() => setAddToListOpen(false)} />}
       {editing && <TitleFormModal editingEntry={entry} onClose={() => setEditing(false)} />}
