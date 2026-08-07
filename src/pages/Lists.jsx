@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Plus, Trash2, Pencil, X, Check, ListPlus, Eye, EyeOff } from "lucide-react";
 import { useLists, HIDDEN_LIST_ID } from "../context/ListsContext";
+import { useLibrary } from "../context/LibraryContext";
 import { BurgerMenu } from "../components/common/BurgerMenu";
+import { LibraryEntryModal } from "../components/common/LibraryEntryModal";
 
 function EntryCard({ item, onRemove, blurred = false, onClick }) {
   return (
@@ -32,11 +34,11 @@ function EntryCard({ item, onRemove, blurred = false, onClick }) {
 }
 
 function ListCard({ list, onDelete, onRename, onRemoveEntry }) {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const { entries: libraryEntries } = useLibrary();
   const [expanded, setExpanded] = useState(false);
   const [editing,  setEditing]  = useState(false);
   const [name,     setName]     = useState(list.name);
+  const [selected, setSelected] = useState(null); // ← item de liste cliqué
 
   function handleRename() {
     if (name.trim() && name.trim() !== list.name) onRename(list.id, name.trim());
@@ -115,22 +117,31 @@ function ListCard({ list, onDelete, onRename, onRemoveEntry }) {
                   key={item.entryId}
                   item={item}
                   onRemove={id => onRemoveEntry(list.id, id)}
-                  onClick={() => navigate(`/details/${item.entryId}`, { state: { backgroundLocation: location } })}
+                  onClick={() => setSelected(item)}
                 />
               ))}
             </div>
           )}
         </div>
       )}
+
+      {selected && (
+        <LibraryEntryModal
+          item={selected}
+          entry={libraryEntries.find(e => e.id === selected.entryId) || null}
+          onClose={() => setSelected(null)}
+          onRemove={() => { onRemoveEntry(list.id, selected.entryId); setSelected(null); }}
+        />
+      )}
     </div>
   );
 }
 
 function HiddenListCard({ list, onRemoveEntry }) {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const { entries: libraryEntries } = useLibrary();
   const [expanded, setExpanded] = useState(false);
   const [revealed, setRevealed] = useState(false);
+  const [selected, setSelected] = useState(null); // ← item de liste cliqué
 
   const entries = list.entries || []; // ← Guard
 
@@ -174,12 +185,21 @@ function HiddenListCard({ list, onRemoveEntry }) {
                   item={item}
                   onRemove={id => onRemoveEntry(list.id, id)}
                   blurred={!revealed}
-                  onClick={() => navigate(`/details/${item.entryId}`, { state: { backgroundLocation: location } })}
+                  onClick={() => setSelected(item)}
                 />
               ))}
             </div>
           )}
         </div>
+      )}
+
+      {selected && (
+        <LibraryEntryModal
+          item={selected}
+          entry={libraryEntries.find(e => e.id === selected.entryId) || null}
+          onClose={() => setSelected(null)}
+          onRemove={() => { onRemoveEntry(list.id, selected.entryId); setSelected(null); }}
+        />
       )}
     </div>
   );

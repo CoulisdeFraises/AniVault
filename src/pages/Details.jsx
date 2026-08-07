@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { X, Pencil, Star, Loader2, RefreshCw, Film, Tv, Disc2,
          CheckCheck, ChevronRight, Check, Heart, ListPlus, AlertTriangle, WifiOff } from "lucide-react";
 import { EpisodeList }             from "../components/EpisodeList/EpisodeList";
@@ -88,10 +88,21 @@ function RecCard({ rec, onAdd, adding, alreadyInLib, onClick }) {
 export function Details() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { entries, saveEntry, updateRating, setEpisodeCount, updateSeasonTotal,
           incrementEpisode, decrementEpisode, markDone } = useLibrary();
   const { isInFavorites, toggleFavorite } = useLists();
   const entry = entries.find((e) => e.id === id);
+
+  // ── Fermeture ─────────────────────────────────────────────────────────
+  // Details s'ouvre en overlay par-dessus la page d'origine (via
+  // state.backgroundLocation, cf. App.jsx). À la fermeture, on doit donc
+  // revenir à cette page (Listes, Historique, Accueil…) plutôt que de
+  // forcer systématiquement un retour à l'accueil.
+  function closeDetails() {
+    if (location.state?.backgroundLocation) navigate(-1);
+    else navigate("/");
+  }
 
   const tvSeasons    = useMemo(() => (entry?.seasons || []).map((s, i) => ({ ...s, globalIndex: i })).filter(s => getFormatGroup(s.format) === "tv"),    [entry?.seasons]);
   const extraSeasons = useMemo(() => (entry?.seasons || []).map((s, i) => ({ ...s, globalIndex: i })).filter(s => getFormatGroup(s.format) === "extra"),  [entry?.seasons]);
@@ -275,7 +286,7 @@ export function Details() {
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm text-violet-50 flex items-center justify-center p-4 z-50">
       <div className="text-center">
         <p className="text-violet-300 mb-4">Ce titre n'existe plus.</p>
-        <button onClick={() => navigate("/")} className="text-amber-300 hover:text-amber-200 text-sm font-medium">
+        <button onClick={closeDetails} className="text-amber-300 hover:text-amber-200 text-sm font-medium">
           Retour à l'accueil
         </button>
       </div>
@@ -383,7 +394,7 @@ export function Details() {
 
   function handleOuterClick() {
     if (synopsisRec) { setSynopsisRec(null); return; }
-    navigate("/");
+    closeDetails();
   }
 
   function handleDragTouchStart(e) {
@@ -392,7 +403,7 @@ export function Details() {
   function handleDragTouchEnd(e) {
     if (touchStartY === null) return;
     const delta = e.changedTouches[0].clientY - touchStartY;
-    if (delta > 80) navigate("/");
+    if (delta > 80) closeDetails();
     setTouchStartY(null);
   }
 
@@ -486,7 +497,7 @@ export function Details() {
                   className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-violet-50">
                   <Pencil size={14} />
                 </button>
-                <button onClick={() => navigate("/")}
+                <button onClick={closeDetails}
                   className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10">
                   <X size={14} />
                 </button>
