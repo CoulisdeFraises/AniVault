@@ -3,6 +3,17 @@ import './SplashScreen.css';
 
 const LETTERS = ['A', 'N', 'I', 'V', 'A', 'U', 'L', 'T'];
 
+// Particules qui jaillissent du logo une fois le chargement terminé
+const BURST_COLORS = ['#fbbf24', '#a78bfa', '#fde68a', '#c4b5fd'];
+const BURST_COUNT  = 18;
+const BURST_PARTICLES = [...Array(BURST_COUNT)].map((_, i) => ({
+  angle: (360 / BURST_COUNT) * i,
+  dist:  86 + (i % 4) * 16,
+  size:  3 + (i % 3),
+  delay: (i % 6) * 0.025,
+  color: BURST_COLORS[i % BURST_COLORS.length],
+}));
+
 /**
  * SplashScreen — écran d'accueil premium.
  *
@@ -13,6 +24,7 @@ const LETTERS = ['A', 'N', 'I', 'V', 'A', 'U', 'L', 'T'];
  */
 const SplashScreen = ({ onFinish, isLoading = false }) => {
   const [progress,      setProgress]      = useState(0);
+  const [bursting,      setBursting]      = useState(false);
   const [exiting,       setExiting]       = useState(false);
 
   const exitTriggered = useRef(false);
@@ -22,12 +34,17 @@ const SplashScreen = ({ onFinish, isLoading = false }) => {
   // Sync ref pour l'accès depuis le RAF
   useEffect(() => { isLoadingRef.current = isLoading; }, [isLoading]);
 
-  // Tente la sortie si l'anim est finie ET le chargement terminé
+  // Tente la sortie si l'anim est finie ET le chargement terminé.
+  // Les particules jaillissent d'abord du logo, puis l'animation
+  // de sortie (→ entrée dans l'appli) se déclenche.
   const tryExit = () => {
     if (exitTriggered.current || isLoadingRef.current || !animDone.current) return;
     exitTriggered.current = true;
-    setExiting(true);
-    setTimeout(onFinish, 700);
+    setBursting(true);
+    setTimeout(() => {
+      setExiting(true);
+      setTimeout(onFinish, 700);
+    }, 550);
   };
 
   // Barre de progression + déclenchement de la sortie
@@ -79,12 +96,32 @@ const SplashScreen = ({ onFinish, isLoading = false }) => {
       {/* ── Contenu central ── */}
       <div className="splash-content">
 
-        {/* Logo + anneaux orbitaux */}
+        {/* Logo */}
         <div className="splash-logo-wrap">
-          <div className="splash-ring ring-outer" />
-          <div className="splash-ring ring-inner" />
           <div className="splash-logo-glow" />
-          <img src="/logo.png" alt="AniVault" className="splash-logo" />
+          <img
+            src="/logo.png"
+            alt="AniVault"
+            className={`splash-logo${bursting ? ' logo-burst' : ''}`}
+          />
+          {/* Particules qui jaillissent du logo une fois le chargement terminé */}
+          <div className={`splash-burst${bursting ? ' burst-active' : ''}`} aria-hidden="true">
+            {BURST_PARTICLES.map((p, i) => (
+              <span
+                key={i}
+                className="burst-particle"
+                style={{
+                  '--angle': `${p.angle}deg`,
+                  '--dist':  `${p.dist}px`,
+                  '--bd':    `${p.delay}s`,
+                  width:  `${p.size}px`,
+                  height: `${p.size}px`,
+                  background: p.color,
+                  boxShadow: `0 0 6px 1px ${p.color}`,
+                }}
+              />
+            ))}
+          </div>
         </div>
 
         {/* Titre lettre par lettre */}
