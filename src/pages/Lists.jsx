@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Plus, Trash2, Pencil, X, Check, ListPlus, Eye, EyeOff } from "lucide-react";
 import { useLists, HIDDEN_LIST_ID } from "../context/ListsContext";
 import { useLibrary } from "../context/LibraryContext";
-import { BurgerMenu } from "../components/common/BurgerMenu";
+import { TopBar } from "../components/common/TopBar";
 import { LibraryEntryModal } from "../components/common/LibraryEntryModal";
 
 function EntryCard({ item, onRemove, blurred = false, onClick }) {
@@ -230,7 +230,7 @@ export function Lists() {
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter',sans-serif" }}>
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 pb-8 pt-safe-8 space-y-6">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 pb-nav pt-safe-8 space-y-6">
 
         <div className="flex items-start justify-between">
           <div>
@@ -242,7 +242,7 @@ export function Lists() {
               <ListPlus size={26} className="text-violet-400" /> Mes Listes
             </h1>
           </div>
-          <BurgerMenu />
+          <TopBar />
         </div>
 
         {favorites && (

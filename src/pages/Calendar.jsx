@@ -9,7 +9,7 @@ import { fetchWeeklySchedule, isReturningSeries } from "../api/anilist";
 import { hasTMDB, searchTMDBShow, fetchTMDBEpisodeFR } from "../api/tmdb";
 import { useLibrary }  from "../context/LibraryContext";
 import { importResult } from "../api";
-import { BurgerMenu }    from "../components/common/BurgerMenu";
+import { TopBar }    from "../components/common/TopBar";
 import { Modal }         from "../components/Modal/Modal";
 import { PullToRefresh } from "../components/common/PullToRefresh";
 import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
@@ -447,7 +447,7 @@ export function Calendar() {
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
 
       <PullToRefresh onRefresh={() => load(weekOffset, true)}>
-        <div className="max-w-5xl mx-auto px-3 sm:px-6 pb-6 sm:pb-8 pt-safe-6">
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 pb-nav pt-safe-6">
 
           {/* ── En-tête ── */}
           <div className="flex items-start justify-between gap-3 mb-5">
@@ -460,7 +460,7 @@ export function Calendar() {
             </div>
 
             <div className="flex flex-col items-end gap-2">
-              <BurgerMenu />
+              <TopBar />
               <div className="flex items-center gap-1.5">
                 <button onClick={prevWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none" aria-label="Semaine précédente">
                   <ArrowLeft size={14} className="text-violet-400" />

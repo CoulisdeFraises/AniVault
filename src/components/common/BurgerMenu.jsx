@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Menu, Home, User, Calendar, Settings, LogOut, Clock, Sparkles, Users, ListPlus, Database } from "lucide-react";
+import { Menu, Settings, LogOut, Clock, Database } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { ExportImportModal } from "./ExportImportModal";
 import { Avatar } from "./Avatar";
@@ -71,13 +71,8 @@ export function BurgerMenu() {
 
       <nav className="py-1">
         {[
-          { path: "/profile",         icon: <User      size={15} />, label: "Mon profil"      },
-          { path: "/lists",           icon: <ListPlus  size={15} />, label: "Mes Listes"      },
-          { path: "/calendar",        icon: <Calendar  size={15} />, label: "Calendrier"      },
-          { path: "/history",         icon: <Clock     size={15} />, label: "Historique"      },
-          { path: "/recommendations", icon: <Sparkles  size={15} />, label: "Recommandations" },
-          { path: "/community",       icon: <Users     size={15} />, label: "Communauté"      },
-          { path: "/settings",        icon: <Settings  size={15} />, label: "Paramètres"      },
+          { path: "/settings", icon: <Settings size={15} />, label: "Paramètres" },
+          { path: "/history",  icon: <Clock    size={15} />, label: "Historique" },
         ].map(({ path, icon, label }) => (
           <button key={path} onClick={() => go(path)}
             className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors motion-reduce:transition-none ${
@@ -123,16 +118,6 @@ export function BurgerMenu() {
   return (
     <>
       <div className="flex items-center rounded-xl bg-violet-900/40 border border-white/10 overflow-hidden flex-shrink-0">
-        {location.pathname !== "/" && (
-          <button
-            onClick={() => navigate("/")}
-            aria-label="Retour à l'accueil"
-            title="Accueil"
-            className="h-9 w-9 flex items-center justify-center border-r border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
-          >
-            <Home size={16} className="text-violet-400" />
-          </button>
-        )}
         <button
           ref={buttonRef}
           onClick={menuOpen ? closeMenu : openMenu}

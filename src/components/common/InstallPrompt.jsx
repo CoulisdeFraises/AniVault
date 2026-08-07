@@ -42,7 +42,7 @@ export function InstallPrompt() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-4 sm:left-auto sm:w-80 z-50
+    <div className="fixed bottom-24 sm:bottom-4 inset-x-4 sm:inset-x-auto sm:right-4 sm:left-auto sm:w-80 z-50
       bg-violet-900 border border-white/10 rounded-2xl p-4 shadow-2xl shadow-violet-950/80
       animate-fadeInUp">
       <button onClick={handleDismiss} aria-label="Fermer"

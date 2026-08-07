@@ -264,7 +264,7 @@ export function Home() {
        * pour fonctionner correctement en mode PWA standalone sur Android/iOS.
        */}
       <PullToRefresh onRefresh={() => syncAll(true)}>
-        <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-8">
+        <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 pt-8 pb-nav">
           <Header
             typeFilter={typeFilter} searchQuery={searchQuery}
             onTypeFilterChange={setTypeFilter}

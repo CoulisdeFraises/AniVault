@@ -49,7 +49,7 @@ export function AchievementToast({ achievement, onDone }) {
   return (
     <div
       className={`
-        fixed bottom-6 left-1/2 -translate-x-1/2 z-[200]
+        fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 z-[200]
         transition-all duration-500 ease-in-out
         motion-reduce:transition-none
         ${visible ? "translate-y-0 opacity-100" : "translate-y-32 opacity-0"}

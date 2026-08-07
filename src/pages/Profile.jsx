@@ -7,7 +7,7 @@ import {
 import { supabase }        from "../lib/supabase";
 import { useAuth }         from "../context/AuthContext";
 import { useLibrary }      from "../context/LibraryContext";
-import { BurgerMenu }      from "../components/common/BurgerMenu";
+import { TopBar }      from "../components/common/TopBar";
 import { Avatar }          from "../components/common/Avatar";
 import { Modal }           from "../components/Modal/Modal";
 import { useAchievements } from "../hooks/useAchievements";
@@ -447,7 +447,7 @@ export function Profile() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-10 pt-safe-10 space-y-6" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-nav pt-safe-10 space-y-6" style={{ fontFamily: "'Inter', sans-serif" }}>
 
       {/* En-tête */}
       <div className="flex items-start justify-between animate-fadeInUp">
@@ -461,7 +461,7 @@ export function Profile() {
             Mon profil
           </h1>
         </div>
-        <BurgerMenu />
+        <TopBar />
       </div>
 
       {/* Identité */}

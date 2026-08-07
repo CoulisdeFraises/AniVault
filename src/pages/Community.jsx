@@ -6,7 +6,7 @@ import {
   ChevronDown, Heart,
 } from "lucide-react";
 import { useAuth }    from "../context/AuthContext";
-import { BurgerMenu } from "../components/common/BurgerMenu";
+import { TopBar } from "../components/common/TopBar";
 import { Modal }      from "../components/Modal/Modal";
 import { Avatar }     from "../components/common/Avatar";
 import {
@@ -264,7 +264,7 @@ export function Community() {
         → évite que le contenu soit masqué par le Dynamic Island / notch iOS.
         Défini dans src/styles/custom.css.
       */}
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-8 pt-safe-8 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-nav pt-safe-8 space-y-6">
 
         {/* ── En-tête ── */}
         <div className="flex items-start justify-between">
@@ -279,7 +279,7 @@ export function Community() {
               <Users size={24} className="text-violet-400" /> Communauté
             </h1>
           </div>
-          <BurgerMenu />
+          <TopBar />
         </div>
 
         {/* ── Flash message ── */}

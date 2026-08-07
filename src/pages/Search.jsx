@@ -226,7 +226,7 @@ export function SearchPage() {
       </div>
 
       {/* ── Contenu ──────────────────────────────────────────────────────── */}
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-6 pb-nav">
 
         {/* Onglets type */}
         <div className="flex gap-2 mb-5">

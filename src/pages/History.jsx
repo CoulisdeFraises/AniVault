@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ChevronLeft, Clock, Tv, Film } from "lucide-react";
 import { useLibrary } from "../context/LibraryContext";
-import { BurgerMenu } from "../components/common/BurgerMenu";
+import { TopBar } from "../components/common/TopBar";
 import { calcWatchTime, groupHistoryByMonth, getRecentHistory } from "../utils/watchTime";
 
 export function History() {
@@ -21,7 +21,7 @@ export function History() {
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-8 pt-safe-8 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-nav pt-safe-8 space-y-6">
 
         {/* ── En-tête ── */}
         <div className="flex items-start justify-between">
@@ -34,7 +34,7 @@ export function History() {
               Historique
             </h1>
           </div>
-          <BurgerMenu />
+          <TopBar />
         </div>
 
         {/* ── Stat globale ── */}

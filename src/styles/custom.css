@@ -62,3 +62,16 @@
 .pt-safe-6  { padding-top: max(1.5rem, env(safe-area-inset-top)); }
 .pt-safe-8  { padding-top: max(2rem,   env(safe-area-inset-top)); }
 .pt-safe-10 { padding-top: max(2.5rem, env(safe-area-inset-top)); }
+
+/* ── Clearance pour la barre de navigation flottante (mobile) ──────────────────
+   La BottomNav est fixe, flottante, uniquement visible < 640px (sm:hidden).
+   Cette classe réserve l'espace nécessaire en bas des pages pour qu'aucun
+   contenu ne passe sous la barre. Sur desktop, elle n'existe pas → padding
+   normal.
+   Utilisation : ajouter en complément (ou remplacement) de pb-N sur le
+   conteneur scrollable principal de chaque page.
+──────────────────────────────────────────────────────────────────────────────── */
+.pb-nav { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+@media (min-width: 640px) {
+  .pb-nav { padding-bottom: 2rem; }
+}

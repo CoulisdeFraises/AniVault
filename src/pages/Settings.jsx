@@ -4,7 +4,7 @@ import { ChevronRight, Trash2, Download, Upload, Info, Film, Tv, RotateCcw, Arro
 import { useAuth }    from "../context/AuthContext";
 import { useLibrary } from "../context/LibraryContext";
 import { usePrefs }   from "../context/PrefsContext";
-import { BurgerMenu } from "../components/common/BurgerMenu";
+import { TopBar } from "../components/common/TopBar";
 import { useEffect } from "react";
 import { requestNotificationPermission } from "../hooks/useNotifications";
 import { subscribeToPush, unsubscribeFromPush } from "../utils/push";
@@ -233,7 +233,7 @@ export function Settings() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-10 pt-safe-10 space-y-6">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-nav pt-safe-10 space-y-6">
 
       {/* ── Titre ── */}
       <div className="flex items-center justify-between mb-2">
@@ -252,7 +252,7 @@ export function Settings() {
             </h1>
           </div>
         </div>
-        <BurgerMenu />
+        <TopBar />
       </div>
 
       {/* ── Stats ── */}
