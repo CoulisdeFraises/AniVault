@@ -33,6 +33,11 @@ export function PullToRefresh({ onRefresh, children }) {
 
   useEffect(() => {
     function handleTouchStart(e) {
+      // Désactive le pull-to-refresh si une modale/panneau est ouverte
+      // (Modal.jsx, NotificationPanel, etc. verrouillent déjà le scroll du
+      // body via overflow:hidden à l'ouverture — on réutilise ce signal
+      // plutôt que de coordonner un état séparé entre composants).
+      if (document.body.style.overflow === "hidden") return;
       // N'activer que si on est en haut de la page
       const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
       if (scrollTop > 4) return;
@@ -40,6 +45,7 @@ export function PullToRefresh({ onRefresh, children }) {
     }
 
     function handleTouchMove(e) {
+      if (document.body.style.overflow === "hidden") { startYRef.current = null; return; }
       if (startYRef.current === null || phaseRef.current === "refreshing") return;
       const delta = e.touches[0].clientY - startYRef.current;
       if (delta <= 0) { startYRef.current = null; return; }

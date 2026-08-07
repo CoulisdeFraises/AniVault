@@ -22,6 +22,11 @@ function sanitizeEntry(e) {
     rating:       typeof e.rating === "number" ? Math.min(10, Math.max(0, e.rating)) : 0,
     genres:       Array.isArray(e.genres) ? e.genres.filter(g => typeof g === "string") : [],
     watchHistory: Array.isArray(e.watchHistory) ? e.watchHistory : [],
+    // Normalisation en Number : évite les faux-négatifs de dédup (ex. côté
+    // Details.jsx, recommandations similaires) si un id a été stocké en
+    // string quelque part dans la chaîne (cache, ancien import, etc.).
+    ...(Array.isArray(e.anilistIds) ? { anilistIds: e.anilistIds.map(Number).filter((n) => !Number.isNaN(n)) } : {}),
+    ...(e.tmdbId != null ? { tmdbId: Number(e.tmdbId) } : {}),
     // Entrées existantes sans updatedAt : on estime à partir du dernier épisode
     // pointé comme vu dans l'historique, sinon 0 (ira en bas du tri "Récents").
     updatedAt:    typeof e.updatedAt === "number"
@@ -125,13 +130,13 @@ export function LibraryProvider({ children }) {
         ...(s.anilistId != null ? { anilistId: s.anilistId } : {}),
       };
     });
-    const cleaned = {
+    const cleaned = sanitizeEntry({
       ...form, title: form.title.trim(), seasons,
       rating: Math.min(10, Math.max(0, Number(form.rating) || 0)),
       id: editingId || Date.now().toString(),
       watchHistory: editingId ? (entriesRef.current.find((e) => e.id === editingId)?.watchHistory || []) : [],
       updatedAt: Date.now(),
-    };
+    });
     persist(editingId
       ? entriesRef.current.map((e) => e.id === editingId ? cleaned : e)
       : [cleaned, ...entriesRef.current]);

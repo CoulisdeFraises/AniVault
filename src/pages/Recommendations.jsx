@@ -269,7 +269,7 @@ export function Recommendations() {
       const prefilled = await importResult(rec);
       haptics.light();
       setSynopsisRec(null);
-      setEditingEntry({ ...prefilled, _isNew: true });
+      setEditingEntry(prefilled);
     } catch {
       setError("Erreur lors de l'import du titre.");
     } finally {
@@ -401,8 +401,7 @@ export function Recommendations() {
 
       {editingEntry && (
         <TitleFormModal
-          editingEntry={editingEntry._isNew ? null : editingEntry}
-          prefillData={editingEntry._isNew ? editingEntry : null}
+          editingEntry={editingEntry}
           onClose={() => setEditingEntry(null)}
         />
       )}

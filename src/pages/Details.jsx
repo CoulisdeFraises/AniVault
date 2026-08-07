@@ -113,6 +113,7 @@ export function Details() {
   const [recs,           setRecs]          = useState([]);
   const [loadingRecs,    setLoadingRecs]   = useState(false);
   const [addingId,       setAddingId]      = useState(null);
+  const [addError,       setAddError]      = useState(null);
   const [synopsisRec,    setSynopsisRec]   = useState(null);
   const [addToListOpen,  setAddToListOpen] = useState(false);
   const [touchStartY,    setTouchStartY]   = useState(null);
@@ -222,7 +223,7 @@ export function Details() {
 
     if (isAnime) {
       // ── Anime → AniList similar ──────────────────────────────────────────
-      const excludeIds = entries.flatMap((e) => e.anilistIds || []);
+      const excludeIds = entries.flatMap((e) => e.anilistIds || []).map(Number);
       const anilistId  = entry.anilistIds?.[0]
         ?? entry.seasons?.find((s) => s.anilistId)?.anilistId
         ?? null;
@@ -236,7 +237,7 @@ export function Details() {
       // ── Film → TMDB similar movies ───────────────────────────────────────
       const excludeIds = entries
         .filter((e) => e.category === "movie" && e.tmdbId)
-        .map((e) => e.tmdbId);
+        .map((e) => Number(e.tmdbId));
       fetchPromise = entry.tmdbId
         ? fetchTMDBSimilarMovies(entry.tmdbId, excludeIds)
         : Promise.resolve([]);
@@ -245,7 +246,7 @@ export function Details() {
       // ── Série → TMDB similar TV shows ────────────────────────────────────
       const excludeIds = entries
         .filter((e) => e.tmdbId)
-        .map((e) => e.tmdbId);
+        .map((e) => Number(e.tmdbId));
       fetchPromise = entry.tmdbId
         ? fetchTMDBSimilarSeries(entry.tmdbId, excludeIds)
         : Promise.resolve([]);
@@ -295,11 +296,11 @@ export function Details() {
   const canFinish = entry.status === "en-cours" && tvT != null && tvT > 0 && tvW >= tvT;
 
   const libraryAnilistIds = useMemo(
-    () => new Set(entries.flatMap((e) => e.anilistIds || [])),
+    () => new Set(entries.flatMap((e) => e.anilistIds || []).map(Number)),
     [entries]
   );
   const libraryTmdbIds = useMemo(
-    () => new Set(entries.map((e) => e.tmdbId).filter(Boolean)),
+    () => new Set(entries.map((e) => e.tmdbId).filter(Boolean).map(Number)),
     [entries]
   );
 
@@ -364,13 +365,19 @@ export function Details() {
   }
 
   async function handleAddRec(rec) {
-    if (libraryAnilistIds.has(rec.id) || libraryTmdbIds.has(rec.id)) return; // garde-fou doublon
+    const recId = Number(rec.id);
+    if (libraryAnilistIds.has(recId) || libraryTmdbIds.has(recId)) return; // garde-fou doublon
     setAddingId(rec.id);
+    setAddError(null);
     try {
       const imported = await importResult(rec);
       saveEntry({ ...imported, status: "a-voir", rating: 0, notes: "" }, null);
       haptics.light();
-    } catch (_) {}
+    } catch (err) {
+      haptics.error();
+      setAddError(`Impossible d'ajouter « ${rec.title} » — ${err?.message || "réessaie dans un instant."}`);
+      setTimeout(() => setAddError(null), 5000);
+    }
     finally { setAddingId(null); }
   }
 
@@ -780,10 +787,15 @@ export function Details() {
                     {dedupedRecs.map(rec => (
                       <RecCard key={`${rec.source}-${rec.id}`} rec={rec} onAdd={handleAddRec}
                         adding={addingId === rec.id}
-                        alreadyInLib={libraryAnilistIds.has(rec.id) || libraryTmdbIds.has(rec.id)}
+                        alreadyInLib={libraryAnilistIds.has(Number(rec.id)) || libraryTmdbIds.has(Number(rec.id))}
                         onClick={() => setSynopsisRec(rec)} />
                     ))}
                   </div>}
+              {addError && (
+                <p className="mx-3 sm:mx-4 mt-2 text-[11px] text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+                  {addError}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -792,7 +804,7 @@ export function Details() {
       {synopsisRec && (
         <SynopsisModal rec={synopsisRec} onClose={() => setSynopsisRec(null)}
           onAdd={handleAddRec} adding={addingId === synopsisRec.id}
-          alreadyInLib={libraryAnilistIds.has(synopsisRec.id) || libraryTmdbIds.has(synopsisRec.id)} />
+          alreadyInLib={libraryAnilistIds.has(Number(synopsisRec.id)) || libraryTmdbIds.has(Number(synopsisRec.id))} />
       )}
       {addToListOpen && <AddToListModal entry={entry} onClose={() => setAddToListOpen(false)} />}
       {editing && <TitleFormModal editingEntry={entry} onClose={() => setEditing(false)} />}
