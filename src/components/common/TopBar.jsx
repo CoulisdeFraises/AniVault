@@ -13,12 +13,12 @@ export function TopBar() {
   const { syncAll, syncing, progress } = useSync();
 
   return (
-    <div className="flex items-center gap-2 flex-shrink-0">
+    <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
       <button
         onClick={() => syncAll(true)}
         disabled={syncing}
         title={syncing ? `Sync… ${progress.current}/${progress.total}` : "Actualiser les données"}
-        className="h-9 flex items-center gap-1.5 px-3 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-70 active:scale-95 transition-all motion-reduce:transition-none"
+        className="h-9 flex items-center gap-1.5 px-2.5 sm:px-3 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-70 active:scale-95 transition-all motion-reduce:transition-none"
       >
         <RefreshCw size={14} className={`text-violet-400 ${syncing ? "animate-spin motion-reduce:animate-none" : ""}`} />
         {syncing && (

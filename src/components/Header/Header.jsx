@@ -5,7 +5,6 @@ import { useCountUp }           from "../../hooks/useCountUp";
 import { BurgerMenu }           from "../common/BurgerMenu";
 import { NotificationPanel }    from "../common/NotificationPanel";  // ← AJOUT
 import { calcWatchTime }        from "../../utils/watchTime";
-import { useNavigate } from "react-router-dom";
 
 export function Header({
   typeFilter, searchQuery = "",
@@ -16,7 +15,6 @@ export function Header({
   const { entries, loading } = useLibrary();
   const searchRef = useRef(null);
   const [searchFocused, setSearchFocused] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
     function h(e) {
@@ -73,14 +71,6 @@ export function Header({
             {/* ── Cloche notifications ── */}
             <NotificationPanel />
             <BurgerMenu />
-            <button
-              onClick={() => navigate("/search")}
-              title="Rechercher et ajouter un titre"
-              className="h-9 flex items-center gap-1.5 bg-amber-400 text-violet-950 font-semibold text-sm px-3 sm:px-4 rounded-xl hover:bg-amber-300 active:scale-95 transition-all motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
-            >
-              <Search size={16} />
-              <span className="hidden sm:inline">Rechercher</span>
-            </button>
           </div>
         </div>
       </div>

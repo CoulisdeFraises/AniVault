@@ -447,17 +447,17 @@ export function Profile() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-nav pt-safe-10 space-y-6" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-nav pt-safe-8 space-y-6" style={{ fontFamily: "'Inter', sans-serif" }}>
 
       {/* En-tête */}
-      <div className="flex items-start justify-between animate-fadeInUp">
-        <div>
+      <div className="flex items-start justify-between flex-wrap gap-3 animate-fadeInUp">
+        <div className="min-w-0">
           <button onClick={() => navigate(-1)}
             className="flex items-center gap-2 text-sm text-violet-400 hover:text-violet-200 transition-colors motion-reduce:transition-none mb-4">
             <ArrowLeft size={16} /> Retour
           </button>
           <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">Compte</p>
-          <h1 className="text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
             Mon profil
           </h1>
         </div>

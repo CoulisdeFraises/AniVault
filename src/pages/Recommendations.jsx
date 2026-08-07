@@ -276,14 +276,14 @@ export function Recommendations() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-nav pt-safe-8">
 
           {/* ── En-tête ── */}
-          <div className="flex items-start justify-between mb-6">
-            <div>
+          <div className="flex items-start justify-between flex-wrap gap-3 mb-6">
+            <div className="min-w-0">
               <button onClick={() => navigate(-1)}
                 className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 transition-colors mb-2">
                 <ChevronLeft size={16} /> Retour
               </button>
               <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">Basé sur tes goûts</p>
-              <h1 className="text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
                 Recommandations
               </h1>
             </div>

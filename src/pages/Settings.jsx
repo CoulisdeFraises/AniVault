@@ -233,21 +233,21 @@ export function Settings() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-nav pt-safe-10 space-y-6">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-nav pt-safe-8 space-y-6">
 
       {/* ── Titre ── */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => navigate(-1)}
             aria-label="Retour"
-            className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
+            className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none flex-shrink-0"
           >
             <ArrowLeft size={16} className="text-violet-400" />
           </button>
-          <div>
+          <div className="min-w-0">
             <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">Configuration</p>
-            <h1 className="text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
               Paramètres
             </h1>
           </div>

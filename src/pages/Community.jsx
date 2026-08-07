@@ -267,8 +267,8 @@ export function Community() {
       <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-nav pt-safe-8 space-y-6">
 
         {/* ── En-tête ── */}
-        <div className="flex items-start justify-between">
-          <div>
+        <div className="flex items-start justify-between flex-wrap gap-3">
+          <div className="min-w-0">
             <button onClick={() => navigate(-1)}
               className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 transition-colors mb-3">
               <ChevronLeft size={16} /> Retour

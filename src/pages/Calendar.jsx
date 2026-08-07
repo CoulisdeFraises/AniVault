@@ -447,11 +447,11 @@ export function Calendar() {
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
 
       <PullToRefresh onRefresh={() => load(weekOffset, true)}>
-        <div className="max-w-5xl mx-auto px-3 sm:px-6 pb-nav pt-safe-6">
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 pb-nav pt-safe-8">
 
           {/* ── En-tête ── */}
-          <div className="flex items-start justify-between gap-3 mb-5">
-            <div>
+          <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
+            <div className="min-w-0">
               <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 active:scale-95 transition-all motion-reduce:transition-none mb-2">
                 <ChevronLeft size={16} /> Retour
               </button>
@@ -459,33 +459,34 @@ export function Calendar() {
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Calendrier</h1>
             </div>
 
-            <div className="flex flex-col items-end gap-2">
-              <TopBar />
-              <div className="flex items-center gap-1.5">
-                <button onClick={prevWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none" aria-label="Semaine précédente">
-                  <ArrowLeft size={14} className="text-violet-400" />
+            <TopBar />
+          </div>
+
+          {/* ── Navigation semaine ── */}
+          <div className="flex items-center justify-end gap-1.5 mb-5">
+            <button onClick={prevWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none" aria-label="Semaine précédente">
+              <ArrowLeft size={14} className="text-violet-400" />
+            </button>
+            <div className="text-center">
+              <p className="text-xs sm:text-sm font-medium text-violet-100 whitespace-nowrap">{weekLabel}</p>
+              {weekOffset !== 0 && (
+                <button onClick={thisWeek} className="text-[10px] font-mono text-amber-400 hover:text-amber-300 transition-colors motion-reduce:transition-none">
+                  Cette semaine
                 </button>
-                <div className="text-center">
-                  <p className="text-xs sm:text-sm font-medium text-violet-100 whitespace-nowrap">{weekLabel}</p>
-                  {weekOffset !== 0 && (
-                    <button onClick={thisWeek} className="text-[10px] font-mono text-amber-400 hover:text-amber-300 transition-colors motion-reduce:transition-none">
-                      Cette semaine
-                    </button>
-                  )}
-                </div>
-                <button onClick={nextWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none" aria-label="Semaine suivante">
-                  <ArrowRight size={14} className="text-violet-400" />
-                </button>
-                <button
-                  onClick={() => load(weekOffset, true)}
-                  disabled={refreshing}
-                  className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-50 active:scale-95 transition-all motion-reduce:transition-none"
-                  aria-label="Actualiser"
-                >
-                  <RefreshCw size={14} className={`text-violet-300 ${refreshing ? "animate-spin motion-reduce:animate-none" : ""}`} />
-                </button>
-              </div>
+              )}
             </div>
+            <button onClick={nextWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none" aria-label="Semaine suivante">
+              <ArrowRight size={14} className="text-violet-400" />
+            </button>
+            <button
+              onClick={() => load(weekOffset, true)}
+              disabled={refreshing}
+              title="Actualiser le planning de la semaine"
+              className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-50 active:scale-95 transition-all motion-reduce:transition-none"
+              aria-label="Actualiser le planning de la semaine"
+            >
+              <RefreshCw size={14} className={`text-violet-300 ${refreshing ? "animate-spin motion-reduce:animate-none" : ""}`} />
+            </button>
           </div>
 
           {/* ── Filtres ── */}
