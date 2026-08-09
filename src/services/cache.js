@@ -1,92 +1,66 @@
-// ── Cache localStorage avec TTL et fallback hors-ligne ──────────────────────
-//
-//  TTL recommandés :
-//    Recommandations  → 6h   (6 * 60 * 60 * 1000)
-//    Calendrier       → 30min (30 * 60 * 1000)
-
-const PREFIX = "av_cache_";
-
 /**
- * Lire une entrée du cache.
- * Retourne null si absente ou expirée.
+ * Cache deux niveaux :
+ *   1. localStorage — persiste entre les sessions (survit au rechargement).
+ *   2. Map en mémoire  — fallback si localStorage est plein ou indisponible.
+ *
+ * Les résultats d'épisodes Jikan et AniList sont ainsi réutilisés sans
+ * refetcher à chaque ouverture de la page Détails.
  */
-export function getCached(key) {
+
+const MEM  = new Map();
+const LS_PREFIX = "anivault_cache_";
+
+function lsKey(key) { return LS_PREFIX + key; }
+
+export function cacheGet(key, ttlMs) {
+  // 1. localStorage
   try {
-    const raw = localStorage.getItem(PREFIX + key);
-    if (!raw) return null;
-    const { data, expiresAt } = JSON.parse(raw);
-    if (Date.now() > expiresAt) return null; // expiré
-    return data;
-  } catch {
-    return null;
-  }
+    const raw = localStorage.getItem(lsKey(key));
+    if (raw) {
+      const { data, ts } = JSON.parse(raw);
+      if (Date.now() - ts <= ttlMs) return data;
+      localStorage.removeItem(lsKey(key));
+    }
+  } catch {}
+
+  // 2. Mémoire (fallback)
+  const hit = MEM.get(key);
+  if (!hit) return undefined;
+  if (Date.now() - hit.ts > ttlMs) { MEM.delete(key); return undefined; }
+  return hit.data;
 }
 
-/**
- * Lire une entrée du cache même si expirée (fallback hors-ligne).
- * Retourne null si absente.
- */
-export function getStaleCached(key) {
+export function cacheSet(key, data) {
   try {
-    const raw = localStorage.getItem(PREFIX + key);
-    if (!raw) return null;
-    const { data } = JSON.parse(raw);
-    return data ?? null;
-  } catch {
-    return null;
-  }
+    localStorage.setItem(lsKey(key), JSON.stringify({ data, ts: Date.now() }));
+    return;
+  } catch {}
+  // Si localStorage est plein → mémoire
+  MEM.set(key, { data, ts: Date.now() });
+}
+
+/** Vide toutes les entrées de cache AniVault dans localStorage */
+export function cacheClear() {
+  Object.keys(localStorage)
+    .filter(k => k.startsWith(LS_PREFIX))
+    .forEach(k => localStorage.removeItem(k));
+  MEM.clear();
 }
 
 /**
- * Écrire dans le cache avec un TTL en millisecondes.
+ * withCache — exécute `fetcher` et met le résultat en cache.
+ *
+ * @param {string}    key          Clé unique
+ * @param {number}    ttlMs        TTL en millisecondes
+ * @param {Function}  fetcher      Fonction async retournant la donnée
+ * @param {Function}  [shouldCache] Prédicat : si false, le résultat n'est pas
+ *                                 mis en cache (le prochain appel retentera).
+ *                                 Ex : (d) => d.episodes.length > 0 || d.totalEpisodes != null
  */
-export function setCached(key, data, ttlMs) {
-  try {
-    localStorage.setItem(
-      PREFIX + key,
-      JSON.stringify({ data, expiresAt: Date.now() + ttlMs, cachedAt: Date.now() })
-    );
-  } catch {
-    // localStorage plein — on purge les vieilles entrées et on réessaie
-    try {
-      purgeStaleCaches();
-      localStorage.setItem(
-        PREFIX + key,
-        JSON.stringify({ data, expiresAt: Date.now() + ttlMs, cachedAt: Date.now() })
-      );
-    } catch { /* abandon silencieux */ }
-  }
+export async function withCache(key, ttlMs, fetcher, shouldCache) {
+  const cached = cacheGet(key, ttlMs);
+  if (cached !== undefined) return cached;
+  const data = await fetcher();
+  if (!shouldCache || shouldCache(data)) cacheSet(key, data);
+  return data;
 }
-
-/**
- * Supprimer une entrée du cache.
- */
-export function removeCached(key) {
-  try { localStorage.removeItem(PREFIX + key); } catch { /* */ }
-}
-
-/**
- * Purger toutes les entrées expirées du cache AniVault.
- */
-export function purgeStaleCaches() {
-  try {
-    const now = Date.now();
-    Object.keys(localStorage)
-      .filter(k => k.startsWith(PREFIX))
-      .forEach(k => {
-        try {
-          const { expiresAt } = JSON.parse(localStorage.getItem(k) || "{}");
-          if (expiresAt && now > expiresAt) localStorage.removeItem(k);
-        } catch { localStorage.removeItem(k); }
-      });
-  } catch { /* */ }
-}
-
-// TTL constants
-export const TTL = {
-  RECOMMENDATIONS: 6  * 60 * 60 * 1000, //  6 heures
-  CALENDAR:        30 * 60 * 1000,       // 30 minutes
-  TMDB_TITLES:     24 * 60 * 60 * 1000,  // 24 heures
-  LIBRARY:         5  * 60 * 1000,       //  5 minutes — au-delà, on retente le réseau mais le stale reste utilisable hors-ligne
-  SEASON_PREVIEW:  6  * 60 * 60 * 1000,  //  6 heures — la liste d'une saison à venir change peu
-};
