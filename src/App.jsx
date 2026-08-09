@@ -23,6 +23,7 @@ const Login           = lazy(() => import("./pages/Login")          .then(m => (
 const Settings        = lazy(() => import("./pages/Settings")       .then(m => ({ default: m.Settings })));
 const Profile         = lazy(() => import("./pages/Profile")        .then(m => ({ default: m.Profile })));
 const Calendar        = lazy(() => import("./pages/Calendar")       .then(m => ({ default: m.Calendar })));
+const NextSeason      = lazy(() => import("./pages/NextSeason")     .then(m => ({ default: m.NextSeason })));
 const History         = lazy(() => import("./pages/History")        .then(m => ({ default: m.History })));
 const Recommendations = lazy(() => import("./pages/Recommendations").then(m => ({ default: m.Recommendations })));
 const Community       = lazy(() => import("./pages/Community")      .then(m => ({ default: m.Community })));
@@ -124,6 +125,8 @@ const AppRoutes = () => {
             element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/calendar"
             element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
+          <Route path="/calendar/next-season"
+            element={<ProtectedRoute><NextSeason /></ProtectedRoute>} />
           <Route path="/history"
             element={<ProtectedRoute><History /></ProtectedRoute>} />
           <Route path="/recommendations"

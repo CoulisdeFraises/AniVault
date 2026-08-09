@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, RefreshCw, Loader2,
-  ChevronLeft, ChevronRight, X, Plus, Check,
+  ChevronLeft, ChevronRight, X, Plus, Check, Sparkles,
 } from "lucide-react";
 import { fetchWeeklySchedule, isReturningSeries } from "../api/anilist";
 import { hasTMDB, searchTMDBShow, fetchTMDBEpisodeFR } from "../api/tmdb";
@@ -212,12 +212,13 @@ function EpisodeCard({ schedule, onClick, frTitle, isLoadingTitle, isInLibrary, 
   );
 }
 
-function FilterBtn({ active, onClick, children }) {
+// Onglet d'une barre de filtres segmentée (groupe unique, largeur partagée à parts égales)
+function FilterTab({ active, onClick, children }) {
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all active:scale-95 motion-reduce:transition-none whitespace-nowrap ${
-        active ? "bg-amber-400 text-violet-950 border-amber-400" : "bg-white/5 border-white/10 text-violet-300 hover:bg-white/10"
+      className={`flex-1 min-w-0 px-2 py-1.5 rounded-full text-xs font-medium transition-all active:scale-95 motion-reduce:transition-none whitespace-nowrap ${
+        active ? "bg-amber-400 text-violet-950" : "text-violet-300 hover:bg-white/10"
       }`}
     >
       {children}
@@ -463,7 +464,16 @@ export function Calendar() {
           </div>
 
           {/* ── Navigation semaine ── */}
-          <div className="flex items-center justify-end gap-1.5 mb-5">
+          <div className="flex items-center justify-between gap-1.5 mb-5">
+            <button
+              onClick={() => navigate("/calendar/next-season")}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-400/15 border border-amber-400/25 text-amber-400 hover:bg-amber-400/25 active:scale-95 transition-all motion-reduce:transition-none text-xs font-medium whitespace-nowrap"
+            >
+              <Sparkles size={14} />
+              <span className="hidden xs:inline sm:inline">Saison prochaine</span>
+            </button>
+
+            <div className="flex items-center gap-1.5">
             <button onClick={prevWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none" aria-label="Semaine précédente">
               <ArrowLeft size={14} className="text-violet-400" />
             </button>
@@ -487,20 +497,17 @@ export function Calendar() {
             >
               <RefreshCw size={14} className={`text-violet-300 ${refreshing ? "animate-spin motion-reduce:animate-none" : ""}`} />
             </button>
+            </div>
           </div>
 
-          {/* ── Filtres ── */}
-          <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1 scrollbar-none">
-            <FilterBtn active={contentFilter === "all"}       onClick={() => setContentFilter("all")}>Tout</FilterBtn>
-            <FilterBtn active={contentFilter === "mylibrary"} onClick={() => setContentFilter("mylibrary")}>Ma liste</FilterBtn>
-            <FilterBtn active={contentFilter === "new"}       onClick={() => setContentFilter("new")}>
-              <span className="sm:hidden">Nouvelles</span>
-              <span className="hidden sm:inline">Nouvelles séries</span>
-            </FilterBtn>
-            <FilterBtn active={contentFilter === "returning"} onClick={() => setContentFilter("returning")}>
-              <span className="sm:hidden">Reprises</span>
-              <span className="hidden sm:inline">Séries qui reprennent</span>
-            </FilterBtn>
+          {/* ── Filtres — barre segmentée centrée ── */}
+          <div className="flex justify-center mb-5">
+            <div className="inline-flex w-full max-w-md items-center gap-1 rounded-full bg-white/5 border border-white/10 p-1">
+              <FilterTab active={contentFilter === "all"}       onClick={() => setContentFilter("all")}>Tout</FilterTab>
+              <FilterTab active={contentFilter === "mylibrary"} onClick={() => setContentFilter("mylibrary")}>Ma liste</FilterTab>
+              <FilterTab active={contentFilter === "new"}       onClick={() => setContentFilter("new")}>Nouvelles</FilterTab>
+              <FilterTab active={contentFilter === "returning"} onClick={() => setContentFilter("returning")}>Reprises</FilterTab>
+            </div>
           </div>
 
           {error && (
@@ -600,7 +607,7 @@ export function Calendar() {
                         </p>
                       </div>
 
-                      <div className="p-2.5 sm:p-3 flex-1 space-y-2 overflow-y-auto overscroll-auto max-h-[60vh] sm:max-h-[70vh]">
+                      <div className="p-2.5 sm:p-3 flex-1 space-y-2 overflow-y-auto overscroll-auto max-h-[42vh] sm:max-h-[70vh]">
                         {entries.length === 0 ? (
                           <p className="text-[11px] text-violet-600 font-mono text-center py-8">Aucun épisode</p>
                         ) : (

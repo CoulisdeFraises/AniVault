@@ -12,7 +12,7 @@ import { useLists, HIDDEN_LIST_ID } from "../context/ListsContext";
 import { useSync }          from "../hooks/useSync";
 import {
   Film, Tv, ListPlus, X, Heart, Eye, EyeOff,
-  ChevronDown, SlidersHorizontal,
+  ChevronDown, SlidersHorizontal, WifiOff,
 } from "lucide-react";
 import { ContinueWatching } from "../components/common/ContinueWatching";
 import { FilterPanel }      from "../components/common/FilterPanel";
@@ -98,7 +98,7 @@ function sortEntries(entries, sortBy) {
 
 // ── Page Home ─────────────────────────────────────────────────────────────────
 export function Home() {
-  const { entries, loading, saveError } = useLibrary();
+  const { entries, loading, saveError, offline } = useLibrary();
   const { lists }  = useLists();
   const { syncAll, syncing, progress } = useSync();
   const navigate   = useNavigate();
@@ -305,7 +305,15 @@ export function Home() {
             </button>
           </div>
 
-          {saveError && (
+          {offline && (
+            <div className="mb-4 flex items-center gap-2 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30
+              rounded-lg px-3 py-2 animate-fadeIn">
+              <WifiOff size={14} className="flex-shrink-0" />
+              Mode hors-ligne — dernières données synchronisées affichées.
+            </div>
+          )}
+
+          {saveError && !offline && (
             <div className="mb-4 text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30
               rounded-lg px-3 py-2 animate-fadeIn">
               La sauvegarde a échoué. Tes changements restent visibles mais pourraient ne pas persister.

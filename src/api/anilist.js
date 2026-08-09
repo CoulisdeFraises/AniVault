@@ -358,6 +358,54 @@ export async function fetchWeeklySchedule(o = 0, { force = false } = {}) {
   return { schedules: data.schedules || [], monday: new Date(data.monday) };
 }
 
+// ── Saison à venir ────────────────────────────────────────────────────────────
+const SEASON_ORDER = ["WINTER", "SPRING", "SUMMER", "FALL"];
+
+/** Calcule la saison AniList (WINTER/SPRING/SUMMER/FALL) + année suivant la saison en cours. */
+export function getNextSeason(from = new Date()) {
+  const month = from.getMonth() + 1;
+  const currentIdx = month <= 3 ? 0 : month <= 6 ? 1 : month <= 9 ? 2 : 3;
+  const nextIdx  = (currentIdx + 1) % 4;
+  const year     = currentIdx === 3 ? from.getFullYear() + 1 : from.getFullYear();
+  return { season: SEASON_ORDER[nextIdx], year };
+}
+
+const SEASON_LABELS_FR = { WINTER: "Hiver", SPRING: "Printemps", SUMMER: "Été", FALL: "Automne" };
+export function seasonLabelFR(season, year) { return `${SEASON_LABELS_FR[season] || season} ${year}`; }
+
+/**
+ * fetchSeasonalAnime — liste des animes annoncés/à venir pour une saison AniList
+ * donnée, triés par popularité. Requête directe (comme searchAniList) : cette
+ * liste ne dépend pas de la bibliothèque de l'utilisateur, un cache client de
+ * quelques heures (voir lib/cache TTL.SEASON_PREVIEW côté appelant) suffit.
+ */
+export async function fetchSeasonalAnime(season, year, { perPage = 40 } = {}) {
+  const cultureMode = localStorage.getItem("pref_culture_mode") === "true";
+  const query = `query ($season: MediaSeason, $year: Int, $perPage: Int) {
+    Page(perPage: $perPage) {
+      media(season: $season, seasonYear: $year, type: ANIME, sort: POPULARITY_DESC, format_not_in: [MUSIC]) {
+        id title { romaji english } coverImage { large } genres format episodes
+        startDate { day month year } popularity
+      }
+    }
+  }`;
+  const json = await anilistQuery(query, { season, year, perPage });
+  return (json.data?.Page?.media || [])
+    .filter((m) => cultureMode || !m.genres?.includes("Hentai"))
+    .map((m) => ({
+      id: m.id,
+      title: m.title.english || m.title.romaji,
+      image: m.coverImage?.large || null,
+      genres: m.genres || [],
+      format: m.format ?? null,
+      episodes: m.episodes ?? null,
+      startDate: m.startDate?.year
+        ? { day: m.startDate.day, month: m.startDate.month, year: m.startDate.year }
+        : null,
+      popularity: m.popularity ?? 0,
+    }));
+}
+
 export function isReturningSeries(media) {
   return (media.relations?.edges||[]).some(
     (e) => e.relationType==="PREQUEL" && e.node?.type==="ANIME");

@@ -3,6 +3,9 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
 import { seasonTotals, autoStatus } from "../utils/status";
 import { normalizeSeriesTitle } from "../utils/titles";
+import { getStaleCached, setCached, TTL } from "../lib/cache";
+
+const libraryCacheKey = (uid) => `library_${uid}`;
 
 const LibraryContext = createContext(null);
 const SAVE_DEBOUNCE_MS  = 800;
@@ -77,17 +80,36 @@ export function LibraryProvider({ children }) {
   const [entries, setEntriesState] = useState([]);
   const [loading, setLoading]      = useState(true);
   const [saveError, setSaveError]  = useState(false);
+  const [offline, setOffline]      = useState(false); // true = données affichées depuis le cache local, pas confirmées par le serveur
   const entriesRef = useRef([]); const saveTimer = useRef(null);
 
   useEffect(() => {
-    if (!user) { setEntriesState([]); setLoading(false); return; }
-    setLoading(true);
+    if (!user) { setEntriesState([]); setLoading(false); setOffline(false); return; }
+
+    // Affichage immédiat depuis le cache local (même périmé) pendant que la
+    // requête réseau part en parallèle — évite un écran de bibliothèque vide
+    // le temps du chargement, et permet une consultation hors-ligne complète.
+    const cached = getStaleCached(libraryCacheKey(user.id));
+    if (cached) {
+      applyEntries(cached.map(sanitizeEntry).filter(Boolean));
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     supabase.from("libraries").select("entries").eq("user_id", user.id).maybeSingle()
       .then(({ data, error }) => {
-        if (error) { setSaveError(true); }
-        else {
-          const raw = Array.isArray(data?.entries) ? data.entries : [];
-          applyEntries(raw.map(sanitizeEntry).filter(Boolean));
+        if (error) {
+          setSaveError(true);
+          // Pas de réseau/serveur injoignable : on reste sur le cache déjà affiché
+          // ci-dessus (le cas échéant) plutôt que de vider la bibliothèque.
+          if (cached) setOffline(true);
+        } else {
+          const raw   = Array.isArray(data?.entries) ? data.entries : [];
+          const clean = raw.map(sanitizeEntry).filter(Boolean);
+          applyEntries(clean);
+          setCached(libraryCacheKey(user.id), clean, TTL.LIBRARY);
+          setOffline(false);
         }
         setLoading(false);
       });
@@ -103,6 +125,11 @@ export function LibraryProvider({ children }) {
 
   function persist(next) {
     applyEntries(next);
+
+    // ── Cache local (lecture hors-ligne) ────────────────────────────────
+    // Écrit immédiatement, même si la sauvegarde réseau derrière échoue :
+    // au prochain lancement hors-ligne, on retrouve au moins cet état-ci.
+    if (user) setCached(libraryCacheKey(user.id), next, TTL.LIBRARY);
 
     // ── Sauvegarde auto rotative ──────────────────────────────────────────
     autoBackup(next);
@@ -241,7 +268,7 @@ export function LibraryProvider({ children }) {
 
   return (
     <LibraryContext.Provider value={{
-      entries, setEntries, loading, saveError,
+      entries, setEntries, loading, saveError, offline,
       findDuplicate, saveEntry, deleteEntry,
       incrementEpisode, decrementEpisode, setEpisodeCount,
       markDone, updateRating, updateSeasonTotal, addSeason, deleteSeason,
