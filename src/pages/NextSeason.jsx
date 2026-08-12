@@ -1,7 +1,7 @@
 // src/pages/NextSeason.jsx
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Loader2, Plus, Check, RefreshCw } from "lucide-react";
+import { ChevronLeft, Loader2, Plus, Check, RefreshCw, Sparkles } from "lucide-react";
 import { fetchSeasonalAnime, getNextSeason, seasonLabelFR } from "../api/anilist";
 import { importResult } from "../api";
 import { useLibrary } from "../context/LibraryContext";
@@ -126,6 +126,25 @@ export function NextSeason() {
               </h1>
             </div>
             <TopBar />
+          </div>
+
+          {/* ── Bascule Saison en cours / Saison prochaine ── */}
+          <div className="flex justify-center mb-4">
+            <div className="inline-flex w-full max-w-md items-center gap-1 rounded-full bg-white/5 border border-white/10 p-1">
+              <button
+                onClick={() => navigate("/calendar")}
+                className="flex-1 min-w-0 px-3 py-2 rounded-full text-xs font-medium text-violet-300 hover:bg-white/10 active:scale-95 transition-all motion-reduce:transition-none whitespace-nowrap"
+              >
+                Saison en cours
+              </button>
+              <button
+                aria-current="page"
+                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium bg-amber-400 text-violet-950 whitespace-nowrap"
+              >
+                <Sparkles size={13} />
+                Saison prochaine
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center justify-between mb-5">

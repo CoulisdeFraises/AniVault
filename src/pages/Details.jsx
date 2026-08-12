@@ -7,7 +7,7 @@ import { StarRating, RatingMeter, getRatingEmoji } from "../components/common/Ra
 import { TitleFormModal }          from "../components/Modal/TitleFormModal";
 import { STATUS, seasonTotals, formatRating }    from "../utils/status";
 import { useLibrary }              from "../context/LibraryContext";
-import { fetchSeasonInfo, importResult, refreshEntryCard } from "../api";
+import { fetchSeasonInfo, importResult, refreshEntryCard, fetchNextAiring } from "../api";
 import { fetchAniListRecommendations, fetchSimilarTitles } from "../api/recommendations";
 import { fetchTMDBSimilarMovies, fetchTMDBSimilarSeries, hasTMDB } from "../api/tmdb";
 import { SynopsisModal }  from "../components/common/SynopsisModal";
@@ -121,6 +121,7 @@ export function Details() {
   const [addToListOpen,  setAddToListOpen] = useState(false);
   const [touchStartY,    setTouchStartY]   = useState(null);
   const [celebration,    setCelebration]   = useState(null); // null | { tier, title, subtitle }
+  const [nextAiring,     setNextAiring]    = useState(null);
 
   const prevSeasonWatchedRef = useRef({});
   const prevStatusRef        = useRef(null);
@@ -192,6 +193,32 @@ export function Details() {
     }
     prevStatusRef.current = entry.status;
   }, [entry?.status]); // eslint-disable-line
+
+  // ── Prochain épisode prévu (AniList/TVmaze) ──────────────────────────────
+  // Un titre "Terminé" alors qu'un épisode est encore annoncé est incohérent
+  // (et bloquait la sync/les notifs, qui ignorent les titres "termine") :
+  // on récupère systématiquement l'info, y compris pour un titre déjà marqué
+  // terminé, et on corrige automatiquement le statut si besoin.
+  useEffect(() => {
+    if (!entry) { setNextAiring(null); return; }
+    if (entry.status === "abandonne") { setNextAiring(null); return; }
+    if (!((entry.source === "anilist" && entry.anilistIds?.length) || (entry.source === "tvmaze" && entry.tvmazeId))) {
+      setNextAiring(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetchNextAiring(entry);
+        if (cancelled) return;
+        setNextAiring(r);
+        if (r?.airingAt && entry.status === "termine") {
+          saveEntry({ ...entry, status: "en-cours" }, entry.id);
+        }
+      } catch (_) {}
+    })();
+    return () => { cancelled = true; };
+  }, [entry?.id, entry?.source, entry?.status, entry?.anilistIds?.length, entry?.tvmazeId]); // eslint-disable-line
 
   useEffect(() => {
     if (!entry) return;
@@ -296,7 +323,7 @@ export function Details() {
   const { watched: tvW, total: tvT }   = seasonTotals(tvSeasons);
   const { watched: extW, total: extT } = seasonTotals(extraSeasons);
   const filmSeen  = movieSeasons.filter(m => m.watchedEpisodes >= (m.totalEpisodes ?? 1)).length;
-  const canFinish = entry.status === "en-cours" && tvT != null && tvT > 0 && tvW >= tvT;
+  const canFinish = entry.status === "en-cours" && tvT != null && tvT > 0 && tvW >= tvT && !nextAiring?.airingAt;
 
   const libraryAnilistIds = useMemo(
     () => new Set(entries.flatMap((e) => e.anilistIds || []).map(Number)),

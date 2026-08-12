@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, ArrowRight, RefreshCw, Loader2,
+  Loader2,
   ChevronLeft, ChevronRight, X, Plus, Check, Sparkles,
 } from "lucide-react";
 import { fetchWeeklySchedule, isReturningSeries } from "../api/anilist";
@@ -237,7 +237,9 @@ export function Calendar() {
   const [loading,          setLoading]           = useState(true);
   const [refreshing,       setRefreshing]        = useState(false);
   const [error,            setError]             = useState("");
-  const [weekOffset,       setWeekOffset]        = useState(0);
+  // Le calendrier n'affiche plus que la semaine en cours (la navigation
+  // semaine précédente/suivante a été retirée, jugée inutile).
+  const weekOffset = 0;
   const [selectedSchedule, setSelectedSchedule]  = useState(null);
   const [tmdbTitles,       setTmdbTitles]        = useState({});
   const [contentFilter,    setContentFilter]     = useState("all");
@@ -335,10 +337,7 @@ export function Calendar() {
     return () => { cancelled = true; };
   }, [schedules]);
 
-  // ── Navigation semaine / jour ─────────────────────────────────────────────
-  function prevWeek()      { setSlideDir("from-right"); setGridKey((k) => k + 1); setWeekOffset((w) => w - 1); setDayOffset(0); }
-  function nextWeek()      { setSlideDir("from-left");  setGridKey((k) => k + 1); setWeekOffset((w) => w + 1); setDayOffset(0); }
-  function thisWeek()      { setSlideDir("from-right"); setGridKey((k) => k + 1); setWeekOffset(0); setDayOffset(Math.max(0, Math.min(7 - VISIBLE_DAYS, todayIndex() - 1))); }
+  // ── Navigation jour (au sein de la semaine en cours) ──────────────────────
   function handlePrevDay() { setSlideDir("from-right"); setGridKey((k) => k + 1); setDayOffset((d) => Math.max(0, d - 1)); }
   function handleNextDay() { setSlideDir("from-left");  setGridKey((k) => k + 1); setDayOffset((d) => Math.min(7 - VISIBLE_DAYS, d + 1)); }
 
@@ -463,42 +462,28 @@ export function Calendar() {
             <TopBar />
           </div>
 
-          {/* ── Navigation semaine ── */}
-          <div className="flex items-center justify-between gap-1.5 mb-5">
-            <button
-              onClick={() => navigate("/calendar/next-season")}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-400/15 border border-amber-400/25 text-amber-400 hover:bg-amber-400/25 active:scale-95 transition-all motion-reduce:transition-none text-xs font-medium whitespace-nowrap"
-            >
-              <Sparkles size={14} />
-              <span className="hidden xs:inline sm:inline">Saison prochaine</span>
-            </button>
-
-            <div className="flex items-center gap-1.5">
-            <button onClick={prevWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none" aria-label="Semaine précédente">
-              <ArrowLeft size={14} className="text-violet-400" />
-            </button>
-            <div className="text-center">
-              <p className="text-xs sm:text-sm font-medium text-violet-100 whitespace-nowrap">{weekLabel}</p>
-              {weekOffset !== 0 && (
-                <button onClick={thisWeek} className="text-[10px] font-mono text-amber-400 hover:text-amber-300 transition-colors motion-reduce:transition-none">
-                  Cette semaine
-                </button>
-              )}
-            </div>
-            <button onClick={nextWeek} className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none" aria-label="Semaine suivante">
-              <ArrowRight size={14} className="text-violet-400" />
-            </button>
-            <button
-              onClick={() => load(weekOffset, true)}
-              disabled={refreshing}
-              title="Actualiser le planning de la semaine"
-              className="p-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-50 active:scale-95 transition-all motion-reduce:transition-none"
-              aria-label="Actualiser le planning de la semaine"
-            >
-              <RefreshCw size={14} className={`text-violet-300 ${refreshing ? "animate-spin motion-reduce:animate-none" : ""}`} />
-            </button>
+          {/* ── Bascule Saison en cours / Saison prochaine ── */}
+          {/* Remplace l'ancienne navigation semaine par semaine (retirée, peu
+              utile) et le bouton d'actualisation manuel (redondant avec le
+              tire-pour-actualiser déjà disponible sur toute la page). */}
+          <div className="flex justify-center mb-1.5">
+            <div className="inline-flex w-full max-w-md items-center gap-1 rounded-full bg-white/5 border border-white/10 p-1">
+              <button
+                aria-current="page"
+                className="flex-1 min-w-0 px-3 py-2 rounded-full text-xs font-medium bg-amber-400 text-violet-950 whitespace-nowrap"
+              >
+                Saison en cours
+              </button>
+              <button
+                onClick={() => navigate("/calendar/next-season")}
+                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium text-violet-300 hover:bg-white/10 active:scale-95 transition-all motion-reduce:transition-none whitespace-nowrap"
+              >
+                <Sparkles size={13} />
+                Saison prochaine
+              </button>
             </div>
           </div>
+          <p className="text-center text-xs sm:text-sm font-medium text-violet-400 mb-5">{weekLabel}</p>
 
           {/* ── Filtres — barre segmentée centrée ── */}
           <div className="flex justify-center mb-5">

@@ -74,7 +74,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   const { watched: totW, total: totT  } = useMemo(() => seasonTotals(seasons),      [seasons]);
   const { watched: extW, total: extT  } = useMemo(() => seasonTotals(extraSeasons), [extraSeasons]);
   const filmSeen  = movieSeasons.filter(m => m.watchedEpisodes >= (m.totalEpisodes ?? 1)).length;
-  const canFinish = entry.status === "en-cours" && tvT != null && tvT > 0 && tvW >= tvT;
+  const canFinish = entry.status === "en-cours" && tvT != null && tvT > 0 && tvW >= tvT && !nextAiring?.airingAt;
   const canSwipeLeft = entry.status !== "abandonne";
 
   const showEnProduction = useMemo(() => {
@@ -221,11 +221,23 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   }, []); // eslint-disable-line
 
   useEffect(() => {
-    if (entry.status === "termine" || entry.status === "abandonne") { setNextAiring(null); return; }
+    // Un titre "abandonné" n'a pas besoin d'être vérifié. En revanche un
+    // titre "Terminé" DOIT continuer d'être vérifié : c'est la seule façon
+    // de détecter qu'un épisode futur est en fait déjà annoncé et de
+    // corriger automatiquement un statut "Terminé" passé par erreur (ce qui
+    // bloquait aussi la sync/les notifs, réservées aux titres "en-cours").
+    if (entry.status === "abandonne") { setNextAiring(null); return; }
     if (!((entry.source === "anilist" && entry.anilistIds?.length) || (entry.source === "tvmaze" && entry.tvmazeId))) return;
     let c = false;
     const t = setTimeout(async () => {
-      try { const r = await fetchNextAiring(entry); if (!c) setNextAiring(r); } catch (_) {}
+      try {
+        const r = await fetchNextAiring(entry);
+        if (c) return;
+        setNextAiring(r);
+        if (r?.airingAt && entry.status === "termine") {
+          saveEntry({ ...entry, status: "en-cours" }, entry.id);
+        }
+      } catch (_) {}
     }, Math.random() * 800);
     return () => { c = true; clearTimeout(t); };
   }, [entry.id, entry.source, entry.status, entry.anilistIds?.length, entry.tvmazeId]);
