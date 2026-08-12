@@ -3,9 +3,9 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { X, Pencil, Star, Loader2, RefreshCw, Film, Tv, Disc2,
          CheckCheck, ChevronRight, Check, Heart, ListPlus, AlertTriangle, WifiOff } from "lucide-react";
 import { EpisodeList }             from "../components/EpisodeList/EpisodeList";
-import { StarRating, getRatingEmoji } from "../components/common/Rating";
+import { StarRating, RatingMeter, getRatingEmoji } from "../components/common/Rating";
 import { TitleFormModal }          from "../components/Modal/TitleFormModal";
-import { STATUS, seasonTotals }    from "../utils/status";
+import { STATUS, seasonTotals, formatRating }    from "../utils/status";
 import { useLibrary }              from "../context/LibraryContext";
 import { fetchSeasonInfo, importResult, refreshEntryCard } from "../api";
 import { fetchAniListRecommendations, fetchSimilarTitles } from "../api/recommendations";
@@ -81,7 +81,7 @@ export function Details() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { entries, saveEntry, updateRating, setEpisodeCount, updateSeasonTotal,
+  const { entries, saveEntry, updateSeasonRating, setEpisodeCount, updateSeasonTotal,
           incrementEpisode, decrementEpisode, markDone } = useLibrary();
   const { isInFavorites, toggleFavorite } = useLists();
   const entry = entries.find((e) => e.id === id);
@@ -534,12 +534,14 @@ export function Details() {
               <div className="flex items-center gap-1.5 mb-1">
                 <span className="text-xl sm:text-3xl font-bold text-violet-50"
                   style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-                  {entry.rating || "—"}
+                  {formatRating(entry.rating) || "—"}
                 </span>
                 {entry.rating > 0 && <Star size={18} fill="#fbbf24" strokeWidth={0} />}
                 {getRatingEmoji(entry.rating) && <span className="text-xl sm:text-3xl">{getRatingEmoji(entry.rating)}</span>}
               </div>
-              <StarRating value={entry.rating} onChange={r => { haptics.tap(); updateRating(entry.id, r); }} />
+              <p className="font-mono text-[10px] text-violet-500">
+                {entry.rating > 0 ? "Moyenne des saisons notées — note-les ci-dessous" : "Aucune saison notée pour l'instant"}
+              </p>
             </div>
             {entry.notes && <p className="text-[11px] text-violet-300/80 italic mt-1 line-clamp-2">{entry.notes}</p>}
           </div>
@@ -599,6 +601,15 @@ export function Details() {
                         </div>
                       )}
                       {curTV?.title && <p className="font-mono text-[11px] text-violet-500 truncate mt-2" title={curTV.title}>{curTV.title}</p>}
+                      {curTV && (
+                        <div className="flex items-center gap-2 mt-2 mb-1 flex-wrap">
+                          <span className="font-mono text-[10px] uppercase tracking-widest text-violet-500">
+                            Note S{curTV.number}
+                          </span>
+                          <StarRating value={curTV.rating || 0}
+                            onChange={r => { haptics.tap(); updateSeasonRating(entry.id, curTV.globalIndex, r); }} />
+                        </div>
+                      )}
                       <div className="flex items-center justify-between mt-3 mb-2 gap-2 flex-wrap">
                         <p className="font-mono text-[11px] text-violet-400">{watched} / {curTV?.totalEpisodes ?? "?"} ép. vus</p>
                         <div className="flex items-center gap-2">
@@ -659,6 +670,10 @@ export function Details() {
                               <p className="font-mono text-[10px] text-violet-500 mt-0.5">
                                 {String(se.watchedEpisodes).padStart(2, "0")}{se.totalEpisodes != null ? `/${String(se.totalEpisodes).padStart(2, "0")}` : "/?"} ép.
                               </p>
+                              <div className="mt-1">
+                                <RatingMeter value={se.rating || 0}
+                                  onChange={r => { haptics.tap(); updateSeasonRating(entry.id, se.globalIndex, r); }} />
+                              </div>
                             </div>
                             <div className="flex gap-1 flex-shrink-0 pt-0.5">
                               {se.watchedEpisodes > 0 && (
@@ -703,6 +718,10 @@ export function Details() {
                               {se.totalEpisodes != null && se.totalEpisodes > 1 && (
                                 <p className="font-mono text-[10px] text-violet-500 mt-0.5">{se.totalEpisodes} épisodes</p>
                               )}
+                              <div className="mt-1">
+                                <RatingMeter value={se.rating || 0}
+                                  onChange={r => { haptics.tap(); updateSeasonRating(entry.id, se.globalIndex, r); }} />
+                              </div>
                             </div>
                             <button onClick={() => { haptics.tap(); setEpisodeCount(entry.id, se.globalIndex, seen ? 0 : (se.totalEpisodes ?? 1)); }}
                               className={`font-mono text-[10px] px-2.5 py-1 rounded-full border transition-all active:scale-95 flex-shrink-0 mt-0.5 ${seen ? "bg-teal-500/20 border-teal-500/40 text-teal-300 hover:bg-teal-500/30" : "bg-white/5 border-white/10 text-violet-400 hover:bg-white/10 hover:text-violet-200"}`}>
@@ -759,6 +778,15 @@ export function Details() {
                         </button>
                       )}
                     </div>
+                    {curTV && (
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                        <span className="font-mono text-[10px] uppercase tracking-widest text-violet-500">
+                          Note{tvSeasons.length > 1 ? ` S${curTV.number}` : ""}
+                        </span>
+                        <StarRating value={curTV.rating || 0}
+                          onChange={r => { haptics.tap(); updateSeasonRating(entry.id, curTV.globalIndex, r); }} />
+                      </div>
+                    )}
                     {curTV && (
                       <div className="flex gap-1.5 sm:gap-2 mb-3 flex-wrap">
                         <button onClick={() => { haptics.tap(); decrementEpisode(entry.id, curTV.globalIndex); }}

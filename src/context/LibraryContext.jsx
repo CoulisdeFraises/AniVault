@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
-import { seasonTotals, autoStatus } from "../utils/status";
+import { seasonTotals, autoStatus, computeOverallRating } from "../utils/status";
 import { normalizeSeriesTitle } from "../utils/titles";
 import { getStaleCached, setCached, TTL } from "../lib/cache";
 
@@ -17,13 +17,24 @@ function sanitizeEntry(e) {
   if (!e || typeof e !== "object") return null;
   const VALID_STATUS = ["en-cours", "termine", "a-voir", "abandonne"];
   const VALID_TYPES  = ["anime", "serie"];
+  const seasonsClean = Array.isArray(e.seasons) && e.seasons.length > 0
+    ? e.seasons.map(s => ({
+        ...s,
+        rating: typeof s.rating === "number" ? Math.min(10, Math.max(0, s.rating)) : 0,
+      }))
+    : null;
+  // La note globale affichée est désormais la moyenne des saisons notées.
+  // Tant qu'aucune saison n'a été notée individuellement, on conserve
+  // l'ancienne note globale (rétrocompatibilité avec les titres existants).
+  const seasonRating = seasonsClean ? computeOverallRating(seasonsClean) : 0;
+  const legacyRating  = typeof e.rating === "number" ? Math.min(10, Math.max(0, e.rating)) : 0;
   return {
     ...e,
     id:           typeof e.id === "string" && e.id ? e.id : String(Date.now() + Math.random()),
     title:        typeof e.title === "string" ? e.title : "",
     type:         VALID_TYPES.includes(e.type) ? e.type : "anime",
     status:       VALID_STATUS.includes(e.status) ? e.status : "a-voir",
-    rating:       typeof e.rating === "number" ? Math.min(10, Math.max(0, e.rating)) : 0,
+    rating:       seasonRating > 0 ? seasonRating : legacyRating,
     genres:       Array.isArray(e.genres) ? e.genres.filter(g => typeof g === "string") : [],
     watchHistory: Array.isArray(e.watchHistory) ? e.watchHistory : [],
     // Normalisation en Number : évite les faux-négatifs de dédup (ex. côté
@@ -46,8 +57,9 @@ function sanitizeEntry(e) {
           totalEpisodes:   s.totalEpisodes != null ? Math.max(0, Number(s.totalEpisodes) || 0) : null,
           watchedEpisodes: Math.max(0, Number(s.watchedEpisodes) || 0),
           coverImage:      s.coverImage ?? null,
+          rating:          Math.min(10, Math.max(0, Number(s.rating) || 0)),
         }))
-      : [{ number: 1, format: "TV", totalEpisodes: null, watchedEpisodes: 0, coverImage: null }],
+      : [{ number: 1, format: "TV", totalEpisodes: null, watchedEpisodes: 0, coverImage: null, rating: 0 }],
   };
 }
 
@@ -166,6 +178,7 @@ export function LibraryProvider({ children }) {
         totalEpisodes: total,
         watchedEpisodes: watched,
         coverImage: s.coverImage ?? null,
+        rating: Math.min(10, Math.max(0, Number(s.rating) || 0)),
         ...(s.anilistId != null ? { anilistId: s.anilistId } : {}),
       };
     });
@@ -238,6 +251,17 @@ export function LibraryProvider({ children }) {
   const updateRating = useCallback((id, rating) =>
     persist(entriesRef.current.map((e) => e.id === id ? { ...e, rating, updatedAt: Date.now() } : e)), [user]);
 
+  // Note par saison : la note globale affichée sur la carte est ensuite
+  // recalculée automatiquement (moyenne des saisons notées).
+  const updateSeasonRating = useCallback((id, seasonIndex, rating) => {
+    persist(entriesRef.current.map((e) => {
+      if (e.id !== id) return e;
+      const clamped = Math.min(10, Math.max(0, Number(rating) || 0));
+      const seasons = e.seasons.map((s, i) => i === seasonIndex ? { ...s, rating: clamped } : s);
+      return { ...e, seasons, rating: computeOverallRating(seasons), updatedAt: Date.now() };
+    }));
+  }, [user]);
+
   const updateSeasonTotal = useCallback((id, seasonIndex, totalEpisodes) => {
     persist(entriesRef.current.map((e) => {
       if (e.id !== id) return e;
@@ -251,7 +275,7 @@ export function LibraryProvider({ children }) {
       if (e.id !== id) return e;
       const newSeason = { number: e.seasons.length + 1, format: seasonData.format ?? "TV",
         title: seasonData.title ?? null, totalEpisodes: seasonData.totalEpisodes ?? null,
-        watchedEpisodes: 0, coverImage: seasonData.coverImage ?? null };
+        watchedEpisodes: 0, coverImage: seasonData.coverImage ?? null, rating: 0 };
       const newIds = seasonData.anilistId
         ? [...(e.anilistIds || []), seasonData.anilistId] : (e.anilistIds || []);
       return { ...e, seasons: [...e.seasons, newSeason], anilistIds: newIds, updatedAt: Date.now() };
@@ -271,7 +295,7 @@ export function LibraryProvider({ children }) {
       entries, setEntries, loading, saveError, offline,
       findDuplicate, saveEntry, deleteEntry,
       incrementEpisode, decrementEpisode, setEpisodeCount,
-      markDone, updateRating, updateSeasonTotal, addSeason, deleteSeason,
+      markDone, updateRating, updateSeasonRating, updateSeasonTotal, addSeason, deleteSeason,
     }}>
       {children}
     </LibraryContext.Provider>

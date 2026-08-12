@@ -1,6 +1,6 @@
 export const emptyForm = {
   title: "", type: "anime", category: "tv", genres: [], status: "a-voir",
-  seasons: [{ number: 1, format: "TV", totalEpisodes: null, watchedEpisodes: 0 }],
+  seasons: [{ number: 1, format: "TV", totalEpisodes: null, watchedEpisodes: 0, rating: 0 }],
   rating: 0, notes: "", coverImage: null,
   source: null, anilistIds: [], tvmazeId: null, tmdbId: null, description: null,
   titleRomaji: null, titleEnglish: null, titleFrench: null,

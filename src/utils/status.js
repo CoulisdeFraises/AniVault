@@ -36,6 +36,25 @@ export function formatCountdown(airingAt) {
   return `dans ${m}min`;
 }
 
+/**
+ * computeOverallRating — calcule la note globale d'un titre à partir des
+ * notes données saison par saison. Moyenne arrondie au dixième des saisons
+ * notées (rating > 0) ; retourne 0 si aucune saison n'a encore été notée.
+ */
+export function computeOverallRating(seasons) {
+  if (!seasons?.length) return 0;
+  const rated = seasons.filter((s) => s.rating > 0);
+  if (!rated.length) return 0;
+  const avg = rated.reduce((sum, s) => sum + s.rating, 0) / rated.length;
+  return Math.round(avg * 10) / 10;
+}
+
+/** formatRating — "8" reste "8", "7.5" reste "7.5" (pas de zéro superflu). */
+export function formatRating(r) {
+  if (!r) return null;
+  return Number.isInteger(r) ? String(r) : r.toFixed(1);
+}
+
 export function getRatingEmoji(r) {
   if (!r) return null;
   if (r <= 2) return "😭"; if (r <= 4) return "😞"; if (r === 5) return "😐";

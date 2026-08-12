@@ -3,8 +3,7 @@ import { X, Search, Check } from "lucide-react";
 import { Modal, ConfirmDialog } from "./Modal";
 import { SearchBar } from "../SearchBar/SearchBar";
 import { Chip } from "../common/Chip";
-import { RatingMeter } from "../common/Rating";
-import { STATUS, STATUS_ORDER, seasonTotals } from "../../utils/status";
+import { STATUS, STATUS_ORDER, seasonTotals, formatRating } from "../../utils/status";
 import { GENRE_SUGGESTIONS } from "../../utils/genres";
 import { emptyForm } from "../../utils/entry";
 import { useLibrary } from "../../context/LibraryContext";
@@ -120,7 +119,12 @@ export function TitleFormModal({ editingEntry, onClose, onSave }) {
             <>
               <div className="mt-3">
                 <label className="block text-xs uppercase tracking-wide text-violet-400 mb-1">Note</label>
-                <RatingMeter value={form.rating} onChange={(v) => setForm((f) => ({ ...f, rating: v }))} size="lg" />
+                <p className="text-sm text-violet-300">
+                  {form.rating > 0 ? `${formatRating(form.rating)} / 10 (moyenne des saisons)` : "Pas encore notée"}
+                </p>
+                <p className="text-[11px] text-violet-500 mt-0.5">
+                  Note désormais saison par saison, depuis la fiche du titre.
+                </p>
               </div>
               <div className="mt-3">
                 <label className="block text-xs uppercase tracking-wide text-violet-400 mb-1">Avis / notes</label>

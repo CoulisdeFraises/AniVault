@@ -25,7 +25,7 @@ function createHiddenList() {
 
 function ensureSpecialLists(raw) {
   const fav     = raw.find(l => l.isFavorites)           || createFavoritesList();
-  const hidden  = raw.find(l => l.id === HIDDEN_LIST_ID) || createHiddenList();
+  const hidden  = { ...(raw.find(l => l.id === HIDDEN_LIST_ID) || createHiddenList()), isPublic: false };
   const normals = raw.filter(l => !l.isFavorites && l.id !== HIDDEN_LIST_ID);
   return [fav, ...normals, hidden];
 }
@@ -107,7 +107,7 @@ export function ListsProvider({ children }) {
     const id = Date.now().toString();
     persist([...listsRef.current, {
       id, name: name.trim(), emoji,
-      isFavorites: false, isHidden: false,
+      isFavorites: false, isHidden: false, isPublic: false,
       entries: [], createdAt: Date.now(), updatedAt: Date.now(),
     }]);
     return id;
@@ -122,6 +122,15 @@ export function ListsProvider({ children }) {
     if (listId === HIDDEN_LIST_ID) return;
     persist(listsRef.current.map(l =>
       l.id === listId ? { ...l, name: name.trim(), updatedAt: Date.now() } : l
+    ));
+  }, []);
+
+  // Rend une liste perso consultable par les amis (jamais Favoris ni la
+  // Cachette secrète, qui restent toujours privées).
+  const togglePublic = useCallback((listId) => {
+    if (listId === FAVORITES_ID || listId === HIDDEN_LIST_ID) return;
+    persist(listsRef.current.map(l =>
+      l.id === listId ? { ...l, isPublic: !l.isPublic, updatedAt: Date.now() } : l
     ));
   }, []);
 
@@ -173,7 +182,7 @@ export function ListsProvider({ children }) {
   return (
     <ListsContext.Provider value={{
       lists, loading,
-      createList, deleteList, renameList,
+      createList, deleteList, renameList, togglePublic,
       addEntryToList, removeEntryFromList,
       isInList, isInFavorites, isInHiddenList,
       toggleFavorite, toggleHidden,

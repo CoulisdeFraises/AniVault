@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Users, UserPlus, Search, ChevronLeft, Check, X,
   Loader2, Trophy, Film, Clock, UserCheck, UserX,
-  ChevronDown, Heart,
+  ChevronDown, Heart, ListPlus,
 } from "lucide-react";
 import { useAuth }    from "../context/AuthContext";
 import { TopBar } from "../components/common/TopBar";
@@ -12,7 +12,7 @@ import { Avatar }     from "../components/common/Avatar";
 import {
   fetchFriends, fetchPendingRequests, searchUserByUsername,
   sendFriendRequest, acceptFriendRequest, removeFriend,
-  fetchFriendFavorites,
+  fetchFriendFavorites, fetchFriendPublicLists,
 } from "../services/community";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -40,6 +40,27 @@ function FriendProfileModal({ friend, onClose, onRemove }) {
       } catch { setFavEntries([]); }
       setFavLoading(false);
       setFavLoaded(true);
+    }
+  }
+
+  // ── Listes publiques ─────────────────────────────────────────────────────
+  const [listsOpen,    setListsOpen]    = useState(false);
+  const [publicLists,  setPublicLists]  = useState([]);
+  const [listsLoading, setListsLoading] = useState(false);
+  const [listsLoaded,  setListsLoaded]  = useState(false);
+  const [openListId,   setOpenListId]   = useState(null);
+
+  async function handleToggleLists() {
+    const next = !listsOpen;
+    setListsOpen(next);
+    if (next && !listsLoaded) {
+      setListsLoading(true);
+      try {
+        const lists = await fetchFriendPublicLists(friend.user_id);
+        setPublicLists(lists);
+      } catch { setPublicLists([]); }
+      setListsLoading(false);
+      setListsLoaded(true);
     }
   }
 
@@ -117,6 +138,68 @@ function FriendProfileModal({ friend, onClose, onRemove }) {
                       </div>
                     ))}
                   </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Listes publiques (collapsible, chargement lazy) ── */}
+          <div className="rounded-xl border border-white/5 overflow-hidden">
+            <button
+              onClick={handleToggleLists}
+              className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/5 transition-colors"
+            >
+              <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-violet-400">
+                <ListPlus size={12} className={listsOpen && publicLists.length > 0 ? "text-amber-400" : ""} />
+                Listes publiques{listsLoaded ? ` · ${publicLists.length}` : ""}
+              </span>
+              {listsLoading
+                ? <Loader2 size={12} className="animate-spin text-violet-500" />
+                : <ChevronDown size={12} className={`text-violet-500 transition-transform duration-200 ${listsOpen ? "rotate-180" : ""}`} />
+              }
+            </button>
+
+            {listsOpen && !listsLoading && (
+              <div className="px-3 pb-3 space-y-1.5">
+                {publicLists.length === 0 ? (
+                  <p className="text-[11px] text-violet-600 font-mono italic py-2">Aucune liste publique.</p>
+                ) : (
+                  publicLists.map(l => {
+                    const entries = Array.isArray(l.entries) ? l.entries : [];
+                    const isOpen  = openListId === l.id;
+                    return (
+                      <div key={l.id} className="rounded-lg bg-white/[0.03] overflow-hidden">
+                        <button
+                          onClick={() => setOpenListId(isOpen ? null : l.id)}
+                          className="w-full flex items-center gap-2 px-2.5 py-2 hover:bg-white/5 transition-colors"
+                        >
+                          <span className="text-sm flex-shrink-0">{l.emoji}</span>
+                          <span className="flex-1 text-left text-xs text-violet-200 truncate">{l.name}</span>
+                          <span className="font-mono text-[10px] text-violet-500 flex-shrink-0">{entries.length}</span>
+                          <ChevronDown size={11} className={`text-violet-500 flex-shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                        </button>
+                        {isOpen && (
+                          <div className="px-2.5 pb-2.5">
+                            {entries.length === 0 ? (
+                              <p className="text-[11px] text-violet-600 font-mono italic py-1">Liste vide.</p>
+                            ) : (
+                              <div className="space-y-1.5 max-h-40 overflow-y-auto overscroll-contain">
+                                {entries.map(e => (
+                                  <div key={e.entryId} className="flex items-center gap-2 py-1">
+                                    {e.coverImage
+                                      ? <img src={e.coverImage} alt="" className="w-7 h-10 object-cover rounded flex-shrink-0" />
+                                      : <div className="w-7 h-10 rounded bg-white/10 flex-shrink-0" />
+                                    }
+                                    <p className="text-xs text-violet-200 leading-tight line-clamp-2">{e.title}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
             )}

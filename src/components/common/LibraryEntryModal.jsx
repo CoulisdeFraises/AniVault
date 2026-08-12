@@ -1,6 +1,6 @@
 import { X, Star, Trash2, Film, Tv } from "lucide-react";
 import { Modal } from "../Modal/Modal";
-import { STATUS, seasonTotals, getRatingEmoji } from "../../utils/status";
+import { STATUS, seasonTotals, getRatingEmoji, formatRating } from "../../utils/status";
 
 // -----------------------------------------------------------------------------
 // LibraryEntryModal — ouverte au clic sur une carte dans "Mes Listes"
@@ -36,7 +36,7 @@ export function LibraryEntryModal({ item, entry, onClose, onRemove }) {
           </button>
           {entry?.rating > 0 && (
             <span className="absolute bottom-3 right-3 inline-flex items-center gap-1 font-mono text-[11px] text-amber-400 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm">
-              <Star size={9} fill="#fbbf24" strokeWidth={0} /> {entry.rating}/10
+              <Star size={9} fill="#fbbf24" strokeWidth={0} /> {formatRating(entry.rating)}/10
               {getRatingEmoji(entry.rating) ? ` ${getRatingEmoji(entry.rating)}` : ""}
             </span>
           )}

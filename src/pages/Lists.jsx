@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Plus, Trash2, Pencil, X, Check, ListPlus, Eye, EyeOff } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, Pencil, X, Check, ListPlus, Eye, EyeOff, Globe, Lock } from "lucide-react";
 import { useLists, HIDDEN_LIST_ID } from "../context/ListsContext";
 import { useLibrary } from "../context/LibraryContext";
 import { TopBar } from "../components/common/TopBar";
@@ -33,7 +33,7 @@ function EntryCard({ item, onRemove, blurred = false, onClick }) {
   );
 }
 
-function ListCard({ list, onDelete, onRename, onRemoveEntry }) {
+function ListCard({ list, onDelete, onRename, onRemoveEntry, onTogglePublic }) {
   const { entries: libraryEntries } = useLibrary();
   const [expanded, setExpanded] = useState(false);
   const [editing,  setEditing]  = useState(false);
@@ -68,8 +68,13 @@ function ListCard({ list, onDelete, onRename, onRemoveEntry }) {
               style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
               {list.name}
             </p>
-            <p className="font-mono text-[10px] text-violet-500 mt-0.5">
+            <p className="font-mono text-[10px] text-violet-500 mt-0.5 flex items-center gap-1.5">
               {entries.length} titre{entries.length !== 1 ? "s" : ""}
+              {list.isPublic && (
+                <span className="inline-flex items-center gap-0.5 text-teal-400">
+                  <Globe size={9} /> Publique
+                </span>
+              )}
             </p>
           </button>
         )}
@@ -95,6 +100,14 @@ function ListCard({ list, onDelete, onRename, onRemoveEntry }) {
         <div className="flex gap-0.5 flex-shrink-0">
           {!list.isFavorites && !list.isHidden && (
             <>
+              <button
+                onClick={() => onTogglePublic(list.id)}
+                aria-label={list.isPublic ? "Rendre privée" : "Rendre publique"}
+                title={list.isPublic ? "Visible par tes amis — clique pour rendre privée" : "Privée — clique pour la rendre visible par tes amis"}
+                className={`p-1.5 rounded-lg transition-colors ${list.isPublic ? "text-teal-300 hover:bg-teal-500/10" : "text-violet-500 hover:text-violet-200 hover:bg-white/10"}`}
+              >
+                {list.isPublic ? <Globe size={12} /> : <Lock size={12} />}
+              </button>
               <button onClick={() => setEditing(true)} className="p-1.5 rounded-lg text-violet-500 hover:text-violet-200 hover:bg-white/10 transition-colors">
                 <Pencil size={12} />
               </button>
@@ -207,7 +220,7 @@ function HiddenListCard({ list, onRemoveEntry }) {
 
 export function Lists() {
   const navigate = useNavigate();
-  const { lists, createList, deleteList, renameList, removeEntryFromList } = useLists();
+  const { lists, createList, deleteList, renameList, removeEntryFromList, togglePublic } = useLists();
   const [creating,  setCreating]  = useState(false);
   const [newName,   setNewName]   = useState("");
   const [confirmId, setConfirmId] = useState(null);
@@ -248,7 +261,7 @@ export function Lists() {
         {favorites && (
           <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-pink-400/70 mb-2">Liste spéciale</p>
-            <ListCard list={favorites} onDelete={() => {}} onRename={renameList} onRemoveEntry={removeEntryFromList} />
+            <ListCard list={favorites} onDelete={() => {}} onRename={renameList} onRemoveEntry={removeEntryFromList} onTogglePublic={togglePublic} />
           </div>
         )}
 
@@ -304,7 +317,7 @@ export function Lists() {
                       </button>
                     </div>
                   )}
-                  <ListCard list={list} onDelete={handleDelete} onRename={renameList} onRemoveEntry={removeEntryFromList} />
+                  <ListCard list={list} onDelete={handleDelete} onRename={renameList} onRemoveEntry={removeEntryFromList} onTogglePublic={togglePublic} />
                 </div>
               ))}
             </div>

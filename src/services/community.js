@@ -98,7 +98,7 @@ export async function syncProfileStats(userId, { entriesCount, episodesWatched, 
 /** Recherche par pseudo (exact, insensible à la casse) */
 export async function searchUserByUsername(username) {
   const { data } = await supabase.from("profiles")
-    .select("user_id, username, avatar_color, description")
+    .select("user_id, username, avatar_color, avatar_url, description")
     .ilike("username", username.trim())
     .maybeSingle();
   return data;
@@ -116,7 +116,7 @@ export async function searchUserByIdentifier(identifier) {
 
   if (uuidPattern.test(trimmed)) {
     const { data } = await supabase.from("profiles")
-      .select("user_id, username, avatar_color, description")
+      .select("user_id, username, avatar_color, avatar_url, description")
       .eq("user_id", trimmed)
       .maybeSingle();
     if (data) return data;
@@ -124,7 +124,7 @@ export async function searchUserByIdentifier(identifier) {
 
   // Fallback : recherche par pseudo
   const { data } = await supabase.from("profiles")
-    .select("user_id, username, avatar_color, description")
+    .select("user_id, username, avatar_color, avatar_url, description")
     .ilike("username", trimmed)
     .maybeSingle();
   return data;
@@ -160,7 +160,7 @@ export async function fetchFriends(myId) {
 
   const ids = rows.map(r => r.requester_id === myId ? r.target_id : r.requester_id);
   const { data: profiles } = await supabase.from("profiles")
-    .select("user_id, username, avatar_color, description, entries_count, episodes_watched, achievements")
+    .select("user_id, username, avatar_color, avatar_url, description, entries_count, episodes_watched, achievements")
     .in("user_id", ids);
   return (profiles || []).map(p => ({
     ...p,
@@ -176,7 +176,7 @@ export async function fetchPendingRequests(myId) {
 
   const ids = rows.map(r => r.requester_id);
   const { data: profiles } = await supabase.from("profiles")
-    .select("user_id, username, avatar_color, description")
+    .select("user_id, username, avatar_color, avatar_url, description")
     .in("user_id", ids);
   return (profiles || []).map(p => ({
     ...p,
@@ -193,4 +193,19 @@ export async function fetchFriendFavorites(userId) {
   const lists   = Array.isArray(data?.lists) ? data.lists : [];
   const favList = lists.find(l => l.isFavorites);
   return Array.isArray(favList?.entries) ? favList.entries : [];
+}
+
+/**
+ * Récupère les listes qu'un ami a explicitement rendues publiques.
+ * Les Favoris (gérés à part via fetchFriendFavorites) et la Cachette
+ * secrète ne sont jamais inclus, même si isPublic traînerait dessus.
+ */
+export async function fetchFriendPublicLists(userId) {
+  const { data } = await supabase
+    .from("libraries")
+    .select("lists")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const lists = Array.isArray(data?.lists) ? data.lists : [];
+  return lists.filter(l => l.isPublic && !l.isFavorites && !l.isHidden);
 }

@@ -7,7 +7,7 @@ import {
 import { useLists }         from "../../context/ListsContext";
 import { ConfirmDialog }    from "../Modal/Modal";
 import { StarRating, getRatingEmoji } from "../common/Rating";
-import { STATUS, seasonTotals, formatCountdown } from "../../utils/status";
+import { STATUS, seasonTotals, formatCountdown, formatRating } from "../../utils/status";
 import { useLibrary }       from "../../context/LibraryContext";
 import { fetchNextAiring, refreshEntryCard } from "../../api";
 import { getShowProgress }  from "../../context/PrefsContext";
@@ -25,7 +25,7 @@ const SWIPE_THRESHOLD = 72;
 const LONG_PRESS_MS   = 500;
 
 export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = false }) {
-  const { markDone, deleteEntry, saveEntry, updateRating } = useLibrary();
+  const { markDone, deleteEntry, saveEntry, updateSeasonRating } = useLibrary();
   const { isInFavorites, toggleFavorite } = useLists();
   const isFavorite = isInFavorites(entry.id);
   const navigate   = useNavigate();
@@ -66,6 +66,9 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   const s           = STATUS[entry.status] ?? STATUS["a-voir"];
   const dimmed      = isAbandoned ? "opacity-50 grayscale" : "";
   const cur         = tvSeasons[Math.min(activeTVIdx, Math.max(0, tvSeasons.length - 1))] ?? null;
+  // Saison ciblée par la notation rapide (swipe) : la saison TV en cours,
+  // sinon le film, sinon la première saison disponible.
+  const rateTarget  = cur ?? movieSeasons[0] ?? seasons.map((s, i) => ({ ...s, globalIndex: i }))[0] ?? null;
 
   const { watched: tvW,  total: tvT  } = useMemo(() => seasonTotals(tvSeasons),    [tvSeasons]);
   const { watched: totW, total: totT  } = useMemo(() => seasonTotals(seasons),      [seasons]);
@@ -414,7 +417,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
               <p className="font-mono text-[9px] uppercase tracking-widest text-violet-400 hidden sm:block">Note</p>
               <div className="flex items-center gap-0.5">
                 <span className="text-lg sm:text-xl font-bold text-violet-50" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-                  {entry.rating || "—"}
+                  {formatRating(entry.rating) || "—"}
                 </span>
                 {entry.rating > 0 && <Star size={13} fill="#fbbf24" strokeWidth={0} />}
               </div>
@@ -509,7 +512,17 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             <p className="font-mono text-xs uppercase tracking-widest text-white/90 truncate max-w-full px-2 text-center">
               {entry.title}
             </p>
-            <StarRating value={entry.rating} onChange={r => { haptics.tap(); updateRating(entry.id, r); }} />
+            {rateTarget && (
+              <p className="font-mono text-[10px] text-violet-300 -mt-2">
+                {rateTarget.number != null && (tvSeasons.length > 1 || movieSeasons.length > 1 || tvSeasons.length + movieSeasons.length + extraSeasons.length > 1)
+                  ? `Note — Saison ${rateTarget.number}`
+                  : "Note"}
+              </p>
+            )}
+            <StarRating
+              value={rateTarget?.rating || 0}
+              onChange={r => { haptics.tap(); if (rateTarget) updateSeasonRating(entry.id, rateTarget.globalIndex, r); }}
+            />
             <button
               onClick={() => { haptics.light(); toggleFavorite(entry); }}
               className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
