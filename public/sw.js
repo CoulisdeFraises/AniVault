@@ -1,4 +1,4 @@
-const CACHE_NAME = "anivault-v1";
+const CACHE_NAME = "anivault-v2";
 
 // Assets statiques à mettre en cache immédiatement
 const PRECACHE = [
