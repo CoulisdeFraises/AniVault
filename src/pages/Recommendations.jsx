@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ChevronLeft, Loader2, Film, Tv, Clapperboard, WifiOff,
+  Dices, Dice1, Dice2, Dice3, Dice4, Dice5, Dice6,
 } from "lucide-react";
 import { useLibrary }          from "../context/LibraryContext";
 import { TopBar }          from "../components/common/TopBar";
@@ -63,6 +64,10 @@ const TABS = [
   { key: "film",  label: "Films",  Icon: Clapperboard },
 ];
 
+// ── Faces de dé pour l'animation de tirage ─────────────────────────────────────
+const DICE_FACES = [Dice1, Dice2, Dice3, Dice4, Dice5, Dice6];
+const ROLL_DURATION_MS = 900; // durée mini de l'animation de suspense
+
 // ── Page Recommandations ──────────────────────────────────────────────────────
 export function Recommendations() {
   const navigate       = useNavigate();
@@ -78,6 +83,16 @@ export function Recommendations() {
   const [editingEntry, setEditingEntry] = useState(null);
   const [synopsisRec,  setSynopsisRec]  = useState(null);
   const [refreshNotice, setRefreshNotice] = useState(""); // message discret, auto-effacé
+
+  // ── « Surprends-moi » ──────────────────────────────────────────────────────
+  const [rolling,   setRolling]   = useState(false);
+  const [diceFace,  setDiceFace]  = useState(0);
+  const rollIntervalRef = useRef(null);
+  const mountedRef       = useRef(true);
+  useEffect(() => () => {
+    mountedRef.current = false;
+    if (rollIntervalRef.current) clearInterval(rollIntervalRef.current);
+  }, []);
 
   // Dernière page tirée par onglet, pour éviter que deux pull-to-refresh
   // consécutifs retombent sur exactement le même lot par hasard.
@@ -322,8 +337,94 @@ export function Recommendations() {
     }
   }
 
+  // ── Tirage aléatoire d'un titre selon l'onglet actif ──────────────────────
+  // Réutilise les mêmes fonctions de fetch que le chargement normal, donc
+  // hérite au passage de leurs filtres (genres favoris, contenu adulte pour
+  // les animes, vote_count minimum côté TMDB pour écarter les films/séries
+  // trop confidentiels). On exclut ensuite les titres déjà dans la bibliothèque
+  // avant de tirer au sort, avec un filet de sécurité si tout est déjà connu.
+  async function pickRandomAnime() {
+    if (!animeTopGenresEN.length) return null;
+    const page = Math.floor(Math.random() * 3) + 1; // pages 1..3
+    let data = await fetchAniListRecommendations(animeTopGenresEN, [...libraryIds], { page });
+    if (!data.length && page !== 1) {
+      data = await fetchAniListRecommendations(animeTopGenresEN, [...libraryIds], { page: 1 });
+    }
+    if (!data.length) return null;
+    const pool = data.filter((r) => !isInLibrary(r));
+    const from = pool.length ? pool : data;
+    return from[Math.floor(Math.random() * from.length)];
+  }
+
+  async function pickRandomFilm() {
+    if (!hasTMDB()) return null;
+    const page = Math.floor(Math.random() * 5) + 1; // pages 1..5
+    const { recs: data } = await fetchTMDBMovieRecommendations(entries, { page });
+    if (!data.length) return null;
+    const pool = data.filter((r) => !isInLibrary(r));
+    const from = pool.length ? pool : data;
+    return from[Math.floor(Math.random() * from.length)];
+  }
+
+  async function pickRandomSerie() {
+    if (!hasTMDB()) return null;
+    const page = Math.floor(Math.random() * 5) + 1; // pages 1..5
+    const { recs: data } = await fetchTMDBSeriesRecommendations(entries, { page });
+    if (!data.length) return null;
+    const pool = data.filter((r) => !isInLibrary(r));
+    const from = pool.length ? pool : data;
+    return from[Math.floor(Math.random() * from.length)];
+  }
+
+  function pickRandomTitle() {
+    if (activeTab === "anime") return pickRandomAnime();
+    if (activeTab === "film")  return pickRandomFilm();
+    return pickRandomSerie();
+  }
+
+  async function handleSurpriseMe() {
+    if (rolling) return;
+    haptics.tap();
+    setRolling(true);
+    setDiceFace(0);
+
+    // Animation de suspense : on fait défiler les faces du dé pendant qu'on
+    // tire le titre en arrière-plan, avec une durée mini pour que le geste
+    // se sente intentionnel même si la requête réseau est instantanée.
+    rollIntervalRef.current = setInterval(() => {
+      setDiceFace((f) => (f + 1) % DICE_FACES.length);
+    }, 90);
+
+    try {
+      const [result] = await Promise.all([
+        pickRandomTitle(),
+        new Promise((r) => setTimeout(r, ROLL_DURATION_MS)),
+      ]);
+
+      if (!mountedRef.current) return;
+      clearInterval(rollIntervalRef.current);
+      setRolling(false);
+
+      if (result) {
+        haptics.success();
+        setSynopsisRec(result);
+      } else {
+        haptics.error();
+        setRefreshNotice("Aucun titre trouvé pour l'instant — réessaie plus tard.");
+      }
+    } catch {
+      if (!mountedRef.current) return;
+      clearInterval(rollIntervalRef.current);
+      setRolling(false);
+      haptics.error();
+      setRefreshNotice("Aucun titre trouvé pour l'instant — réessaie plus tard.");
+    }
+  }
+
   const isNoTmdb      = error === "no_tmdb";
   const displayGenres = activeTab === "anime" ? animeTopGenres : tabTopGenres;
+  const canSurprise    = activeTab === "anime" ? animeTopGenresEN.length > 0 : hasTMDB();
+  const DiceIcon        = rolling ? DICE_FACES[diceFace] : Dices;
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -365,16 +466,40 @@ export function Recommendations() {
             </div>
           </div>
 
-          {/* ── Genres utilisés ── */}
+          {/* ── Genres utilisés ──
+              Sur mobile, l'encart tient sur une seule ligne : on passe en
+              défilement horizontal (flex-nowrap + overflow-x-auto) plutôt que
+              de laisser les badges retomber à la ligne. À partir de sm, il y a
+              assez de largeur pour repasser en flex-wrap classique. */}
           {displayGenres.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-5">
-              <span className="text-[11px] text-violet-400 font-mono uppercase tracking-wide self-center">Basé sur :</span>
+            <div className="flex flex-nowrap sm:flex-wrap items-center gap-2 mb-5 overflow-x-auto sm:overflow-visible scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+              <span className="flex-shrink-0 whitespace-nowrap text-[11px] text-violet-400 font-mono uppercase tracking-wide">Basé sur :</span>
               {displayGenres.map((g) => (
                 <span key={g}
-                  className="px-2.5 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[11px] font-mono">
+                  className="flex-shrink-0 whitespace-nowrap px-2.5 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[11px] font-mono">
                   {g}
                 </span>
               ))}
+            </div>
+          )}
+
+          {/* ── Surprends-moi ── */}
+          {!loading && !isNoTmdb && !error && (
+            <div className="flex justify-center mb-5">
+              <button
+                onClick={handleSurpriseMe}
+                disabled={rolling || !canSurprise}
+                title={canSurprise ? undefined : "Pas encore assez de données pour cet onglet"}
+                className={`flex items-center gap-2 px-5 py-2 rounded-full border text-xs font-mono uppercase tracking-wide
+                  transition-all active:scale-95 motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed ${
+                  rolling
+                    ? "bg-amber-400/20 border-amber-400/40 text-amber-300"
+                    : "bg-white/5 border-white/10 text-violet-200 hover:bg-amber-400/10 hover:border-amber-400/30 hover:text-amber-300"
+                }`}
+              >
+                <DiceIcon size={15} className={rolling ? "animate-diceShake" : ""} />
+                {rolling ? "Ça tourne…" : "Surprends-moi"}
+              </button>
             </div>
           )}
 

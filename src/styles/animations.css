@@ -118,6 +118,18 @@
   }
 }
 
+/* ── Secousse de dé (bouton « Surprends-moi ») ──────────────── */
+@keyframes diceShake {
+  0%, 100% { transform: rotate(0deg)    scale(1);    }
+  15%      { transform: rotate(-18deg)  scale(1.05); }
+  30%      { transform: rotate(14deg)   scale(1.05); }
+  45%      { transform: rotate(-10deg)  scale(1.08); }
+  60%      { transform: rotate(10deg)   scale(1.05); }
+  75%      { transform: rotate(-6deg)   scale(1.02); }
+  90%      { transform: rotate(4deg)    scale(1);    }
+}
+.animate-diceShake { animation: diceShake 0.5s ease-in-out infinite; }
+
 /* ── Classes utilitaires ───────────────────────────────────── */
 .animate-fadeInUp       { animation: fadeInUp      0.35s ease-out both; }
 .animate-fadeIn         { animation: fadeIn        0.20s ease-out both; }
