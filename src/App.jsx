@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { AnimatePresence, MotionConfig } from "motion/react";
 import { Loader2 }             from "lucide-react";
 import { AuthProvider, useAuth }       from "./context/AuthContext";
 import { LibraryProvider, useLibrary } from "./context/LibraryContext";
@@ -9,6 +10,7 @@ import { ErrorBoundary }               from "./components/common/ErrorBoundary";
 import { InstallPrompt }               from "./components/common/InstallPrompt";
 import { AchievementToast }            from "./components/common/AchievementToast";
 import { BottomNav }                   from "./components/common/BottomNav";
+import { PageTransition }              from "./components/common/PageTransition";
 import { useAchievements }             from "./hooks/useAchievements";
 import { useNotifications }            from "./hooks/useNotifications";
 import { addNotification }             from "./hooks/useNotificationStore";
@@ -112,40 +114,43 @@ const AppRoutes = () => {
   const backgroundLocation = location.state?.backgroundLocation;
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="min-h-screen bg-violet-950 text-violet-50"
       style={{ fontFamily: "'Inter', sans-serif" }}>
 
       {user && <NotificationLayer />}
 
       <Suspense fallback={<PageLoader />}>
-        <Routes location={backgroundLocation || location}>
-          <Route path="/login"
-            element={user ? <Navigate to="/" replace /> : <Login />} />
-          <Route path="/profile"
-            element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/calendar"
-            element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
-          <Route path="/calendar/next-season"
-            element={<ProtectedRoute><NextSeason /></ProtectedRoute>} />
-          <Route path="/history"
-            element={<ProtectedRoute><History /></ProtectedRoute>} />
-          <Route path="/recommendations"
-            element={<ProtectedRoute><Recommendations /></ProtectedRoute>} />
-          <Route path="/community"
-            element={<ProtectedRoute><Community /></ProtectedRoute>} />
-          <Route path="/lists"
-            element={<ProtectedRoute><Lists /></ProtectedRoute>} />
-          <Route path="/"
-            element={<ProtectedRoute><Home /></ProtectedRoute>} />
-          <Route path="/details/:id"
-            element={<ProtectedRoute><Details /></ProtectedRoute>} />
-          <Route path="/settings"
-            element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          <Route path="/search"
-            element={<ProtectedRoute><SearchPage /></ProtectedRoute>} />
-          <Route path="*"
-            element={<Navigate to="/" replace />} />
-        </Routes>
+        <AnimatePresence mode="wait" initial={false}>
+          <Routes location={backgroundLocation || location} key={(backgroundLocation || location).pathname}>
+            <Route path="/login"
+              element={user ? <Navigate to="/" replace /> : <PageTransition><Login /></PageTransition>} />
+            <Route path="/profile"
+              element={<ProtectedRoute><PageTransition><Profile /></PageTransition></ProtectedRoute>} />
+            <Route path="/calendar"
+              element={<ProtectedRoute><PageTransition><Calendar /></PageTransition></ProtectedRoute>} />
+            <Route path="/calendar/next-season"
+              element={<ProtectedRoute><PageTransition><NextSeason /></PageTransition></ProtectedRoute>} />
+            <Route path="/history"
+              element={<ProtectedRoute><PageTransition><History /></PageTransition></ProtectedRoute>} />
+            <Route path="/recommendations"
+              element={<ProtectedRoute><PageTransition><Recommendations /></PageTransition></ProtectedRoute>} />
+            <Route path="/community"
+              element={<ProtectedRoute><PageTransition><Community /></PageTransition></ProtectedRoute>} />
+            <Route path="/lists"
+              element={<ProtectedRoute><PageTransition><Lists /></PageTransition></ProtectedRoute>} />
+            <Route path="/"
+              element={<ProtectedRoute><PageTransition><Home /></PageTransition></ProtectedRoute>} />
+            <Route path="/details/:id"
+              element={<ProtectedRoute><PageTransition><Details /></PageTransition></ProtectedRoute>} />
+            <Route path="/settings"
+              element={<ProtectedRoute><PageTransition><Settings /></PageTransition></ProtectedRoute>} />
+            <Route path="/search"
+              element={<ProtectedRoute><PageTransition><SearchPage /></PageTransition></ProtectedRoute>} />
+            <Route path="*"
+              element={<Navigate to="/" replace />} />
+          </Routes>
+        </AnimatePresence>
 
         {backgroundLocation && (
           <Routes>
@@ -161,6 +166,7 @@ const AppRoutes = () => {
       <NotificationToast />
       <InstallPrompt />
     </div>
+    </MotionConfig>
   );
 };
 

@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
+import { motion } from "motion/react";
 import { Home, ListPlus, Calendar, Search, Sparkles, Users, User } from "lucide-react";
 
 // ── Pages accessibles depuis la barre flottante ────────────────────────────────
@@ -61,12 +62,21 @@ export function BottomNav() {
               className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-2xl
                 active:scale-95 transition-all motion-reduce:transition-none"
             >
-              <span
-                className={`flex items-center justify-center w-9 h-7 rounded-xl transition-colors motion-reduce:transition-none ${
-                  active ? "bg-amber-400/15 text-amber-400" : "text-violet-400"
-                }`}
-              >
-                <Icon size={18} />
+              <span className="relative flex items-center justify-center w-9 h-7 rounded-xl">
+                {/* Pastille active — partage un layoutId entre tous les onglets :
+                    Motion détecte le changement d'instance et anime le déplacement
+                    (position + taille) d'un onglet à l'autre plutôt que de la faire
+                    juste apparaître/disparaître. */}
+                {active && (
+                  <motion.span
+                    layoutId="bottomNavActivePill"
+                    className="absolute inset-0 rounded-xl bg-amber-400/15"
+                    transition={{ type: "spring", bounce: 0.25, duration: 0.4 }}
+                  />
+                )}
+                <Icon size={18} className={`relative z-10 transition-colors motion-reduce:transition-none ${
+                  active ? "text-amber-400" : "text-violet-400"
+                }`} />
               </span>
               <span
                 className={`font-mono text-[8.5px] uppercase tracking-wide leading-none ${
