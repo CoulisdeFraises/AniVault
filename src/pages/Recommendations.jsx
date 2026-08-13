@@ -4,6 +4,7 @@ import {
   ChevronLeft, Loader2, Film, Tv, Clapperboard, WifiOff,
   Dices, Dice1, Dice2, Dice3, Dice4, Dice5, Dice6,
 } from "lucide-react";
+import { AnimatePresence } from "motion/react";
 import { useLibrary }          from "../context/LibraryContext";
 import { TopBar }          from "../components/common/TopBar";
 import { TitleFormModal }      from "../components/Modal/TitleFormModal";
@@ -566,22 +567,26 @@ export function Recommendations() {
         </div>
       </PullToRefresh>
 
-      {synopsisRec && (
-        <SynopsisModal
-          rec={synopsisRec}
-          onClose={() => setSynopsisRec(null)}
-          onAdd={handleAdd}
-          adding={adding === synopsisRec.id}
-          alreadyInLib={isInLibrary(synopsisRec)}
-        />
-      )}
+      <AnimatePresence>
+        {synopsisRec && (
+          <SynopsisModal
+            key="synopsis"
+            rec={synopsisRec}
+            onClose={() => setSynopsisRec(null)}
+            onAdd={handleAdd}
+            adding={adding === synopsisRec.id}
+            alreadyInLib={isInLibrary(synopsisRec)}
+          />
+        )}
 
-      {editingEntry && (
-        <TitleFormModal
-          editingEntry={editingEntry}
-          onClose={() => setEditingEntry(null)}
-        />
-      )}
+        {editingEntry && (
+          <TitleFormModal
+            key="title-form"
+            editingEntry={editingEntry}
+            onClose={() => setEditingEntry(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

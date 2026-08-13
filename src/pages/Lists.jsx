@@ -5,6 +5,7 @@ import { useLists, HIDDEN_LIST_ID } from "../context/ListsContext";
 import { useLibrary } from "../context/LibraryContext";
 import { TopBar } from "../components/common/TopBar";
 import { LibraryEntryModal } from "../components/common/LibraryEntryModal";
+import { AnimatePresence } from "motion/react";
 
 function EntryCard({ item, onRemove, blurred = false, onClick }) {
   return (
@@ -138,14 +139,17 @@ function ListCard({ list, onDelete, onRename, onRemoveEntry, onTogglePublic }) {
         </div>
       )}
 
-      {selected && (
-        <LibraryEntryModal
-          item={selected}
-          entry={libraryEntries.find(e => e.id === selected.entryId) || null}
-          onClose={() => setSelected(null)}
-          onRemove={() => { onRemoveEntry(list.id, selected.entryId); setSelected(null); }}
-        />
-      )}
+      <AnimatePresence>
+        {selected && (
+          <LibraryEntryModal
+            key="library-entry"
+            item={selected}
+            entry={libraryEntries.find(e => e.id === selected.entryId) || null}
+            onClose={() => setSelected(null)}
+            onRemove={() => { onRemoveEntry(list.id, selected.entryId); setSelected(null); }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -206,14 +210,17 @@ function HiddenListCard({ list, onRemoveEntry }) {
         </div>
       )}
 
-      {selected && (
-        <LibraryEntryModal
-          item={selected}
-          entry={libraryEntries.find(e => e.id === selected.entryId) || null}
-          onClose={() => setSelected(null)}
-          onRemove={() => { onRemoveEntry(list.id, selected.entryId); setSelected(null); }}
-        />
-      )}
+      <AnimatePresence>
+        {selected && (
+          <LibraryEntryModal
+            key="library-entry"
+            item={selected}
+            entry={libraryEntries.find(e => e.id === selected.entryId) || null}
+            onClose={() => setSelected(null)}
+            onRemove={() => { onRemoveEntry(list.id, selected.entryId); setSelected(null); }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

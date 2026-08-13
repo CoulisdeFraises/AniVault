@@ -10,6 +10,7 @@ import { importResult }       from "../api";
 import { useLibrary }         from "../context/LibraryContext";
 import { TitleFormModal }     from "../components/Modal/TitleFormModal";
 import { SynopsisModal }      from "../components/common/SynopsisModal";
+import { AnimatePresence }    from "motion/react";
 import { FORMAT_TO_CATEGORY, CATEGORY_LABELS, CATEGORY_ICONS } from "../utils/entry";
 
 // ── Couleurs badges format ────────────────────────────────────────────────────
@@ -433,26 +434,30 @@ export function SearchPage() {
         )}
       </div>
 
-      {/* ── SynopsisModal — détails + boutons Ajouter / Vu ──────────────── */}
-      {selectedRec && (
-        <SynopsisModal
-          rec={selectedRec}
-          onClose={() => setSelectedResult(null)}
-          onAdd={handleSynopsisAdd}
-          onAddSeen={handleSynopsisAddSeen}
-          adding={importing}
-          alreadyInLib={isAlreadyInLib}
-        />
-      )}
+      <AnimatePresence>
+        {/* ── SynopsisModal — détails + boutons Ajouter / Vu ──────────────── */}
+        {selectedRec && (
+          <SynopsisModal
+            key="synopsis"
+            rec={selectedRec}
+            onClose={() => setSelectedResult(null)}
+            onAdd={handleSynopsisAdd}
+            onAddSeen={handleSynopsisAddSeen}
+            adding={importing}
+            alreadyInLib={isAlreadyInLib}
+          />
+        )}
 
-      {/* ── TitleFormModal — confirmation/édition après import ───────────── */}
-      {prefill && (
-        <TitleFormModal
-          editingEntry={prefill}
-          onClose={() => setPrefill(null)}
-          onSave={() => navigate("/")}
-        />
-      )}
+        {/* ── TitleFormModal — confirmation/édition après import ───────────── */}
+        {prefill && (
+          <TitleFormModal
+            key="title-form"
+            editingEntry={prefill}
+            onClose={() => setPrefill(null)}
+            onSave={() => navigate("/")}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

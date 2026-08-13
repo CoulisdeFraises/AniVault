@@ -4,6 +4,7 @@ import {
   Pencil, Trash2, Film, Tv, Disc2, Check, Star,
   RotateCcw, Heart, RefreshCw, ListPlus,
 } from "lucide-react";
+import { AnimatePresence }  from "motion/react";
 import { useLists }         from "../../context/ListsContext";
 import { ConfirmDialog }    from "../Modal/Modal";
 import { StarRating, getRatingEmoji } from "../common/Rating";
@@ -555,29 +556,33 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
       </div>
 
       {/* ── Modals ── */}
-      {showDel && (
-        <ConfirmDialog
-          icon={<Trash2 size={14} className="text-rose-400" />}
-          title="Supprimer ce titre ?"
-          description={<><span className="text-violet-50 font-medium">« {entry.title} »</span> et toute sa progression seront supprimés définitivement.</>}
-          confirmLabel="Supprimer"
-          onConfirm={() => { haptics.medium(); deleteEntry(entry.id); setShowDel(false); }}
-          onCancel={() => setShowDel(false)}
-        />
-      )}
-      {showAddToList && (
-        <AddToListModal entry={entry} onClose={() => setShowAddToList(false)} />
-      )}
-      {showAbandonConfirm && (
-        <ConfirmDialog
-          icon={<RotateCcw size={14} className="text-rose-400" />}
-          title="Abandonner ce titre ?"
-          description={<>Tu pourras reprendre <span className="text-violet-50 font-medium">« {entry.title} »</span> à tout moment depuis la carte.</>}
-          confirmLabel="Abandonner"
-          onConfirm={() => { haptics.medium(); handleAbandon(); setShowAbandonConfirm(false); }}
-          onCancel={() => setShowAbandonConfirm(false)}
-        />
-      )}
+      <AnimatePresence>
+        {showDel && (
+          <ConfirmDialog
+            key="del-confirm"
+            icon={<Trash2 size={14} className="text-rose-400" />}
+            title="Supprimer ce titre ?"
+            description={<><span className="text-violet-50 font-medium">« {entry.title} »</span> et toute sa progression seront supprimés définitivement.</>}
+            confirmLabel="Supprimer"
+            onConfirm={() => { haptics.medium(); deleteEntry(entry.id); setShowDel(false); }}
+            onCancel={() => setShowDel(false)}
+          />
+        )}
+        {showAddToList && (
+          <AddToListModal key="add-to-list" entry={entry} onClose={() => setShowAddToList(false)} />
+        )}
+        {showAbandonConfirm && (
+          <ConfirmDialog
+            key="abandon-confirm"
+            icon={<RotateCcw size={14} className="text-rose-400" />}
+            title="Abandonner ce titre ?"
+            description={<>Tu pourras reprendre <span className="text-violet-50 font-medium">« {entry.title} »</span> à tout moment depuis la carte.</>}
+            confirmLabel="Abandonner"
+            onConfirm={() => { haptics.medium(); handleAbandon(); setShowAbandonConfirm(false); }}
+            onCancel={() => setShowAbandonConfirm(false)}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 });

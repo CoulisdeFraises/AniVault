@@ -11,6 +11,7 @@ import { useLibrary }  from "../context/LibraryContext";
 import { importResult } from "../api";
 import { TopBar }    from "../components/common/TopBar";
 import { Modal }         from "../components/Modal/Modal";
+import { AnimatePresence } from "motion/react";
 import { PullToRefresh } from "../components/common/PullToRefresh";
 import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
 
@@ -621,13 +622,16 @@ export function Calendar() {
       </PullToRefresh>
 
       {/* ── Modal détail épisode ── */}
-      {selectedSchedule && (
-        <EpisodeDetailModal
-          schedule={selectedSchedule}
-          initialFrTitle={tmdbTitles[selectedSchedule.media.id] ?? null}
-          onClose={() => setSelectedSchedule(null)}
-        />
-      )}
+      <AnimatePresence>
+        {selectedSchedule && (
+          <EpisodeDetailModal
+            key="episode-detail"
+            schedule={selectedSchedule}
+            initialFrTitle={tmdbTitles[selectedSchedule.media.id] ?? null}
+            onClose={() => setSelectedSchedule(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

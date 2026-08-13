@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { motion } from "motion/react";
 
 // Sélecteur des éléments focusables standard
 const FOCUSABLE = [
@@ -7,6 +8,27 @@ const FOCUSABLE = [
   "input:not([disabled])", "select:not([disabled])",
   "[tabindex]:not([tabindex='-1'])",
 ].join(", ");
+
+// ── Animations d'ouverture/fermeture ───────────────────────────────────────
+// Le fond s'estompe, le panneau apparaît avec un léger scale + slide-up.
+// L'animation de SORTIE (Modal qui se ferme) ne peut pas se faire en CSS pur
+// puisque React démonte l'élément instantanément : côté appelant, il faut
+// envelopper le rendu conditionnel de <Modal> dans <AnimatePresence> pour que
+// ces variantes "exit" aient le temps de jouer avant le démontage réel.
+const BACKDROP_VARIANTS = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit:    { opacity: 0 },
+};
+
+const PANEL_VARIANTS = {
+  initial: { opacity: 0, scale: 0.94, y: 14 },
+  animate: { opacity: 1, scale: 1,    y: 0  },
+  exit:    { opacity: 0, scale: 0.96, y: 8   },
+};
+
+const BACKDROP_TRANSITION = { duration: 0.18, ease: "easeOut" };
+const PANEL_TRANSITION    = { type: "spring", bounce: 0.18, duration: 0.32 };
 
 // -----------------------------------------------------------------------------
 // Modal — rendu via createPortal directement dans document.body.
@@ -65,18 +87,28 @@ export function Modal({ onClose, maxWidth = "max-w-lg", zIndex = "z-50", childre
   }, [onClose]);
 
   return createPortal(
-    <div
+    <motion.div
+      variants={BACKDROP_VARIANTS}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={BACKDROP_TRANSITION}
       className={`fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 ${zIndex}`}
       onClick={onClose}
     >
-      <div
+      <motion.div
         ref={innerRef}
+        variants={PANEL_VARIANTS}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        transition={PANEL_TRANSITION}
         onClick={(e) => e.stopPropagation()}
         className={`bg-violet-900 border border-white/10 rounded-2xl w-full ${maxWidth} max-h-[90vh] overflow-y-auto`}
       >
         {children}
-      </div>
-    </div>,
+      </motion.div>
+    </motion.div>,
     document.body
   );
 }

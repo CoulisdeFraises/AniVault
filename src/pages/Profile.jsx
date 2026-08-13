@@ -10,6 +10,7 @@ import { useLibrary }      from "../context/LibraryContext";
 import { TopBar }      from "../components/common/TopBar";
 import { Avatar }          from "../components/common/Avatar";
 import { Modal }           from "../components/Modal/Modal";
+import { AnimatePresence } from "motion/react";
 import { useAchievements } from "../hooks/useAchievements";
 import { ACHIEVEMENT_CATEGORIES } from "../utils/achievements";
 import { updateProfileMeta, changeUsername, syncProfileStats, uploadAvatarPhoto, removeAvatarPhoto } from "../services/community";
@@ -150,7 +151,9 @@ function PasswordSection({ userEmail }) {
 
   return (
     <>
-      {showConfirmModal && <PasswordConfirmModal onConfirm={handleConfirmChange} onCancel={() => setShowConfirmModal(false)} loading={saving} />}
+      <AnimatePresence>
+        {showConfirmModal && <PasswordConfirmModal key="password-confirm" onConfirm={handleConfirmChange} onCancel={() => setShowConfirmModal(false)} loading={saving} />}
+      </AnimatePresence>
       <Section title="Mot de passe">
         {!open ? (
           <div className="px-5 py-4">

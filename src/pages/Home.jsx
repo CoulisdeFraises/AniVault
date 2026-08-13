@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { ContinueWatching } from "../components/common/ContinueWatching";
 import { FilterPanel }      from "../components/common/FilterPanel";
+import { AnimatePresence }  from "motion/react";
 import { fetchWeeklySchedule } from "../api/anilist";
 import { getCached, setCached, getStaleCached, TTL } from "../lib/cache";
 import { haptics } from "../utils/haptics";
@@ -464,24 +465,27 @@ export function Home() {
         <Footer />
       </PullToRefresh>
 
-      {showAddChoice && (
-        <AddChoiceModal onAddTitle={openNewForm} onCreateList={handleCreateList}
-          onClose={() => setShowAddChoice(false)} />
-      )}
-      {showFilterPanel && (
-        <FilterPanel
-          selectedStatuses={selectedStatuses} onToggleStatus={toggleStatus}
-          onClearStatuses={() => setSelectedStatuses([])}
-          showCalendarOnly={showCalendarOnly} onToggleCalendar={() => setShowCalendarOnly(v => !v)}
-          calendarDisabled={airingIds.size === 0}
-          sortBy={sortBy} onSortChange={setSortBy}
-          onClose={() => setShowFilterPanel(false)}
-        />
-      )}
-      {showForm && (
-        <TitleFormModal editingEntry={editingEntry}
-          onClose={() => { setShowForm(false); setEditingEntry(null); }} />
-      )}
+      <AnimatePresence>
+        {showAddChoice && (
+          <AddChoiceModal key="add-choice" onAddTitle={openNewForm} onCreateList={handleCreateList}
+            onClose={() => setShowAddChoice(false)} />
+        )}
+        {showFilterPanel && (
+          <FilterPanel
+            key="filter-panel"
+            selectedStatuses={selectedStatuses} onToggleStatus={toggleStatus}
+            onClearStatuses={() => setSelectedStatuses([])}
+            showCalendarOnly={showCalendarOnly} onToggleCalendar={() => setShowCalendarOnly(v => !v)}
+            calendarDisabled={airingIds.size === 0}
+            sortBy={sortBy} onSortChange={setSortBy}
+            onClose={() => setShowFilterPanel(false)}
+          />
+        )}
+        {showForm && (
+          <TitleFormModal key="title-form" editingEntry={editingEntry}
+            onClose={() => { setShowForm(false); setEditingEntry(null); }} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

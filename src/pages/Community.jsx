@@ -8,6 +8,7 @@ import {
 import { useAuth }    from "../context/AuthContext";
 import { TopBar } from "../components/common/TopBar";
 import { Modal }      from "../components/Modal/Modal";
+import { AnimatePresence } from "motion/react";
 import { Avatar }     from "../components/common/Avatar";
 import {
   fetchFriends, fetchPendingRequests, searchUserByUsername,
@@ -470,13 +471,16 @@ export function Community() {
         </div>
 
         {/* ── Modal profil ami ── */}
-        {selectedFriend && (
-          <FriendProfileModal
-            friend={selectedFriend}
-            onClose={() => setSelectedFriend(null)}
-            onRemove={handleRemove}
-          />
-        )}
+        <AnimatePresence>
+          {selectedFriend && (
+            <FriendProfileModal
+              key="friend-profile"
+              friend={selectedFriend}
+              onClose={() => setSelectedFriend(null)}
+              onRemove={handleRemove}
+            />
+          )}
+        </AnimatePresence>
 
       </div>
     </div>
