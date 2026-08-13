@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ChevronLeft, Loader2, Film, Tv, Clapperboard, WifiOff,
@@ -15,7 +15,7 @@ import {
 } from "../api/recommendations";
 import { hasTMDB }             from "../api/tmdb";
 import { importResult }        from "../api";
-import { getCached, getStaleCached, setCached, removeCached, TTL } from "../lib/cache";
+import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
 import { toEnglishGenres }     from "../utils/genres";
 import { haptics } from "../utils/haptics";
 import { normalizeSeriesTitle } from "../utils/titles";
@@ -77,6 +77,11 @@ export function Recommendations() {
   const [adding,       setAdding]       = useState(null);
   const [editingEntry, setEditingEntry] = useState(null);
   const [synopsisRec,  setSynopsisRec]  = useState(null);
+  const [refreshNotice, setRefreshNotice] = useState(""); // message discret, auto-effacé
+
+  // Dernière page tirée par onglet, pour éviter que deux pull-to-refresh
+  // consécutifs retombent sur exactement le même lot par hasard.
+  const lastPageRef = useRef({ anime: 1, film: 1, serie: 1 });
 
   // ── Données animes (AniList) ───────────────────────────────────────────────
   const animeTopGenres = useMemo(() => {
@@ -190,16 +195,31 @@ export function Recommendations() {
   }, [activeTab, animeCacheKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Pull-to-refresh ────────────────────────────────────────────────────────
+  // Tire un nouveau lot de recommandations DIFFÉRENT de celui affiché : page
+  // différente de la précédente + exclusion explicite des titres déjà à
+  // l'écran (en plus des titres déjà dans la bibliothèque, toujours exclus).
+  function pickNextPage(tab) {
+    const candidates = [2, 3, 4, 5].filter((p) => p !== lastPageRef.current[tab]);
+    const page = candidates[Math.floor(Math.random() * candidates.length)];
+    lastPageRef.current[tab] = page;
+    return page;
+  }
+
   async function handlePullRefresh() {
-    setError(""); setIsStale(false);
+    setError(""); setIsStale(false); setRefreshNotice("");
+    const shownIds = recs.map((r) => r.id);
 
     if (activeTab === "anime") {
       if (!animeTopGenresEN.length) return;
-      removeCached(animeCacheKey);
+      const page = pickNextPage("anime");
       try {
-        const data = await fetchAniListRecommendations(animeTopGenresEN, [...libraryIds]);
-        setCached(animeCacheKey, data, TTL.RECOMMENDATIONS);
-        setRecs(data); setTabTopGenres(animeTopGenres);
+        const data = await fetchAniListRecommendations(animeTopGenresEN, [...libraryIds, ...shownIds], { page });
+        if (data.length === 0) {
+          setRefreshNotice("Plus de nouvelles suggestions pour l'instant — réessaie plus tard.");
+        } else {
+          setCached(animeCacheKey, data, TTL.RECOMMENDATIONS);
+          setRecs(data); setTabTopGenres(animeTopGenres);
+        }
       } catch {
         const stale = getStaleCached(animeCacheKey);
         if (stale) { setRecs(stale); setIsStale(true); }
@@ -207,11 +227,15 @@ export function Recommendations() {
       }
     } else if (activeTab === "film") {
       const ck = "recs_film_tmdb";
-      removeCached(ck);
+      const page = pickNextPage("film");
       try {
-        const { recs: data, topGenres } = await fetchTMDBMovieRecommendations(entries);
-        setCached(ck, { recs: data, topGenres }, TTL.RECOMMENDATIONS);
-        setRecs(data); setTabTopGenres(topGenres);
+        const { recs: data, topGenres } = await fetchTMDBMovieRecommendations(entries, { page, extraExcludeIds: shownIds });
+        if (data.length === 0) {
+          setRefreshNotice("Plus de nouvelles suggestions pour l'instant — réessaie plus tard.");
+        } else {
+          setCached(ck, { recs: data, topGenres }, TTL.RECOMMENDATIONS);
+          setRecs(data); setTabTopGenres(topGenres);
+        }
       } catch {
         const stale = getStaleCached(ck);
         if (stale) { setRecs(stale.recs); setTabTopGenres(stale.topGenres || []); setIsStale(true); }
@@ -219,11 +243,15 @@ export function Recommendations() {
       }
     } else {
       const ck = "recs_serie_tmdb";
-      removeCached(ck);
+      const page = pickNextPage("serie");
       try {
-        const { recs: data, topGenres } = await fetchTMDBSeriesRecommendations(entries);
-        setCached(ck, { recs: data, topGenres }, TTL.RECOMMENDATIONS);
-        setRecs(data); setTabTopGenres(topGenres);
+        const { recs: data, topGenres } = await fetchTMDBSeriesRecommendations(entries, { page, extraExcludeIds: shownIds });
+        if (data.length === 0) {
+          setRefreshNotice("Plus de nouvelles suggestions pour l'instant — réessaie plus tard.");
+        } else {
+          setCached(ck, { recs: data, topGenres }, TTL.RECOMMENDATIONS);
+          setRecs(data); setTabTopGenres(topGenres);
+        }
       } catch {
         const stale = getStaleCached(ck);
         if (stale) { setRecs(stale.recs); setTabTopGenres(stale.topGenres || []); setIsStale(true); }
@@ -231,6 +259,13 @@ export function Recommendations() {
       }
     }
   }
+
+  // Le message d'absence de nouvelles suggestions s'efface tout seul.
+  useEffect(() => {
+    if (!refreshNotice) return;
+    const t = setTimeout(() => setRefreshNotice(""), 4000);
+    return () => clearTimeout(t);
+  }, [refreshNotice]);
 
   // ── Dédoublonnage ─────────────────────────────────────────────────────────
   const dedupedRecs = useMemo(() => {
@@ -296,7 +331,7 @@ export function Recommendations() {
               {TABS.map(({ key, label, Icon }) => (
                 <button
                   key={key}
-                  onClick={() => { if (activeTab !== key) { setActiveTab(key); setRecs([]); setError(""); } }}
+                  onClick={() => { if (activeTab !== key) { setActiveTab(key); setRecs([]); setError(""); setRefreshNotice(""); } }}
                   className={`flex items-center gap-1.5 px-5 py-1.5 rounded-full text-xs font-medium transition-all duration-200
                     active:scale-95 motion-reduce:transition-none ${
                     activeTab === key
@@ -328,6 +363,13 @@ export function Recommendations() {
             <div className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 text-sm animate-fadeIn">
               <WifiOff size={14} className="flex-shrink-0" />
               <span>Mode hors-ligne — données mises en cache affichées.</span>
+            </div>
+          )}
+
+          {/* ── Notice de rafraîchissement sans nouvelles suggestions ── */}
+          {refreshNotice && (
+            <div className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-300 text-sm animate-fadeIn">
+              <span>{refreshNotice}</span>
             </div>
           )}
 

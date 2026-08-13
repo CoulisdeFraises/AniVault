@@ -1,15 +1,33 @@
+import { fuzzyRank, buildFallbackQueries, mergeById } from "../utils/fuzzy";
+
 export async function searchTVMaze(q) {
-  const res = await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(q)}`);
-  if (!res.ok) throw new Error("tvmaze error");
-  const json = await res.json();
-  return json.slice(0, 6).map((r) => ({
-    source: "tvmaze",
-    id: r.show.id,
-    title: r.show.name,
-    year: r.show.premiered ? r.show.premiered.slice(0, 4) : null,
-    image: r.show.image?.medium,
-    genres: r.show.genres || [],
-  }));
+  async function rawSearch(term) {
+    const res = await fetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(term)}`);
+    if (!res.ok) throw new Error("tvmaze error");
+    const json = await res.json();
+    return json.map((r) => ({
+      source: "tvmaze",
+      id: r.show.id,
+      title: r.show.name,
+      year: r.show.premiered ? r.show.premiered.slice(0, 4) : null,
+      image: r.show.image?.medium,
+      genres: r.show.genres || [],
+    }));
+  }
+
+  let results = await rawSearch(q);
+
+  // TVmaze coupe vite en cas de faute de frappe (recherche assez littérale) :
+  // on élargit avec des variantes de la requête si le premier essai est pauvre.
+  if (results.length < 3) {
+    for (const fallback of buildFallbackQueries(q)) {
+      try {
+        results = mergeById(results, await rawSearch(fallback));
+      } catch { /* on garde ce qu'on a déjà */ }
+    }
+  }
+
+  return fuzzyRank(results, q, (r) => r.title, { limit: 8 });
 }
 
 export async function fetchTVMazeSeasons(id) {

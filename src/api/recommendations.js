@@ -30,7 +30,8 @@ function mapMedia(m) {
 // Récupère des recommandations AniList basées sur les genres fournis
 // et exclut les IDs déjà dans la bibliothèque.
 // Utilisé pour les recommandations générales (basées sur les goûts globaux).
-export async function fetchAniListRecommendations(genres = [], excludeAnilistIds = []) {
+// `page` permet au pull-to-refresh de demander un lot différent.
+export async function fetchAniListRecommendations(genres = [], excludeAnilistIds = [], { page = 1 } = {}) {
   if (!genres.length) return [];
   const cultureMode = isCultureModeOn();
 
@@ -59,7 +60,7 @@ export async function fetchAniListRecommendations(genres = [], excludeAnilistIds
   `;
 
   try {
-    const json = await anilistQuery(query, { genres, page: 1 });
+    const json = await anilistQuery(query, { genres, page });
     const media = json.data?.Page?.media || [];
     return media
       .filter((m) => !excludeAnilistIds.includes(m.id))
@@ -136,7 +137,9 @@ function topGenresFromEntries(entries, type) {
 }
 
 // Recommandations de films via TMDB Discover (basé sur les genres de la biblio)
-export async function fetchTMDBMovieRecommendations(entries = []) {
+// `page` + `extraExcludeIds` permettent au pull-to-refresh de demander un lot
+// différent de celui déjà affiché à l'écran.
+export async function fetchTMDBMovieRecommendations(entries = [], { page = 1, extraExcludeIds = [] } = {}) {
   if (!hasTMDB()) return { recs: [], topGenres: [], noTmdb: true };
 
   const topGenres = topGenresFromEntries(entries, "film");
@@ -144,16 +147,17 @@ export async function fetchTMDBMovieRecommendations(entries = []) {
   // Fallback générique si aucun genre mappé (Action, Drama, Comedy)
   if (!genreIds.length) genreIds = [28, 18, 35];
 
-  const excludeIds = entries
-    .filter((e) => e.category === "movie" && e.source === "tmdb_movie")
-    .map((e) => e.id);
+  const excludeIds = [
+    ...entries.filter((e) => e.category === "movie" && e.source === "tmdb_movie").map((e) => e.id),
+    ...extraExcludeIds,
+  ];
 
-  const recs = await fetchTMDBDiscoverMovies(genreIds, excludeIds);
+  const recs = await fetchTMDBDiscoverMovies(genreIds, excludeIds, page);
   return { recs, topGenres };
 }
 
 // Recommandations de séries via TMDB Discover (basé sur les genres de la biblio)
-export async function fetchTMDBSeriesRecommendations(entries = []) {
+export async function fetchTMDBSeriesRecommendations(entries = [], { page = 1, extraExcludeIds = [] } = {}) {
   if (!hasTMDB()) return { recs: [], topGenres: [], noTmdb: true };
 
   const topGenres = topGenresFromEntries(entries, "serie");
@@ -161,10 +165,11 @@ export async function fetchTMDBSeriesRecommendations(entries = []) {
   // Fallback générique si aucun genre mappé (Drama, Comedy, Action)
   if (!genreIds.length) genreIds = [18, 35, 10759];
 
-  const excludeIds = entries
-    .filter((e) => e.type === "serie" && e.category !== "movie" && e.tmdbId)
-    .map((e) => e.tmdbId);
+  const excludeIds = [
+    ...entries.filter((e) => e.type === "serie" && e.category !== "movie" && e.tmdbId).map((e) => e.tmdbId),
+    ...extraExcludeIds,
+  ];
 
-  const recs = await fetchTMDBDiscoverSeries(genreIds, excludeIds);
+  const recs = await fetchTMDBDiscoverSeries(genreIds, excludeIds, page);
   return { recs, topGenres };
 }

@@ -1,5 +1,6 @@
 import { cacheGet, cacheSet } from "../services/cache";
 import { getMediaDetails } from "./media";
+import { fuzzyRank, buildFallbackQueries, mergeById } from "../utils/fuzzy";
 
 const ANILIST_QUERY_TTL = 10 * 60 * 1000; // 10 min — assez pour éviter les doublons dans une session, sans figer les données trop longtemps
 
@@ -55,13 +56,34 @@ export async function anilistQuery(query, variables) {
 export async function searchAniList(q) {
   const cultureMode = localStorage.getItem("pref_culture_mode") === "true";
   const query = `query ($search: String) { Page(perPage: 20) { media(search: $search, type: ANIME, sort: POPULARITY_DESC) { id title { romaji english } episodes genres coverImage { large } seasonYear format relations { edges { relationType node { id type } } } } } }`;
-  const json  = await anilistQuery(query, { search: q });
-  return (json.data?.Page?.media || [])
-    .filter(m => cultureMode || !m.genres?.includes("Hentai"))
-    .map((m) => ({ source: "anilist", id: m.id, title: m.title.english || m.title.romaji,
-      titleRomaji: m.title.romaji || null, titleEnglish: m.title.english || null,
-      year: m.seasonYear, image: m.coverImage?.large, episodes: m.episodes,
-      genres: m.genres || [], format: m.format ?? null }));
+
+  async function rawSearch(term) {
+    const json = await anilistQuery(query, { search: term });
+    return (json.data?.Page?.media || [])
+      .filter(m => cultureMode || !m.genres?.includes("Hentai"))
+      .map((m) => ({ source: "anilist", id: m.id, title: m.title.english || m.title.romaji,
+        titleRomaji: m.title.romaji || null, titleEnglish: m.title.english || null,
+        year: m.seasonYear, image: m.coverImage?.large, episodes: m.episodes,
+        genres: m.genres || [], format: m.format ?? null }));
+  }
+
+  let results = await rawSearch(q);
+
+  // Tolérance aux fautes de frappe : si la recherche initiale renvoie peu de
+  // résultats, on retente avec des variantes élargies (mot/caractères en
+  // moins) plutôt que de laisser l'utilisateur bloqué sur "aucun résultat".
+  if (results.length < 3) {
+    for (const fallback of buildFallbackQueries(q)) {
+      try {
+        results = mergeById(results, await rawSearch(fallback));
+      } catch { /* on garde ce qu'on a déjà */ }
+    }
+  }
+
+  // Re-classement par proximité au texte tapé : AniList trie par popularité,
+  // pas par pertinence — un titre bien orthographié mais peu populaire (ou
+  // légèrement mal tapé) peut se retrouver noyé plus bas dans la liste.
+  return fuzzyRank(results, q, (r) => r.titleEnglish || r.titleRomaji || r.title);
 }
 
 // -----------------------------------------------------------------------------

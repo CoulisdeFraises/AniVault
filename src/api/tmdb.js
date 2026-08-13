@@ -1,4 +1,5 @@
 import { withCache } from "../services/cache";
+import { fuzzyRank, buildFallbackQueries, mergeById } from "../utils/fuzzy";
 
 const TMDB_BEARER_TOKEN = import.meta.env.VITE_TMDB_TOKEN || "";
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
@@ -40,9 +41,9 @@ export async function searchTMDBShow(title) {
 export async function searchTMDBMovies(query) {
   if (!TMDB_BEARER_TOKEN) return [];
   return withCache(`tmdb:movies:${query.toLowerCase()}`, CACHE_TTL, async () => {
-    try {
+    async function rawSearch(term) {
       const res = await fetch(
-        `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(query)}&language=fr-FR&page=1`,
+        `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(term)}&language=fr-FR&page=1`,
         { headers: tmdbHeaders() }
       );
       if (!res.ok) return [];
@@ -57,6 +58,22 @@ export async function searchTMDBMovies(query) {
         genreIds: m.genre_ids || [],
         format:   "MOVIE",
       }));
+    }
+
+    try {
+      let results = await rawSearch(query);
+
+      // Faute de frappe / requête trop précise → relance avec des variantes
+      // élargies si la recherche initiale ne renvoie presque rien.
+      if (results.length < 3) {
+        for (const fallback of buildFallbackQueries(query)) {
+          try {
+            results = mergeById(results, await rawSearch(fallback));
+          } catch { /* on garde ce qu'on a déjà */ }
+        }
+      }
+
+      return fuzzyRank(results, query, (r) => r.title);
     } catch {
       return [];
     }
@@ -152,13 +169,16 @@ export const GENRE_TO_TMDB_TV_ID = {
 };
 
 // ── Discover films par genres ─────────────────────────────────────────────────
-export async function fetchTMDBDiscoverMovies(genreIds = [], excludeTmdbIds = []) {
+// `page` permet au pull-to-refresh de la page Recommandations de demander un
+// lot différent plutôt que de retomber sur exactement les mêmes titres —
+// la clé de cache inclut donc la page pour ne pas servir l'ancienne série.
+export async function fetchTMDBDiscoverMovies(genreIds = [], excludeTmdbIds = [], page = 1) {
   if (!TMDB_BEARER_TOKEN || !genreIds.length) return [];
-  const cacheKey = `tmdb:disc:mv:${[...genreIds].sort().join(",")}`;
+  const cacheKey = `tmdb:disc:mv:${[...genreIds].sort().join(",")}:p${page}`;
   return withCache(cacheKey, CACHE_TTL, async () => {
     try {
       const res = await fetch(
-        `https://api.themoviedb.org/3/discover/movie?with_genres=${genreIds.join("|")}&language=fr-FR&sort_by=popularity.desc&page=1&include_adult=false&vote_count.gte=100`,
+        `https://api.themoviedb.org/3/discover/movie?with_genres=${genreIds.join("|")}&language=fr-FR&sort_by=popularity.desc&page=${page}&include_adult=false&vote_count.gte=100`,
         { headers: tmdbHeaders() }
       );
       if (!res.ok) return [];
@@ -184,13 +204,13 @@ export async function fetchTMDBDiscoverMovies(genreIds = [], excludeTmdbIds = []
 }
 
 // ── Discover séries TV par genres ─────────────────────────────────────────────
-export async function fetchTMDBDiscoverSeries(genreIds = [], excludeTmdbIds = []) {
+export async function fetchTMDBDiscoverSeries(genreIds = [], excludeTmdbIds = [], page = 1) {
   if (!TMDB_BEARER_TOKEN || !genreIds.length) return [];
-  const cacheKey = `tmdb:disc:tv:${[...genreIds].sort().join(",")}`;
+  const cacheKey = `tmdb:disc:tv:${[...genreIds].sort().join(",")}:p${page}`;
   return withCache(cacheKey, CACHE_TTL, async () => {
     try {
       const res = await fetch(
-        `https://api.themoviedb.org/3/discover/tv?with_genres=${genreIds.join("|")}&language=fr-FR&sort_by=popularity.desc&page=1&vote_count.gte=50`,
+        `https://api.themoviedb.org/3/discover/tv?with_genres=${genreIds.join("|")}&language=fr-FR&sort_by=popularity.desc&page=${page}&vote_count.gte=50`,
         { headers: tmdbHeaders() }
       );
       if (!res.ok) return [];
@@ -215,31 +235,64 @@ export async function fetchTMDBDiscoverSeries(genreIds = [], excludeTmdbIds = []
   });
 }
 
-// ── Titres similaires — Film ──────────────────────────────────────────────────
+// ── Titres similaires — Film / Série ──────────────────────────────────────────
+// TMDB propose deux endpoints : /similar (basé sur genres/mots-clés partagés —
+// souvent trop générique, ex. plein de films d'action sans rapport réel) et
+// /recommendations (basé sur le comportement des utilisateurs — "les gens qui
+// ont regardé X ont aussi regardé Y"), nettement plus pertinent. On privilégie
+// /recommendations, et on ne complète avec /similar que si le titre est trop
+// confidentiel pour avoir assez de recommandations comportementales.
+const MIN_VOTES = 15; // filtre les résultats trop confidentiels (bruit)
+
+function mapTmdbMovie(m) {
+  return {
+    source:      "tmdb_movie",
+    id:          m.id,
+    title:       m.title || m.original_title,
+    image:       m.poster_path ? `https://image.tmdb.org/t/p/w342${m.poster_path}` : null,
+    year:        m.release_date ? parseInt(m.release_date.slice(0, 4)) : null,
+    score:       m.vote_average ? Math.round(m.vote_average * 10) : 0,
+    description: m.overview?.trim() || null,
+    genres:      [],
+    format:      "MOVIE",
+  };
+}
+
+function mapTmdbSeries(s) {
+  return {
+    source:      "tmdb_tv",
+    id:          s.id,
+    title:       s.name || s.original_name,
+    image:       s.poster_path ? `https://image.tmdb.org/t/p/w342${s.poster_path}` : null,
+    year:        s.first_air_date ? parseInt(s.first_air_date.slice(0, 4)) : null,
+    score:       s.vote_average ? Math.round(s.vote_average * 10) : 0,
+    description: s.overview?.trim() || null,
+    genres:      [],
+    format:      "TV",
+  };
+}
+
 export async function fetchTMDBSimilarMovies(tmdbId, excludeTmdbIds = []) {
   if (!TMDB_BEARER_TOKEN || !tmdbId) return [];
-  return withCache(`tmdb:similar:mv:${tmdbId}`, CACHE_TTL, async () => {
+  return withCache(`tmdb:similar:mv:${tmdbId}:v2`, CACHE_TTL, async () => {
     try {
-      const res = await fetch(
-        `https://api.themoviedb.org/3/movie/${tmdbId}/similar?language=fr-FR&page=1`,
-        { headers: tmdbHeaders() }
-      );
-      if (!res.ok) return [];
-      const json = await res.json();
-      return (json.results || [])
-        .filter((m) => !excludeTmdbIds.includes(m.id))
-        .slice(0, 20)
-        .map((m) => ({
-          source:      "tmdb_movie",
-          id:          m.id,
-          title:       m.title || m.original_title,
-          image:       m.poster_path ? `https://image.tmdb.org/t/p/w342${m.poster_path}` : null,
-          year:        m.release_date ? parseInt(m.release_date.slice(0, 4)) : null,
-          score:       m.vote_average ? Math.round(m.vote_average * 10) : 0,
-          description: m.overview?.trim() || null,
-          genres:      [],
-          format:      "MOVIE",
-        }));
+      const [recRes, simRes] = await Promise.all([
+        fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/recommendations?language=fr-FR&page=1`, { headers: tmdbHeaders() }),
+        fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/similar?language=fr-FR&page=1`, { headers: tmdbHeaders() }),
+      ]);
+      const recJson = recRes.ok ? await recRes.json() : { results: [] };
+      let results = (recJson.results || []).filter((m) => (m.vote_count || 0) >= MIN_VOTES);
+
+      // Titre trop confidentiel pour avoir assez de recommandations
+      // comportementales : on complète avec /similar (genres/mots-clés).
+      if (results.length < 8 && simRes.ok) {
+        const simJson = await simRes.json();
+        const seen = new Set(results.map((m) => m.id));
+        const extra = (simJson.results || []).filter((m) => (m.vote_count || 0) >= MIN_VOTES && !seen.has(m.id));
+        results = [...results, ...extra];
+      }
+
+      return results.filter((m) => !excludeTmdbIds.includes(m.id)).slice(0, 20).map(mapTmdbMovie);
     } catch { return []; }
   });
 }
@@ -247,28 +300,23 @@ export async function fetchTMDBSimilarMovies(tmdbId, excludeTmdbIds = []) {
 // ── Titres similaires — Série TV ──────────────────────────────────────────────
 export async function fetchTMDBSimilarSeries(tmdbId, excludeTmdbIds = []) {
   if (!TMDB_BEARER_TOKEN || !tmdbId) return [];
-  return withCache(`tmdb:similar:tv:${tmdbId}`, CACHE_TTL, async () => {
+  return withCache(`tmdb:similar:tv:${tmdbId}:v2`, CACHE_TTL, async () => {
     try {
-      const res = await fetch(
-        `https://api.themoviedb.org/3/tv/${tmdbId}/similar?language=fr-FR&page=1`,
-        { headers: tmdbHeaders() }
-      );
-      if (!res.ok) return [];
-      const json = await res.json();
-      return (json.results || [])
-        .filter((s) => !excludeTmdbIds.includes(s.id))
-        .slice(0, 20)
-        .map((s) => ({
-          source:      "tmdb_tv",
-          id:          s.id,
-          title:       s.name || s.original_name,
-          image:       s.poster_path ? `https://image.tmdb.org/t/p/w342${s.poster_path}` : null,
-          year:        s.first_air_date ? parseInt(s.first_air_date.slice(0, 4)) : null,
-          score:       s.vote_average ? Math.round(s.vote_average * 10) : 0,
-          description: s.overview?.trim() || null,
-          genres:      [],
-          format:      "TV",
-        }));
+      const [recRes, simRes] = await Promise.all([
+        fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/recommendations?language=fr-FR&page=1`, { headers: tmdbHeaders() }),
+        fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/similar?language=fr-FR&page=1`, { headers: tmdbHeaders() }),
+      ]);
+      const recJson = recRes.ok ? await recRes.json() : { results: [] };
+      let results = (recJson.results || []).filter((s) => (s.vote_count || 0) >= MIN_VOTES);
+
+      if (results.length < 8 && simRes.ok) {
+        const simJson = await simRes.json();
+        const seen = new Set(results.map((s) => s.id));
+        const extra = (simJson.results || []).filter((s) => (s.vote_count || 0) >= MIN_VOTES && !seen.has(s.id));
+        results = [...results, ...extra];
+      }
+
+      return results.filter((s) => !excludeTmdbIds.includes(s.id)).slice(0, 20).map(mapTmdbSeries);
     } catch { return []; }
   });
 }
