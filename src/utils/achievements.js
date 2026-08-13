@@ -43,6 +43,140 @@ const totalSeasons = (entries) =>
 const maxSeasonsOnEntry = (entries) =>
   entries.reduce((max, e) => Math.max(max, e.seasons?.length || 0), 0);
 
+// ── Helpers supplémentaires (nouveaux succès) ───────────────────────────────
+const allWatchedAt = (entries) =>
+  entries.flatMap((e) => (e.watchHistory || []).map((h) => h.watchedAt)).filter(Boolean);
+
+const dayKey = (ts) => new Date(ts).toDateString();
+
+/** Nombre de jours distincts (toutes entrées confondues) avec au moins un épisode regardé */
+const distinctWatchDays = (entries) => new Set(allWatchedAt(entries).map(dayKey)).size;
+
+/** Plus longue série de jours consécutifs avec au moins un épisode regardé */
+const longestDayStreak = (entries) => {
+  const days = [...new Set(allWatchedAt(entries).map((ts) => {
+    const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime();
+  }))].sort((a, b) => a - b);
+  if (!days.length) return 0;
+  let best = 1, cur = 1;
+  for (let i = 1; i < days.length; i++) {
+    const diff = Math.round((days[i] - days[i - 1]) / 86400000);
+    if (diff === 1) { cur++; best = Math.max(best, cur); }
+    else if (diff > 1) cur = 1;
+  }
+  return best;
+};
+
+/** Compte les épisodes regardés dans une plage horaire [startHour, endHour) */
+const epsInHourRange = (entries, startHour, endHour) =>
+  allWatchedAt(entries).filter((ts) => {
+    const h = new Date(ts).getHours();
+    return h >= startHour && h < endHour;
+  }).length;
+
+/** Compte les épisodes regardés le week-end (samedi/dimanche) */
+const weekendEpsCount = (entries) =>
+  allWatchedAt(entries).filter((ts) => [0, 6].includes(new Date(ts).getDay())).length;
+
+/** Nombre de mois calendaires distincts (année+mois) où au moins un épisode a été regardé */
+const distinctActiveMonths = (entries) =>
+  new Set(allWatchedAt(entries).map((ts) => {
+    const d = new Date(ts); return `${d.getFullYear()}-${d.getMonth()}`;
+  })).size;
+
+/** Un titre entièrement regardé (tous les watchHistory) sur une seule journée */
+const hasSingleDayFullFinish = (entries) =>
+  entries.some((e) => {
+    if (e.status !== "termine") return false;
+    const hist = e.watchHistory || [];
+    if (hist.length < 3) return false; // évite les faux positifs sur les mini-formats
+    return new Set(hist.map((h) => dayKey(h.watchedAt))).size === 1;
+  });
+
+/** Nombre max de titres terminés le même jour civil (via updatedAt) */
+const maxFinishesSameDay = (entries) => {
+  const counts = {};
+  entries.filter((e) => e.status === "termine" && e.updatedAt).forEach((e) => {
+    const k = dayKey(e.updatedAt);
+    counts[k] = (counts[k] || 0) + 1;
+  });
+  return Math.max(0, ...Object.values(counts));
+};
+
+/** Écart le plus large entre la meilleure et la pire saison notée d'un même titre (≥3 saisons notées) */
+const maxSeasonRatingSpread = (entries) =>
+  entries.reduce((max, e) => {
+    const rated = (e.seasons || []).filter((s) => s.rating > 0).map((s) => s.rating);
+    if (rated.length < 3) return max;
+    return Math.max(max, Math.max(...rated) - Math.min(...rated));
+  }, 0);
+
+/** Un titre d'au moins 5 saisons dont toutes les saisons sont notées ≥ 8 */
+const hasLoyalMasterpiece = (entries) =>
+  entries.some((e) => {
+    const seasons = e.seasons || [];
+    return seasons.length >= 5 && seasons.every((s) => s.rating >= 8);
+  });
+
+/** Nombre de formats de saison distincts rencontrés (TV, MOVIE, OVA, ONA, SPECIAL...) */
+const distinctSeasonFormats = (entries) =>
+  new Set(entries.flatMap((e) => (e.seasons || []).map((s) => s.format).filter(Boolean))).size;
+
+/** Deux titres (ou plus) partageant exactement le même nom (remake, doublon...) */
+const hasDuplicateTitle = (entries) => {
+  const counts = {};
+  entries.forEach((e) => {
+    const t = (e.title || "").trim().toLowerCase();
+    if (!t) return;
+    counts[t] = (counts[t] || 0) + 1;
+  });
+  return Object.values(counts).some((c) => c >= 2);
+};
+
+/** Tous les titres notés partagent exactement la même note (min. N titres notés) */
+const allRatingsIdentical = (entries, min) => {
+  const rated = entries.filter((e) => e.rating > 0);
+  if (rated.length < min) return false;
+  return rated.every((e) => e.rating === rated[0].rating);
+};
+
+/** Titre terminé en 1 épisode (format court/spécial) */
+const hasOneEpisodeFinish = (entries) =>
+  entries.some((e) =>
+    e.status === "termine" &&
+    (e.seasons || []).reduce((s, se) => s + (se.totalEpisodes ?? 0), 0) === 1
+  );
+
+/** Un titre entièrement regardé (≥24 épisodes) en moins de 48h entre 1er et dernier visionnage */
+const hasFastBinge = (entries) =>
+  entries.some((e) => {
+    const hist = e.watchHistory || [];
+    if (hist.length < 24) return false;
+    const ts = hist.map((h) => h.watchedAt).filter(Boolean).sort((a, b) => a - b);
+    return ts.length >= 24 && (ts[ts.length - 1] - ts[0]) <= 48 * 3600 * 1000;
+  });
+
+/** Retour après une pause d'au moins 90 jours sur un même titre */
+const hasComeback = (entries) =>
+  entries.some((e) => {
+    const ts = (e.watchHistory || []).map((h) => h.watchedAt).filter(Boolean).sort((a, b) => a - b);
+    return ts.some((t, i) => i > 0 && t - ts[i - 1] >= 90 * 86400000);
+  });
+
+/** Au moins un épisode regardé un 24 ou 25 décembre */
+const hasChristmasEp = (entries) =>
+  allWatchedAt(entries).some((ts) => {
+    const d = new Date(ts);
+    return d.getMonth() === 11 && (d.getDate() === 24 || d.getDate() === 25);
+  });
+
+/** Au moins un épisode regardé dans la demi-heure suivant minuit le 1er janvier */
+const hasNewYearEp = (entries) =>
+  allWatchedAt(entries).some((ts) => {
+    const d = new Date(ts);
+    return d.getMonth() === 0 && d.getDate() === 1 && d.getHours() === 0 && d.getMinutes() < 30;
+  });
+
 // ── Catégories ────────────────────────────────────────────────────────────────
 // Utilisées par l'UI pour grouper les succès en accordéon
 export const ACHIEVEMENT_CATEGORIES = [
@@ -56,6 +190,7 @@ export const ACHIEVEMENT_CATEGORIES = [
   { id: "seasons",   label: "Saisons",            icon: "🗓️" },
   { id: "habits",    label: "Habitudes",          icon: "🦉" },
   { id: "special",   label: "Spéciaux",           icon: "🎲" },
+  { id: "meta",      label: "Insolite",           icon: "🧩" },
 ];
 
 // ── Définition des succès ─────────────────────────────────────────────────────
@@ -116,6 +251,15 @@ export const ACHIEVEMENTS = [
     description: "200 titres dans ta bibliothèque",
     tier: "gold",
     check: (e) => e.length >= 200,
+  },
+  {
+    id: "library_500",
+    category: "library",
+    icon: "🌌",
+    name: "Bibliothèque d'Alexandrie",
+    description: "500 titres dans ta bibliothèque — c'est presque un travail à temps plein",
+    tier: "gold",
+    check: (e) => e.length >= 500,
   },
 
   // ── Épisodes ─────────────────────────────────────────────────────────────
@@ -200,6 +344,33 @@ export const ACHIEVEMENTS = [
     tier: "gold",
     check: (e) => maxEpsInOneDay(e) >= 50,
   },
+  {
+    id: "fast_binge",
+    category: "episodes",
+    icon: "⏱️",
+    name: "Rush total",
+    description: "Regarder un titre entier (24 épisodes ou plus) en moins de 48h",
+    tier: "gold",
+    check: (e) => hasFastBinge(e),
+  },
+  {
+    id: "streak_7",
+    category: "episodes",
+    icon: "🔗",
+    name: "Sur ma lancée",
+    description: "7 jours d'affilée avec au moins un épisode regardé",
+    tier: "silver",
+    check: (e) => longestDayStreak(e) >= 7,
+  },
+  {
+    id: "streak_30",
+    category: "episodes",
+    icon: "⛓️",
+    name: "Rituel quotidien",
+    description: "30 jours d'affilée avec au moins un épisode regardé",
+    tier: "gold",
+    check: (e) => longestDayStreak(e) >= 30,
+  },
 
   // ── Titres terminés ───────────────────────────────────────────────────────
   {
@@ -255,6 +426,51 @@ export const ACHIEVEMENTS = [
     description: "Terminer 100 titres",
     tier: "gold",
     check: (e) => finishedCount(e) >= 100,
+  },
+  {
+    id: "one_ep_finish",
+    category: "finished",
+    icon: "⚡",
+    name: "Court mais efficace",
+    description: "Terminer un titre en un seul épisode",
+    tier: "bronze",
+    check: (e) => hasOneEpisodeFinish(e),
+  },
+  {
+    id: "single_day_finish",
+    category: "finished",
+    icon: "🎢",
+    name: "Tout d'un coup",
+    description: "Regarder un titre entier (3 épisodes ou plus) en une seule journée",
+    tier: "silver",
+    check: (e) => hasSingleDayFullFinish(e),
+  },
+  {
+    id: "finish_spree_3",
+    category: "finished",
+    icon: "🎊",
+    name: "Journée productive",
+    description: "Terminer 3 titres le même jour",
+    tier: "silver",
+    check: (e) => maxFinishesSameDay(e) >= 3,
+  },
+  {
+    id: "finish_spree_5",
+    category: "finished",
+    icon: "🥳",
+    name: "Marathon de fins",
+    description: "Terminer 5 titres le même jour",
+    tier: "gold",
+    check: (e) => maxFinishesSameDay(e) >= 5,
+  },
+  {
+    id: "comeback",
+    category: "finished",
+    icon: "🔄",
+    name: "Le retour du héros",
+    description: "Reprendre un titre après plus de 90 jours de pause",
+    tier: "silver",
+    check: (e) => hasComeback(e),
   },
 
   // ── Notes & Avis ──────────────────────────────────────────────────────────
@@ -380,6 +596,42 @@ export const ACHIEVEMENTS = [
     description: "Écrire une note de plus de 300 caractères",
     tier: "silver",
     check: (e) => e.some((x) => x.notes && x.notes.trim().length > 300),
+  },
+  {
+    id: "notes_thesis",
+    category: "ratings",
+    icon: "🎓",
+    name: "Thèse universitaire",
+    description: "Écrire une note de plus de 1 000 caractères sur un seul titre",
+    tier: "gold",
+    check: (e) => e.some((x) => x.notes && x.notes.trim().length > 1000),
+  },
+  {
+    id: "monotone",
+    category: "ratings",
+    icon: "🎹",
+    name: "Monotone",
+    description: "Donner exactement la même note à 10 titres notés",
+    tier: "silver",
+    check: (e) => allRatingsIdentical(e, 10),
+  },
+  {
+    id: "roller_coaster",
+    category: "ratings",
+    icon: "🎢",
+    name: "Montagnes russes",
+    description: "Sur un même titre, un écart de 6 points ou plus entre la meilleure et la pire saison notée",
+    tier: "gold",
+    check: (e) => maxSeasonRatingSpread(e) >= 6,
+  },
+  {
+    id: "loyal_masterpiece",
+    category: "ratings",
+    icon: "💎",
+    name: "Sans fausse note",
+    description: "Un titre d'au moins 5 saisons, toutes notées 8/10 ou plus",
+    tier: "gold",
+    check: (e) => hasLoyalMasterpiece(e),
   },
 
   // ── Abandons ──────────────────────────────────────────────────────────────
@@ -591,6 +843,15 @@ export const ACHIEVEMENTS = [
     tier: "gold",
     check: (e) => maxSeasonsOnEntry(e) >= 10,
   },
+  {
+    id: "format_collector",
+    category: "seasons",
+    icon: "🧬",
+    name: "Collectionneur de formats",
+    description: "Avoir des saisons d'au moins 4 formats différents (TV, Film, OAV...)",
+    tier: "silver",
+    check: (e) => distinctSeasonFormats(e) >= 4,
+  },
 
   // ── Habitudes ─────────────────────────────────────────────────────────────
   {
@@ -622,6 +883,76 @@ export const ACHIEVEMENTS = [
       );
       return Object.values(counts).some((c) => c >= 10);
     },
+  },
+  {
+    id: "chronic_owl",
+    category: "habits",
+    icon: "🦉",
+    name: "Insomniaque chronique",
+    description: "Regarder au moins un épisode entre minuit et 4h, sur 7 jours différents",
+    tier: "gold",
+    check: (e) => {
+      const days = new Set(
+        allWatchedAt(e)
+          .filter((ts) => { const h = new Date(ts).getHours(); return h >= 0 && h < 4; })
+          .map(dayKey)
+      );
+      return days.size >= 7;
+    },
+  },
+  {
+    id: "early_bird",
+    category: "habits",
+    icon: "🐓",
+    name: "Lève-tôt",
+    description: "Regarder un épisode entre 5h et 7h du matin",
+    tier: "bronze",
+    check: (e) => epsInHourRange(e, 5, 7) >= 1,
+  },
+  {
+    id: "lunch_break",
+    category: "habits",
+    icon: "🍱",
+    name: "Pause déjeuner",
+    description: "20 épisodes regardés entre 12h et 13h",
+    tier: "silver",
+    check: (e) => epsInHourRange(e, 12, 13) >= 20,
+  },
+  {
+    id: "weekend_warrior",
+    category: "habits",
+    icon: "🛌",
+    name: "Guerrier du week-end",
+    description: "50 épisodes regardés le week-end (samedi ou dimanche)",
+    tier: "silver",
+    check: (e) => weekendEpsCount(e) >= 50,
+  },
+  {
+    id: "full_year",
+    category: "habits",
+    icon: "🎇",
+    name: "Fidèle toute l'année",
+    description: "Avoir regardé au moins un épisode chaque mois sur 12 mois différents",
+    tier: "gold",
+    check: (e) => distinctActiveMonths(e) >= 12,
+  },
+  {
+    id: "christmas_watch",
+    category: "habits",
+    icon: "🎄",
+    name: "Marathon de Noël",
+    description: "Regarder un épisode le 24 ou le 25 décembre",
+    tier: "bronze",
+    check: (e) => hasChristmasEp(e),
+  },
+  {
+    id: "new_year_watch",
+    category: "habits",
+    icon: "🎆",
+    name: "Premier réflexe de l'année",
+    description: "Regarder un épisode dans la demi-heure suivant minuit le 1er janvier",
+    tier: "gold",
+    check: (e) => hasNewYearEp(e),
   },
 
   // ── Spéciaux / Easter eggs ────────────────────────────────────────────────
@@ -715,6 +1046,82 @@ export const ACHIEVEMENTS = [
           x.tvmazeId == null &&
           x.tmdbId == null
       ).length >= 10,
+  },
+
+  // ── Insolite (comportements étranges dans les données) ──────────────────────
+  {
+    id: "short_title",
+    category: "meta",
+    icon: "🔤",
+    name: "Minimaliste",
+    description: "Un titre dont le nom fait 3 caractères ou moins",
+    tier: "bronze",
+    check: (e) => e.some((x) => (x.title || "").trim().length > 0 && (x.title || "").trim().length <= 3),
+  },
+  {
+    id: "long_title",
+    category: "meta",
+    icon: "📜",
+    name: "Le titre ne tient pas sur une ligne",
+    description: "Un titre dont le nom fait plus de 60 caractères",
+    tier: "bronze",
+    check: (e) => e.some((x) => (x.title || "").trim().length > 60),
+  },
+  {
+    id: "duplicate_title",
+    category: "meta",
+    icon: "👯",
+    name: "Effet miroir",
+    description: "Deux titres portant exactement le même nom dans ta bibliothèque",
+    tier: "silver",
+    check: (e) => hasDuplicateTitle(e),
+  },
+  {
+    id: "mystery_titles",
+    category: "meta",
+    icon: "🌫️",
+    name: "Mystère total",
+    description: "10 titres sans aucun genre renseigné",
+    tier: "silver",
+    check: (e) => e.filter((x) => !x.genres || x.genres.length === 0).length >= 10,
+  },
+  {
+    id: "no_cover_10",
+    category: "meta",
+    icon: "🕳️",
+    name: "Minimalisme visuel",
+    description: "10 titres sans image de couverture",
+    tier: "bronze",
+    check: (e) => e.filter((x) => !x.coverImage).length >= 10,
+  },
+  {
+    id: "gargantuan_show",
+    category: "meta",
+    icon: "🐉",
+    name: "Le jamais fini",
+    description: "Un titre prévu pour plus de 500 épisodes au total",
+    tier: "gold",
+    check: (e) =>
+      e.some((x) => (x.seasons || []).reduce((s, se) => s + (se.totalEpisodes ?? 0), 0) > 500),
+  },
+  {
+    id: "contradictory",
+    category: "meta",
+    icon: "🤷",
+    name: "Contradictoire",
+    description: "Un titre noté 10/10 alors qu'une de ses saisons est notée 1/10",
+    tier: "gold",
+    check: (e) =>
+      e.some((x) => x.rating === 10 && (x.seasons || []).some((s) => s.rating === 1)),
+  },
+  {
+    id: "sadist",
+    category: "meta",
+    icon: "🩸",
+    name: "Sadique",
+    description: "Noter 3 films ou OAV à 1/10",
+    tier: "silver",
+    check: (e) => e.filter((x) => x.category !== "tv" && x.rating === 1).length >= 3,
   },
 ];
 
