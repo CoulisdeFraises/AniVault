@@ -198,9 +198,17 @@ export function Recommendations() {
   // Tire un nouveau lot de recommandations DIFFÉRENT de celui affiché : page
   // différente de la précédente + exclusion explicite des titres déjà à
   // l'écran (en plus des titres déjà dans la bibliothèque, toujours exclus).
-  function pickNextPage(tab) {
-    const candidates = [2, 3, 4, 5].filter((p) => p !== lastPageRef.current[tab]);
-    const page = candidates[Math.floor(Math.random() * candidates.length)];
+  //
+  // Le catalogue AniList filtré sur quelques genres précis est bien plus
+  // restreint que celui de TMDB (films/séries) : une page tirée au hasard
+  // peut ne quasiment plus contenir d'entrées une fois la bibliothèque et
+  // l'affichage courant exclus. On limite donc la plage de pages pour les
+  // animes, et surtout on retente automatiquement sur la page 1 (qui reste
+  // la plus fournie) avant de conclure qu'il n'y a vraiment plus rien de neuf.
+  function pickNextPage(tab, maxPage) {
+    const candidates = Array.from({ length: maxPage - 1 }, (_, i) => i + 2) // [2..maxPage]
+      .filter((p) => p !== lastPageRef.current[tab]);
+    const page = candidates[Math.floor(Math.random() * candidates.length)] ?? 2;
     lastPageRef.current[tab] = page;
     return page;
   }
@@ -211,9 +219,15 @@ export function Recommendations() {
 
     if (activeTab === "anime") {
       if (!animeTopGenresEN.length) return;
-      const page = pickNextPage("anime");
+      const excludeIds = [...libraryIds, ...shownIds];
       try {
-        const data = await fetchAniListRecommendations(animeTopGenresEN, [...libraryIds, ...shownIds], { page });
+        let data = await fetchAniListRecommendations(animeTopGenresEN, excludeIds, { page: pickNextPage("anime", 3) });
+        // Repli : la page tirée est peut-être trop loin pour ce combo de
+        // genres précis — la page 1 (la plus fournie) a plus de chances
+        // de contenir encore des titres non vus.
+        if (data.length === 0) {
+          data = await fetchAniListRecommendations(animeTopGenresEN, excludeIds, { page: 1 });
+        }
         if (data.length === 0) {
           setRefreshNotice("Plus de nouvelles suggestions pour l'instant — réessaie plus tard.");
         } else {
@@ -227,9 +241,12 @@ export function Recommendations() {
       }
     } else if (activeTab === "film") {
       const ck = "recs_film_tmdb";
-      const page = pickNextPage("film");
+      const excludeIds = shownIds;
       try {
-        const { recs: data, topGenres } = await fetchTMDBMovieRecommendations(entries, { page, extraExcludeIds: shownIds });
+        let { recs: data, topGenres } = await fetchTMDBMovieRecommendations(entries, { page: pickNextPage("film", 5), extraExcludeIds: excludeIds });
+        if (data.length === 0) {
+          ({ recs: data, topGenres } = await fetchTMDBMovieRecommendations(entries, { page: 1, extraExcludeIds: excludeIds }));
+        }
         if (data.length === 0) {
           setRefreshNotice("Plus de nouvelles suggestions pour l'instant — réessaie plus tard.");
         } else {
@@ -243,9 +260,12 @@ export function Recommendations() {
       }
     } else {
       const ck = "recs_serie_tmdb";
-      const page = pickNextPage("serie");
+      const excludeIds = shownIds;
       try {
-        const { recs: data, topGenres } = await fetchTMDBSeriesRecommendations(entries, { page, extraExcludeIds: shownIds });
+        let { recs: data, topGenres } = await fetchTMDBSeriesRecommendations(entries, { page: pickNextPage("serie", 5), extraExcludeIds: excludeIds });
+        if (data.length === 0) {
+          ({ recs: data, topGenres } = await fetchTMDBSeriesRecommendations(entries, { page: 1, extraExcludeIds: excludeIds }));
+        }
         if (data.length === 0) {
           setRefreshNotice("Plus de nouvelles suggestions pour l'instant — réessaie plus tard.");
         } else {
