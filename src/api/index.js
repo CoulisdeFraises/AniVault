@@ -10,6 +10,16 @@ import {
 } from "./tvmaze";
 import { withCache }       from "../services/cache";
 import { translateGenres } from "../utils/genres";
+import { getFormatGroup }  from "../utils/format";
+
+// Détermine la catégorie d'une entrée AniList à partir de ses saisons :
+// un film (ou une franchise 100% films) doit être classé "movie", pas "tv"
+// (sinon il apparaît dans l'onglet Série/pastille "Série" au lieu de "Film").
+function categoryFromSeasons(seasons) {
+  return seasons.length && seasons.every((s) => getFormatGroup(s.format) === "movie")
+    ? "movie"
+    : "tv";
+}
 
 // Mapping IDs genres TMDB → labels français
 const TMDB_MOVIE_GENRES = {
@@ -68,40 +78,42 @@ export async function importResult(result) {
         fetchAniListFranchise(result.id),
         tmdb?.overview ? Promise.resolve(tmdb.overview) : fetchAniListDescription(result.id),
       ]);
+      const seasons = franchiseData.seasons.length
+        ? franchiseData.seasons
+        : [{
+            number: 1,
+            format: result.format ?? "TV",     // ← format réel (ONA, OVA…)
+            totalEpisodes: result.episodes ?? null,
+            watchedEpisodes: 0,
+            coverImage: result.image || null,
+            anilistId: result.id,              // ← anilistId sur la saison de secours
+          }];
       return {
-        title: displayTitle, category: "tv",
+        title: displayTitle, category: categoryFromSeasons(seasons),
         titleRomaji: result.titleRomaji ?? null, titleEnglish: result.titleEnglish ?? null, titleFrench,
         genres: translateGenres(result.genres).slice(0, 5),
         coverImage: result.image || null,
-        seasons: franchiseData.seasons.length
-          ? franchiseData.seasons
-          : [{
-              number: 1,
-              format: result.format ?? "TV",     // ← format réel (ONA, OVA…)
-              totalEpisodes: result.episodes ?? null,
-              watchedEpisodes: 0,
-              coverImage: result.image || null,
-              anilistId: result.id,              // ← anilistId sur la saison de secours
-            }],
+        seasons,
         source: "anilist",
         // ← CORRECTIF : si anilistIds est vide (ONA, format non-TV), on garde l'ID source
         anilistIds: franchiseData.anilistIds.length ? franchiseData.anilistIds : [result.id],
         tmdbId: tmdb?.id ?? null, description: description || null,
       };
     } catch {
+      const seasons = [{
+        number: 1,
+        format: result.format ?? "TV",         // ← format réel
+        totalEpisodes: result.episodes ?? null,
+        watchedEpisodes: 0,
+        coverImage: result.image || null,
+        anilistId: result.id,                  // ← anilistId
+      }];
       return {
-        title: displayTitle, category: "tv",
+        title: displayTitle, category: categoryFromSeasons(seasons),
         titleRomaji: result.titleRomaji ?? null, titleEnglish: result.titleEnglish ?? null, titleFrench,
         genres: translateGenres(result.genres).slice(0, 5),
         coverImage: result.image || null,
-        seasons: [{
-          number: 1,
-          format: result.format ?? "TV",         // ← format réel
-          totalEpisodes: result.episodes ?? null,
-          watchedEpisodes: 0,
-          coverImage: result.image || null,
-          anilistId: result.id,                  // ← anilistId
-        }],
+        seasons,
         source: "anilist", anilistIds: [result.id],
         tmdbId: tmdb?.id ?? null, description: null,
       };

@@ -26,7 +26,24 @@ export function TitleFormModal({ editingEntry, onClose, onSave }) {
   const [importedFrom, setImportedFrom]         = useState(null);
   const [duplicateWarning, setDuplicateWarning] = useState(null);
 
-  function handleTypeChange(type) { setForm((f) => ({ ...f, type, category: "tv" })); setSearchQuery(""); setImportedFrom(null); }
+  function handleTypeChange(type) { setForm((f) => ({ ...f, type })); setSearchQuery(""); setImportedFrom(null); }
+
+  // Bascule Série TV / Film pour un ajout manuel (une seule saison).
+  // Pour les titres importés (plusieurs saisons), le format de chaque saison
+  // vient déjà de la recherche et se gère depuis la fiche du titre.
+  function handleCategoryChange(category) {
+    setForm((f) => ({
+      ...f,
+      category,
+      seasons: f.seasons.map((s, i) => i === 0
+        ? {
+            ...s,
+            format: category === "movie" ? "MOVIE" : "TV",
+            totalEpisodes: category === "movie" ? (s.totalEpisodes ?? 1) : s.totalEpisodes,
+          }
+        : s),
+    }));
+  }
 
   async function handleSelectResult(result) {
     setImporting(true);
@@ -77,6 +94,13 @@ export function TitleFormModal({ editingEntry, onClose, onSave }) {
 
           {!editingId && searchOpen && <SearchBar type={form.type} query={searchQuery} onQueryChange={setSearchQuery} onSelect={handleSelectResult} />}
 
+          {form.seasons.length <= 1 && (!searchOpen || editingId) && (
+            <div className="flex gap-2 mb-2">
+              <Chip active={form.category !== "movie"} onClick={() => handleCategoryChange("tv")} colorClass="bg-white/20 border-white/30">Série TV</Chip>
+              <Chip active={form.category === "movie"} onClick={() => handleCategoryChange("movie")} colorClass="bg-white/20 border-white/30">Film</Chip>
+            </div>
+          )}
+
           {importedFrom && (
             <p className="text-[11px] text-teal-300 mb-2 flex items-center gap-1 flex-wrap">
               <Check size={12} /> Importé depuis {importedFrom} —{" "}
@@ -123,7 +147,9 @@ export function TitleFormModal({ editingEntry, onClose, onSave }) {
                   {form.rating > 0 ? `${formatRating(form.rating)} / 10 (moyenne des saisons)` : "Pas encore notée"}
                 </p>
                 <p className="text-[11px] text-violet-500 mt-0.5">
-                  Note désormais saison par saison, depuis la fiche du titre.
+                  {form.category === "movie"
+                    ? "Note depuis la fiche du titre, dans la section « Films »."
+                    : "Note désormais saison par saison, depuis la fiche du titre."}
                 </p>
               </div>
               <div className="mt-3">

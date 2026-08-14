@@ -640,7 +640,7 @@ export function Profile() {
                     {item.coverImage
                       ? <img src={item.coverImage} alt="" className="w-full h-full object-cover" />
                       : <div className="w-full h-full bg-violet-900 flex items-center justify-center text-lg">
-                          {item.type === "anime" ? "🎌" : "📺"}
+                          {item.category === "movie" ? "🎬" : item.type === "anime" ? "🎌" : "📺"}
                         </div>
                     }
                     <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-1">

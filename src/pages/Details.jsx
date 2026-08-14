@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { X, Pencil, Star, Loader2, RefreshCw, Film, Tv, Disc2,
+import { X, Pencil, Star, Loader2, RefreshCw, Film, Tv, Disc2, Clapperboard,
          CheckCheck, ChevronRight, Check, Heart, ListPlus, AlertTriangle, WifiOff } from "lucide-react";
 import { EpisodeList }             from "../components/EpisodeList/EpisodeList";
 import { StarRating, RatingMeter, getRatingEmoji } from "../components/common/Rating";
@@ -495,8 +495,8 @@ export function Details() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap mb-1">
                   <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-violet-300">
-                    {entry.type === "anime" ? <Film size={10} /> : <Tv size={10} />}
-                    {entry.type === "anime" ? "Anime" : "Série"}
+                    {entry.category === "movie" ? <Clapperboard size={10} /> : entry.type === "anime" ? <Film size={10} /> : <Tv size={10} />}
+                    {entry.category === "movie" ? "Film" : entry.type === "anime" ? "Anime" : "Série"}
                   </span>
                   <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest ${s.text}`}>
                     <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />{s.label}

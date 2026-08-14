@@ -17,7 +17,7 @@ function EntryCard({ item, onRemove, blurred = false, onClick }) {
         {item.coverImage
           ? <img src={item.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none" />
           : <div className="w-full h-full bg-violet-900/50 flex items-center justify-center text-2xl">
-              {item.type === "anime" ? "🎌" : "📺"}
+              {item.category === "movie" ? "🎬" : item.type === "anime" ? "🎌" : "📺"}
             </div>
         }
       </div>

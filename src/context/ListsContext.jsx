@@ -145,6 +145,7 @@ export function ListsProvider({ children }) {
           title:      entry.title,
           coverImage: entry.coverImage || entry.seasons?.[0]?.coverImage || null,
           type:       entry.type,
+          category:   entry.category || "tv",
           addedAt:    Date.now(),
         }],
         updatedAt: Date.now(),
@@ -157,6 +158,19 @@ export function ListsProvider({ children }) {
       l.id !== listId
         ? l
         : { ...l, entries: l.entries.filter(e => e.entryId !== entryId), updatedAt: Date.now() }
+    ));
+  }, []);
+
+  // Retire une entrée de TOUTES les listes (favoris, cachette, listes perso)
+  // en une seule sauvegarde. À appeler quand un titre est supprimé de la
+  // bibliothèque : sans ça, les favoris/listes gardent une référence morte
+  // (entryId qui ne correspond plus à rien), visible en local ET par les
+  // amis qui consultent la liste (fantôme jamais nettoyé côté Supabase).
+  const removeEntryEverywhere = useCallback((entryId) => {
+    persist(listsRef.current.map(l =>
+      l.entries.some(e => e.entryId === entryId)
+        ? { ...l, entries: l.entries.filter(e => e.entryId !== entryId), updatedAt: Date.now() }
+        : l
     ));
   }, []);
 
@@ -183,7 +197,7 @@ export function ListsProvider({ children }) {
     <ListsContext.Provider value={{
       lists, loading,
       createList, deleteList, renameList, togglePublic,
-      addEntryToList, removeEntryFromList,
+      addEntryToList, removeEntryFromList, removeEntryEverywhere,
       isInList, isInFavorites, isInHiddenList,
       toggleFavorite, toggleHidden,
       FAVORITES_ID, HIDDEN_LIST_ID,

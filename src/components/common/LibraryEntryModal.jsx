@@ -1,4 +1,4 @@
-import { X, Star, Trash2, Film, Tv } from "lucide-react";
+import { X, Star, Trash2, Film, Tv, Clapperboard } from "lucide-react";
 import { Modal } from "../Modal/Modal";
 import { STATUS, seasonTotals, getRatingEmoji, formatRating } from "../../utils/status";
 
@@ -14,7 +14,8 @@ export function LibraryEntryModal({ item, entry, onClose, onRemove }) {
 
   const title = entry?.title || item.title;
   const image = entry?.coverImage || entry?.seasons?.[0]?.coverImage || item.coverImage;
-  const type  = entry?.type || item.type;
+  const type     = entry?.type || item.type;
+  const category = entry?.category || item.category;
   const s     = entry ? STATUS[entry.status] : null;
 
   const { watched, total } = entry ? seasonTotals(entry.seasons) : { watched: 0, total: null };
@@ -49,8 +50,8 @@ export function LibraryEntryModal({ item, entry, onClose, onRemove }) {
 
         <div className="p-4 space-y-3">
           <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-violet-300">
-            {type === "anime" ? <Film size={10} /> : <Tv size={10} />}
-            {type === "anime" ? "Anime" : "Série"}
+            {category === "movie" ? <Clapperboard size={10} /> : type === "anime" ? <Film size={10} /> : <Tv size={10} />}
+            {category === "movie" ? "Film" : type === "anime" ? "Anime" : "Série"}
           </div>
 
           <h3 className="text-base font-bold text-violet-50 leading-tight"

@@ -2,7 +2,7 @@ import { memo, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Pencil, Trash2, Film, Tv, Disc2, Check, Star,
-  RotateCcw, Heart, RefreshCw, ListPlus,
+  RotateCcw, Heart, RefreshCw, ListPlus, Clapperboard,
 } from "lucide-react";
 import { AnimatePresence }  from "motion/react";
 import { useLists }         from "../../context/ListsContext";
@@ -27,7 +27,7 @@ const LONG_PRESS_MS   = 500;
 
 export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = false }) {
   const { markDone, deleteEntry, saveEntry, updateSeasonRating } = useLibrary();
-  const { isInFavorites, toggleFavorite } = useLists();
+  const { isInFavorites, toggleFavorite, removeEntryEverywhere } = useLists();
   const isFavorite = isInFavorites(entry.id);
   const navigate   = useNavigate();
   const location   = useLocation();
@@ -337,8 +337,8 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                 <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-violet-300 whitespace-nowrap ${dimmed}`}>
-                  {entry.type === "anime" ? <Film size={10} /> : <Tv size={10} />}
-                  {entry.type === "anime" ? "Anime" : "Série"}
+                  {entry.category === "movie" ? <Clapperboard size={10} /> : entry.type === "anime" ? <Film size={10} /> : <Tv size={10} />}
+                  {entry.category === "movie" ? "Film" : entry.type === "anime" ? "Anime" : "Série"}
                 </span>
                 <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/5 whitespace-nowrap ${s.text}`}>
                   <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${s.dot}`} />
@@ -564,7 +564,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             title="Supprimer ce titre ?"
             description={<><span className="text-violet-50 font-medium">« {entry.title} »</span> et toute sa progression seront supprimés définitivement.</>}
             confirmLabel="Supprimer"
-            onConfirm={() => { haptics.medium(); deleteEntry(entry.id); setShowDel(false); }}
+            onConfirm={() => { haptics.medium(); deleteEntry(entry.id); removeEntryEverywhere(entry.id); setShowDel(false); }}
             onCancel={() => setShowDel(false)}
           />
         )}
