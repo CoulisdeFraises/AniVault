@@ -99,12 +99,17 @@ export function Details() {
   const tvSeasons    = useMemo(() => (entry?.seasons || []).map((s, i) => ({ ...s, globalIndex: i })).filter(s => getFormatGroup(s.format) === "tv"),    [entry?.seasons]);
   const extraSeasons = useMemo(() => (entry?.seasons || []).map((s, i) => ({ ...s, globalIndex: i })).filter(s => getFormatGroup(s.format) === "extra"),  [entry?.seasons]);
   const movieSeasons = useMemo(() => (entry?.seasons || []).map((s, i) => ({ ...s, globalIndex: i })).filter(s => getFormatGroup(s.format) === "movie"),  [entry?.seasons]);
-  const isStandaloneFilm = tvSeasons.length === 0 && extraSeasons.length === 0 && movieSeasons.length > 0;
+  const isStandaloneFilm  = tvSeasons.length === 0 && extraSeasons.length === 0 && movieSeasons.length > 0;
+  // Un titre 100% OVA/ONA/Spécial (sans saison TV ni film) doit lui aussi
+  // passer par l'affichage "multi-sections" : sinon il tombe dans la mise en
+  // page pensée pour une saison TV unique (curTV), qui ne sait pas gérer les
+  // extras, et impossible de cocher le moindre épisode.
+  const isStandaloneExtra = tvSeasons.length === 0 && movieSeasons.length === 0 && extraSeasons.length > 0;
   const hasMulti = [tvSeasons.length > 0, extraSeasons.length > 0, movieSeasons.length > 0]
-    .filter(Boolean).length > 1 || isStandaloneFilm;
+    .filter(Boolean).length > 1 || isStandaloneFilm || isStandaloneExtra;
 
   const [activeTVIdx,    setActiveTVIdx]   = useState(0);
-  const [open,           setOpen]          = useState({ tv: false, extra: false, movie: isStandaloneFilm });
+  const [open,           setOpen]          = useState({ tv: false, extra: isStandaloneExtra, movie: isStandaloneFilm });
   const [openEpisodes,   setOpenEpisodes]  = useState(false);
   const [seasonCache,    setSeasonCache]   = useState({});
   const [loadingEps,     setLoadingEps]    = useState(false);
@@ -140,7 +145,8 @@ export function Details() {
     setActiveTVIdx(0); setSeasonCache({});
     setOpen({
       tv: false,
-      extra: false,
+      extra: (entry?.seasons || []).length > 0 &&
+            (entry?.seasons || []).every(s => getFormatGroup(s.format) === "extra"),
       movie: (entry?.seasons || []).length > 0 &&
             (entry?.seasons || []).every(s => getFormatGroup(s.format) === "movie"),
     });

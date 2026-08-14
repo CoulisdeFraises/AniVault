@@ -15,21 +15,20 @@ export function EpisodeList({ episodes, totalEpisodes, watched, statusColor, onS
         {Array.from({ length: rowCount }, (_, idx) => {
           const ep = episodes[idx];
           const isWatched = idx < watched;
-          const isClickable = idx === watched || idx === watched - 1;
           return (
             <li
               key={idx}
-              onClick={() => { if (!isClickable || !onSetEpisode) return; haptics.tap(); onSetEpisode(isWatched ? idx : idx + 1); }}
-              className={`flex items-center gap-3 p-2 rounded-lg transition-colors ${isWatched ? "bg-white/5" : ""} ${isClickable ? "cursor-pointer hover:bg-white/10" : ""}`}
+              onClick={() => { if (!onSetEpisode) return; haptics.tap(); onSetEpisode(isWatched ? idx : idx + 1); }}
+              className={`flex items-center gap-3 p-2 rounded-lg transition-colors cursor-pointer hover:bg-white/10 ${isWatched ? "bg-white/5" : ""}`}
             >
               <span className="flex-shrink-0 w-5 h-5 rounded-full border flex items-center justify-center transition-colors"
-                style={{ borderColor: isWatched ? statusColor : isClickable ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.2)", backgroundColor: isWatched ? `${statusColor}20` : "transparent" }}>
+                style={{ borderColor: isWatched ? statusColor : "rgba(255,255,255,0.45)", backgroundColor: isWatched ? `${statusColor}20` : "transparent" }}>
                 {isWatched && <Check size={10} style={{ color: statusColor }} />}
               </span>
               <span className="font-mono text-[11px] text-violet-500 flex-shrink-0">
                 {String(ep?.number ?? idx + 1).padStart(2, "0")}
               </span>
-              <span className={`text-sm truncate ${isWatched ? "text-violet-100" : isClickable ? "text-violet-300" : "text-violet-400"}`}>
+              <span className={`text-sm truncate ${isWatched ? "text-violet-100" : "text-violet-300"}`}>
                 {ep?.name || `Épisode ${ep?.number ?? idx + 1}`}
               </span>
             </li>
