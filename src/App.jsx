@@ -26,8 +26,10 @@ const Details         = lazy(() => import("./pages/Details")        .then(m => (
 const Login           = lazy(() => import("./pages/Login")          .then(m => ({ default: m.Login })));
 const Settings        = lazy(() => import("./pages/Settings")       .then(m => ({ default: m.Settings })));
 const Profile         = lazy(() => import("./pages/Profile")        .then(m => ({ default: m.Profile })));
-const Calendar        = lazy(() => import("./pages/Calendar")       .then(m => ({ default: m.Calendar })));
-const NextSeason      = lazy(() => import("./pages/NextSeason")     .then(m => ({ default: m.NextSeason })));
+const Calendar         = lazy(() => import("./pages/Calendar")       .then(m => ({ default: m.Calendar })));
+const CalendarSeries   = lazy(() => import("./pages/CalendarSeries") .then(m => ({ default: m.CalendarSeries })));
+const CalendarFilms    = lazy(() => import("./pages/CalendarFilms")  .then(m => ({ default: m.CalendarFilms })));
+const NextSeason       = lazy(() => import("./pages/NextSeason")     .then(m => ({ default: m.NextSeason })));
 const History         = lazy(() => import("./pages/History")        .then(m => ({ default: m.History })));
 const Recommendations = lazy(() => import("./pages/Recommendations").then(m => ({ default: m.Recommendations })));
 const Community       = lazy(() => import("./pages/Community")      .then(m => ({ default: m.Community })));
@@ -171,6 +173,10 @@ const AppRoutes = () => {
               element={<ProtectedRoute><PageTransition><Calendar /></PageTransition></ProtectedRoute>} />
             <Route path="/calendar/next-season"
               element={<ProtectedRoute><PageTransition><NextSeason /></PageTransition></ProtectedRoute>} />
+            <Route path="/calendar/series"
+              element={<ProtectedRoute><PageTransition><CalendarSeries /></PageTransition></ProtectedRoute>} />
+            <Route path="/calendar/films"
+              element={<ProtectedRoute><PageTransition><CalendarFilms /></PageTransition></ProtectedRoute>} />
             <Route path="/history"
               element={<ProtectedRoute><PageTransition><History /></PageTransition></ProtectedRoute>} />
             <Route path="/recommendations"

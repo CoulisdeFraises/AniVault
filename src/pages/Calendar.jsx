@@ -1,5 +1,5 @@
 // src/pages/Calendar.jsx
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Loader2,
@@ -13,13 +13,11 @@ import { TopBar }    from "../components/common/TopBar";
 import { Modal }         from "../components/Modal/Modal";
 import { AnimatePresence } from "motion/react";
 import { PullToRefresh } from "../components/common/PullToRefresh";
+import { CalendarTabs }  from "../components/common/CalendarTabs";
+import { useWeekNavigation, DAY_NAMES } from "../hooks/useWeekNavigation";
 import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
 
-const DAY_NAMES            = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-const VISIBLE_DAYS_MOBILE  = 1;
-const VISIBLE_DAYS_DESKTOP = 3;
 const TMDB_CHUNK           = 5;
-const SWIPE_THRESHOLD      = 60; // px minimum pour déclencher un changement de jour
 
 function getSeasonLabel() {
   const now = new Date(), month = now.getMonth() + 1, year = now.getFullYear();
@@ -28,26 +26,11 @@ function getSeasonLabel() {
   if (month <= 9) return `Été ${year}`;
   return `Automne ${year}`;
 }
-function todayIndex() { const d = new Date().getDay(); return d === 0 ? 6 : d - 1; }
 
 function toDate(value) {
   if (value instanceof Date) return value;
   const d = new Date(value);
   return isNaN(d.getTime()) ? new Date() : d;
-}
-
-function useVisibleDays() {
-  const [days, setDays] = useState(
-    typeof window !== "undefined" && window.innerWidth < 640
-      ? VISIBLE_DAYS_MOBILE
-      : VISIBLE_DAYS_DESKTOP
-  );
-  useEffect(() => {
-    const handler = () => setDays(window.innerWidth < 640 ? VISIBLE_DAYS_MOBILE : VISIBLE_DAYS_DESKTOP);
-    window.addEventListener("resize", handler);
-    return () => window.removeEventListener("resize", handler);
-  }, []);
-  return days;
 }
 
 function stripHtml(html) {
@@ -231,7 +214,11 @@ function FilterTab({ active, onClick, children }) {
 export function Calendar() {
   const navigate = useNavigate();
   const { entries: libraryEntries, saveEntry } = useLibrary();
-  const VISIBLE_DAYS = useVisibleDays();
+  const {
+    VISIBLE_DAYS, dayOffset, gridKey, slideClass,
+    canPrevDay, canNextDay, handlePrevDay, handleNextDay, jumpToDay,
+    gridPointerHandlers,
+  } = useWeekNavigation();
 
   const [schedules,        setSchedules]        = useState([]);
   const [weekMonday,       setWeekMonday]        = useState(null);
@@ -244,17 +231,9 @@ export function Calendar() {
   const [selectedSchedule, setSelectedSchedule]  = useState(null);
   const [tmdbTitles,       setTmdbTitles]        = useState({});
   const [contentFilter,    setContentFilter]     = useState("all");
-  const [gridKey,          setGridKey]           = useState(0);
-  const [slideDir,         setSlideDir]          = useState("none");
-  const [dayOffset,        setDayOffset]         = useState(() =>
-    Math.max(0, Math.min(7 - VISIBLE_DAYS, todayIndex() - (VISIBLE_DAYS > 1 ? 1 : 0)))
-  );
 
   // IDs en cours d'ajout (Set de media.id AniList)
   const [addingIds, setAddingIds] = useState(new Set());
-
-  // ── Swipe : ref pour le gestionnaire de pointeur ──────────────────────────
-  const swipePtr = useRef({ id: null, startX: 0, startY: 0, axis: null });
 
   // IDs AniList déjà présents dans la bibliothèque
   const libraryAnilistIds = useMemo(
@@ -338,46 +317,6 @@ export function Calendar() {
     return () => { cancelled = true; };
   }, [schedules]);
 
-  // ── Navigation jour (au sein de la semaine en cours) ──────────────────────
-  function handlePrevDay() { setSlideDir("from-right"); setGridKey((k) => k + 1); setDayOffset((d) => Math.max(0, d - 1)); }
-  function handleNextDay() { setSlideDir("from-left");  setGridKey((k) => k + 1); setDayOffset((d) => Math.min(7 - VISIBLE_DAYS, d + 1)); }
-
-  // ── Swipe gauche/droite → navigation entre jours ──────────────────────────
-  // Même pattern que Card.jsx : détection d'axe avant de décider si c'est
-  // un swipe horizontal (changement de jour) ou vertical (scroll normal).
-  function handleGridPointerDown(e) {
-    if (e.button > 0) return; // ignore clic droit
-    swipePtr.current = { id: e.pointerId, startX: e.clientX, startY: e.clientY, axis: null };
-  }
-
-  function handleGridPointerMove(e) {
-    if (swipePtr.current.id == null) return;
-    const dx = e.clientX - swipePtr.current.startX;
-    const dy = e.clientY - swipePtr.current.startY;
-
-    // Détermine l'axe dominant dès 8px de déplacement
-    if (!swipePtr.current.axis && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
-      swipePtr.current.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
-    }
-  }
-
-  function handleGridPointerUp(e) {
-    if (swipePtr.current.id == null) return;
-    const dx = e.clientX - swipePtr.current.startX;
-
-    if (swipePtr.current.axis === "x") {
-      if (dx < -SWIPE_THRESHOLD && canNextDay) handleNextDay();
-      else if (dx > SWIPE_THRESHOLD && canPrevDay) handlePrevDay();
-    }
-
-    swipePtr.current = { id: null, startX: 0, startY: 0, axis: null };
-  }
-
-  function handleGridPointerCancel() {
-    swipePtr.current = { id: null, startX: 0, startY: 0, axis: null };
-  }
-
-  // ── Ajout d'un anime à la bibliothèque ────────────────────────────────────
   const handleAddToLibrary = useCallback(async (schedule) => {
     const mediaId = schedule.media.id;
     if (addingIds.has(mediaId)) return;
@@ -438,11 +377,8 @@ export function Calendar() {
   }, [schedules, weekMonday, contentFilter, libraryAnilistIds]);
 
   const visibleDays   = byDay.slice(dayOffset, dayOffset + VISIBLE_DAYS);
-  const canPrevDay    = dayOffset > 0;
-  const canNextDay    = dayOffset + VISIBLE_DAYS < 7;
   const todayDateString = useMemo(() => new Date().toDateString(), []);
   const totalVisible  = visibleDays.reduce((sum, d) => sum + d.entries.length, 0);
-  const slideClass    = slideDir === "from-left" ? "animate-slideFromLeft" : slideDir === "from-right" ? "animate-slideFromRight" : "";
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -462,6 +398,8 @@ export function Calendar() {
 
             <TopBar />
           </div>
+
+          <CalendarTabs />
 
           {/* ── Bascule Saison en cours / Saison prochaine ── */}
           {/* Remplace l'ancienne navigation semaine par semaine (retirée, peu
@@ -527,12 +465,7 @@ export function Calendar() {
                     {Array.from({ length: 7 }, (_, i) => (
                       <button
                         key={i}
-                        onClick={() => {
-                          const newOffset = Math.max(0, Math.min(7 - VISIBLE_DAYS, i - Math.floor(VISIBLE_DAYS / 2)));
-                          setSlideDir(newOffset > dayOffset ? "from-left" : "from-right");
-                          setGridKey((k) => k + 1);
-                          setDayOffset(newOffset);
-                        }}
+                        onClick={() => jumpToDay(i)}
                         aria-label={DAY_NAMES[i]}
                         className={`rounded-full transition-all motion-reduce:transition-none ${
                           i >= dayOffset && i < dayOffset + VISIBLE_DAYS
@@ -557,10 +490,7 @@ export function Calendar() {
               {/* ── Grille jours — écoute les swipes horizontaux ── */}
               <div
                 key={gridKey}
-                onPointerDown={handleGridPointerDown}
-                onPointerMove={handleGridPointerMove}
-                onPointerUp={handleGridPointerUp}
-                onPointerCancel={handleGridPointerCancel}
+                {...gridPointerHandlers}
                 style={{ touchAction: "pan-y" }} // scroll vertical libre, swipe horizontal capturé
                 className={`grid gap-3 motion-reduce:animate-none ${slideClass} ${
                   VISIBLE_DAYS === 1 ? "grid-cols-1" : "grid-cols-3"
