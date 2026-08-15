@@ -707,12 +707,22 @@ export function Details() {
                                   {String(se.watchedEpisodes).padStart(2, "0")}{se.totalEpisodes != null ? `/${String(se.totalEpisodes).padStart(2, "0")}` : "/?"} ép.
                                 </p>
                               </div>
-                              {se.totalEpisodes != null && !done && (
-                                <button onClick={() => { haptics.success(); setEpisodeCount(entry.id, se.globalIndex, se.totalEpisodes); }}
-                                  className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 flex items-center gap-1 flex-shrink-0">
-                                  <CheckCheck size={10} /> Tout
-                                </button>
-                              )}
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                {se.watchedEpisodes > 0 && (
+                                  <button onClick={() => { haptics.tap(); decrementEpisode(entry.id, se.globalIndex); }}
+                                    className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95">-1</button>
+                                )}
+                                {se.totalEpisodes != null && !done && (
+                                  <button onClick={() => { haptics.tap(); incrementEpisode(entry.id, se.globalIndex); }}
+                                    className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95">+1</button>
+                                )}
+                                {se.totalEpisodes != null && !done && (
+                                  <button onClick={() => { haptics.success(); setEpisodeCount(entry.id, se.globalIndex, se.totalEpisodes); }}
+                                    className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 flex items-center gap-1">
+                                    <CheckCheck size={10} /> Tout
+                                  </button>
+                                )}
+                              </div>
                             </div>
 
                             <div className="mt-1.5">
