@@ -4,7 +4,7 @@ import {
   Pencil, Trash2, Film, Tv, Disc2, Check, Star,
   RotateCcw, Heart, RefreshCw, ListPlus, Clapperboard,
 } from "lucide-react";
-import { AnimatePresence }  from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { useLists }         from "../../context/ListsContext";
 import { ConfirmDialog }    from "../Modal/Modal";
 import { StarRating, getRatingEmoji } from "../common/Rating";
@@ -15,6 +15,10 @@ import { getShowProgress }  from "../../context/PrefsContext";
 import { AddToListModal }   from "../common/AddToListModal";
 import { getFormatGroup }   from "../../utils/format";
 import { haptics }          from "../../utils/haptics";
+import {
+  CARD_OVERLAY_VARIANTS, CARD_OVERLAY_TRANSITION,
+  CARD_BADGE_VARIANTS,   CARD_BADGE_TRANSITION,
+} from "../../lib/motionVariants";
 
 function getResumeStatus(entry) {
   const { watched, total } = seasonTotals(entry.seasons);
@@ -440,20 +444,32 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             </div>
           </div>
 
-          {isAbandoned && (
-            <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl pointer-events-none">
-              <button onClick={handleResume}
-                className="pointer-events-auto flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-900/95 border border-violet-500/40 text-violet-100 text-sm font-semibold hover:bg-violet-700/95 hover:border-violet-400/60 active:scale-95 transition-all duration-150 motion-reduce:transition-none shadow-xl shadow-violet-950/60 animate-fadeIn">
-                <RotateCcw size={14} className="text-rose-400" /> Reprendre ?
-              </button>
-            </div>
-          )}
+          <AnimatePresence>
+            {isAbandoned && (
+              <motion.div
+                key="resume-badge"
+                variants={CARD_BADGE_VARIANTS}
+                initial="initial" animate="animate" exit="exit"
+                transition={CARD_BADGE_TRANSITION}
+                className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl pointer-events-none">
+                <button onClick={handleResume}
+                  className="pointer-events-auto flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-900/95 border border-violet-500/40 text-violet-100 text-sm font-semibold hover:bg-violet-700/95 hover:border-violet-400/60 active:scale-95 transition-all duration-150 motion-reduce:transition-none shadow-xl shadow-violet-950/60">
+                  <RotateCcw size={14} className="text-rose-400" /> Reprendre ?
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* ── Menu long-press ── */}
+        <AnimatePresence>
         {longPressMenu && (
-          <div
-            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/70 backdrop-blur-xl flex flex-col items-center justify-center gap-1.5 p-3 animate-fadeIn overflow-y-auto"
+          <motion.div
+            key="long-press-menu"
+            variants={CARD_OVERLAY_VARIANTS}
+            initial="initial" animate="animate" exit="exit"
+            transition={CARD_OVERLAY_TRANSITION}
+            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/70 backdrop-blur-xl flex flex-col items-center justify-center gap-1.5 p-3 overflow-y-auto"
             onClick={e => e.stopPropagation()}
           >
             <p className="font-mono text-xs uppercase tracking-widest text-white/90 mb-0.5 truncate max-w-full px-2 text-center">
@@ -513,13 +529,19 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             >
               Annuler
             </button>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
         {/* ── Panneau swipe droite : Note / Favori ── */}
+        <AnimatePresence>
         {showQuickRate && (
-          <div
-            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/70 backdrop-blur-xl flex flex-col items-center justify-center gap-3 p-4 animate-fadeIn"
+          <motion.div
+            key="quick-rate-panel"
+            variants={CARD_OVERLAY_VARIANTS}
+            initial="initial" animate="animate" exit="exit"
+            transition={CARD_OVERLAY_TRANSITION}
+            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/70 backdrop-blur-xl flex flex-col items-center justify-center gap-3 p-4"
             onClick={e => e.stopPropagation()}
           >
             <p className="font-mono text-xs uppercase tracking-widest text-white/90 truncate max-w-full px-2 text-center">
@@ -551,8 +573,9 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
               className="mt-1 text-xs text-white/70 hover:text-white transition-colors font-mono">
               Fermer
             </button>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </div>
 
       {/* ── Modals ── */}

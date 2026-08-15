@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { AnimatePresence } from "motion/react";
 import { X, Pencil, Star, Loader2, RefreshCw, Film, Tv, Disc2, Clapperboard,
          CheckCheck, ChevronRight, Check, Heart, ListPlus, AlertTriangle, WifiOff } from "lucide-react";
 import { EpisodeList }             from "../components/EpisodeList/EpisodeList";
@@ -908,13 +909,15 @@ export function Details() {
         </div>
       </div>
 
-      {synopsisRec && (
-        <SynopsisModal rec={synopsisRec} onClose={() => setSynopsisRec(null)}
-          onAdd={handleAddRec} adding={addingId === synopsisRec.id}
-          alreadyInLib={isRecAlreadyInLibrary(synopsisRec)} />
-      )}
-      {addToListOpen && <AddToListModal entry={entry} onClose={() => setAddToListOpen(false)} />}
-      {editing && <TitleFormModal editingEntry={entry} onClose={() => setEditing(false)} />}
+      <AnimatePresence>
+        {synopsisRec && (
+          <SynopsisModal key="synopsis" rec={synopsisRec} onClose={() => setSynopsisRec(null)}
+            onAdd={handleAddRec} adding={addingId === synopsisRec.id}
+            alreadyInLib={isRecAlreadyInLibrary(synopsisRec)} />
+        )}
+        {addToListOpen && <AddToListModal key="add-to-list" entry={entry} onClose={() => setAddToListOpen(false)} />}
+        {editing && <TitleFormModal key="edit-title" editingEntry={entry} onClose={() => setEditing(false)} />}
+      </AnimatePresence>
     </div>
     </>
   );
