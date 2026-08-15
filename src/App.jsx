@@ -17,6 +17,8 @@ import { addNotification }             from "./hooks/useNotificationStore";
 import SplashScreen                    from "./components/SplashScreen/SplashScreen";
 import { NotificationToast}            from "./components/common/NotificationToast";
 import { syncSubscription, syncMissedNotifications } from "./utils/push";
+import { fetchLatestAnnouncement, fetchSeenAnnouncementId, markAnnouncementSeen } from "./services/announcements";
+import { AnnouncementModal } from "./components/common/AnnouncementModal";
 
 // ── Code splitting ────────────────────────────────────────────────────────────
 const Home            = lazy(() => import("./pages/Home")           .then(m => ({ default: m.Home })));
@@ -61,6 +63,44 @@ const ProtectedRoute = ({ children }) => {
 function AchievementLayer() {
   const { currentToast, dismissToast } = useAchievements();
   return <AchievementToast achievement={currentToast} onDone={dismissToast} />;
+}
+
+// ── AnnouncementLayer — popup de message au démarrage ──────────────────────
+//
+// Affiche la dernière ligne de la table Supabase `announcements`, une seule
+// fois par message : l'id du dernier message vu est stocké par compte dans
+// profiles.seen_announcement_id, donc valable sur tous les appareils.
+// Tant qu'aucune nouvelle ligne n'est ajoutée côté Supabase, la popup ne
+// réapparaît pas.
+function AnnouncementLayer() {
+  const { user } = useAuth();
+  const [announcement, setAnnouncement] = useState(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const [a, seenId] = await Promise.all([
+        fetchLatestAnnouncement(),
+        fetchSeenAnnouncementId(user.id),
+      ]);
+      if (cancelled || !a) return;
+      if (a.id !== seenId) setAnnouncement(a);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  if (!announcement) return null;
+
+  return (
+    <AnnouncementModal
+      message={announcement.message}
+      onClose={() => {
+        markAnnouncementSeen(user.id, announcement.id);
+        setAnnouncement(null);
+      }}
+    />
+  );
 }
 
 function NotificationLayer() {
@@ -163,6 +203,7 @@ const AppRoutes = () => {
       {user && <BottomNav />}
 
       <AchievementLayer />
+      {user && <AnnouncementLayer />}
       <NotificationToast />
       <InstallPrompt />
     </div>
