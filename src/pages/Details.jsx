@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { X, Pencil, Star, Loader2, RefreshCw, Film, Tv, Disc2, Clapperboard,
          CheckCheck, ChevronRight, Check, Heart, ListPlus, AlertTriangle, WifiOff } from "lucide-react";
 import { EpisodeList }             from "../components/EpisodeList/EpisodeList";
-import { StarRating, RatingMeter, getRatingEmoji } from "../components/common/Rating";
+import { StarRating, getRatingEmoji } from "../components/common/Rating";
 import { TitleFormModal }          from "../components/Modal/TitleFormModal";
 import { STATUS, seasonTotals, formatRating }    from "../utils/status";
 import { useLibrary }              from "../context/LibraryContext";
@@ -700,23 +700,24 @@ export function Details() {
                         const done  = se.totalEpisodes != null && se.watchedEpisodes >= se.totalEpisodes;
                         return (
                           <div key={se.globalIndex} className="pb-3 border-b border-white/5 last:border-0 last:pb-0">
-                            <div className="flex items-start gap-2">
-                              <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
                                 <p className="font-mono text-xs text-violet-200 break-words leading-tight">{label}</p>
                                 <p className="font-mono text-[10px] text-violet-500 mt-0.5">
                                   {String(se.watchedEpisodes).padStart(2, "0")}{se.totalEpisodes != null ? `/${String(se.totalEpisodes).padStart(2, "0")}` : "/?"} ép.
                                 </p>
-                                <div className="mt-1">
-                                  <RatingMeter value={se.rating || 0}
-                                    onChange={r => { haptics.tap(); updateSeasonRating(entry.id, se.globalIndex, r); }} />
-                                </div>
                               </div>
                               {se.totalEpisodes != null && !done && (
                                 <button onClick={() => { haptics.success(); setEpisodeCount(entry.id, se.globalIndex, se.totalEpisodes); }}
-                                  className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 flex items-center gap-1 flex-shrink-0 mt-0.5">
+                                  className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 flex items-center gap-1 flex-shrink-0">
                                   <CheckCheck size={10} /> Tout
                                 </button>
                               )}
+                            </div>
+
+                            <div className="mt-1.5">
+                              <StarRating value={se.rating || 0}
+                                onChange={r => { haptics.tap(); updateSeasonRating(entry.id, se.globalIndex, r); }} />
                             </div>
 
                             {se.totalEpisodes != null ? (
@@ -758,21 +759,23 @@ export function Details() {
                         const label = se.title || `Film ${se.number}`;
                         const seen  = se.watchedEpisodes >= (se.totalEpisodes ?? 1);
                         return (
-                          <div key={se.globalIndex} className="flex items-start gap-2 py-1.5 border-b border-white/5 last:border-0">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-mono text-xs text-violet-200 break-words leading-tight">{label}</p>
-                              {se.totalEpisodes != null && se.totalEpisodes > 1 && (
-                                <p className="font-mono text-[10px] text-violet-500 mt-0.5">{se.totalEpisodes} épisodes</p>
-                              )}
-                              <div className="mt-1">
-                                <RatingMeter value={se.rating || 0}
-                                  onChange={r => { haptics.tap(); updateSeasonRating(entry.id, se.globalIndex, r); }} />
+                          <div key={se.globalIndex} className="py-1.5 border-b border-white/5 last:border-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="font-mono text-xs text-violet-200 break-words leading-tight">{label}</p>
+                                {se.totalEpisodes != null && se.totalEpisodes > 1 && (
+                                  <p className="font-mono text-[10px] text-violet-500 mt-0.5">{se.totalEpisodes} épisodes</p>
+                                )}
                               </div>
+                              <button onClick={() => { haptics.tap(); setEpisodeCount(entry.id, se.globalIndex, seen ? 0 : (se.totalEpisodes ?? 1)); }}
+                                className={`font-mono text-[10px] px-2.5 py-1 rounded-full border transition-all active:scale-95 flex-shrink-0 ${seen ? "bg-teal-500/20 border-teal-500/40 text-teal-300 hover:bg-teal-500/30" : "bg-white/5 border-white/10 text-violet-400 hover:bg-white/10 hover:text-violet-200"}`}>
+                                {seen ? "✓ Vu" : "Pas vu"}
+                              </button>
                             </div>
-                            <button onClick={() => { haptics.tap(); setEpisodeCount(entry.id, se.globalIndex, seen ? 0 : (se.totalEpisodes ?? 1)); }}
-                              className={`font-mono text-[10px] px-2.5 py-1 rounded-full border transition-all active:scale-95 flex-shrink-0 mt-0.5 ${seen ? "bg-teal-500/20 border-teal-500/40 text-teal-300 hover:bg-teal-500/30" : "bg-white/5 border-white/10 text-violet-400 hover:bg-white/10 hover:text-violet-200"}`}>
-                              {seen ? "✓ Vu" : "Pas vu"}
-                            </button>
+                            <div className="mt-1.5">
+                              <StarRating value={se.rating || 0}
+                                onChange={r => { haptics.tap(); updateSeasonRating(entry.id, se.globalIndex, r); }} />
+                            </div>
                           </div>
                         );
                       })}
