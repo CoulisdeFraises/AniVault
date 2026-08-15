@@ -164,7 +164,10 @@ export function LibraryProvider({ children }) {
     }) ?? null;
   }, []);
 
-  const saveEntry = useCallback((form, editingId) => {
+  // silent = true : correction automatique (ex. statut "Terminé" incohérent
+  // corrigé en arrière-plan) → ne touche pas updatedAt, pour ne pas faire
+  // remonter le titre dans le tri "récent" sans action réelle de l'utilisateur.
+  const saveEntry = useCallback((form, editingId, silent = false) => {
     const forceAll = !editingId && form.status === "termine";
     const seasons  = form.seasons.map((s) => {
       const total   = s.totalEpisodes == null ? null : Math.max(0, Number(s.totalEpisodes) || 0);
@@ -182,12 +185,13 @@ export function LibraryProvider({ children }) {
         ...(s.anilistId != null ? { anilistId: s.anilistId } : {}),
       };
     });
+    const prevEntry = editingId ? entriesRef.current.find((e) => e.id === editingId) : null;
     const cleaned = sanitizeEntry({
       ...form, title: form.title.trim(), seasons,
       rating: Math.min(10, Math.max(0, Number(form.rating) || 0)),
       id: editingId || Date.now().toString(),
-      watchHistory: editingId ? (entriesRef.current.find((e) => e.id === editingId)?.watchHistory || []) : [],
-      updatedAt: Date.now(),
+      watchHistory: editingId ? (prevEntry?.watchHistory || []) : [],
+      updatedAt: silent ? (prevEntry?.updatedAt ?? Date.now()) : Date.now(),
     });
     persist(editingId
       ? entriesRef.current.map((e) => e.id === editingId ? cleaned : e)
@@ -262,11 +266,14 @@ export function LibraryProvider({ children }) {
     }));
   }, [user]);
 
-  const updateSeasonTotal = useCallback((id, seasonIndex, totalEpisodes) => {
+  // silent = true : correction passive (resynchro du nb d'épisodes en arrière-
+  // plan à l'ouverture de la fiche) → ne doit pas faire remonter le titre dans
+  // le tri "récent", puisque ce n'est pas une action de l'utilisateur.
+  const updateSeasonTotal = useCallback((id, seasonIndex, totalEpisodes, silent = false) => {
     persist(entriesRef.current.map((e) => {
       if (e.id !== id) return e;
       const seasons = e.seasons.map((s, i) => i === seasonIndex ? { ...s, totalEpisodes } : s);
-      return { ...e, seasons, status: autoStatus(e, seasons), updatedAt: Date.now() };
+      return { ...e, seasons, status: autoStatus(e, seasons), ...(silent ? {} : { updatedAt: Date.now() }) };
     }));
   }, [user]);
 

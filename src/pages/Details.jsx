@@ -219,7 +219,7 @@ export function Details() {
         if (cancelled) return;
         setNextAiring(r);
         if (r?.airingAt && entry.status === "termine") {
-          saveEntry({ ...entry, status: "en-cours" }, entry.id);
+          saveEntry({ ...entry, status: "en-cours" }, entry.id, true);
         }
       } catch (_) {}
     })();
@@ -237,7 +237,7 @@ export function Details() {
         setSeasonCache(prev => ({ ...prev, [activeTVIdx]: data }));
         const curSeason = tvSeasons[activeTVIdx];
         if (curSeason && data.totalEpisodes != null && data.totalEpisodes !== curSeason.totalEpisodes) {
-          updateSeasonTotal(entry.id, curSeason.globalIndex, data.totalEpisodes);
+          updateSeasonTotal(entry.id, curSeason.globalIndex, data.totalEpisodes, true);
         }
       } catch (_) {}
       finally { if (!cancelled) setLoadingEps(false); }
@@ -686,44 +686,55 @@ export function Details() {
 
               {extraSeasons.length > 0 && (
                 <div className="rounded-xl bg-white/[0.03] border border-white/5 overflow-hidden">
-                  <div className="px-3 sm:px-4">
-                    <AccordionHeader icon={<Disc2 size={15} />} label="OVA / Specials" count={extraSeasons.length}
-                      summary={`${extW}${extT != null ? `/${extT}` : ""} ép.`}
-                      isOpen={open.extra} onToggle={() => setOpen(p => ({ ...p, extra: !p.extra }))} />
-                  </div>
-                  {open.extra && (
-                    <div className="px-3 sm:px-4 pb-3 space-y-1 pt-2">
+                  {!isStandaloneExtra && (
+                    <div className="px-3 sm:px-4">
+                      <AccordionHeader icon={<Disc2 size={15} />} label="OVA / Specials" count={extraSeasons.length}
+                        summary={`${extW}${extT != null ? `/${extT}` : ""} ép.`}
+                        isOpen={open.extra} onToggle={() => setOpen(p => ({ ...p, extra: !p.extra }))} />
+                    </div>
+                  )}
+                  {(isStandaloneExtra || open.extra) && (
+                    <div className="px-3 sm:px-4 pb-3 space-y-3 pt-2">
                       {extraSeasons.map(se => {
                         const label = se.title || `${FMT_LABEL[se.format] ?? se.format} ${se.number}`;
                         const done  = se.totalEpisodes != null && se.watchedEpisodes >= se.totalEpisodes;
                         return (
-                          <div key={se.globalIndex} className="flex items-start gap-2 py-1.5 border-b border-white/5 last:border-0">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-mono text-xs text-violet-200 break-words leading-tight">{label}</p>
-                              <p className="font-mono text-[10px] text-violet-500 mt-0.5">
-                                {String(se.watchedEpisodes).padStart(2, "0")}{se.totalEpisodes != null ? `/${String(se.totalEpisodes).padStart(2, "0")}` : "/?"} ép.
-                              </p>
-                              <div className="mt-1">
-                                <RatingMeter value={se.rating || 0}
-                                  onChange={r => { haptics.tap(); updateSeasonRating(entry.id, se.globalIndex, r); }} />
+                          <div key={se.globalIndex} className="pb-3 border-b border-white/5 last:border-0 last:pb-0">
+                            <div className="flex items-start gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-mono text-xs text-violet-200 break-words leading-tight">{label}</p>
+                                <p className="font-mono text-[10px] text-violet-500 mt-0.5">
+                                  {String(se.watchedEpisodes).padStart(2, "0")}{se.totalEpisodes != null ? `/${String(se.totalEpisodes).padStart(2, "0")}` : "/?"} ép.
+                                </p>
+                                <div className="mt-1">
+                                  <RatingMeter value={se.rating || 0}
+                                    onChange={r => { haptics.tap(); updateSeasonRating(entry.id, se.globalIndex, r); }} />
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex gap-1 flex-shrink-0 pt-0.5">
-                              {se.watchedEpisodes > 0 && (
-                                <button onClick={() => { haptics.tap(); decrementEpisode(entry.id, se.globalIndex); }}
-                                  className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95">-1</button>
-                              )}
-                              {(se.totalEpisodes == null || se.watchedEpisodes < se.totalEpisodes) && (
-                                <button onClick={() => { haptics.tap(); incrementEpisode(entry.id, se.globalIndex); }}
-                                  className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95">+1</button>
-                              )}
                               {se.totalEpisodes != null && !done && (
                                 <button onClick={() => { haptics.success(); setEpisodeCount(entry.id, se.globalIndex, se.totalEpisodes); }}
-                                  className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 flex items-center">
-                                  <CheckCheck size={10} />
+                                  className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 flex items-center gap-1 flex-shrink-0 mt-0.5">
+                                  <CheckCheck size={10} /> Tout
                                 </button>
                               )}
                             </div>
+
+                            {se.totalEpisodes != null ? (
+                              <div className="mt-2">
+                                <EpisodeList episodes={[]} totalEpisodes={se.totalEpisodes} watched={se.watchedEpisodes}
+                                  statusColor={s.color}
+                                  onSetEpisode={v => { haptics.tap(); setEpisodeCount(entry.id, se.globalIndex, v); }} />
+                              </div>
+                            ) : (
+                              <div className="flex gap-1 mt-2">
+                                {se.watchedEpisodes > 0 && (
+                                  <button onClick={() => { haptics.tap(); decrementEpisode(entry.id, se.globalIndex); }}
+                                    className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95">-1</button>
+                                )}
+                                <button onClick={() => { haptics.tap(); incrementEpisode(entry.id, se.globalIndex); }}
+                                  className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95">+1</button>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -734,12 +745,14 @@ export function Details() {
 
               {movieSeasons.length > 0 && (
                 <div className="rounded-xl bg-white/[0.03] border border-white/5 overflow-hidden">
-                  <div className="px-3 sm:px-4">
-                    <AccordionHeader icon={<Film size={15} />} label="Films" count={movieSeasons.length}
-                      summary={`${filmSeen}/${movieSeasons.length} vu`}
-                      isOpen={open.movie} onToggle={() => setOpen(p => ({ ...p, movie: !p.movie }))} />
-                  </div>
-                  {open.movie && (
+                  {!isStandaloneFilm && (
+                    <div className="px-3 sm:px-4">
+                      <AccordionHeader icon={<Film size={15} />} label="Films" count={movieSeasons.length}
+                        summary={`${filmSeen}/${movieSeasons.length} vu`}
+                        isOpen={open.movie} onToggle={() => setOpen(p => ({ ...p, movie: !p.movie }))} />
+                    </div>
+                  )}
+                  {(isStandaloneFilm || open.movie) && (
                     <div className="px-3 sm:px-4 pb-3 space-y-1 pt-2">
                       {movieSeasons.map(se => {
                         const label = se.title || `Film ${se.number}`;
