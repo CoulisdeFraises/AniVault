@@ -35,10 +35,24 @@ window.addEventListener("load", () => {
 });
 
 // ── Enregistrement du Service Worker ──────────────────────────────────────────
+// Le SW met maintenant en cache le shell, les assets buildés, les affiches et
+// certaines réponses API pour un usage hors ligne (voir public/sw.js). En
+// contrepartie, on vérifie activement l'existence d'une nouvelle version
+// plutôt que d'attendre le contrôle périodique par défaut du navigateur
+// (jusqu'à 24h) — sinon un utilisateur qui garde l'app ouverte/épinglée
+// pourrait rester longtemps sur une version obsolète.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("/sw.js", { scope: "/" })
+      .then((reg) => {
+        // Revérifie au retour au premier plan (l'utilisateur rouvre l'app
+        // après un moment) — chaque `update()` va chercher le sw.js sur le
+        // réseau ; sans effet si l'utilisateur est hors ligne.
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") reg.update().catch(() => {});
+        });
+      })
       .catch((err) => console.warn("[SW] Échec d'enregistrement :", err));
   });
 }
