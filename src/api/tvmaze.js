@@ -1,4 +1,9 @@
 import { fuzzyRank, buildFallbackQueries, mergeById } from "../utils/fuzzy";
+import { withCache } from "../services/cache";
+
+const SCHEDULE_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+function stripHtml(html) { return (html || "").replace(/<[^>]*>/g, "").trim(); }
 
 export async function searchTVMaze(q) {
   async function rawSearch(term) {
@@ -106,6 +111,38 @@ export async function fetchTVMazeEpisodesInRange(tvmazeId, startMs, endMs) {
   } catch {
     return [];
   }
+}
+
+// ── Planning de diffusion global (France) — pour le calendrier de sorties ────
+// Contrairement à fetchTVMazeEpisodesInRange (scopé à une série précise de la
+// bibliothèque), ceci interroge le planning TV français global de TVmaze,
+// indépendamment de la bibliothèque de l'utilisateur — équivalent, pour les
+// séries, du flux global AniList utilisé par l'onglet Animes.
+// Filtré aux séries "Scripted" (fiction) pour exclure JT, talk-shows, jeux…
+export async function fetchTVMazeScheduleForDate(dateStr) {
+  return withCache(`tvmaze:schedule:fr:${dateStr}`, SCHEDULE_CACHE_TTL, async () => {
+    try {
+      const res = await fetch(`https://api.tvmaze.com/schedule?country=FR&date=${dateStr}`);
+      if (!res.ok) return [];
+      const json = await res.json();
+      return json
+        .filter((e) => e.show?.type === "Scripted" && e.airstamp && e.number != null)
+        .map((e) => ({
+          tvmazeId:    e.show.id,
+          title:       e.show.name,
+          image:       e.show.image?.medium || e.show.image?.original || null,
+          genres:      e.show.genres || [],
+          season:      e.season,
+          episode:     e.number,
+          episodeName: e.name || null,
+          summary:     stripHtml(e.summary || e.show.summary),
+          airingAt:    new Date(e.airstamp).getTime(),
+          network:     e.show.network?.name || e.show.webChannel?.name || null,
+        }));
+    } catch {
+      return [];
+    }
+  });
 }
 
 export async function fetchNextAiringTVMaze(tvmazeId) {
