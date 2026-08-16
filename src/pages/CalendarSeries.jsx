@@ -23,16 +23,59 @@ function getMonday() {
 function pad(n) { return String(n).padStart(2, "0"); }
 function toISODate(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
 
-// ── Modal détail épisode ──────────────────────────────────────────────────────
-function EpisodeDetailModal({ item, onClose }) {
-  const time = new Date(item.airingAt);
+// ── Regroupe les épisodes d'une même série sortant le même jour ─────────────
+// Ex : une série qui sort 2 épisodes le même jour (final de saison en double,
+// rattrapage…) n'occupe qu'une seule ligne dans le calendrier.
+function groupSameDayEpisodes(dayEntries) {
+  const map = new Map();
+  dayEntries.forEach((e) => {
+    if (!map.has(e.tvmazeId)) {
+      map.set(e.tvmazeId, {
+        tvmazeId: e.tvmazeId, title: e.title, image: e.image, genres: e.genres,
+        network: e.network, airingAt: e.airingAt, episodes: [],
+      });
+    }
+    const group = map.get(e.tvmazeId);
+    group.episodes.push({ season: e.season, episode: e.episode, episodeName: e.episodeName, summary: e.summary });
+    if (e.airingAt < group.airingAt) group.airingAt = e.airingAt;
+  });
+  return [...map.values()]
+    .map((g) => ({ ...g, episodes: g.episodes.sort((a, b) => a.season - b.season || a.episode - b.episode) }))
+    .sort((a, b) => a.airingAt - b.airingAt);
+}
+
+// Formate une liste d'épisodes en "S2 · Ép. 3-4" (plages consécutives regroupées)
+function formatEpisodeLabel(episodes) {
+  const bySeason = new Map();
+  episodes.forEach(({ season, episode }) => {
+    if (!bySeason.has(season)) bySeason.set(season, []);
+    bySeason.get(season).push(episode);
+  });
+  return [...bySeason.entries()].map(([season, eps]) => {
+    const sorted = [...eps].sort((a, b) => a - b);
+    const ranges = [];
+    let start = sorted[0], prev = sorted[0];
+    for (let i = 1; i <= sorted.length; i++) {
+      const n = sorted[i];
+      if (n === prev + 1) { prev = n; continue; }
+      ranges.push(start === prev ? `${start}` : `${start}-${prev}`);
+      start = prev = n;
+    }
+    return `S${season} · Ép. ${ranges.join(", ")}`;
+  }).join(" · ");
+}
+
+// ── Modal détail épisode(s) ────────────────────────────────────────────────────
+function EpisodeDetailModal({ group, onClose }) {
+  const time  = new Date(group.airingAt);
+  const multi = group.episodes.length > 1;
   return (
     <Modal onClose={onClose} maxWidth="max-w-sm" zIndex="z-50">
       <div className="relative flex flex-col max-h-[90vh]">
-        {item.image && (
+        {group.image && (
           <div className="relative h-44 flex-shrink-0 overflow-hidden bg-violet-950">
-            <img src={item.image} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30 scale-110" style={{ filter: "blur(16px)" }} aria-hidden />
-            <img src={item.image} alt={item.title} className="relative mx-auto h-full w-auto object-contain drop-shadow-xl" />
+            <img src={group.image} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30 scale-110" style={{ filter: "blur(16px)" }} aria-hidden />
+            <img src={group.image} alt={group.title} className="relative mx-auto h-full w-auto object-contain drop-shadow-xl" />
           </div>
         )}
         <button onClick={onClose} className="absolute top-3 right-3 p-1.5 rounded-full bg-black/50 hover:bg-black/70 text-white/70 hover:text-white active:scale-95 transition-all motion-reduce:transition-none z-10" aria-label="Fermer">
@@ -40,24 +83,41 @@ function EpisodeDetailModal({ item, onClose }) {
         </button>
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           <div>
-            <h2 className="text-sm font-bold text-violet-100 leading-snug">{item.title}</h2>
+            <h2 className="text-sm font-bold text-violet-100 leading-snug">{group.title}</h2>
             <div className="flex flex-wrap items-center gap-2 mt-1.5">
-              <span className="font-mono text-[11px] text-amber-400 font-semibold">
-                S{item.season} · Ép. {item.episode}
-              </span>
-              {item.episodeName && <span className="font-mono text-[11px] text-violet-300 truncate max-w-[160px]">— {item.episodeName}</span>}
+              <span className="font-mono text-[11px] text-amber-400 font-semibold">{formatEpisodeLabel(group.episodes)}</span>
+              {!multi && group.episodes[0].episodeName && (
+                <span className="font-mono text-[11px] text-violet-300 truncate max-w-[160px]">— {group.episodes[0].episodeName}</span>
+              )}
             </div>
           </div>
-          {item.summary ? (
-            <p className="text-xs text-violet-300 leading-relaxed">{item.summary}</p>
+
+          {multi ? (
+            <div className="space-y-3">
+              {group.episodes.map((ep, i) => (
+                <div key={i} className={i > 0 ? "pt-3 border-t border-white/5" : ""}>
+                  <p className="font-mono text-[11px] text-violet-300 font-semibold">
+                    Ép. {ep.episode}{ep.episodeName ? ` — ${ep.episodeName}` : ""}
+                  </p>
+                  {ep.summary ? (
+                    <p className="text-xs text-violet-300 leading-relaxed mt-1">{ep.summary}</p>
+                  ) : (
+                    <p className="text-xs text-violet-500 font-mono italic mt-1">Aucun synopsis disponible.</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : group.episodes[0].summary ? (
+            <p className="text-xs text-violet-300 leading-relaxed">{group.episodes[0].summary}</p>
           ) : (
             <p className="text-xs text-violet-500 font-mono italic">Aucun synopsis disponible.</p>
           )}
+
           <p className="font-mono text-[10px] text-violet-500 pt-1 border-t border-white/5">
             {time.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
             {" · "}
             {time.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-            {item.network ? ` · ${item.network}` : ""}
+            {group.network ? ` · ${group.network}` : ""}
           </p>
         </div>
       </div>
@@ -65,23 +125,23 @@ function EpisodeDetailModal({ item, onClose }) {
   );
 }
 
-// ── Carte épisode ─────────────────────────────────────────────────────────────
-function EpisodeCard({ item, onClick, isInLibrary, onAdd, isAdding }) {
-  const time = new Date(item.airingAt);
+// ── Carte épisode(s) ───────────────────────────────────────────────────────────
+function EpisodeCard({ group, onClick, isInLibrary, onAdd, isAdding }) {
+  const time = new Date(group.airingAt);
   return (
     <div className="w-full flex gap-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors overflow-hidden">
       <button
         onClick={onClick}
         className="flex gap-2.5 flex-1 min-w-0 p-2.5 text-left active:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400 rounded-xl"
       >
-        {item.image ? (
-          <img src={item.image} alt="" className="w-12 h-[72px] object-cover rounded-lg flex-shrink-0" />
+        {group.image ? (
+          <img src={group.image} alt="" className="w-12 h-[72px] object-cover rounded-lg flex-shrink-0" />
         ) : (
           <div className="w-12 h-[72px] rounded-lg bg-white/10 flex-shrink-0" />
         )}
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-violet-100 leading-snug line-clamp-3">{item.title}</p>
-          <p className="font-mono text-[10px] text-violet-400 mt-1.5">S{item.season} · Ép. {item.episode}</p>
+          <p className="text-xs font-medium text-violet-100 leading-snug line-clamp-3">{group.title}</p>
+          <p className="font-mono text-[10px] text-violet-400 mt-1.5">{formatEpisodeLabel(group.episodes)}</p>
           <p className="font-mono text-[10px] text-violet-500">
             {time.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
           </p>
@@ -98,7 +158,7 @@ function EpisodeCard({ item, onClick, isInLibrary, onAdd, isAdding }) {
           <button
             onClick={(e) => { e.stopPropagation(); onAdd(); }}
             disabled={isAdding}
-            aria-label={`Ajouter ${item.title} à ma liste`}
+            aria-label={`Ajouter ${group.title} à ma liste`}
             className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-amber-400/15 border border-amber-400/25 text-amber-400 hover:bg-amber-400/25 active:scale-95 transition-all motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isAdding ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} strokeWidth={2.5} />}
@@ -151,7 +211,7 @@ export function CalendarSeries() {
   );
 
   const load = useCallback(async (isRefresh = false) => {
-    const cacheKey = `calendar_series_${toISODate(weekMonday)}`;
+    const cacheKey = `calendar_series_v2_${toISODate(weekMonday)}`;
 
     if (!isRefresh) {
       const cached = getCached(cacheKey);
@@ -203,13 +263,13 @@ export function CalendarSeries() {
       const dayEntries = filtered
         .filter((x) => x.airingAt >= dayStart && x.airingAt < dayEnd)
         .sort((a, b) => a.airingAt - b.airingAt);
-      return { date: day, entries: dayEntries };
+      return { date: day, entries: groupSameDayEpisodes(dayEntries) };
     });
   }, [weekEpisodes, weekMonday, contentFilter, libraryTvmazeIds]);
 
   const visibleDays     = byDay.slice(dayOffset, dayOffset + VISIBLE_DAYS);
   const todayDateString = useMemo(() => new Date().toDateString(), []);
-  const totalVisible    = visibleDays.reduce((sum, d) => sum + d.entries.length, 0);
+  const totalVisible    = visibleDays.reduce((sum, d) => sum + d.entries.reduce((s, g) => s + g.episodes.length, 0), 0);
 
   const weekLabel = useMemo(() => {
     const end = new Date(weekMonday);
@@ -218,19 +278,19 @@ export function CalendarSeries() {
     return `${fmt(weekMonday)} – ${fmt(end)}`;
   }, [weekMonday]);
 
-  const handleAddToLibrary = useCallback(async (item) => {
-    if (addingIds.has(item.tvmazeId)) return;
-    setAddingIds((prev) => new Set([...prev, item.tvmazeId]));
+  const handleAddToLibrary = useCallback(async (group) => {
+    if (addingIds.has(group.tvmazeId)) return;
+    setAddingIds((prev) => new Set([...prev, group.tvmazeId]));
     try {
       const imported = await importResult({
-        id: item.tvmazeId, source: "tvmaze", title: item.title,
-        image: item.image, genres: item.genres,
+        id: group.tvmazeId, source: "tvmaze", title: group.title,
+        image: group.image, genres: group.genres,
       });
       saveEntry({ ...imported, status: "a-voir", rating: 0 }, null);
     } catch (err) {
       console.error("Erreur lors de l'ajout à la bibliothèque :", err);
     } finally {
-      setAddingIds((prev) => { const next = new Set(prev); next.delete(item.tvmazeId); return next; });
+      setAddingIds((prev) => { const next = new Set(prev); next.delete(group.tvmazeId); return next; });
     }
   }, [addingIds, saveEntry]);
 
@@ -355,14 +415,14 @@ export function CalendarSeries() {
                         {dayEntries.length === 0 ? (
                           <p className="text-[11px] text-violet-600 font-mono text-center py-8">Aucun épisode</p>
                         ) : (
-                          dayEntries.map((item) => (
+                          dayEntries.map((group) => (
                             <EpisodeCard
-                              key={`${item.tvmazeId}-${item.season}-${item.episode}`}
-                              item={item}
-                              onClick={() => setSelectedItem(item)}
-                              isInLibrary={libraryTvmazeIds.has(String(item.tvmazeId))}
-                              onAdd={() => handleAddToLibrary(item)}
-                              isAdding={addingIds.has(item.tvmazeId)}
+                              key={group.tvmazeId}
+                              group={group}
+                              onClick={() => setSelectedItem(group)}
+                              isInLibrary={libraryTvmazeIds.has(String(group.tvmazeId))}
+                              onAdd={() => handleAddToLibrary(group)}
+                              isAdding={addingIds.has(group.tvmazeId)}
                             />
                           ))
                         )}
@@ -378,7 +438,7 @@ export function CalendarSeries() {
 
       <AnimatePresence>
         {selectedItem && (
-          <EpisodeDetailModal key="episode-detail" item={selectedItem} onClose={() => setSelectedItem(null)} />
+          <EpisodeDetailModal key="episode-detail" group={selectedItem} onClose={() => setSelectedItem(null)} />
         )}
       </AnimatePresence>
     </div>

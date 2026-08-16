@@ -3,6 +3,31 @@ import { withCache } from "../services/cache";
 
 const SCHEDULE_CACHE_TTL = 3 * 60 * 60 * 1000; // 3 heures
 
+// Plateformes/chaînes principales — le planning brut TVmaze (réseau US + web)
+// remonte énormément de chaînes locales et de petits services de streaming
+// obscurs. On limite donc aux diffuseurs qu'on suit réellement, en France
+// comme aux US (comparaison insensible à la casse/accents).
+const MAJOR_PLATFORMS = new Set([
+  // Streaming SVOD
+  "netflix", "disney+", "disney plus", "amazon", "prime video", "amazon prime video",
+  "apple tv+", "apple tv plus", "hbo", "hbo max", "max", "paramount+", "paramount plus",
+  "peacock", "hulu", "crunchyroll",
+  // Chaînes FR
+  "canal+", "canal +", "mycanal", "ocs", "arte", "tf1", "france 2", "france 3", "m6",
+  // Networks US majeurs
+  "abc", "nbc", "cbs", "fox", "the cw", "cw", "amc", "fx", "starz", "showtime",
+]);
+
+function normalizePlatform(name) {
+  return (name || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // retire les accents
+}
+
+function isMajorPlatform(name) {
+  return MAJOR_PLATFORMS.has(normalizePlatform(name));
+}
+
 function stripHtml(html) { return (html || "").replace(/<[^>]*>/g, "").trim(); }
 
 export async function searchTVMaze(q) {
@@ -127,7 +152,7 @@ export async function fetchTVMazeEpisodesInRange(tvmazeId, startMs, endMs) {
 // suivies dans l'app. Filtré aux séries "Scripted" (fiction) pour exclure
 // JT, talk-shows, jeux…
 export async function fetchTVMazeScheduleForDate(dateStr) {
-  return withCache(`tvmaze:schedule:${dateStr}`, SCHEDULE_CACHE_TTL, async () => {
+  return withCache(`tvmaze:schedule:v2:${dateStr}`, SCHEDULE_CACHE_TTL, async () => {
     function mapItem(e, show) {
       return {
         tvmazeId:    show.id,
@@ -153,11 +178,13 @@ export async function fetchTVMazeScheduleForDate(dateStr) {
 
       const network = networkJson
         .filter((e) => e.show?.type === "Scripted" && e.airstamp && e.number != null)
-        .map((e) => mapItem(e, e.show));
+        .map((e) => mapItem(e, e.show))
+        .filter((item) => isMajorPlatform(item.network));
 
       const web = webJson
         .filter((e) => e._embedded?.show?.type === "Scripted" && e.airstamp && e.number != null)
-        .map((e) => mapItem(e, e._embedded.show));
+        .map((e) => mapItem(e, e._embedded.show))
+        .filter((item) => isMajorPlatform(item.network));
 
       // Un même épisode peut apparaître dans les deux flux (diffusion + rattrapage web) → dédoublonnage
       const seen = new Set();
