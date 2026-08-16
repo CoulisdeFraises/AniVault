@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, ChevronLeft, ChevronRight, Tv } from "lucide-react";
 import { useLibrary }    from "../context/LibraryContext";
-import { fetchNextAiring } from "../api";
+import { fetchTVMazeEpisodesInRange } from "../api/tvmaze";
 import { TopBar }        from "../components/common/TopBar";
 import { PullToRefresh } from "../components/common/PullToRefresh";
 import { CalendarTabs }  from "../components/common/CalendarTabs";
@@ -56,31 +56,36 @@ export function CalendarSeries() {
     gridPointerHandlers,
   } = useWeekNavigation();
 
-  const [nextAiringList, setNextAiringList] = useState([]);
-  const [loading,        setLoading]        = useState(true);
+  const [weekEpisodes, setWeekEpisodes] = useState([]);
+  const [loading,      setLoading]      = useState(true);
 
   // Séries de la bibliothèque — même classification que l'onglet "Séries" de
-  // la page d'accueil (type "serie", hors films).
+  // la page d'accueil (type "serie", hors films). Seules les séries importées
+  // via TVmaze ont un identifiant exploitable pour un planning de diffusion.
   const seriesEntries = useMemo(
-    () => entries.filter((e) => e.type === "serie" && e.category !== "movie"),
+    () => entries.filter((e) => e.type === "serie" && e.category !== "movie" && e.source === "tvmaze" && e.tvmazeId),
     [entries]
   );
 
+  const weekMonday = useMemo(() => getMonday(), []);
+
   const load = async () => {
     setLoading(true);
+    const weekStart = weekMonday.getTime();
+    const weekEnd   = weekStart + 7 * 86400000;
     const results = await Promise.allSettled(
       seriesEntries.map(async (entry) => {
-        const next = await fetchNextAiring(entry);
-        return next?.airingAt ? { entry, ...next } : null;
+        const eps = await fetchTVMazeEpisodesInRange(entry.tvmazeId, weekStart, weekEnd);
+        return eps.map((ep) => ({ entry, ...ep }));
       })
     );
-    setNextAiringList(results.filter((r) => r.status === "fulfilled" && r.value).map((r) => r.value));
+    setWeekEpisodes(
+      results.filter((r) => r.status === "fulfilled").flatMap((r) => r.value)
+    );
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [seriesEntries.map((e) => e.id).join(",")]); // eslint-disable-line
-
-  const weekMonday = useMemo(() => getMonday(), []);
+  useEffect(() => { load(); }, [seriesEntries.map((e) => e.id).join(","), weekMonday.getTime()]); // eslint-disable-line
 
   const byDay = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
@@ -88,12 +93,12 @@ export function CalendarSeries() {
       day.setDate(weekMonday.getDate() + i);
       const dayStart = day.getTime();
       const dayEnd   = dayStart + 86400000;
-      const dayEntries = nextAiringList
+      const dayEntries = weekEpisodes
         .filter((x) => x.airingAt >= dayStart && x.airingAt < dayEnd)
         .sort((a, b) => a.airingAt - b.airingAt);
       return { date: day, entries: dayEntries };
     });
-  }, [nextAiringList, weekMonday]);
+  }, [weekEpisodes, weekMonday]);
 
   const visibleDays      = byDay.slice(dayOffset, dayOffset + VISIBLE_DAYS);
   const todayDateString  = useMemo(() => new Date().toDateString(), []);
@@ -117,7 +122,7 @@ export function CalendarSeries() {
               <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 active:scale-95 transition-all motion-reduce:transition-none mb-2">
                 <ChevronLeft size={16} /> Retour
               </button>
-              <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-0.5">Prochains épisodes</p>
+              <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-0.5">Sorties d'épisodes</p>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Calendrier</h1>
             </div>
             <TopBar />
@@ -131,12 +136,12 @@ export function CalendarSeries() {
             <div className="flex flex-col items-center justify-center py-32 gap-3 text-center px-6">
               <Tv size={28} className="text-violet-600" />
               <p className="text-sm text-violet-400 font-mono">Aucune série dans ta bibliothèque.</p>
-              <p className="text-xs text-violet-600">Ajoute une série depuis la recherche pour voir ses prochains épisodes ici.</p>
+              <p className="text-xs text-violet-600">Ajoute une série depuis la recherche pour voir ses sorties d'épisodes ici.</p>
             </div>
           ) : loading ? (
             <div className="flex flex-col items-center justify-center py-32 gap-3">
               <Loader2 size={28} className="animate-spin text-violet-400" />
-              <p className="text-sm text-violet-400 font-mono">Chargement des prochains épisodes…</p>
+              <p className="text-sm text-violet-400 font-mono">Chargement des sorties d'épisodes…</p>
             </div>
           ) : (
             <>
@@ -223,7 +228,7 @@ export function CalendarSeries() {
                         ) : (
                           dayEntries.map((item) => (
                             <SeriesEpisodeCard
-                              key={item.entry.id}
+                              key={`${item.entry.id}-${item.season}-${item.episode}`}
                               item={item}
                               onClick={() => navigate(`/details/${item.entry.id}`)}
                             />

@@ -432,3 +432,32 @@ export function isReturningSeries(media) {
   return (media.relations?.edges||[]).some(
     (e) => e.relationType==="PREQUEL" && e.node?.type==="ANIME");
 }
+
+/**
+ * fetchAniListReleaseDates — dates de sortie (startDate) pour un lot d'IDs
+ * AniList, utilisé par le calendrier de sorties des films (un film anime
+ * bundlé dans une franchise a un anilistId par saison — voir seasons[].anilistId).
+ * Requête directe batchée (comme fetchSeasonalAnime), pas besoin de la
+ * bibliothèque de l'utilisateur pour la résoudre.
+ */
+export async function fetchAniListReleaseDates(ids) {
+  const uniqueIds = [...new Set((ids || []).filter(Boolean).map(Number))];
+  if (!uniqueIds.length) return {};
+  const query = `query ($ids: [Int]) {
+    Page(perPage: 50) {
+      media(id_in: $ids, type: ANIME) { id startDate { day month year } }
+    }
+  }`;
+  try {
+    const json = await anilistQuery(query, { ids: uniqueIds });
+    const out = {};
+    (json.data?.Page?.media || []).forEach((m) => {
+      if (m.startDate?.year && m.startDate?.month && m.startDate?.day) {
+        out[m.id] = new Date(m.startDate.year, m.startDate.month - 1, m.startDate.day).getTime();
+      }
+    });
+    return out;
+  } catch {
+    return {};
+  }
+}

@@ -80,6 +80,28 @@ export async function searchTMDBMovies(query) {
   });
 }
 
+// ── Date de sortie complète d'un film ─────────────────────────────────────────
+// Les endpoints de recherche/discover ne renvoient que l'année (voir `year`
+// ci-dessus) — pour un calendrier de sorties on a besoin de la date exacte.
+export async function fetchTMDBMovieReleaseDate(tmdbId) {
+  if (!TMDB_BEARER_TOKEN || !tmdbId) return null;
+  return withCache(`tmdb:release:${tmdbId}`, CACHE_TTL, async () => {
+    try {
+      const res = await fetch(
+        `https://api.themoviedb.org/3/movie/${tmdbId}?language=fr-FR`,
+        { headers: tmdbHeaders() }
+      );
+      if (!res.ok) return null;
+      const json = await res.json();
+      if (!json.release_date) return null;
+      const [y, m, d] = json.release_date.split("-").map(Number);
+      return new Date(y, m - 1, d).getTime();
+    } catch {
+      return null;
+    }
+  });
+}
+
 // ── Disponibilité sur les plateformes françaises ──────────────────────────────
 // Endpoint TMDB : GET /tv/{id}/watch/providers
 // results.FR contient les offres streaming disponibles en France

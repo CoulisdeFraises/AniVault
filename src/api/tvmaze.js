@@ -88,6 +88,26 @@ export async function fetchTVMazeDescription(tvmazeId) {
   }
 }
 
+// ── Épisodes diffusés dans une plage de dates ─────────────────────────────────
+// Utilisé par le calendrier de sorties (onglet Séries) : contrairement à
+// fetchNextAiringTVMaze (un seul épisode, le tout prochain), renvoie TOUS les
+// épisodes de la série dont la diffusion tombe dans [startMs, endMs) — utile
+// pour les séries qui diffusent plusieurs épisodes par semaine.
+export async function fetchTVMazeEpisodesInRange(tvmazeId, startMs, endMs) {
+  try {
+    const res = await fetch(`https://api.tvmaze.com/shows/${tvmazeId}?embed=episodes`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    const eps = json._embedded?.episodes || [];
+    return eps
+      .filter((e) => e.airstamp)
+      .map((e) => ({ season: e.season, episode: e.number, name: e.name || null, airingAt: new Date(e.airstamp).getTime() }))
+      .filter((e) => e.airingAt >= startMs && e.airingAt < endMs);
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchNextAiringTVMaze(tvmazeId) {
   try {
     const res = await fetch(`https://api.tvmaze.com/shows/${tvmazeId}?embed=nextepisode`);
