@@ -405,27 +405,27 @@ export function Calendar() {
           {/* Remplace l'ancienne navigation semaine par semaine (retirée, peu
               utile) et le bouton d'actualisation manuel (redondant avec le
               tire-pour-actualiser déjà disponible sur toute la page). */}
-          <div className="flex justify-center mb-1.5">
-            <div className="inline-flex w-full max-w-md items-center gap-1 rounded-full bg-white/5 border border-white/10 p-1">
+          <div className="flex justify-center mb-1">
+            <div className="inline-flex w-full max-w-sm items-center gap-1 rounded-full bg-white/5 border border-white/10 p-0.5">
               <button
                 aria-current="page"
-                className="flex-1 min-w-0 px-3 py-2 rounded-full text-xs font-medium bg-amber-400 text-violet-950 whitespace-nowrap"
+                className="flex-1 min-w-0 px-2 py-1.5 rounded-full text-[11px] font-medium bg-amber-400 text-violet-950 whitespace-nowrap"
               >
                 Saison en cours
               </button>
               <button
                 onClick={() => navigate("/calendar/next-season")}
-                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium text-violet-300 hover:bg-white/10 active:scale-95 transition-all motion-reduce:transition-none whitespace-nowrap"
+                className="flex-1 min-w-0 flex items-center justify-center gap-1 px-2 py-1.5 rounded-full text-[11px] font-medium text-violet-300 hover:bg-white/10 active:scale-95 transition-all motion-reduce:transition-none whitespace-nowrap"
               >
-                <Sparkles size={13} />
+                <Sparkles size={11} />
                 Saison prochaine
               </button>
             </div>
           </div>
-          <p className="text-center text-xs sm:text-sm font-medium text-violet-400 mb-5">{weekLabel}</p>
+          <p className="text-center text-xs sm:text-sm font-medium text-violet-400 mb-2">{weekLabel}</p>
 
           {/* ── Filtres — barre segmentée centrée ── */}
-          <div className="flex justify-center mb-5">
+          <div className="flex justify-center mb-3">
             <div className="inline-flex w-full max-w-md items-center gap-1 rounded-full bg-white/5 border border-white/10 p-1">
               <FilterTab active={contentFilter === "all"}       onClick={() => setContentFilter("all")}>Tout</FilterTab>
               <FilterTab active={contentFilter === "mylibrary"} onClick={() => setContentFilter("mylibrary")}>Ma liste</FilterTab>
@@ -435,7 +435,7 @@ export function Calendar() {
           </div>
 
           {error && (
-            <div className="mb-5 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">{error}</div>
+            <div className="mb-3 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">{error}</div>
           )}
 
           {loading ? (
