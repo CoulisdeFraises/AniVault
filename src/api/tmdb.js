@@ -80,6 +80,48 @@ export async function searchTMDBMovies(query) {
   });
 }
 
+// ── Genres films (id → nom FR) ────────────────────────────────────────────────
+export async function fetchTMDBMovieGenres() {
+  if (!TMDB_BEARER_TOKEN) return {};
+  return withCache("tmdb:genre:movie:list", 24 * 60 * 60 * 1000, async () => {
+    try {
+      const res = await fetch(
+        `https://api.themoviedb.org/3/genre/movie/list?language=fr-FR`,
+        { headers: tmdbHeaders() }
+      );
+      if (!res.ok) return {};
+      const json = await res.json();
+      const map = {};
+      (json.genres || []).forEach((g) => { map[g.id] = g.name; });
+      return map;
+    } catch {
+      return {};
+    }
+  });
+}
+
+// ── Sorties cinéma en France sur une plage de dates ───────────────────────────
+// Utilisé par le calendrier "Films" : liste globale des sorties en salle en
+// France (pas liée à la bibliothèque de l'utilisateur), filtrée par date de
+// sortie théâtrale (with_release_type 2 = limitée, 3 = large).
+export async function fetchTMDBTheatricalReleases(startDate, endDate, page = 1) {
+  if (!TMDB_BEARER_TOKEN) return { results: [], totalPages: 0 };
+  const cacheKey = `tmdb:theatrical:fr:${startDate}:${endDate}:p${page}`;
+  return withCache(cacheKey, CACHE_TTL, async () => {
+    try {
+      const res = await fetch(
+        `https://api.themoviedb.org/3/discover/movie?language=fr-FR&region=FR&sort_by=primary_release_date.asc&with_release_type=2|3&primary_release_date.gte=${startDate}&primary_release_date.lte=${endDate}&page=${page}&include_adult=false`,
+        { headers: tmdbHeaders() }
+      );
+      if (!res.ok) return { results: [], totalPages: 0 };
+      const json = await res.json();
+      return { results: json.results || [], totalPages: json.total_pages || 0 };
+    } catch {
+      return { results: [], totalPages: 0 };
+    }
+  });
+}
+
 // ── Date de sortie complète d'un film ─────────────────────────────────────────
 // Les endpoints de recherche/discover ne renvoient que l'année (voir `year`
 // ci-dessus) — pour un calendrier de sorties on a besoin de la date exacte.
