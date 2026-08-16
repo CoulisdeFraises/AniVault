@@ -87,4 +87,6 @@ export const TTL = {
   RECOMMENDATIONS: 6  * 60 * 60 * 1000, //  6 heures
   CALENDAR:        30 * 60 * 1000,       // 30 minutes
   TMDB_TITLES:     24 * 60 * 60 * 1000,  // 24 heures
+  SERIES_CALENDAR: 3  * 60 * 60 * 1000,  //  3 heures — planning TV, change peu dans la journée
+  FILMS_CALENDAR:  6  * 60 * 60 * 1000,  //  6 heures — sorties cinéma, quasi statique
 };

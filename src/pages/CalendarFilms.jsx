@@ -9,8 +9,10 @@ import {
   hasTMDB, fetchTMDBMovieGenres, fetchTMDBTheatricalReleases,
 } from "../api/tmdb";
 import { TopBar }         from "../components/common/TopBar";
+import { PullToRefresh }  from "../components/common/PullToRefresh";
 import { CalendarTabs }   from "../components/common/CalendarTabs";
 import { SynopsisModal }  from "../components/common/SynopsisModal";
+import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
 
 const MAX_MONTHS_AHEAD = 2; // + le mois en cours = 3 mois consultables au total
 const MAX_PAGES        = 3; // plafond de pages TMDB par mois (≈ 60 films), largement suffisant
@@ -28,6 +30,8 @@ export function CalendarFilms() {
   const [monthOffset, setMonthOffset] = useState(0); // 0, 1 ou 2
   const [releasesByMonth, setReleasesByMonth] = useState({}); // "YYYY-M" -> [movies]
   const [loading,      setLoading]      = useState(true);
+  const [refreshing,   setRefreshing]   = useState(false);
+  const [error,        setError]        = useState("");
   const [genreMap,     setGenreMap]     = useState({});
   const [synopsisMovie, setSynopsisMovie] = useState(null);
   const [addingIds,    setAddingIds]    = useState(new Set());
@@ -46,23 +50,49 @@ export function CalendarFilms() {
     if (!Object.keys(genreMap).length) fetchTMDBMovieGenres().then(setGenreMap);
   }, []); // eslint-disable-line
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
-    const monthEnd    = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
-    const gte = toISODate(monthStart), lte = toISODate(monthEnd);
+  const load = useCallback(async (isRefresh = false) => {
+    const cacheKey = `calendar_films_${key}`;
 
-    let all = [];
-    let page = 1, totalPages = 1;
-    do {
-      const { results, totalPages: tp } = await fetchTMDBTheatricalReleases(gte, lte, page);
-      all = all.concat(results);
-      totalPages = tp;
-      page++;
-    } while (page <= totalPages && page <= MAX_PAGES);
+    if (!isRefresh) {
+      const cached = getCached(cacheKey);
+      if (cached) {
+        setReleasesByMonth((prev) => ({ ...prev, [key]: cached }));
+        setLoading(false);
+        return;
+      }
+    }
 
-    setReleasesByMonth((prev) => ({ ...prev, [key]: all }));
-    setLoading(false);
+    if (isRefresh) setRefreshing(true); else setLoading(true);
+    setError("");
+
+    try {
+      const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+      const monthEnd    = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+      const gte = toISODate(monthStart), lte = toISODate(monthEnd);
+
+      let all = [];
+      let page = 1, totalPages = 1;
+      do {
+        const { results, totalPages: tp } = await fetchTMDBTheatricalReleases(gte, lte, page);
+        all = all.concat(results);
+        totalPages = tp;
+        page++;
+      } while (page <= totalPages && page <= MAX_PAGES);
+
+      setCached(cacheKey, all, TTL.FILMS_CALENDAR);
+      setReleasesByMonth((prev) => ({ ...prev, [key]: all }));
+    } catch (err) {
+      const stale = getStaleCached(cacheKey);
+      if (stale) {
+        setReleasesByMonth((prev) => ({ ...prev, [key]: stale }));
+        setError("⚠️ Connexion indisponible — données précédentes affichées.");
+      } else {
+        setError("Impossible de charger les sorties cinéma. Vérifie ta connexion et réessaie.");
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [cursor, key]);
 
   useEffect(() => { load(); }, [key]); // eslint-disable-line
@@ -130,6 +160,7 @@ export function CalendarFilms() {
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <PullToRefresh onRefresh={() => load(true)}>
       <div className="max-w-5xl mx-auto px-3 sm:px-6 pb-nav pt-safe-8">
 
         {/* ── En-tête ── */}
@@ -154,6 +185,10 @@ export function CalendarFilms() {
           </div>
         ) : (
           <>
+            {error && (
+              <p className="text-center font-mono text-[11px] text-amber-400/90 mb-3 px-4">{error}</p>
+            )}
+
             {/* ── Sélecteur de mois (3 mois consultables) ── */}
             <div className="flex justify-center mb-5">
               <div className="inline-flex w-full max-w-md items-center gap-1 rounded-full bg-white/5 border border-white/10 p-1">
@@ -230,6 +265,7 @@ export function CalendarFilms() {
           </>
         )}
       </div>
+      </PullToRefresh>
 
       <AnimatePresence>
         {synopsisMovie && (

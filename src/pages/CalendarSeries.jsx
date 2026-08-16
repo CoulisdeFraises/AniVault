@@ -11,6 +11,7 @@ import { AnimatePresence } from "motion/react";
 import { PullToRefresh } from "../components/common/PullToRefresh";
 import { CalendarTabs }  from "../components/common/CalendarTabs";
 import { useWeekNavigation, DAY_NAMES } from "../hooks/useWeekNavigation";
+import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
 
 // ── Lundi de la semaine courante (minuit local) ──────────────────────────────
 function getMonday() {
@@ -136,6 +137,7 @@ export function CalendarSeries() {
   const [weekEpisodes,  setWeekEpisodes]  = useState([]);
   const [loading,       setLoading]       = useState(true);
   const [refreshing,    setRefreshing]    = useState(false);
+  const [error,         setError]         = useState("");
   const [selectedItem,  setSelectedItem]  = useState(null);
   const [contentFilter, setContentFilter] = useState("all");
   const [addingIds,     setAddingIds]     = useState(new Set());
@@ -149,15 +151,41 @@ export function CalendarSeries() {
   );
 
   const load = useCallback(async (isRefresh = false) => {
+    const cacheKey = `calendar_series_${toISODate(weekMonday)}`;
+
+    if (!isRefresh) {
+      const cached = getCached(cacheKey);
+      if (cached) {
+        setWeekEpisodes(cached);
+        setLoading(false);
+        return;
+      }
+    }
+
     if (isRefresh) setRefreshing(true); else setLoading(true);
-    const dates = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(weekMonday); d.setDate(weekMonday.getDate() + i);
-      return toISODate(d);
-    });
-    const results = await Promise.allSettled(dates.map((d) => fetchTVMazeScheduleForDate(d)));
-    setWeekEpisodes(results.filter((r) => r.status === "fulfilled").flatMap((r) => r.value));
-    setLoading(false);
-    setRefreshing(false);
+    setError("");
+
+    try {
+      const dates = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(weekMonday); d.setDate(weekMonday.getDate() + i);
+        return toISODate(d);
+      });
+      const results = await Promise.allSettled(dates.map((d) => fetchTVMazeScheduleForDate(d)));
+      const data = results.filter((r) => r.status === "fulfilled").flatMap((r) => r.value);
+      setCached(cacheKey, data, TTL.SERIES_CALENDAR);
+      setWeekEpisodes(data);
+    } catch (err) {
+      const stale = getStaleCached(cacheKey);
+      if (stale) {
+        setWeekEpisodes(stale);
+        setError("⚠️ Connexion indisponible — données précédentes affichées.");
+      } else {
+        setError("Impossible de charger le calendrier. Vérifie ta connexion et réessaie.");
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [weekMonday]);
 
   useEffect(() => { load(); }, [load]);
@@ -234,6 +262,10 @@ export function CalendarSeries() {
               <FilterTab active={contentFilter === "mine"} onClick={() => setContentFilter("mine")}>Ma liste</FilterTab>
             </div>
           </div>
+
+          {error && (
+            <p className="text-center font-mono text-[11px] text-amber-400/90 mb-3 px-4">{error}</p>
+          )}
 
           {loading ? (
             <div className="flex flex-col items-center justify-center py-32 gap-3">

@@ -1,7 +1,7 @@
 import { fuzzyRank, buildFallbackQueries, mergeById } from "../utils/fuzzy";
 import { withCache } from "../services/cache";
 
-const SCHEDULE_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+const SCHEDULE_CACHE_TTL = 3 * 60 * 60 * 1000; // 3 heures
 
 function stripHtml(html) { return (html || "").replace(/<[^>]*>/g, "").trim(); }
 
@@ -113,32 +113,60 @@ export async function fetchTVMazeEpisodesInRange(tvmazeId, startMs, endMs) {
   }
 }
 
-// ── Planning de diffusion global (France) — pour le calendrier de sorties ────
+// ── Planning de diffusion global — pour le calendrier de sorties ─────────────
 // Contrairement à fetchTVMazeEpisodesInRange (scopé à une série précise de la
-// bibliothèque), ceci interroge le planning TV français global de TVmaze,
-// indépendamment de la bibliothèque de l'utilisateur — équivalent, pour les
-// séries, du flux global AniList utilisé par l'onglet Animes.
-// Filtré aux séries "Scripted" (fiction) pour exclure JT, talk-shows, jeux…
+// bibliothèque), ceci interroge le planning TV global de TVmaze, indépendamment
+// de la bibliothèque de l'utilisateur — équivalent, pour les séries, du flux
+// global AniList utilisé par l'onglet Animes.
+//
+// NB : `country=FR` seul est bien trop pauvre chez TVmaze (couverture très
+// partielle des diffusions françaises) — on combine donc le planning réseau
+// US (le plus complet chez TVmaze, référence pour la date de diffusion
+// officielle) et le planning streaming/web (Netflix, Prime, Disney+…, sans
+// notion de pays), qui à eux deux couvrent la quasi-totalité des séries
+// suivies dans l'app. Filtré aux séries "Scripted" (fiction) pour exclure
+// JT, talk-shows, jeux…
 export async function fetchTVMazeScheduleForDate(dateStr) {
-  return withCache(`tvmaze:schedule:fr:${dateStr}`, SCHEDULE_CACHE_TTL, async () => {
+  return withCache(`tvmaze:schedule:${dateStr}`, SCHEDULE_CACHE_TTL, async () => {
+    function mapItem(e, show) {
+      return {
+        tvmazeId:    show.id,
+        title:       show.name,
+        image:       show.image?.medium || show.image?.original || null,
+        genres:      show.genres || [],
+        season:      e.season,
+        episode:     e.number,
+        episodeName: e.name || null,
+        summary:     stripHtml(e.summary || show.summary),
+        airingAt:    new Date(e.airstamp).getTime(),
+        network:     show.network?.name || show.webChannel?.name || null,
+      };
+    }
+
     try {
-      const res = await fetch(`https://api.tvmaze.com/schedule?country=FR&date=${dateStr}`);
-      if (!res.ok) return [];
-      const json = await res.json();
-      return json
+      const [networkRes, webRes] = await Promise.all([
+        fetch(`https://api.tvmaze.com/schedule?country=US&date=${dateStr}`),
+        fetch(`https://api.tvmaze.com/schedule/web?date=${dateStr}`),
+      ]);
+      const networkJson = networkRes.ok ? await networkRes.json() : [];
+      const webJson     = webRes.ok    ? await webRes.json()     : [];
+
+      const network = networkJson
         .filter((e) => e.show?.type === "Scripted" && e.airstamp && e.number != null)
-        .map((e) => ({
-          tvmazeId:    e.show.id,
-          title:       e.show.name,
-          image:       e.show.image?.medium || e.show.image?.original || null,
-          genres:      e.show.genres || [],
-          season:      e.season,
-          episode:     e.number,
-          episodeName: e.name || null,
-          summary:     stripHtml(e.summary || e.show.summary),
-          airingAt:    new Date(e.airstamp).getTime(),
-          network:     e.show.network?.name || e.show.webChannel?.name || null,
-        }));
+        .map((e) => mapItem(e, e.show));
+
+      const web = webJson
+        .filter((e) => e._embedded?.show?.type === "Scripted" && e.airstamp && e.number != null)
+        .map((e) => mapItem(e, e._embedded.show));
+
+      // Un même épisode peut apparaître dans les deux flux (diffusion + rattrapage web) → dédoublonnage
+      const seen = new Set();
+      return [...network, ...web].filter((item) => {
+        const k = `${item.tvmazeId}-${item.season}-${item.episode}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
     } catch {
       return [];
     }

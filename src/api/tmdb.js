@@ -3,6 +3,7 @@ import { fuzzyRank, buildFallbackQueries, mergeById } from "../utils/fuzzy";
 
 const TMDB_BEARER_TOKEN = import.meta.env.VITE_TMDB_TOKEN || "";
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const THEATRICAL_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 heures — sorties cinéma, quasi statique
 
 function tmdbHeaders() {
   return { Authorization: `Bearer ${TMDB_BEARER_TOKEN}`, Accept: "application/json" };
@@ -107,7 +108,7 @@ export async function fetchTMDBMovieGenres() {
 export async function fetchTMDBTheatricalReleases(startDate, endDate, page = 1) {
   if (!TMDB_BEARER_TOKEN) return { results: [], totalPages: 0 };
   const cacheKey = `tmdb:theatrical:fr:${startDate}:${endDate}:p${page}`;
-  return withCache(cacheKey, CACHE_TTL, async () => {
+  return withCache(cacheKey, THEATRICAL_CACHE_TTL, async () => {
     try {
       const res = await fetch(
         `https://api.themoviedb.org/3/discover/movie?language=fr-FR&region=FR&sort_by=primary_release_date.asc&with_release_type=2|3&primary_release_date.gte=${startDate}&primary_release_date.lte=${endDate}&page=${page}&include_adult=false`,
