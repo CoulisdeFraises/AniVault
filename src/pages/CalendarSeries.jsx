@@ -295,37 +295,87 @@ export function CalendarSeries() {
   }, [addingIds, saveEntry]);
 
   return (
-    <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <PullToRefresh onRefresh={() => load(true)}>
-        <div className="max-w-5xl mx-auto px-3 sm:px-6 pb-nav pt-safe-8">
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
 
-          {/* ── En-tête ── */}
-          <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
-            <div className="min-w-0">
-              <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 active:scale-95 transition-all motion-reduce:transition-none mb-2">
-                <ChevronLeft size={16} /> Retour
-              </button>
-              <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-0.5">Sorties d'épisodes · France</p>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Calendrier</h1>
-            </div>
-            <TopBar />
+      {/* ── Zone fixe : en-tête, onglets, filtres, navigation jours ── */}
+      <div className="flex-shrink-0 max-w-5xl w-full mx-auto px-3 sm:px-6 pt-safe-8">
+
+        {/* ── En-tête ── */}
+        <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
+          <div className="min-w-0">
+            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 active:scale-95 transition-all motion-reduce:transition-none mb-2">
+              <ChevronLeft size={16} /> Retour
+            </button>
+            <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-0.5">Sorties d'épisodes · France</p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Calendrier</h1>
           </div>
+          <TopBar />
+        </div>
 
-          <CalendarTabs />
+        <CalendarTabs />
 
-          <p className="text-center text-xs sm:text-sm font-medium text-violet-400 mb-3">{weekLabel}</p>
+        <p className="text-center text-xs sm:text-sm font-medium text-violet-400 mb-2">{weekLabel}</p>
 
-          {/* ── Filtre Tout / Ma liste ── */}
-          <div className="flex justify-center mb-5">
-            <div className="inline-flex w-full max-w-xs items-center gap-1 rounded-full bg-white/5 border border-white/10 p-1">
-              <FilterTab active={contentFilter === "all"}  onClick={() => setContentFilter("all")}>Tout</FilterTab>
-              <FilterTab active={contentFilter === "mine"} onClick={() => setContentFilter("mine")}>Ma liste</FilterTab>
-            </div>
+        {/* ── Filtre Tout / Ma liste ── */}
+        <div className="flex justify-center mb-3">
+          <div className="inline-flex w-full max-w-xs items-center gap-1 rounded-full bg-white/5 border border-white/10 p-1">
+            <FilterTab active={contentFilter === "all"}  onClick={() => setContentFilter("all")}>Tout</FilterTab>
+            <FilterTab active={contentFilter === "mine"} onClick={() => setContentFilter("mine")}>Ma liste</FilterTab>
           </div>
+        </div>
 
-          {error && (
-            <p className="text-center font-mono text-[11px] text-amber-400/90 mb-3 px-4">{error}</p>
-          )}
+        {error && (
+          <p className="text-center font-mono text-[11px] text-amber-400/90 mb-3 px-4">{error}</p>
+        )}
+
+        {/* ── Navigation jours ── */}
+        {!loading && (
+          <div className="flex items-center justify-between mb-3">
+            <button
+              onClick={handlePrevDay}
+              disabled={!canPrevDay}
+              className="flex items-center gap-1 px-3 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 text-sm text-violet-300 transition-all motion-reduce:transition-none"
+            >
+              <ChevronLeft size={15} />
+              <span className="hidden sm:inline text-xs">Préc.</span>
+            </button>
+
+            <div className="flex flex-col items-center gap-0.5">
+              <p className="font-mono text-[11px] text-violet-500">
+                {totalVisible} épisode{totalVisible !== 1 ? "s" : ""}
+              </p>
+              <div className="flex gap-1 items-center">
+                {Array.from({ length: 7 }, (_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => jumpToDay(i)}
+                    aria-label={DAY_NAMES[i]}
+                    className={`rounded-full transition-all motion-reduce:transition-none ${
+                      i >= dayOffset && i < dayOffset + VISIBLE_DAYS
+                        ? "w-3 h-1.5 bg-amber-400"
+                        : "w-1.5 h-1.5 bg-white/20 hover:bg-white/40"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={handleNextDay}
+              disabled={!canNextDay}
+              className="flex items-center gap-1 px-3 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 text-sm text-violet-300 transition-all motion-reduce:transition-none"
+            >
+              <span className="hidden sm:inline text-xs">Suiv.</span>
+              <ChevronRight size={15} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Zone scrollable : seule cette zone défile, contenue entre l'en-tête
+          et le bottom nav (pb-nav) — plus de scroll de toute la page. ── */}
+      <PullToRefresh onRefresh={() => load(true)} className="flex-1 min-h-0 flex flex-col">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-auto max-w-5xl w-full mx-auto px-3 sm:px-6 pb-nav">
 
           {loading ? (
             <div className="flex flex-col items-center justify-center py-32 gap-3">
@@ -333,105 +383,62 @@ export function CalendarSeries() {
               <p className="text-sm text-violet-400 font-mono">Chargement des sorties d'épisodes…</p>
             </div>
           ) : (
-            <>
-              {/* ── Navigation jours ── */}
-              <div className="flex items-center justify-between mb-3">
-                <button
-                  onClick={handlePrevDay}
-                  disabled={!canPrevDay}
-                  className="flex items-center gap-1 px-3 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 text-sm text-violet-300 transition-all motion-reduce:transition-none"
-                >
-                  <ChevronLeft size={15} />
-                  <span className="hidden sm:inline text-xs">Préc.</span>
-                </button>
+            /* ── Grille jours ── */
+            <div
+              key={gridKey}
+              {...gridPointerHandlers}
+              style={{ touchAction: "pan-y" }}
+              className={`grid gap-3 motion-reduce:animate-none ${slideClass} ${
+                VISIBLE_DAYS === 1 ? "grid-cols-1" : "grid-cols-3"
+              }`}
+            >
+              {visibleDays.map(({ date, entries: dayEntries }, i) => {
+                const isToday   = date.toDateString() === todayDateString;
+                const globalIdx = dayOffset + i;
 
-                <div className="flex flex-col items-center gap-0.5">
-                  <p className="font-mono text-[11px] text-violet-500">
-                    {totalVisible} épisode{totalVisible !== 1 ? "s" : ""}
-                  </p>
-                  <div className="flex gap-1 items-center">
-                    {Array.from({ length: 7 }, (_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => jumpToDay(i)}
-                        aria-label={DAY_NAMES[i]}
-                        className={`rounded-full transition-all motion-reduce:transition-none ${
-                          i >= dayOffset && i < dayOffset + VISIBLE_DAYS
-                            ? "w-3 h-1.5 bg-amber-400"
-                            : "w-1.5 h-1.5 bg-white/20 hover:bg-white/40"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleNextDay}
-                  disabled={!canNextDay}
-                  className="flex items-center gap-1 px-3 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 text-sm text-violet-300 transition-all motion-reduce:transition-none"
-                >
-                  <span className="hidden sm:inline text-xs">Suiv.</span>
-                  <ChevronRight size={15} />
-                </button>
-              </div>
-
-              {/* ── Grille jours ── */}
-              <div
-                key={gridKey}
-                {...gridPointerHandlers}
-                style={{ touchAction: "pan-y" }}
-                className={`grid gap-3 motion-reduce:animate-none ${slideClass} ${
-                  VISIBLE_DAYS === 1 ? "grid-cols-1" : "grid-cols-3"
-                }`}
-              >
-                {visibleDays.map(({ date, entries: dayEntries }, i) => {
-                  const isToday   = date.toDateString() === todayDateString;
-                  const globalIdx = dayOffset + i;
-
-                  return (
-                    <div
-                      key={globalIdx}
-                      className={`rounded-2xl border overflow-hidden flex flex-col ${
-                        isToday ? "border-amber-400/40 bg-amber-400/5" : "border-white/5 bg-violet-900/20"
-                      }`}
-                    >
-                      <div className={`px-3 sm:px-4 py-3 border-b ${isToday ? "border-amber-400/20" : "border-white/5"}`}>
-                        <div className="flex items-center justify-between">
-                          <p className={`font-mono text-xs uppercase tracking-widest font-semibold ${isToday ? "text-amber-400" : "text-violet-300"}`}>
-                            {DAY_NAMES[globalIdx]}
-                          </p>
-                          {isToday && (
-                            <span className="font-mono text-[8px] bg-amber-400 text-violet-950 px-1.5 py-0.5 rounded-full font-bold animate-glowPulse motion-reduce:animate-none">
-                              Aujourd'hui
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-violet-500 mt-0.5">
-                          {date.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}
+                return (
+                  <div
+                    key={globalIdx}
+                    className={`rounded-2xl border overflow-hidden flex flex-col ${
+                      isToday ? "border-amber-400/40 bg-amber-400/5" : "border-white/5 bg-violet-900/20"
+                    }`}
+                  >
+                    <div className={`px-3 sm:px-4 py-3 border-b ${isToday ? "border-amber-400/20" : "border-white/5"}`}>
+                      <div className="flex items-center justify-between">
+                        <p className={`font-mono text-xs uppercase tracking-widest font-semibold ${isToday ? "text-amber-400" : "text-violet-300"}`}>
+                          {DAY_NAMES[globalIdx]}
                         </p>
-                      </div>
-
-                      <div className="p-2.5 sm:p-3 flex-1 space-y-2 overflow-y-auto overscroll-auto max-h-[42vh] sm:max-h-[70vh]">
-                        {dayEntries.length === 0 ? (
-                          <p className="text-[11px] text-violet-600 font-mono text-center py-8">Aucun épisode</p>
-                        ) : (
-                          dayEntries.map((group) => (
-                            <EpisodeCard
-                              key={group.tvmazeId}
-                              group={group}
-                              onClick={() => setSelectedItem(group)}
-                              isInLibrary={libraryTvmazeIds.has(String(group.tvmazeId))}
-                              onAdd={() => handleAddToLibrary(group)}
-                              isAdding={addingIds.has(group.tvmazeId)}
-                            />
-                          ))
+                        {isToday && (
+                          <span className="font-mono text-[8px] bg-amber-400 text-violet-950 px-1.5 py-0.5 rounded-full font-bold animate-glowPulse motion-reduce:animate-none">
+                            Aujourd'hui
+                          </span>
                         )}
                       </div>
+                      <p className="text-xs text-violet-500 mt-0.5">
+                        {date.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}
+                      </p>
                     </div>
-                  );
-                })}
-              </div>
-            </>
+
+                    <div className="p-2.5 sm:p-3 flex-1 space-y-2">
+                      {dayEntries.length === 0 ? (
+                        <p className="text-[11px] text-violet-600 font-mono text-center py-8">Aucun épisode</p>
+                      ) : (
+                        dayEntries.map((group) => (
+                          <EpisodeCard
+                            key={group.tvmazeId}
+                            group={group}
+                            onClick={() => setSelectedItem(group)}
+                            isInLibrary={libraryTvmazeIds.has(String(group.tvmazeId))}
+                            onAdd={() => handleAddToLibrary(group)}
+                            isAdding={addingIds.has(group.tvmazeId)}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </PullToRefresh>

@@ -159,9 +159,10 @@ export function CalendarFilms() {
   }, [addingIds, saveEntry]);
 
   return (
-    <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <PullToRefresh onRefresh={() => load(true)}>
-      <div className="max-w-5xl mx-auto px-3 sm:px-6 pb-nav pt-safe-8">
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
+
+      {/* ── Zone fixe : en-tête, onglets, sélecteur de mois ── */}
+      <div className="flex-shrink-0 max-w-5xl w-full mx-auto px-3 sm:px-6 pt-safe-8">
 
         {/* ── En-tête ── */}
         <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
@@ -177,20 +178,14 @@ export function CalendarFilms() {
 
         <CalendarTabs />
 
-        {!hasTMDB() ? (
-          <div className="flex flex-col items-center justify-center py-32 gap-3 text-center px-6">
-            <Clapperboard size={28} className="text-violet-600" />
-            <p className="text-sm text-violet-400 font-mono">Configuration TMDB manquante.</p>
-            <p className="text-xs text-violet-600">Les sorties cinéma nécessitent une clé API TMDB côté serveur.</p>
-          </div>
-        ) : (
+        {hasTMDB() && (
           <>
             {error && (
               <p className="text-center font-mono text-[11px] text-amber-400/90 mb-3 px-4">{error}</p>
             )}
 
             {/* ── Sélecteur de mois (3 mois consultables) ── */}
-            <div className="flex justify-center mb-5">
+            <div className="flex justify-center mb-3">
               <div className="inline-flex w-full max-w-md items-center gap-1 rounded-full bg-white/5 border border-white/10 p-1">
                 {monthOptions.map(({ offset, label }) => (
                   <button
@@ -205,66 +200,78 @@ export function CalendarFilms() {
                 ))}
               </div>
             </div>
-
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-32 gap-3">
-                <Loader2 size={28} className="animate-spin text-violet-400" />
-                <p className="text-sm text-violet-400 font-mono">Chargement des sorties cinéma…</p>
-              </div>
-            ) : (
-              <>
-                <p className="text-center font-mono text-[11px] text-violet-500 mb-5">
-                  {totalThisMonth} sortie{totalThisMonth !== 1 ? "s" : ""} en salle
-                </p>
-
-                {groupedByDay.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 gap-2 text-center px-6">
-                    <Sparkles size={22} className="text-violet-600" />
-                    <p className="text-sm text-violet-400 font-mono">Aucune sortie cinéma trouvée ce mois-ci.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {groupedByDay.map((group) => (
-                      <div key={group.date.toISOString()}>
-                        <p className="font-mono text-[11px] uppercase tracking-widest text-violet-400 mb-2 px-1">
-                          {group.date.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
-                        </p>
-                        <div className="rounded-2xl border border-white/5 bg-violet-900/20 overflow-hidden divide-y divide-white/5">
-                          {group.entries.map((m) => {
-                            const inLibrary = libraryTmdbIds.has(m.id);
-                            return (
-                              <button
-                                key={m.id}
-                                onClick={() => openSynopsis(m)}
-                                className="w-full flex gap-3 p-2.5 hover:bg-white/5 transition-colors text-left"
-                              >
-                                {m.poster_path ? (
-                                  <img src={`https://image.tmdb.org/t/p/w185${m.poster_path}`} alt="" className="w-11 h-16 object-cover rounded-lg flex-shrink-0" />
-                                ) : (
-                                  <div className="w-11 h-16 rounded-lg bg-white/10 flex-shrink-0" />
-                                )}
-                                <div className="min-w-0 flex-1 flex flex-col justify-center">
-                                  <p className="text-sm font-medium text-violet-100 leading-snug line-clamp-2">{m.title || m.original_title}</p>
-                                  <p className="text-[11px] text-violet-500 mt-0.5 truncate">
-                                    {(m.genre_ids || []).map((id) => genreMap[id]).filter(Boolean).slice(0, 3).join(" · ")}
-                                  </p>
-                                  {inLibrary && (
-                                    <span className="font-mono text-[10px] text-emerald-400 mt-1">✓ Dans ta bibliothèque</span>
-                                  )}
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
           </>
         )}
       </div>
+
+      {/* ── Zone scrollable : seule cette zone défile, contenue entre l'en-tête
+          et le bottom nav (pb-nav) — plus de scroll de toute la page. ── */}
+      <PullToRefresh onRefresh={() => load(true)} className="flex-1 min-h-0 flex flex-col">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-auto max-w-5xl w-full mx-auto px-3 sm:px-6 pb-nav">
+
+          {!hasTMDB() ? (
+            <div className="flex flex-col items-center justify-center py-32 gap-3 text-center px-6">
+              <Clapperboard size={28} className="text-violet-600" />
+              <p className="text-sm text-violet-400 font-mono">Configuration TMDB manquante.</p>
+              <p className="text-xs text-violet-600">Les sorties cinéma nécessitent une clé API TMDB côté serveur.</p>
+            </div>
+          ) : loading ? (
+            <div className="flex flex-col items-center justify-center py-32 gap-3">
+              <Loader2 size={28} className="animate-spin text-violet-400" />
+              <p className="text-sm text-violet-400 font-mono">Chargement des sorties cinéma…</p>
+            </div>
+          ) : (
+            <>
+              <p className="text-center font-mono text-[11px] text-violet-500 mb-3">
+                {totalThisMonth} sortie{totalThisMonth !== 1 ? "s" : ""} en salle
+              </p>
+
+              {groupedByDay.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-2 text-center px-6">
+                  <Sparkles size={22} className="text-violet-600" />
+                  <p className="text-sm text-violet-400 font-mono">Aucune sortie cinéma trouvée ce mois-ci.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {groupedByDay.map((group) => (
+                    <div key={group.date.toISOString()}>
+                      <p className="font-mono text-[11px] uppercase tracking-widest text-violet-400 mb-2 px-1">
+                        {group.date.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+                      </p>
+                      <div className="rounded-2xl border border-white/5 bg-violet-900/20 overflow-hidden divide-y divide-white/5">
+                        {group.entries.map((m) => {
+                          const inLibrary = libraryTmdbIds.has(m.id);
+                          return (
+                            <button
+                              key={m.id}
+                              onClick={() => openSynopsis(m)}
+                              className="w-full flex gap-3 p-2.5 hover:bg-white/5 transition-colors text-left"
+                            >
+                              {m.poster_path ? (
+                                <img src={`https://image.tmdb.org/t/p/w185${m.poster_path}`} alt="" className="w-11 h-16 object-cover rounded-lg flex-shrink-0" />
+                              ) : (
+                                <div className="w-11 h-16 rounded-lg bg-white/10 flex-shrink-0" />
+                              )}
+                              <div className="min-w-0 flex-1 flex flex-col justify-center">
+                                <p className="text-sm font-medium text-violet-100 leading-snug line-clamp-2">{m.title || m.original_title}</p>
+                                <p className="text-[11px] text-violet-500 mt-0.5 truncate">
+                                  {(m.genre_ids || []).map((id) => genreMap[id]).filter(Boolean).slice(0, 3).join(" · ")}
+                                </p>
+                                {inLibrary && (
+                                  <span className="font-mono text-[10px] text-emerald-400 mt-1">✓ Dans ta bibliothèque</span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </PullToRefresh>
 
       <AnimatePresence>

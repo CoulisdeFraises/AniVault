@@ -38,7 +38,7 @@ function getRelevantScrollTop(scrollEl) {
  * - Les handlers utilisent des refs pour éviter les closures périmées sans
  *   re-enregistrer les listeners à chaque render.
  */
-export function PullToRefresh({ onRefresh, children }) {
+export function PullToRefresh({ onRefresh, children, className = "" }) {
   const [pullY, setPullY] = useState(0);
   const [phase, setPhase] = useState("idle");
   // phase : "idle" | "pulling" | "ready" | "refreshing"
@@ -125,7 +125,7 @@ export function PullToRefresh({ onRefresh, children }) {
                              "text-violet-500";
 
   return (
-    <div style={{ overscrollBehavior: "contain" }}>
+    <div className={className} style={{ overscrollBehavior: "contain" }}>
       {/* Indicateur visuel */}
       <div
         style={{
