@@ -165,8 +165,8 @@ export function CalendarFilms() {
       <div className="flex-shrink-0 max-w-5xl w-full mx-auto px-3 sm:px-6 pt-safe-8">
 
         {/* ── En-tête ── */}
-        <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
-          <div className="min-w-0">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="min-w-0 flex-1">
             <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 active:scale-95 transition-all motion-reduce:transition-none mb-2">
               <ChevronLeft size={16} /> Retour
             </button>

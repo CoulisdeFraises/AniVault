@@ -12,6 +12,7 @@ import { AchievementToast }            from "./components/common/AchievementToas
 import { BottomNav }                   from "./components/common/BottomNav";
 import { PageTransition }              from "./components/common/PageTransition";
 import { useAchievements }             from "./hooks/useAchievements";
+import { syncProfileStats }            from "./services/community";
 import { useNotifications }            from "./hooks/useNotifications";
 import { addNotification }             from "./hooks/useNotificationStore";
 import SplashScreen                    from "./components/SplashScreen/SplashScreen";
@@ -65,6 +66,39 @@ const ProtectedRoute = ({ children }) => {
 function AchievementLayer() {
   const { currentToast, dismissToast } = useAchievements();
   return <AchievementToast achievement={currentToast} onDone={dismissToast} />;
+}
+
+// ── ProfileStatsSyncLayer — tient entries_count/episodes_watched à jour ────
+//
+// Ces deux champs (affichés aux amis sur /community) vivent dans la table
+// `profiles` et ne sont PAS recalculés à la volée côté lecteur : chaque
+// utilisateur pousse ses propres stats vers son profil. Ce layer, monté une
+// fois pour toute la session (indépendamment de la page affichée), réagit à
+// CHAQUE changement de bibliothèque — contrairement à l'ancien effet qui ne
+// vivait que dans Profile.jsx et ne se déclenchait qu'à l'ouverture de cette
+// page, laissant les stats figées (souvent à 0) pour qui n'y allait jamais.
+// Anti-rebond : évite de spammer Supabase à chaque petite modification.
+function ProfileStatsSyncLayer() {
+  const { user } = useAuth();
+  const { entries, loading } = useLibrary();
+  const { unlockedIds } = useAchievements();
+
+  useEffect(() => {
+    if (!user || loading) return; // attend que la bibliothèque soit réellement chargée
+    const timer = setTimeout(() => {
+      const episodesWatched = entries.reduce(
+        (s, e) => s + e.seasons.reduce((s2, se) => s2 + (se.watchedEpisodes || 0), 0), 0
+      );
+      syncProfileStats(user.id, {
+        entriesCount:    entries.length,
+        episodesWatched,
+        achievements:    [...unlockedIds],
+      }).catch(() => {});
+    }, 2000); // anti-rebond : laisse retomber les changements rapprochés
+    return () => clearTimeout(timer);
+  }, [user, loading, entries, unlockedIds]);
+
+  return null;
 }
 
 // ── AnnouncementLayer — popup de message au démarrage ──────────────────────
@@ -210,6 +244,7 @@ const AppRoutes = () => {
 
       <AchievementLayer />
       {user && <AnnouncementLayer />}
+      {user && <ProfileStatsSyncLayer />}
       <NotificationToast />
       <InstallPrompt />
     </div>

@@ -13,7 +13,7 @@ import { Modal }           from "../components/Modal/Modal";
 import { AnimatePresence } from "motion/react";
 import { useAchievements } from "../hooks/useAchievements";
 import { ACHIEVEMENT_CATEGORIES } from "../utils/achievements";
-import { updateProfileMeta, changeUsername, syncProfileStats, uploadAvatarPhoto, removeAvatarPhoto } from "../services/community";
+import { updateProfileMeta, changeUsername, uploadAvatarPhoto, removeAvatarPhoto } from "../services/community";
 import { useLists, fetchUserFavorites } from "../context/ListsContext";
 import { COMPANIONS } from "../utils/companions";
 
@@ -354,17 +354,11 @@ export function Profile() {
     return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
   })();
 
-  useEffect(() => {
-    if (!user || !userProfile) return;
-    const episodesWatched = entries.reduce(
-      (s, e) => s + e.seasons.reduce((s2, se) => s2 + (se.watchedEpisodes || 0), 0), 0
-    );
-    syncProfileStats(user.id, {
-      entriesCount:    entries.length,
-      episodesWatched,
-      achievements:    [...unlockedIds],
-    }).catch(() => {});
-  }, [user?.id, userProfile?.user_id]); // eslint-disable-line
+  // NB : la synchro entries_count/episodes_watched vers le profil ne se fait
+  // plus ici — voir ProfileStatsSyncLayer dans App.jsx, monté globalement et
+  // réactif à chaque changement de bibliothèque (pas seulement à l'ouverture
+  // de cette page).
+
 
   function handleCopyId() {
     navigator.clipboard.writeText(user?.id || "").then(() => {
