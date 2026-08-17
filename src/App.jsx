@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, MotionConfig } from "motion/react";
 import { Loader2 }             from "lucide-react";
 import { AuthProvider, useAuth }       from "./context/AuthContext";
@@ -14,6 +14,7 @@ import { PageTransition }              from "./components/common/PageTransition"
 import { useAchievements }             from "./hooks/useAchievements";
 import { syncProfileStats }            from "./services/community";
 import { useNotifications }            from "./hooks/useNotifications";
+import { useFriendRequestNotifications } from "./hooks/useFriendRequestNotifications";
 import { addNotification }             from "./hooks/useNotificationStore";
 import SplashScreen                    from "./components/SplashScreen/SplashScreen";
 import { NotificationToast}            from "./components/common/NotificationToast";
@@ -142,8 +143,10 @@ function AnnouncementLayer() {
 function NotificationLayer() {
   const { entries } = useLibrary();
   const { user }    = useAuth();          // ← ajouter
+  const navigate    = useNavigate();
   const syncedRef   = useRef(false);      // évite de re-fetch à chaque changement d'entries
   useNotifications(entries);
+  useFriendRequestNotifications(user?.id); // ← demandes d'ami en temps réel (Supabase Realtime)
 
   // ── Auto-sync souscription push au démarrage ──────────────────────────
   // Garantit que Supabase a toujours la souscription courante, même si
@@ -169,11 +172,15 @@ function NotificationLayer() {
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
     function handleMessage(event) {
+      if (event.data?.type === "OPEN_LINK" && event.data.link) {
+        navigate(event.data.link);
+        return;
+      }
       if (event.data?.type !== "PUSH_RECEIVED") return;
-      const { title, body, entryId, icon, episode } = event.data;
+      const { title, body, entryId, icon, link } = event.data;
       addNotification({
-        title, body, entryId, icon,
-        dedupeKey: entryId != null && episode != null ? `${entryId}-ep${episode}` : null,
+        title, body, entryId, icon, link,
+        dedupeKey: entryId != null && event.data.episode != null ? `${entryId}-ep${event.data.episode}` : null,
       });
     }
     navigator.serviceWorker.addEventListener("message", handleMessage);

@@ -266,7 +266,7 @@ self.addEventListener("push", (e) => {
             icon:  "/logo.png",
             badge: "/favicon-96x96.png",
             tag,
-            data:  { entryId: data.entryId ?? null, iconKey: data.icon || "sparkles" },
+            data:  { entryId: data.entryId ?? null, link: data.link ?? null, iconKey: data.icon || "sparkles" },
           })
         );
       }
@@ -281,6 +281,7 @@ self.addEventListener("push", (e) => {
             entryId: data.entryId ?? null,
             episode: data.episode ?? null,
             icon: data.icon || "sparkles",
+            link: data.link ?? null,
           }))
         )
       );
@@ -293,15 +294,17 @@ self.addEventListener("push", (e) => {
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   const entryId = e.notification.data?.entryId;
+  const link    = e.notification.data?.link;
   e.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
       for (const client of list) {
         if (client.url.includes(location.origin)) {
-          if (entryId) client.postMessage({ type: "OPEN_ENTRY", entryId });
+          if (link) client.postMessage({ type: "OPEN_LINK", link });
+          else if (entryId) client.postMessage({ type: "OPEN_ENTRY", entryId });
           return client.focus();
         }
       }
-      return clients.openWindow(entryId ? `/details/${entryId}` : "/");
+      return clients.openWindow(link || (entryId ? `/details/${entryId}` : "/"));
     })
   );
 });

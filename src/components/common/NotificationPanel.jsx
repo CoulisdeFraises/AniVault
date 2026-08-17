@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Bell, X, Check, Trash2, BellOff, Sparkles } from "lucide-react";
+import { Bell, X, Check, Trash2, BellOff, Sparkles, UserPlus, UserCheck } from "lucide-react";
 import { useNotificationStore } from "../../hooks/useNotificationStore";
 import { requestNotificationPermission } from "../../hooks/useNotifications";
 import { subscribeToPush } from "../../utils/push";
@@ -20,7 +20,7 @@ function timeAgo(ts) {
   return `Il y a ${d}j`;
 }
 
-const NOTIF_ICONS = { sparkles: Sparkles };
+const NOTIF_ICONS = { sparkles: Sparkles, "user-plus": UserPlus, "user-check": UserCheck };
 
 export function NotificationPanel() {
   const { user } = useAuth();
@@ -114,7 +114,9 @@ export function NotificationPanel() {
   function handleClickNotif(notif) {
     markRead(notif.id);
     setOpen(false);
-    if (notif.entryId) {
+    if (notif.link) {
+      navigate(notif.link);
+    } else if (notif.entryId) {
       navigate(`/details/${notif.entryId}`, { state: { backgroundLocation: location } });
     }
   }

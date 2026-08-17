@@ -184,6 +184,22 @@ export async function fetchPendingRequests(myId) {
   }));
 }
 
+export async function fetchSentRequests(myId) {
+  const { data: rows } = await supabase.from("friendships")
+    .select("id, target_id")
+    .eq("requester_id", myId).eq("status", "pending");
+  if (!rows?.length) return [];
+
+  const ids = rows.map(r => r.target_id);
+  const { data: profiles } = await supabase.from("profiles")
+    .select("user_id, username, avatar_color, avatar_url, description")
+    .in("user_id", ids);
+  return (profiles || []).map(p => ({
+    ...p,
+    friendshipId: rows.find(r => r.target_id === p.user_id)?.id,
+  }));
+}
+
 export async function fetchFriendFavorites(userId) {
   const { data } = await supabase
     .from("libraries")

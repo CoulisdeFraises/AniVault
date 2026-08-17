@@ -43,7 +43,7 @@ function _notifyToast(notif) {
  * `dedupeKey` (si fourni) évite les doublons dans la fenêtre DEDUPE_WINDOW_MS.
  * Format canonique : `"${entryId}-ep${episode}"` — à respecter partout.
  */
-export function addNotification({ title, body, entryId = null, icon = "sparkles", dedupeKey = null }) {
+export function addNotification({ title, body, entryId = null, icon = "sparkles", dedupeKey = null, link = null }) {
   if (dedupeKey) {
     const cutoff     = Date.now() - DEDUPE_WINDOW_MS;
     const alreadySeen = _state.some((n) => n.dedupeKey === dedupeKey && n.createdAt > cutoff);
@@ -56,6 +56,7 @@ export function addNotification({ title, body, entryId = null, icon = "sparkles"
     body,
     entryId,
     icon,
+    link, // ── route interne à ouvrir au clic (ex: "/community"), prioritaire sur entryId ──
     dedupeKey,
     readAt:    null,
     createdAt: Date.now(),

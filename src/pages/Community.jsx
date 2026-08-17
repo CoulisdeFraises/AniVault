@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Users, UserPlus, Search, ChevronLeft, Check, X,
   Loader2, Trophy, Film, Clock, UserCheck, UserX,
-  ChevronDown, Heart, ListPlus,
+  ChevronDown, Heart, ListPlus, Send, XCircle,
 } from "lucide-react";
 import { useAuth }    from "../context/AuthContext";
 import { TopBar } from "../components/common/TopBar";
@@ -11,7 +11,7 @@ import { Modal }      from "../components/Modal/Modal";
 import { AnimatePresence } from "motion/react";
 import { Avatar }     from "../components/common/Avatar";
 import {
-  fetchFriends, fetchPendingRequests, searchUserByUsername,
+  fetchFriends, fetchPendingRequests, fetchSentRequests, searchUserByUsername,
   sendFriendRequest, acceptFriendRequest, removeFriend,
   fetchFriendFavorites, fetchFriendPublicLists,
 } from "../services/community";
@@ -276,7 +276,9 @@ export function Community() {
 
   const [friends,       setFriends]       = useState([]);
   const [pending,       setPending]       = useState([]);
+  const [sent,          setSent]          = useState([]);
   const [loading,       setLoading]       = useState(true);
+  const [cancelingId,   setCancelingId]   = useState(null);
   const [searchQuery,   setSearchQuery]   = useState("");
   const [searchResult,  setSearchResult]  = useState(null);
   const [searching,     setSearching]     = useState(false);
@@ -288,9 +290,12 @@ export function Community() {
   const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const [f, p] = await Promise.all([fetchFriends(user.id), fetchPendingRequests(user.id)]);
+    const [f, p, s] = await Promise.all([
+      fetchFriends(user.id), fetchPendingRequests(user.id), fetchSentRequests(user.id),
+    ]);
     setFriends(f);
     setPending(p);
+    setSent(s);
     setLoading(false);
   }, [user?.id]);
 
@@ -306,7 +311,8 @@ export function Community() {
     if (!result) { setSearchError("Aucun utilisateur trouvé avec ce pseudo."); return; }
     if (result.user_id === user.id) { setSearchError("C'est toi ! 😄"); return; }
     const alreadyFriend = friends.some(f => f.user_id === result.user_id);
-    setSearchResult({ ...result, alreadyFriend });
+    const alreadySent   = sent.some(s => s.user_id === result.user_id);
+    setSearchResult({ ...result, alreadyFriend, alreadySent });
   }
 
   async function handleAddFriend(targetId) {
@@ -315,6 +321,7 @@ export function Community() {
       await sendFriendRequest(user.id, targetId);
       setSearchResult(null);
       setSearchQuery("");
+      await load();
       flash("Demande envoyée !");
     } catch (e) {
       setSearchError(e.message || "Erreur lors de l'envoi.");
@@ -326,6 +333,18 @@ export function Community() {
     await acceptFriendRequest(friendshipId);
     await load();
     flash("Ami ajouté !");
+  }
+
+  async function handleCancelSent(friendshipId) {
+    setCancelingId(friendshipId);
+    try {
+      await removeFriend(friendshipId);
+      await load();
+      flash("Demande annulée.");
+    } catch {
+      setCancelingId(null);
+    }
+    setCancelingId(null);
   }
 
   async function handleRemove(friendshipId) {
@@ -396,6 +415,29 @@ export function Community() {
           </div>
         )}
 
+        {/* ── Demandes envoyées ── */}
+        {sent.length > 0 && (
+          <div className="rounded-2xl bg-violet-900/20 border border-white/5 p-4 space-y-2">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400 mb-3 flex items-center gap-1.5">
+              <Send size={11} /> Demandes envoyées · {sent.length}
+            </p>
+            {sent.map(req => (
+              <div key={req.friendshipId} className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5">
+                <Avatar name={req.username} color={req.avatar_color} photoUrl={req.avatar_url} size="sm" />
+                <p className="flex-1 text-sm font-medium text-violet-100">@{req.username}</p>
+                <span className="font-mono text-[10px] text-violet-500 flex-shrink-0">En attente</span>
+                <button onClick={() => handleCancelSent(req.friendshipId)}
+                  disabled={cancelingId === req.friendshipId}
+                  className="p-1.5 rounded-lg bg-white/5 text-violet-400 hover:bg-rose-500/20 hover:text-rose-300 active:scale-95 transition-all disabled:opacity-50">
+                  {cancelingId === req.friendshipId
+                    ? <Loader2 size={14} className="animate-spin" />
+                    : <XCircle size={14} />}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* ── Ajouter un ami ── */}
         <div className="rounded-2xl bg-violet-900/30 border border-white/5 p-4">
           <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
@@ -432,6 +474,10 @@ export function Community() {
               {searchResult.alreadyFriend ? (
                 <span className="font-mono text-[11px] text-teal-400 flex items-center gap-1">
                   <UserCheck size={12} /> Amis
+                </span>
+              ) : searchResult.alreadySent ? (
+                <span className="font-mono text-[11px] text-violet-400 flex items-center gap-1">
+                  <Send size={12} /> Envoyée
                 </span>
               ) : (
                 <button onClick={() => handleAddFriend(searchResult.user_id)}
