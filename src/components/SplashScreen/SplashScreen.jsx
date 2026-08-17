@@ -84,6 +84,7 @@ const SplashScreen = ({ onFinish, isLoading = false }) => {
       <div className="splash-orb orb-1" />
       <div className="splash-orb orb-2" />
       <div className="splash-orb orb-3" />
+      <div className="splash-orb orb-4" />
 
       {/* ── Grille de fond ── */}
       <div className="splash-grid" />
