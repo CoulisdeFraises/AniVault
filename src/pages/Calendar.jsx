@@ -11,7 +11,7 @@ import { useLibrary }  from "../context/LibraryContext";
 import { importResult } from "../api";
 import { TopBar }    from "../components/common/TopBar";
 import { Modal }         from "../components/Modal/Modal";
-import { AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { PullToRefresh } from "../components/common/PullToRefresh";
 import { CalendarTabs }  from "../components/common/CalendarTabs";
 import { useWeekNavigation, DAY_NAMES } from "../hooks/useWeekNavigation";
@@ -201,11 +201,18 @@ function FilterTab({ active, onClick, children }) {
   return (
     <button
       onClick={onClick}
-      className={`flex-1 min-w-0 px-2 py-1.5 rounded-full text-xs font-medium transition-all active:scale-95 motion-reduce:transition-none whitespace-nowrap ${
-        active ? "bg-amber-400 text-violet-950" : "text-violet-300 hover:bg-white/10"
+      className={`relative flex-1 min-w-0 px-2 py-1.5 rounded-full text-xs font-medium transition-colors active:scale-95 motion-reduce:transition-none whitespace-nowrap ${
+        active ? "text-violet-950" : "text-violet-300 hover:bg-white/10"
       }`}
     >
-      {children}
+      {active && (
+        <motion.span
+          layoutId="calendar-content-filter-pill"
+          className="absolute inset-0 bg-amber-400 rounded-full"
+          transition={{ type: "spring", stiffness: 500, damping: 35 }}
+        />
+      )}
+      <span className="relative z-10">{children}</span>
     </button>
   );
 }

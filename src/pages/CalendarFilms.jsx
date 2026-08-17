@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Clapperboard, Loader2, Sparkles } from "lucide-react";
-import { AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useLibrary }      from "../context/LibraryContext";
 import { importResult }    from "../api";
 import {
@@ -191,11 +191,18 @@ export function CalendarFilms() {
                   <button
                     key={offset}
                     onClick={() => setMonthOffset(offset)}
-                    className={`flex-1 min-w-0 px-3 py-2 rounded-full text-xs font-medium capitalize transition-all active:scale-95 motion-reduce:transition-none whitespace-nowrap ${
-                      monthOffset === offset ? "bg-amber-400 text-violet-950" : "text-violet-300 hover:bg-white/10"
+                    className={`relative flex-1 min-w-0 px-3 py-2 rounded-full text-xs font-medium capitalize transition-colors active:scale-95 motion-reduce:transition-none whitespace-nowrap ${
+                      monthOffset === offset ? "text-violet-950" : "text-violet-300 hover:bg-white/10"
                     }`}
                   >
-                    {label}
+                    {monthOffset === offset && (
+                      <motion.span
+                        layoutId="calendar-films-month-pill"
+                        className="absolute inset-0 bg-amber-400 rounded-full"
+                        transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                      />
+                    )}
+                    <span className="relative z-10">{label}</span>
                   </button>
                 ))}
               </div>

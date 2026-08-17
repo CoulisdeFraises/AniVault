@@ -4,7 +4,7 @@ import {
   ChevronLeft, Loader2, Film, Tv, Clapperboard, WifiOff,
   Dices, Dice1, Dice2, Dice3, Dice4, Dice5, Dice6,
 } from "lucide-react";
-import { AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useLibrary }          from "../context/LibraryContext";
 import { TopBar }          from "../components/common/TopBar";
 import { TitleFormModal }      from "../components/Modal/TitleFormModal";
@@ -83,6 +83,7 @@ export function Recommendations() {
   const [adding,       setAdding]       = useState(null);
   const [editingEntry, setEditingEntry] = useState(null);
   const [synopsisRec,  setSynopsisRec]  = useState(null);
+  const [surpriseOpen, setSurpriseOpen] = useState(false); // ← carte ouverte via "Surprends-moi" → shake
   const [refreshNotice, setRefreshNotice] = useState(""); // message discret, auto-effacé
 
   // ── « Surprends-moi » ──────────────────────────────────────────────────────
@@ -408,6 +409,7 @@ export function Recommendations() {
 
       if (result) {
         haptics.success();
+        setSurpriseOpen(true);
         setSynopsisRec(result);
       } else {
         haptics.error();
@@ -454,14 +456,21 @@ export function Recommendations() {
                 <button
                   key={key}
                   onClick={() => { if (activeTab !== key) { setActiveTab(key); setRecs([]); setError(""); setRefreshNotice(""); } }}
-                  className={`flex items-center gap-1.5 px-5 py-1.5 rounded-full text-xs font-medium transition-all duration-200
+                  className={`relative flex items-center gap-1.5 px-5 py-1.5 rounded-full text-xs font-medium transition-colors duration-200
                     active:scale-95 motion-reduce:transition-none ${
                     activeTab === key
-                      ? "bg-amber-400 text-violet-950 font-semibold shadow-sm"
+                      ? "text-violet-950 font-semibold"
                       : "text-violet-300 hover:text-violet-100"
                   }`}
                 >
-                  <Icon size={12} />{label}
+                  {activeTab === key && (
+                    <motion.span
+                      layoutId="recs-tab-pill"
+                      className="absolute inset-0 bg-amber-400 rounded-full shadow-sm"
+                      transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                  <span className="relative z-10 flex items-center gap-1.5"><Icon size={12} />{label}</span>
                 </button>
               ))}
             </div>
@@ -559,7 +568,7 @@ export function Recommendations() {
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 sm:gap-3">
               {dedupedRecs.map((rec) => (
-                <RecCard key={`${rec.source}-${rec.id}`} rec={rec} onClick={() => setSynopsisRec(rec)} />
+                <RecCard key={`${rec.source}-${rec.id}`} rec={rec} onClick={() => { setSurpriseOpen(false); setSynopsisRec(rec); }} />
               ))}
             </div>
           )}
@@ -572,10 +581,11 @@ export function Recommendations() {
           <SynopsisModal
             key="synopsis"
             rec={synopsisRec}
-            onClose={() => setSynopsisRec(null)}
+            onClose={() => { setSynopsisRec(null); setSurpriseOpen(false); }}
             onAdd={handleAdd}
             adding={adding === synopsisRec.id}
             alreadyInLib={isInLibrary(synopsisRec)}
+            surprise={surpriseOpen}
           />
         )}
 

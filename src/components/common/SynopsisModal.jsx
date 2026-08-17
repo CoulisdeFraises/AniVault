@@ -1,12 +1,16 @@
 import { X, Star, Plus, Loader2, Eye} from "lucide-react";
+import { motion } from "motion/react";
 import { EyePlus } from "./icons";
 import { Modal } from "../Modal/Modal";
 
-export function SynopsisModal({ rec, onClose, onAdd, onAddSeen, adding, alreadyInLib }) {
+export function SynopsisModal({ rec, onClose, onAdd, onAddSeen, adding, alreadyInLib, surprise = false }) {
   if (!rec) return null;
   return (
     <Modal onClose={onClose} maxWidth="max-w-sm" zIndex="z-[70]">
-      <div>
+      <motion.div
+        animate={surprise ? { x: [0, -9, 9, -7, 7, -4, 4, 0] } : undefined}
+        transition={surprise ? { delay: 0.3, duration: 0.5, ease: "easeInOut" } : undefined}
+      >
         {/* Image header */}
         <div className="relative h-44 overflow-hidden flex-shrink-0">
           {rec.image
@@ -79,7 +83,7 @@ export function SynopsisModal({ rec, onClose, onAdd, onAddSeen, adding, alreadyI
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
     </Modal>
   );
 }

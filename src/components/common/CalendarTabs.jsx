@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
+import { motion } from "motion/react";
 import { Film, Tv, Clapperboard } from "lucide-react";
 
 const TABS = [
@@ -26,12 +27,21 @@ export function CalendarTabs() {
               key={path}
               onClick={() => !active && navigate(path)}
               aria-current={active ? "page" : undefined}
-              className={`flex-1 min-w-0 flex items-center justify-center gap-1 px-2 py-1.5 rounded-full text-[11px] font-medium transition-all active:scale-95 motion-reduce:transition-none whitespace-nowrap ${
-                active ? "bg-amber-400 text-violet-950" : "text-violet-300 hover:bg-white/10"
+              className={`relative flex-1 min-w-0 flex items-center justify-center gap-1 px-2 py-1.5 rounded-full text-[11px] font-medium transition-colors active:scale-95 motion-reduce:transition-none whitespace-nowrap ${
+                active ? "text-violet-950" : "text-violet-300 hover:bg-white/10"
               }`}
             >
-              <Icon size={11} />
-              {label}
+              {active && (
+                <motion.span
+                  layoutId="calendar-tabs-pill"
+                  className="absolute inset-0 bg-amber-400 rounded-full"
+                  transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1">
+                <Icon size={11} />
+                {label}
+              </span>
             </button>
           );
         })}
