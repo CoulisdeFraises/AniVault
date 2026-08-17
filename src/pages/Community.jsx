@@ -15,6 +15,10 @@ import {
   sendFriendRequest, acceptFriendRequest, removeFriend,
   fetchFriendFavorites, fetchFriendPublicLists,
 } from "../services/community";
+import { ACHIEVEMENTS } from "../utils/achievements";
+
+// ── Lookup rapide id → métadonnées du succès (icône, nom, description) ──────
+const ACHIEVEMENTS_BY_ID = Object.fromEntries(ACHIEVEMENTS.map(a => [a.id, a]));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 // ── Modal profil ami ──────────────────────────────────────────────────────────
@@ -223,12 +227,16 @@ function FriendProfileModal({ friend, onClose, onRemove }) {
               {achievementsOpen && (
                 <div className="px-3 pb-3">
                   <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto overscroll-contain">
-                    {friend.achievements.map(id => (
-                      <span key={id}
-                        className="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/20 font-mono text-[10px] text-amber-300">
-                        🏆 {id}
-                      </span>
-                    ))}
+                    {friend.achievements.map(id => {
+                      const meta = ACHIEVEMENTS_BY_ID[id];
+                      return (
+                        <span key={id}
+                          title={meta?.description}
+                          className="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/20 font-mono text-[10px] text-amber-300">
+                          {meta ? `${meta.icon} ${meta.name}` : `🏆 ${id}`}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}

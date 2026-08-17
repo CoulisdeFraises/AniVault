@@ -46,7 +46,7 @@
 .orb-2 {
   width: 480px; height: 480px;
   background: radial-gradient(circle, #4f46e575 0%, transparent 70%);
-  bottom: -14%; right: -6%;
+  bottom: -100px; right: -6%;
   animation: orb-drift 18s ease-in-out infinite alternate-reverse;
 }
 .orb-3 {
@@ -58,11 +58,15 @@
 }
 /* Comble le vide visuel en bas d'écran sur les téléphones hauts — sans ce
    halo, le tiers inférieur retombe dans un noir quasi uni une fois le
-   dégradé principal (centré en haut) épuisé. */
+   dégradé principal (centré en haut) épuisé.
+   Décalage en px (pas en %) : un % de 100dvh grandit avec la hauteur de
+   l'écran, donc sur les iPhone à grand écran l'orbe était repoussé trop
+   loin hors du viewport et le vide sous la barre de progression restait
+   visible malgré ce halo. */
 .orb-4 {
-  width: 460px; height: 460px;
-  background: radial-gradient(circle, #6d28d955 0%, transparent 72%);
-  bottom: -18%; left: 50%;
+  width: 520px; height: 520px;
+  background: radial-gradient(circle, #6d28d960 0%, transparent 72%);
+  bottom: -140px; left: 50%;
   transform: translateX(-50%);
   animation: orb-drift 16s ease-in-out infinite alternate;
 }
@@ -263,7 +267,7 @@
 /* ── Barre de progression ───────────────────────────────────────────── */
 .splash-progress-track {
   position: absolute;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 36px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
   left: 50%;
   transform: translateX(-50%);
   width: 168px;
