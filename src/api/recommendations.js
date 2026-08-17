@@ -31,15 +31,23 @@ function mapMedia(m) {
 // et exclut les IDs déjà dans la bibliothèque.
 // Utilisé pour les recommandations générales (basées sur les goûts globaux).
 // `page` permet au pull-to-refresh de demander un lot différent.
+//
+// IMPORTANT : `genre_in` côté API AniList fonctionne en ET, pas en OU — un
+// média doit posséder TOUS les genres listés pour matcher. Passer d'un coup
+// les 5 genres préférés d'un profil (souvent variés : Action + Romance +
+// Slice of Life...) ne renvoie donc presque jamais rien, puisque très peu
+// d'animes cochent simultanément 5 genres différents. On interroge donc
+// CHAQUE genre séparément (en parallèle) puis on fusionne en entrelaçant les
+// résultats, pour un vrai comportement "au moins un des genres préférés".
 export async function fetchAniListRecommendations(genres = [], excludeAnilistIds = [], { page = 1 } = {}) {
   if (!genres.length) return [];
   const cultureMode = isCultureModeOn();
 
   const query = `
-    query ($genres: [String], $page: Int) {
-      Page(page: $page, perPage: 30) {
+    query ($genre: String, $page: Int) {
+      Page(page: $page, perPage: 20) {
         media(
-          genre_in: $genres
+          genre_in: [$genre]
           type: ANIME
           sort: POPULARITY_DESC
           status_in: [FINISHED, RELEASING]
@@ -60,9 +68,26 @@ export async function fetchAniListRecommendations(genres = [], excludeAnilistIds
   `;
 
   try {
-    const json = await anilistQuery(query, { genres, page });
-    const media = json.data?.Page?.media || [];
-    return media
+    const settled = await Promise.allSettled(
+      genres.map((genre) => anilistQuery(query, { genre, page }))
+    );
+    const perGenreLists = settled.map((r) =>
+      r.status === "fulfilled" ? (r.value.data?.Page?.media || []) : []
+    );
+
+    // Entrelace les listes par genre (round-robin) plutôt que de les mettre
+    // bout à bout — évite qu'un seul genre écrase tous les autres en tête.
+    const merged = [];
+    const seen = new Set();
+    const maxLen = Math.max(0, ...perGenreLists.map((l) => l.length));
+    for (let i = 0; i < maxLen; i++) {
+      for (const list of perGenreLists) {
+        const m = list[i];
+        if (m && !seen.has(m.id)) { seen.add(m.id); merged.push(m); }
+      }
+    }
+
+    return merged
       .filter((m) => !excludeAnilistIds.includes(m.id))
       .filter((m) => cultureMode || !m.isAdult)
       .slice(0, 24)
