@@ -50,7 +50,7 @@ export async function fetchAniListRecommendations(genres = [], excludeAnilistIds
           genre_in: [$genre]
           type: ANIME
           sort: POPULARITY_DESC
-          status_in: [FINISHED, RELEASING]
+          status_in: [FINISHED, RELEASING, HIATUS]
           format_in: [TV, TV_SHORT, OVA, ONA, MOVIE]
         ) {
           id
@@ -90,7 +90,7 @@ export async function fetchAniListRecommendations(genres = [], excludeAnilistIds
     return merged
       .filter((m) => !excludeAnilistIds.includes(m.id))
       .filter((m) => cultureMode || !m.isAdult)
-      .slice(0, 24)
+      .slice(0, 32)
       .map(mapMedia);
   } catch {
     return [];
@@ -132,6 +132,49 @@ export async function fetchSimilarTitles(anilistId, excludeAnilistIds = []) {
     return similar.slice(0, 20).map(mapMedia);
   } catch {
     return [];
+  }
+}
+
+// Tire un anime VRAIMENT au hasard dans le catalogue AniList, sans aucun
+// filtre de genre — contrairement à fetchAniListRecommendations, qui reste
+// ancré aux goûts du profil. Utilisé par « Surprends-moi » pour proposer
+// autre chose que les recommandations habituelles.
+export async function fetchAniListRandomTitle(excludeAnilistIds = []) {
+  const cultureMode = isCultureModeOn();
+  const page = Math.floor(Math.random() * 60) + 1; // large plage, indépendante des goûts
+
+  const query = `
+    query ($page: Int) {
+      Page(page: $page, perPage: 20) {
+        media(
+          type: ANIME
+          sort: POPULARITY_DESC
+          status_in: [FINISHED, RELEASING, HIATUS]
+          format_in: [TV, TV_SHORT, OVA, ONA, MOVIE]
+        ) {
+          id
+          title { english romaji }
+          coverImage { large }
+          genres
+          episodes
+          description(asHtml: false)
+          seasonYear
+          averageScore
+          isAdult
+        }
+      }
+    }
+  `;
+
+  try {
+    const { data } = await anilistQuery(query, { page });
+    const list = (data?.Page?.media || []).filter((m) => cultureMode || !m.isAdult);
+    const pool = list.filter((m) => !excludeAnilistIds.includes(m.id));
+    const from = pool.length ? pool : list;
+    if (!from.length) return null;
+    return mapMedia(from[Math.floor(Math.random() * from.length)]);
+  } catch {
+    return null;
   }
 }
 

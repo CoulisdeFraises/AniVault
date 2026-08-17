@@ -7,15 +7,15 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useLibrary }          from "../context/LibraryContext";
 import { TopBar }          from "../components/common/TopBar";
-import { TitleFormModal }      from "../components/Modal/TitleFormModal";
 import { SynopsisModal }       from "../components/common/SynopsisModal";
 import { PullToRefresh }       from "../components/common/PullToRefresh";
 import {
   fetchAniListRecommendations,
   fetchTMDBMovieRecommendations,
   fetchTMDBSeriesRecommendations,
+  fetchAniListRandomTitle,
 } from "../api/recommendations";
-import { hasTMDB }             from "../api/tmdb";
+import { hasTMDB, fetchTMDBRandomMovie, fetchTMDBRandomSeries } from "../api/tmdb";
 import { importResult }        from "../api";
 import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
 import { toEnglishGenres }     from "../utils/genres";
@@ -71,8 +71,8 @@ const ROLL_DURATION_MS = 900; // durée mini de l'animation de suspense
 
 // ── Page Recommandations ──────────────────────────────────────────────────────
 export function Recommendations() {
-  const navigate       = useNavigate();
-  const { entries }    = useLibrary();
+  const navigate           = useNavigate();
+  const { entries, saveEntry } = useLibrary();
 
   const [activeTab,    setActiveTab]    = useState("anime");
   const [recs,         setRecs]         = useState([]);
@@ -81,7 +81,7 @@ export function Recommendations() {
   const [isStale,      setIsStale]      = useState(false);
   const [tabTopGenres, setTabTopGenres] = useState([]);
   const [adding,       setAdding]       = useState(null);
-  const [editingEntry, setEditingEntry] = useState(null);
+  const [addedToast,   setAddedToast]   = useState(false); // ← confirmation brève après ajout rapide
   const [synopsisRec,  setSynopsisRec]  = useState(null);
   const [surpriseOpen, setSurpriseOpen] = useState(false); // ← carte ouverte via "Surprends-moi" → shake
   const [refreshNotice, setRefreshNotice] = useState(""); // message discret, auto-effacé
@@ -304,16 +304,12 @@ export function Recommendations() {
     return () => clearTimeout(t);
   }, [refreshNotice]);
 
-  // ── Dédoublonnage ─────────────────────────────────────────────────────────
-  const dedupedRecs = useMemo(() => {
-    const seen = new Set();
-    return recs.filter((rec) => {
-      const key = normalizeSeriesTitle(rec.title);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }).slice(0, 20);
-  }, [recs]);
+  // Confirmation d'ajout rapide, elle aussi éphémère.
+  useEffect(() => {
+    if (!addedToast) return;
+    const t = setTimeout(() => setAddedToast(false), 2500);
+    return () => clearTimeout(t);
+  }, [addedToast]);
 
   // Vérifie l'appartenance à la bibliothèque quelle que soit la source
   // (AniList ou TMDB) + filet de sécurité par titre normalisé, pour éviter
@@ -324,58 +320,64 @@ export function Recommendations() {
     return libraryTitles.has(normalizeSeriesTitle(rec.title));
   }
 
+  // ── Dédoublonnage + retrait des titres déjà en bibliothèque ────────────────
+  // L'exclusion faite côté API (fetch) ne matche que par ID exact et ne
+  // rattrape donc pas les cas où le même titre existe déjà sous un autre
+  // ID/source (ex : ajouté via AniList mais reproposé via TMDB, ou vice
+  // versa). `isInLibrary` fait ce matching plus large par titre normalisé —
+  // il faut l'appliquer ici, à l'affichage, pas seulement au clic sur
+  // "Ajouter", sinon des titres déjà possédés continuent d'apparaître dans
+  // la grille.
+  const dedupedRecs = useMemo(() => {
+    const seen = new Set();
+    return recs.filter((rec) => {
+      if (isInLibrary(rec)) return false;
+      const key = normalizeSeriesTitle(rec.title);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 20);
+  }, [recs, libraryIds, libraryTmdbIds, libraryTitles]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Ajout rapide : import + sauvegarde directe en "à voir", sans passer par
+  // le formulaire manuel (TitleFormModal) — l'utilisateur veut un ajout en
+  // un clic depuis la synopsis modal, pas une étape de confirmation en plus.
   async function handleAdd(rec) {
     if (isInLibrary(rec)) { setSynopsisRec(null); return; } // garde-fou pour les doublons
     setAdding(rec.id);
     try {
-      const prefilled = await importResult(rec);
-      haptics.light();
+      const data = await importResult(rec);
+      saveEntry(data, null);
+      haptics.success();
       setSynopsisRec(null);
-      setEditingEntry(prefilled);
+      setSurpriseOpen(false);
+      setAddedToast(true);
     } catch {
-      setError("Erreur lors de l'import du titre.");
+      haptics.error();
+      setError("Erreur lors de l'ajout du titre.");
     } finally {
       setAdding(null);
     }
   }
 
   // ── Tirage aléatoire d'un titre selon l'onglet actif ──────────────────────
-  // Réutilise les mêmes fonctions de fetch que le chargement normal, donc
-  // hérite au passage de leurs filtres (genres favoris, contenu adulte pour
-  // les animes, vote_count minimum côté TMDB pour écarter les films/séries
-  // trop confidentiels). On exclut ensuite les titres déjà dans la bibliothèque
-  // avant de tirer au sort, avec un filet de sécurité si tout est déjà connu.
+  // Volontairement DÉCORRÉLÉ des recommandations basées sur les goûts : on
+  // pioche dans le catalogue populaire général (AniList / TMDB), sans filtre
+  // de genre, pour un vrai effet de surprise plutôt qu'une simple variante
+  // des recos déjà affichées. Seule l'exclusion des titres déjà en
+  // bibliothèque est conservée.
   async function pickRandomAnime() {
-    if (!animeTopGenresEN.length) return null;
-    const page = Math.floor(Math.random() * 3) + 1; // pages 1..3
-    let data = await fetchAniListRecommendations(animeTopGenresEN, [...libraryIds], { page });
-    if (!data.length && page !== 1) {
-      data = await fetchAniListRecommendations(animeTopGenresEN, [...libraryIds], { page: 1 });
-    }
-    if (!data.length) return null;
-    const pool = data.filter((r) => !isInLibrary(r));
-    const from = pool.length ? pool : data;
-    return from[Math.floor(Math.random() * from.length)];
+    return fetchAniListRandomTitle([...libraryIds]);
   }
 
   async function pickRandomFilm() {
     if (!hasTMDB()) return null;
-    const page = Math.floor(Math.random() * 5) + 1; // pages 1..5
-    const { recs: data } = await fetchTMDBMovieRecommendations(entries, { page });
-    if (!data.length) return null;
-    const pool = data.filter((r) => !isInLibrary(r));
-    const from = pool.length ? pool : data;
-    return from[Math.floor(Math.random() * from.length)];
+    return fetchTMDBRandomMovie([...libraryTmdbIds]);
   }
 
   async function pickRandomSerie() {
     if (!hasTMDB()) return null;
-    const page = Math.floor(Math.random() * 5) + 1; // pages 1..5
-    const { recs: data } = await fetchTMDBSeriesRecommendations(entries, { page });
-    if (!data.length) return null;
-    const pool = data.filter((r) => !isInLibrary(r));
-    const from = pool.length ? pool : data;
-    return from[Math.floor(Math.random() * from.length)];
+    return fetchTMDBRandomSeries([...libraryTmdbIds]);
   }
 
   function pickRandomTitle() {
@@ -426,7 +428,7 @@ export function Recommendations() {
 
   const isNoTmdb      = error === "no_tmdb";
   const displayGenres = activeTab === "anime" ? animeTopGenres : tabTopGenres;
-  const canSurprise    = activeTab === "anime" ? animeTopGenresEN.length > 0 : hasTMDB();
+  const canSurprise    = activeTab === "anime" ? true : hasTMDB();
   const DiceIcon        = rolling ? DICE_FACES[diceFace] : Dices;
 
   return (
@@ -521,6 +523,13 @@ export function Recommendations() {
             </div>
           )}
 
+          {/* ── Confirmation d'ajout rapide ── */}
+          {addedToast && (
+            <div className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl bg-emerald-400/10 border border-emerald-400/20 text-emerald-300 text-sm animate-fadeIn">
+              <span>✓ Ajouté à ta bibliothèque.</span>
+            </div>
+          )}
+
           {/* ── Notice de rafraîchissement sans nouvelles suggestions ── */}
           {refreshNotice && (
             <div className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-300 text-sm animate-fadeIn">
@@ -586,14 +595,6 @@ export function Recommendations() {
             adding={adding === synopsisRec.id}
             alreadyInLib={isInLibrary(synopsisRec)}
             surprise={surpriseOpen}
-          />
-        )}
-
-        {editingEntry && (
-          <TitleFormModal
-            key="title-form"
-            editingEntry={editingEntry}
-            onClose={() => setEditingEntry(null)}
           />
         )}
       </AnimatePresence>

@@ -47,6 +47,22 @@ const PANEL_TRANSITION    = { type: "spring", bounce: 0.18, duration: 0.32 };
 export function Modal({ onClose, maxWidth = "max-w-lg", zIndex = "z-50", children }) {
   const innerRef = useRef(null);
 
+  // `onClose` est très souvent une arrow function inline côté appelant, donc
+  // une référence différente à chaque re-render du parent. On la garde dans
+  // un ref à jour plutôt que dans le tableau de dépendances ci-dessous.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
+  // IMPORTANT : cet effet ne doit tourner qu'au montage/démontage (deps []).
+  // Avec `[onClose]` en dépendance, ce useEffect se relançait à chaque
+  // re-render du parent (nouvelle référence de fonction) : le cleanup
+  // restaurait alors `body.style.overflow` sur la valeur capturée lors du
+  // DERNIER re-render (déjà "hidden", puisque la modale était encore
+  // ouverte) au lieu de la valeur d'origine avant ouverture. Résultat : à la
+  // fermeture réelle de la modale, le body restait bloqué en
+  // `overflow: hidden` pour de bon — plus moyen de scroller/interagir avec
+  // la page derrière (et PullToRefresh, qui se désactive tant que
+  // `overflow === "hidden"`, restait lui aussi bloqué).
   useEffect(() => {
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -61,7 +77,7 @@ export function Modal({ onClose, maxWidth = "max-w-lg", zIndex = "z-50", childre
     }, 30);
 
     function handleKeyDown(e) {
-      if (e.key === "Escape") { onClose?.(); return; }
+      if (e.key === "Escape") { onCloseRef.current?.(); return; }
       if (e.key !== "Tab" || !el) return;
 
       const all   = [...el.querySelectorAll(FOCUSABLE)];
@@ -84,7 +100,7 @@ export function Modal({ onClose, maxWidth = "max-w-lg", zIndex = "z-50", childre
       document.removeEventListener("keydown", handleKeyDown);
       if (prevFocus && typeof prevFocus.focus === "function") prevFocus.focus();
     };
-  }, [onClose]);
+  }, []);
 
   return createPortal(
     <motion.div

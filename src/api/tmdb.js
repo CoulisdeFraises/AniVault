@@ -243,14 +243,14 @@ export async function fetchTMDBDiscoverMovies(genreIds = [], excludeTmdbIds = []
   return withCache(cacheKey, CACHE_TTL, async () => {
     try {
       const res = await fetch(
-        `https://api.themoviedb.org/3/discover/movie?with_genres=${genreIds.join("|")}&language=fr-FR&sort_by=popularity.desc&page=${page}&include_adult=false&vote_count.gte=100`,
+        `https://api.themoviedb.org/3/discover/movie?with_genres=${genreIds.join("|")}&language=fr-FR&sort_by=popularity.desc&page=${page}&include_adult=false&vote_count.gte=50`,
         { headers: tmdbHeaders() }
       );
       if (!res.ok) return [];
       const json = await res.json();
       return (json.results || [])
         .filter((m) => !excludeTmdbIds.includes(m.id))
-        .slice(0, 24)
+        .slice(0, 32)
         .map((m) => ({
           source:      "tmdb_movie",
           id:          m.id,
@@ -282,7 +282,7 @@ export async function fetchTMDBDiscoverSeries(genreIds = [], excludeTmdbIds = []
       const json = await res.json();
       return (json.results || [])
         .filter((s) => !excludeTmdbIds.includes(s.id))
-        .slice(0, 24)
+        .slice(0, 32)
         .map((s) => ({
           source:      "tmdb_tv",
           id:          s.id,
@@ -298,6 +298,55 @@ export async function fetchTMDBDiscoverSeries(genreIds = [], excludeTmdbIds = []
       return [];
     }
   });
+}
+
+// ── Titre vraiment aléatoire — Film / Série ────────────────────────────────────
+// Contrairement à fetchTMDBDiscoverMovies/Series (filtrées sur les genres
+// favoris de la bibliothèque), ces fonctions piochent dans le catalogue
+// populaire TMDB sans aucun filtre de genre, pour un vrai « Surprends-moi »
+// décorrélé des recommandations habituelles.
+export async function fetchTMDBRandomMovie(excludeTmdbIds = []) {
+  if (!TMDB_BEARER_TOKEN) return null;
+  const page = Math.floor(Math.random() * 40) + 1; // ~800 films les plus populaires
+  const cacheKey = `tmdb:random:mv:p${page}`;
+  const list = await withCache(cacheKey, CACHE_TTL, async () => {
+    try {
+      const res = await fetch(
+        `https://api.themoviedb.org/3/discover/movie?language=fr-FR&sort_by=popularity.desc&page=${page}&include_adult=false&vote_count.gte=50`,
+        { headers: tmdbHeaders() }
+      );
+      if (!res.ok) return [];
+      const json = await res.json();
+      return (json.results || []).map(mapTmdbMovie);
+    } catch {
+      return [];
+    }
+  });
+  const pool = list.filter((m) => !excludeTmdbIds.includes(m.id));
+  const from = pool.length ? pool : list;
+  return from.length ? from[Math.floor(Math.random() * from.length)] : null;
+}
+
+export async function fetchTMDBRandomSeries(excludeTmdbIds = []) {
+  if (!TMDB_BEARER_TOKEN) return null;
+  const page = Math.floor(Math.random() * 40) + 1;
+  const cacheKey = `tmdb:random:tv:p${page}`;
+  const list = await withCache(cacheKey, CACHE_TTL, async () => {
+    try {
+      const res = await fetch(
+        `https://api.themoviedb.org/3/discover/tv?language=fr-FR&sort_by=popularity.desc&page=${page}&vote_count.gte=30`,
+        { headers: tmdbHeaders() }
+      );
+      if (!res.ok) return [];
+      const json = await res.json();
+      return (json.results || []).map(mapTmdbSeries);
+    } catch {
+      return [];
+    }
+  });
+  const pool = list.filter((s) => !excludeTmdbIds.includes(s.id));
+  const from = pool.length ? pool : list;
+  return from.length ? from[Math.floor(Math.random() * from.length)] : null;
 }
 
 // ── Titres similaires — Film / Série ──────────────────────────────────────────
