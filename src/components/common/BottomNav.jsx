@@ -17,7 +17,10 @@ const ITEMS = [
 ];
 
 /**
- * BottomNav — barre flottante semi-transparente, mobile uniquement.
+ * BottomNav — barre flottante semi-transparente, visible sur toutes les
+ * tailles d'écran (mobile comme bureau — c'est la seule navigation entre
+ * les grandes sections de l'app, il n'existe pas de nav latérale/haute
+ * dédiée au bureau).
  * Rendue une seule fois au niveau racine (App.jsx) pour garantir une
  * navigation homogène entre toutes les pages protégées.
  */
@@ -28,7 +31,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Navigation principale"
-      className="sm:hidden fixed inset-x-0 bottom-0 z-40 flex justify-center pointer-events-none px-3"
+      className="fixed inset-x-0 bottom-0 z-40 flex justify-center pointer-events-none px-3"
       style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
     >
       <div
