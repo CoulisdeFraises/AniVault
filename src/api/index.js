@@ -11,6 +11,7 @@ import {
 import { withCache }       from "../services/cache";
 import { translateGenres } from "../utils/genres";
 import { getFormatGroup }  from "../utils/format";
+import { findAniListMovieId } from "./crossRef";
 
 // Détermine la catégorie d'une entrée AniList à partir de ses saisons :
 // un film (ou une franchise 100% films) doit être classé "movie", pas "tv"
@@ -40,6 +41,26 @@ export function search(type, query) {
 export async function importResult(result) {
   // ── Court-circuit : film TMDB (titre et synopsis déjà en FR) ─────────────
   if (result.source === "tmdb_movie") {
+    // Tentative de rattachement à la fiche AniList correspondante — mais
+    // seulement si le film est catégorisé "Animation" côté TMDB (genre id
+    // 16) : sans ce garde-fou, on ferait un appel réseau inutile pour
+    // chaque film live-action, avec un risque de faux positif si son titre
+    // ressemble par coincidence à un titre AniList. Sans rattachement, un
+    // film ajouté ici sous son titre français n'a aucun ID en commun avec
+    // la même œuvre proposée plus tard en recommandation côté AniList
+    // (titre anglais/romaji) — elles ne sont alors jamais reconnues comme
+    // le même film. On tente le titre original en priorité (plus proche du
+    // romaji/anglais qu'AniList indexe), puis les titres alternatifs
+    // disponibles, puis le titre affiché en dernier recours. Best-effort,
+    // silencieux en cas d'échec : ce n'est qu'un enrichissement, pas un
+    // pré-requis à l'ajout.
+    const isAnimatedFilm = (result.genreIds || []).includes(16);
+    const anilistMatch = isAnimatedFilm
+      ? await findAniListMovieId(
+          result.originalTitle, ...(result.titleAlt || []), result.title
+        ).catch(() => null)
+      : null;
+
     return {
       title:      result.title,
       type:       "serie",          // classé comme série (live-action)
@@ -59,12 +80,27 @@ export async function importResult(result) {
       }],
       source:      "tmdb_movie",
       tmdbId:      result.id,
-      description: result.overview || null,
+      anilistIds:  anilistMatch ? [anilistMatch] : [],
+      // `overview` (résultat de recherche) ou `description` (reco) selon
+      // l'appelant — les deux shapes sont possibles ici.
+      description: result.overview || result.description || null,
     };
   }
 
   // ── Cas AniList & TVmaze : enrichissement TMDB optionnel ────────────────
-  const tmdb = await searchTMDBShow(result.title);
+  // IMPORTANT : searchTMDBShow ne cherche que dans /search/tv — pour un
+  // FILM (result.format === "MOVIE" côté AniList), ça ne peut structurellement
+  // jamais matcher, donc tmdbId restait toujours null pour les films
+  // d'anime importés ici. On bascule sur /search/movie dans ce cas, pour
+  // que le rattachement croisé avec les recommandations/imports côté TMDB
+  // fonctionne aussi pour les films (pas seulement les séries TV).
+  const isAnimeMovie = result.source === "anilist" && result.format === "MOVIE";
+  const tmdb = isAnimeMovie
+    ? await searchTMDBMovies(result.title).then((r) => {
+        const top = r?.[0];
+        return top ? { id: top.id, name: top.title || null, overview: top.overview || null } : null;
+      }).catch(() => null)
+    : await searchTMDBShow(result.title);
   // TMDB est interrogé en fr-FR : son "name" est donc le titre français quand
   // il existe. On l'affiche en priorité, mais on garde aussi les variantes
   // romaji/anglais/français pour que la recherche dans la bibliothèque

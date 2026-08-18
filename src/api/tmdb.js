@@ -53,6 +53,7 @@ export async function searchTMDBMovies(query) {
         source: "tmdb_movie",
         id:       m.id,
         title:    m.title || m.original_title,
+        originalTitle: m.original_title || null, // ← pour le rattachement croisé AniList
         year:     m.release_date ? parseInt(m.release_date.slice(0, 4)) : null,
         image:    m.poster_path ? `https://image.tmdb.org/t/p/w342${m.poster_path}` : null,
         overview: m.overview?.trim() || null,

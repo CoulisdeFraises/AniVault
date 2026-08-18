@@ -25,6 +25,7 @@ function mapMedia(m) {
     score:       m.averageScore,
     description: m.description,
     isAdult:     m.isAdult || false,
+    format:      m.format || null, // ← pour repérer les films (rattachement croisé anti-doublons)
   };
 }
 
@@ -63,6 +64,7 @@ export async function fetchAniListRecommendations(genres = [], excludeAnilistIds
           seasonYear
           averageScore
           isAdult
+          format
         }
       }
     }
@@ -162,6 +164,7 @@ export async function fetchAniListRandomTitle(excludeAnilistIds = []) {
           seasonYear
           averageScore
           isAdult
+          format
         }
       }
     }

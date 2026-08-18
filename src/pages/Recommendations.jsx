@@ -16,6 +16,7 @@ import {
   fetchAniListRandomTitle,
 } from "../api/recommendations";
 import { hasTMDB, fetchTMDBRandomMovie, fetchTMDBRandomSeries } from "../api/tmdb";
+import { findAniListMovieId, findTmdbMovieId } from "../api/crossRef";
 import { importResult }        from "../api";
 import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
 import { toEnglishGenres }     from "../utils/genres";
@@ -125,6 +126,61 @@ export function Recommendations() {
     return set;
   }, [entries]);
   const libraryTitleList = useMemo(() => [...libraryTitles], [libraryTitles]);
+
+  // ── Anti-doublons croisés (films uniquement) ────────────────────────────
+  // Un même film peut être présent dans la bibliothèque sous un ID/titre
+  // totalement différent selon la source d'ajout (ex : ajouté via TMDB sous
+  // son titre français « Les enfants du temps », reproposé en recommandation
+  // AniList sous « Weathering With You » — aucun texte en commun). Aucune
+  // normalisation ni fuzzy matching ne peut relier ces deux chaînes : il
+  // faut une recherche croisée sur l'autre API. Voir src/api/crossRef.js.
+  //
+  // `crossDupKeys` contient les clés `${source}:${id}` des recos ainsi
+  // identifiées comme déjà présentes en bibliothèque sous une autre source.
+  const [crossDupKeys, setCrossDupKeys] = useState(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function run() {
+      // Ne cible que les candidats films pas déjà exclus par les checks
+      // rapides (ID exact / titre normalisé) — pas la peine de refaire une
+      // recherche réseau pour ceux déjà écartés. Plafonné pour borner le
+      // nombre d'appels réseau par chargement de page.
+      const candidates = recs
+        .filter((rec) => {
+          const isAnimeMovie = rec.source === "anilist" && rec.format === "MOVIE";
+          const isTmdbMovie  = rec.source === "tmdb_movie";
+          if (!isAnimeMovie && !isTmdbMovie) return false;
+          if (libraryIds.has(rec.id)) return false;
+          if (isTmdbMovie && libraryTmdbIds.has(rec.id)) return false;
+          const normTitles = [rec.title, ...(rec.titleAlt || [])].map(normalizeSeriesTitle);
+          return !normTitles.some((t) => libraryTitles.has(t));
+        })
+        .slice(0, 12);
+
+      if (!candidates.length) { if (!cancelled) setCrossDupKeys(new Set()); return; }
+
+      const settled = await Promise.allSettled(candidates.map(async (rec) => {
+        if (rec.source === "anilist") {
+          if (!libraryTmdbIds.size) return null;
+          const match = await findTmdbMovieId(...(rec.titleAlt || []), rec.title);
+          return match && libraryTmdbIds.has(match) ? `${rec.source}:${rec.id}` : null;
+        }
+        if (!libraryIds.size) return null;
+        const match = await findAniListMovieId(...(rec.titleAlt || []), rec.title);
+        return match && libraryIds.has(match) ? `${rec.source}:${rec.id}` : null;
+      }));
+
+      if (cancelled) return;
+      setCrossDupKeys(new Set(
+        settled.filter((r) => r.status === "fulfilled" && r.value).map((r) => r.value)
+      ));
+    }
+
+    run();
+    return () => { cancelled = true; };
+  }, [recs, libraryIds, libraryTmdbIds, libraryTitles]); // eslint-disable-line react-hooks/exhaustive-deps
   const animeCacheKey    = useMemo(
     () => `recs_en_${[...animeTopGenresEN].sort().join("_")}`,
     [animeTopGenresEN]
@@ -329,6 +385,7 @@ export function Recommendations() {
   function isInLibrary(rec) {
     if (libraryIds.has(rec.id)) return true;
     if ((rec.source === "tmdb_movie" || rec.source === "tmdb_tv") && libraryTmdbIds.has(rec.id)) return true;
+    if (crossDupKeys.has(`${rec.source}:${rec.id}`)) return true;
 
     const recTitles = [rec.title, ...(rec.titleAlt || [])].filter(Boolean);
     const recNormTitles = recTitles.map(normalizeSeriesTitle);
@@ -357,7 +414,7 @@ export function Recommendations() {
       seen.add(key);
       return true;
     }).slice(0, 20);
-  }, [recs, libraryIds, libraryTmdbIds, libraryTitles]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [recs, libraryIds, libraryTmdbIds, libraryTitles, crossDupKeys]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ajout rapide : import + sauvegarde directe en "à voir", sans passer par
   // le formulaire manuel (TitleFormModal) — l'utilisateur veut un ajout en
