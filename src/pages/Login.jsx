@@ -8,6 +8,7 @@ function translateError(msg) {
   if (msg.includes("Email not confirmed"))         return "Confirme ton adresse email avant de te connecter.";
   if (msg.includes("User already registered"))     return "Un compte existe déjà avec cet email.";
   if (msg.includes("Password should be at least")) return "Le mot de passe doit faire au moins 6 caractères.";
+  if (msg.includes("Password should be no more than") || msg.includes("Password should be less than") || msg.includes("72 characters")) return "Le mot de passe ne doit pas dépasser 72 caractères.";
   if (msg.includes("Unable to validate"))          return "Email invalide.";
   return "Une erreur s'est produite. Réessaie.";
 }
@@ -118,6 +119,7 @@ export function Login() {
               placeholder="Mot de passe"
               required
               minLength={6}
+              maxLength={72}
               className="w-full pl-10 pr-4 py-3 rounded-xl bg-violet-900/40 border border-white/10 text-violet-50 placeholder-violet-500 focus:outline-none focus:ring-2 focus:ring-amber-400"
             />
           </div>
