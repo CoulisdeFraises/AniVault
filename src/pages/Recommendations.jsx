@@ -16,7 +16,7 @@ import {
   fetchAniListRandomTitle,
 } from "../api/recommendations";
 import { hasTMDB, fetchTMDBRandomMovie, fetchTMDBRandomSeries } from "../api/tmdb";
-import { findAniListMovieId, findTmdbMovieId } from "../api/crossRef";
+import { findAniListMovie, findTmdbMovie } from "../api/crossRef";
 import { importResult }        from "../api";
 import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
 import { toEnglishGenres }     from "../utils/genres";
@@ -135,9 +135,18 @@ export function Recommendations() {
   // normalisation ni fuzzy matching ne peut relier ces deux chaînes : il
   // faut une recherche croisée sur l'autre API. Voir src/api/crossRef.js.
   //
+  // Important : on compare aussi par TITRE résolu (pas seulement par ID),
+  // car une entrée ajoutée via le formulaire manuel n'a AUCUN ID externe
+  // (ni tmdbId, ni anilistIds) — seule une comparaison de texte, sur le
+  // titre retrouvé via la recherche croisée, peut alors la détecter.
+  //
   // `crossDupKeys` contient les clés `${source}:${id}` des recos ainsi
   // identifiées comme déjà présentes en bibliothèque sous une autre source.
-  const [crossDupKeys, setCrossDupKeys] = useState(new Set());
+  // `resolvedTitles` contient le titre FRANÇAIS retrouvé pour les recos
+  // films AniList (qui n'exposent sinon que le romaji/anglais) — utilisé à
+  // l'affichage même quand la reco n'est pas un doublon.
+  const [crossDupKeys,    setCrossDupKeys]    = useState(new Set());
+  const [resolvedTitles,  setResolvedTitles]  = useState(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -159,23 +168,47 @@ export function Recommendations() {
         })
         .slice(0, 12);
 
-      if (!candidates.length) { if (!cancelled) setCrossDupKeys(new Set()); return; }
+      if (!candidates.length) {
+        if (!cancelled) { setCrossDupKeys(new Set()); setResolvedTitles(new Map()); }
+        return;
+      }
 
       const settled = await Promise.allSettled(candidates.map(async (rec) => {
+        const key = `${rec.source}:${rec.id}`;
+
         if (rec.source === "anilist") {
-          if (!libraryTmdbIds.size) return null;
-          const match = await findTmdbMovieId(...(rec.titleAlt || []), rec.title);
-          return match && libraryTmdbIds.has(match) ? `${rec.source}:${rec.id}` : null;
+          const match = await findTmdbMovie(...(rec.titleAlt || []), rec.title);
+          if (!match) return null;
+          const matchNormTitle = normalizeSeriesTitle(match.title);
+          const isDup = libraryTmdbIds.has(match.id)
+            || libraryTitles.has(matchNormTitle)
+            || libraryTitleList.some((lt) => titleSimilarity(matchNormTitle, lt) >= 0.88);
+          // Titre français résolu, à afficher même si ce N'EST PAS un
+          // doublon — AniList n'expose que le romaji/anglais.
+          return { key, resolvedTitle: match.title, isDup };
         }
-        if (!libraryIds.size) return null;
-        const match = await findAniListMovieId(...(rec.titleAlt || []), rec.title);
-        return match && libraryIds.has(match) ? `${rec.source}:${rec.id}` : null;
+
+        const match = await findAniListMovie(...(rec.titleAlt || []), rec.title);
+        if (!match) return null;
+        const matchTitle = match.titleEnglish || match.titleRomaji || match.title;
+        const matchNormTitle = normalizeSeriesTitle(matchTitle);
+        const isDup = libraryIds.has(match.id)
+          || libraryTitles.has(matchNormTitle)
+          || libraryTitleList.some((lt) => titleSimilarity(matchNormTitle, lt) >= 0.88);
+        return { key, resolvedTitle: null, isDup }; // déjà en FR côté TMDB
       }));
 
       if (cancelled) return;
-      setCrossDupKeys(new Set(
-        settled.filter((r) => r.status === "fulfilled" && r.value).map((r) => r.value)
-      ));
+      const dupKeys  = new Set();
+      const titleMap = new Map();
+      settled.forEach((r) => {
+        if (r.status !== "fulfilled" || !r.value) return;
+        const { key, resolvedTitle, isDup } = r.value;
+        if (isDup) dupKeys.add(key);
+        else if (resolvedTitle) titleMap.set(key, resolvedTitle);
+      });
+      setCrossDupKeys(dupKeys);
+      setResolvedTitles(titleMap);
     }
 
     run();
@@ -405,16 +438,26 @@ export function Recommendations() {
   // il faut l'appliquer ici, à l'affichage, pas seulement au clic sur
   // "Ajouter", sinon des titres déjà possédés continuent d'apparaître dans
   // la grille.
+  //
+  // On applique aussi le titre français résolu (`resolvedTitles`) sur les
+  // films d'anime AniList qui en ont un — AniList n'expose que romaji/
+  // anglais, alors que le reste de l'appli affiche du français partout.
   const dedupedRecs = useMemo(() => {
     const seen = new Set();
-    return recs.filter((rec) => {
-      if (isInLibrary(rec)) return false;
-      const key = normalizeSeriesTitle(rec.title);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }).slice(0, 20);
-  }, [recs, libraryIds, libraryTmdbIds, libraryTitles, crossDupKeys]); // eslint-disable-line react-hooks/exhaustive-deps
+    return recs
+      .filter((rec) => !isInLibrary(rec))
+      .map((rec) => {
+        const resolved = resolvedTitles.get(`${rec.source}:${rec.id}`);
+        return resolved ? { ...rec, title: resolved } : rec;
+      })
+      .filter((rec) => {
+        const key = normalizeSeriesTitle(rec.title);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 20);
+  }, [recs, libraryIds, libraryTmdbIds, libraryTitles, crossDupKeys, resolvedTitles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ajout rapide : import + sauvegarde directe en "à voir", sans passer par
   // le formulaire manuel (TitleFormModal) — l'utilisateur veut un ajout en

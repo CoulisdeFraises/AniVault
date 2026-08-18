@@ -11,7 +11,7 @@ import {
 import { withCache }       from "../services/cache";
 import { translateGenres } from "../utils/genres";
 import { getFormatGroup }  from "../utils/format";
-import { findAniListMovieId } from "./crossRef";
+import { findAniListMovie } from "./crossRef";
 
 // Détermine la catégorie d'une entrée AniList à partir de ses saisons :
 // un film (ou une franchise 100% films) doit être classé "movie", pas "tv"
@@ -56,7 +56,7 @@ export async function importResult(result) {
     // pré-requis à l'ajout.
     const isAnimatedFilm = (result.genreIds || []).includes(16);
     const anilistMatch = isAnimatedFilm
-      ? await findAniListMovieId(
+      ? await findAniListMovie(
           result.originalTitle, ...(result.titleAlt || []), result.title
         ).catch(() => null)
       : null;
@@ -80,7 +80,7 @@ export async function importResult(result) {
       }],
       source:      "tmdb_movie",
       tmdbId:      result.id,
-      anilistIds:  anilistMatch ? [anilistMatch] : [],
+      anilistIds:  anilistMatch ? [anilistMatch.id] : [],
       // `overview` (résultat de recherche) ou `description` (reco) selon
       // l'appelant — les deux shapes sont possibles ici.
       description: result.overview || result.description || null,
