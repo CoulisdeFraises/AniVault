@@ -238,10 +238,14 @@ export function Home() {
       const titleSubstringOk = titleFields.some((t) => t.toLowerCase().includes(qLower));
       // Filet fuzzy : tolère fautes de frappe, accents, ordre des mots
       // différent, etc. Ne se déclenche que si le match exact par
-      // sous-chaîne a échoué, et seulement à partir de 3 caractères pour
-      // éviter le bruit sur des requêtes trop courtes.
-      const titleFuzzyOk = !titleSubstringOk && q.length >= 3
-        && titleFields.some((t) => titleSimilarity(q, t) >= 0.5);
+      // sous-chaîne a échoué. Seuil volontairement strict (0.72) et à
+      // partir de 4 caractères minimum : en dessous, le score par mot de
+      // titleSimilarity (basé sur Levenshtein) devient trop généreux — une
+      // requête ou un mot court peut atteindre un score élevé avec un seul
+      // caractère de différence, ce qui faisait remonter des titres sans
+      // rapport réel avec la recherche.
+      const titleFuzzyOk = !titleSubstringOk && q.length >= 4
+        && titleFields.some((t) => titleSimilarity(q, t) >= 0.72);
 
       const searchOk = !q
         || titleSubstringOk
