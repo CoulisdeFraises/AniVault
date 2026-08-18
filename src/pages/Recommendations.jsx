@@ -21,6 +21,7 @@ import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
 import { toEnglishGenres }     from "../utils/genres";
 import { haptics } from "../utils/haptics";
 import { normalizeSeriesTitle } from "../utils/titles";
+import { titleSimilarity } from "../utils/fuzzy";
 
 // ── Carte de recommandation ───────────────────────────────────────────────────
 function RecCard({ rec, onClick }) {
@@ -123,6 +124,7 @@ export function Recommendations() {
     });
     return set;
   }, [entries]);
+  const libraryTitleList = useMemo(() => [...libraryTitles], [libraryTitles]);
   const animeCacheKey    = useMemo(
     () => `recs_en_${[...animeTopGenresEN].sort().join("_")}`,
     [animeTopGenresEN]
@@ -312,12 +314,30 @@ export function Recommendations() {
   }, [addedToast]);
 
   // Vérifie l'appartenance à la bibliothèque quelle que soit la source
-  // (AniList ou TMDB) + filet de sécurité par titre normalisé, pour éviter
-  // les doublons croisés (ex : un titre présent à la fois côté AniList et TMDB).
+  // (AniList ou TMDB), en 3 passes de plus en plus tolérantes :
+  //  1. ID exact (le plus fiable)
+  //  2. Titre normalisé exact — inclut désormais le(s) titre(s) alternatif(s)
+  //     de la reco (titleAlt : romaji/anglais/original_title côté TMDB), pas
+  //     seulement son titre d'affichage, pour attraper les cas où l'entrée
+  //     de bibliothèque a été enregistrée sous un autre titre que celui
+  //     renvoyé par la reco (ex : ajoutée sous son titre anglais, reproposée
+  //     sous son titre romaji, ou l'inverse).
+  //  3. Similarité floue (fuzzy) en filet de sécurité, pour les variantes
+  //     quasi-identiques qui échappent encore à la normalisation stricte
+  //     (petite faute de frappe, ordre des mots différent…). Seuil élevé
+  //     pour ne pas confondre deux œuvres différentes au titre proche.
   function isInLibrary(rec) {
     if (libraryIds.has(rec.id)) return true;
     if ((rec.source === "tmdb_movie" || rec.source === "tmdb_tv") && libraryTmdbIds.has(rec.id)) return true;
-    return libraryTitles.has(normalizeSeriesTitle(rec.title));
+
+    const recTitles = [rec.title, ...(rec.titleAlt || [])].filter(Boolean);
+    const recNormTitles = recTitles.map(normalizeSeriesTitle);
+    if (recNormTitles.some((t) => libraryTitles.has(t))) return true;
+
+    if (!libraryTitleList.length) return false;
+    return recNormTitles.some((rt) =>
+      libraryTitleList.some((lt) => titleSimilarity(rt, lt) >= 0.88)
+    );
   }
 
   // ── Dédoublonnage + retrait des titres déjà en bibliothèque ────────────────

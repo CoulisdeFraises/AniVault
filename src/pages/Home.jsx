@@ -12,7 +12,7 @@ import { useLists, HIDDEN_LIST_ID } from "../context/ListsContext";
 import { useSync }          from "../hooks/useSync";
 import {
   Film, Tv, ListPlus, X, Heart, Eye, EyeOff,
-  ChevronDown, SlidersHorizontal, WifiOff,
+  ChevronDown, SlidersHorizontal, WifiOff, CalendarDays,
 } from "lucide-react";
 import { ContinueWatching } from "../components/common/ContinueWatching";
 import { FilterPanel }      from "../components/common/FilterPanel";
@@ -20,6 +20,7 @@ import { AnimatePresence }  from "motion/react";
 import { fetchWeeklySchedule } from "../api/anilist";
 import { getCached, setCached, getStaleCached, TTL } from "../lib/cache";
 import { haptics } from "../utils/haptics";
+import { titleSimilarity } from "../utils/fuzzy";
 
 // ── Modal de choix "Ajouter quoi ?" ──────────────────────────────────────────
 function AddChoiceModal({ onAddTitle, onCreateList, onClose }) {
@@ -226,17 +227,27 @@ export function Home() {
   }, [todaySchedules, entries]);
 
   const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = searchQuery.trim();
+    const qLower = q.toLowerCase();
     return byType.filter((e) => {
       const statusOk   = selectedStatuses.length === 0 || selectedStatuses.includes(e.status);
       const favOk      = !showFavoritesOnly || favoritesEntryIds.has(e.id);
       const calendarOk = !showCalendarOnly  || isAiringThisWeek(e);
-      const searchOk = !q || e.title.toLowerCase().includes(q)
-        || (e.titleFrench  || "").toLowerCase().includes(q)
-        || (e.titleEnglish || "").toLowerCase().includes(q)
-        || (e.titleRomaji  || "").toLowerCase().includes(q)
-        || (e.genres || []).some((g) => g.toLowerCase().includes(q))
-        || (e.notes || "").toLowerCase().includes(q);
+
+      const titleFields = [e.title, e.titleFrench, e.titleEnglish, e.titleRomaji].filter(Boolean);
+      const titleSubstringOk = titleFields.some((t) => t.toLowerCase().includes(qLower));
+      // Filet fuzzy : tolère fautes de frappe, accents, ordre des mots
+      // différent, etc. Ne se déclenche que si le match exact par
+      // sous-chaîne a échoué, et seulement à partir de 3 caractères pour
+      // éviter le bruit sur des requêtes trop courtes.
+      const titleFuzzyOk = !titleSubstringOk && q.length >= 3
+        && titleFields.some((t) => titleSimilarity(q, t) >= 0.5);
+
+      const searchOk = !q
+        || titleSubstringOk
+        || titleFuzzyOk
+        || (e.genres || []).some((g) => g.toLowerCase().includes(qLower))
+        || (e.notes || "").toLowerCase().includes(qLower);
       return statusOk && favOk && calendarOk && searchOk;
     });
   }, [byType, selectedStatuses, searchQuery, showFavoritesOnly, favoritesEntryIds, showCalendarOnly, isAiringThisWeek]);
@@ -253,7 +264,7 @@ export function Home() {
 
   const isSearchActive = searchQuery.trim().length > 0;
   const gridKey = `${typeFilter}-${selectedStatuses.join(",")}-${searchQuery}-${showFavoritesOnly}-${showCalendarOnly}-${sortBy}`;
-  const activeFilterCount = selectedStatuses.length + (showCalendarOnly ? 1 : 0) + (sortBy !== "date" ? 1 : 0);
+  const activeFilterCount = selectedStatuses.length + (sortBy !== "date" ? 1 : 0);
 
   return (
     <div className="min-h-screen bg-violet-950 text-violet-50 flex flex-col"
@@ -274,21 +285,36 @@ export function Home() {
             syncProgress={progress} onSyncClick={() => syncAll(true)}
           />
 
-          {/* ── Barre de contrôles : Favoris + Filtres ── */}
-          <div className="flex flex-wrap items-center gap-2 mt-3 mb-4">
-            {/* Favoris */}
-            <button
-              onClick={() => { haptics.tap(); setShowFavoritesOnly(v => !v); }}
-              className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-mono border flex-shrink-0
-                transition-all active:scale-95 motion-reduce:transition-none ${showFavoritesOnly
-                  ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
-                  : "bg-white/5 border-white/10 text-violet-400 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400"}`}
-            >
-              <Heart size={12} className="flex-shrink-0" fill={showFavoritesOnly ? "currentColor" : "none"} />
-              Favoris
-            </button>
+          {/* ── Barre de contrôles : Favoris + Cette semaine + Filtres ── */}
+          <div className="flex flex-wrap items-center justify-between gap-2 mt-3 mb-4">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Favoris */}
+              <button
+                onClick={() => { haptics.tap(); setShowFavoritesOnly(v => !v); }}
+                className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-mono border flex-shrink-0
+                  transition-all active:scale-95 motion-reduce:transition-none ${showFavoritesOnly
+                    ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
+                    : "bg-white/5 border-white/10 text-violet-400 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400"}`}
+              >
+                <Heart size={12} className="flex-shrink-0" fill={showFavoritesOnly ? "currentColor" : "none"} />
+                Favoris
+              </button>
 
-            {/* Filtres (statut + semaine + tri) regroupés ── */}
+              {/* Cette semaine */}
+              <button
+                onClick={() => { haptics.tap(); setShowCalendarOnly(v => !v); }}
+                disabled={airingIds.size === 0}
+                className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-mono border flex-shrink-0
+                  transition-all active:scale-95 motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed ${showCalendarOnly
+                    ? "bg-teal-500/20 border-teal-500/40 text-teal-300"
+                    : "bg-white/5 border-white/10 text-violet-400 hover:bg-teal-500/10 hover:border-teal-500/30 hover:text-teal-400"}`}
+              >
+                <CalendarDays size={12} className="flex-shrink-0" />
+                Cette semaine
+              </button>
+            </div>
+
+            {/* Filtres (statut + tri) regroupés ── */}
             <button
               onClick={() => { haptics.tap(); setShowFilterPanel(true); }}
               className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-mono border flex-shrink-0
@@ -475,8 +501,6 @@ export function Home() {
             key="filter-panel"
             selectedStatuses={selectedStatuses} onToggleStatus={toggleStatus}
             onClearStatuses={() => setSelectedStatuses([])}
-            showCalendarOnly={showCalendarOnly} onToggleCalendar={() => setShowCalendarOnly(v => !v)}
-            calendarDisabled={airingIds.size === 0}
             sortBy={sortBy} onSortChange={setSortBy}
             onClose={() => setShowFilterPanel(false)}
           />

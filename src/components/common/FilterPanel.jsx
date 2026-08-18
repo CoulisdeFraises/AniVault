@@ -1,4 +1,4 @@
-import { X, CalendarDays } from "lucide-react";
+import { X } from "lucide-react";
 import { Modal } from "../Modal/Modal";
 import { STATUS, STATUS_ORDER } from "../../utils/status";
 
@@ -37,7 +37,6 @@ const SORT_OPTIONS = [
  */
 export function FilterPanel({
   selectedStatuses, onToggleStatus, onClearStatuses,
-  showCalendarOnly, onToggleCalendar, calendarDisabled,
   sortBy, onSortChange,
   onClose,
 }) {
@@ -73,16 +72,6 @@ export function FilterPanel({
                 </Chip>
               ))}
             </div>
-          </div>
-
-          {/* ── Période (cumulatif) ── */}
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-2.5">Période</p>
-            <Chip active={showCalendarOnly} onClick={onToggleCalendar} disabled={calendarDisabled}
-              colorClass="bg-teal-500/20 border-teal-500/40 text-teal-300">
-              <CalendarDays size={12} className="flex-shrink-0" />
-              Cette semaine
-            </Chip>
           </div>
 
           {/* ── Tri (exclusif) ── */}

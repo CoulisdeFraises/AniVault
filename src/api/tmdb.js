@@ -255,6 +255,7 @@ export async function fetchTMDBDiscoverMovies(genreIds = [], excludeTmdbIds = []
           source:      "tmdb_movie",
           id:          m.id,
           title:       m.title || m.original_title,
+          titleAlt:    [m.original_title].filter(Boolean), // ← pour le matching anti-doublons
           image:       m.poster_path ? `https://image.tmdb.org/t/p/w342${m.poster_path}` : null,
           year:        m.release_date ? parseInt(m.release_date.slice(0, 4)) : null,
           score:       m.vote_average ? Math.round(m.vote_average * 10) : 0,
@@ -287,6 +288,7 @@ export async function fetchTMDBDiscoverSeries(genreIds = [], excludeTmdbIds = []
           source:      "tmdb_tv",
           id:          s.id,
           title:       s.name || s.original_name,
+          titleAlt:    [s.original_name].filter(Boolean), // ← pour le matching anti-doublons
           image:       s.poster_path ? `https://image.tmdb.org/t/p/w342${s.poster_path}` : null,
           year:        s.first_air_date ? parseInt(s.first_air_date.slice(0, 4)) : null,
           score:       s.vote_average ? Math.round(s.vote_average * 10) : 0,
@@ -363,6 +365,7 @@ function mapTmdbMovie(m) {
     source:      "tmdb_movie",
     id:          m.id,
     title:       m.title || m.original_title,
+    titleAlt:    [m.original_title].filter(Boolean), // ← pour le matching anti-doublons
     image:       m.poster_path ? `https://image.tmdb.org/t/p/w342${m.poster_path}` : null,
     year:        m.release_date ? parseInt(m.release_date.slice(0, 4)) : null,
     score:       m.vote_average ? Math.round(m.vote_average * 10) : 0,
@@ -377,6 +380,7 @@ function mapTmdbSeries(s) {
     source:      "tmdb_tv",
     id:          s.id,
     title:       s.name || s.original_name,
+    titleAlt:    [s.original_name].filter(Boolean), // ← pour le matching anti-doublons
     image:       s.poster_path ? `https://image.tmdb.org/t/p/w342${s.poster_path}` : null,
     year:        s.first_air_date ? parseInt(s.first_air_date.slice(0, 4)) : null,
     score:       s.vote_average ? Math.round(s.vote_average * 10) : 0,

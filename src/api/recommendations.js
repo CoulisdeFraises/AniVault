@@ -17,6 +17,7 @@ function mapMedia(m) {
     source:      "anilist",
     id:          m.id,
     title:       m.title.english || m.title.romaji,
+    titleAlt:    [m.title.romaji, m.title.english].filter(Boolean), // ← pour le matching anti-doublons
     image:       m.coverImage?.large,
     genres:      m.genres || [],
     episodes:    m.episodes,
