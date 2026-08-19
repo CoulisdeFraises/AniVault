@@ -87,6 +87,7 @@ export function Recommendations() {
   const [synopsisRec,  setSynopsisRec]  = useState(null);
   const [surpriseOpen, setSurpriseOpen] = useState(false); // ← carte ouverte via "Surprends-moi" → shake
   const [refreshNotice, setRefreshNotice] = useState(""); // message discret, auto-effacé
+  const [swipeDir, setSwipeDir] = useState(1); // 1 = vers la droite (onglet suivant), -1 = vers la gauche — pilote le sens de l'animation de transition
 
   // ── « Surprends-moi » ──────────────────────────────────────────────────────
   const [rolling,   setRolling]   = useState(false);
@@ -551,6 +552,63 @@ export function Recommendations() {
   const canSurprise    = activeTab === "anime" ? true : hasTMDB();
   const DiceIcon        = rolling ? DICE_FACES[diceFace] : Dices;
 
+  // ── Changement d'onglet (bouton ou swipe) ───────────────────────────────
+  // Centralisé ici pour que le sélecteur à onglets et le geste de swipe
+  // déclenchent exactement le même comportement (reset recs/erreur/notice)
+  // et animent la transition dans le bon sens.
+  function switchTab(key) {
+    if (key === activeTab) return;
+    const fromIdx = TABS.findIndex((t) => t.key === activeTab);
+    const toIdx   = TABS.findIndex((t) => t.key === key);
+    setSwipeDir(toIdx > fromIdx ? 1 : -1);
+    setActiveTab(key);
+    setRecs([]);
+    setError("");
+    setRefreshNotice("");
+  }
+
+  // ── Swipe horizontal pour naviguer entre Animes / Séries / Films ───────────
+  // Implémenté à la main (touchstart/touchend) plutôt qu'avec le drag de
+  // framer-motion, pour ne pas interférer avec le scroll vertical normal de
+  // la grille ni avec le geste de PullToRefresh (qui n'observe que le delta
+  // vertical — un swipe horizontal ne l'arme jamais). Seuil de distance +
+  // exigence de netteté (horizontal nettement dominant sur le vertical)
+  // pour ne pas confondre un swipe avec un simple scroll ou un tap sur une
+  // carte.
+  const swipeStartRef = useRef(null); // { x, y }
+
+  function handleContentTouchStart(e) {
+    if (e.touches.length !== 1) { swipeStartRef.current = null; return; }
+    swipeStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }
+
+  function handleContentTouchEnd(e) {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (!start) return;
+
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+
+    const SWIPE_THRESHOLD = 55; // px minimum pour compter comme un swipe intentionnel
+    if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+
+    const currentIdx = TABS.findIndex((t) => t.key === activeTab);
+    // Swipe vers la gauche (dx < 0) → onglet suivant ; vers la droite → précédent.
+    const nextIdx = currentIdx + (dx < 0 ? 1 : -1);
+    if (nextIdx < 0 || nextIdx >= TABS.length) return; // pas de wrap en bout de liste
+
+    haptics.tap();
+    switchTab(TABS[nextIdx].key);
+  }
+
+  const slideVariants = {
+    enter:  (dir) => ({ x: dir > 0 ? 36 : -36, opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit:   (dir) => ({ x: dir > 0 ? -36 : 36, opacity: 0 }),
+  };
+
   return (
     <div className="h-[100dvh] bg-violet-950 text-violet-50 flex flex-col overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
 
@@ -578,7 +636,7 @@ export function Recommendations() {
             {TABS.map(({ key, label, Icon }) => (
               <button
                 key={key}
-                onClick={() => { if (activeTab !== key) { setActiveTab(key); setRecs([]); setError(""); setRefreshNotice(""); } }}
+                onClick={() => switchTab(key)}
                 className={`relative flex items-center gap-1.5 px-5 py-1.5 rounded-full text-xs font-medium transition-colors duration-200
                   active:scale-95 motion-reduce:transition-none ${
                   activeTab === key
@@ -665,52 +723,70 @@ export function Recommendations() {
           overflow-y-auto et y attache le geste, cf. findScrollableAncestor
           dans PullToRefresh.jsx. ══ */}
       <PullToRefresh onRefresh={handlePullRefresh} className="flex-1 min-h-0 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-nav">
+        <div
+          className="max-w-4xl mx-auto px-4 sm:px-6 pb-nav overflow-x-hidden"
+          onTouchStart={handleContentTouchStart}
+          onTouchEnd={handleContentTouchEnd}
+        >
 
-          {/* ── Contenu principal ── */}
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-32 gap-3">
-              <Loader2 size={28} className="animate-spin text-violet-400" />
-              <p className="text-sm text-violet-400 font-mono">Recherche de recommandations…</p>
-            </div>
+          {/* ── Contenu principal ──
+              AnimatePresence + clé sur activeTab : glissement latéral fluide
+              au changement d'onglet (swipe ou clic), dans le sens du geste. */}
+          <AnimatePresence mode="wait" initial={false} custom={swipeDir}>
+            <motion.div
+              key={activeTab}
+              custom={swipeDir}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ type: "tween", duration: 0.16, ease: "easeOut" }}
+            >
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-32 gap-3">
+                  <Loader2 size={28} className="animate-spin text-violet-400" />
+                  <p className="text-sm text-violet-400 font-mono">Recherche de recommandations…</p>
+                </div>
 
-          ) : isNoTmdb ? (
-            <div className="text-center py-20 rounded-2xl border border-dashed border-white/10 animate-fadeIn">
-              <Clapperboard size={32} className="text-violet-500 mx-auto mb-3" />
-              <p className="text-violet-300 mb-2">Clé TMDB requise</p>
-              <p className="text-sm text-violet-500 max-w-xs mx-auto leading-relaxed">
-                Ajoute ta clé dans{" "}
-                <span className="font-mono text-violet-300">.env.local</span> :{" "}
-                <span className="font-mono text-amber-400">VITE_TMDB_TOKEN=…</span>
-              </p>
-            </div>
+              ) : isNoTmdb ? (
+                <div className="text-center py-20 rounded-2xl border border-dashed border-white/10 animate-fadeIn">
+                  <Clapperboard size={32} className="text-violet-500 mx-auto mb-3" />
+                  <p className="text-violet-300 mb-2">Clé TMDB requise</p>
+                  <p className="text-sm text-violet-500 max-w-xs mx-auto leading-relaxed">
+                    Ajoute ta clé dans{" "}
+                    <span className="font-mono text-violet-300">.env.local</span> :{" "}
+                    <span className="font-mono text-amber-400">VITE_TMDB_TOKEN=…</span>
+                  </p>
+                </div>
 
-          ) : error ? (
-            <div className="text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">
-              {error}
-            </div>
+              ) : error ? (
+                <div className="text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">
+                  {error}
+                </div>
 
-          ) : displayGenres.length === 0 && activeTab === "anime" ? (
-            <div className="text-center py-20 rounded-2xl border border-dashed border-white/10">
-              <Film size={32} className="text-violet-500 mx-auto mb-3" />
-              <p className="text-violet-300 mb-1">Pas encore assez de données</p>
-              <p className="text-sm text-violet-500">
-                Ajoute des titres à ta bibliothèque pour recevoir des recommandations.
-              </p>
-            </div>
+              ) : displayGenres.length === 0 && activeTab === "anime" ? (
+                <div className="text-center py-20 rounded-2xl border border-dashed border-white/10">
+                  <Film size={32} className="text-violet-500 mx-auto mb-3" />
+                  <p className="text-violet-300 mb-1">Pas encore assez de données</p>
+                  <p className="text-sm text-violet-500">
+                    Ajoute des titres à ta bibliothèque pour recevoir des recommandations.
+                  </p>
+                </div>
 
-          ) : dedupedRecs.length === 0 ? (
-            <div className="text-center py-20">
-              <p className="text-violet-400">Aucune recommandation trouvée pour ces genres.</p>
-            </div>
+              ) : dedupedRecs.length === 0 ? (
+                <div className="text-center py-20">
+                  <p className="text-violet-400">Aucune recommandation trouvée pour ces genres.</p>
+                </div>
 
-          ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 sm:gap-3">
-              {dedupedRecs.map((rec) => (
-                <RecCard key={`${rec.source}-${rec.id}`} rec={rec} onClick={() => { setSurpriseOpen(false); setSynopsisRec(rec); }} />
-              ))}
-            </div>
-          )}
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 sm:gap-3">
+                  {dedupedRecs.map((rec) => (
+                    <RecCard key={`${rec.source}-${rec.id}`} rec={rec} onClick={() => { setSurpriseOpen(false); setSynopsisRec(rec); }} />
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
 
         </div>
       </PullToRefresh>
