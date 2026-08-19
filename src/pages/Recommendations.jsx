@@ -456,7 +456,7 @@ export function Recommendations() {
         seen.add(key);
         return true;
       })
-      .slice(0, 24);
+      .slice(0, 15);
   }, [recs, libraryIds, libraryTmdbIds, libraryTitles, crossDupKeys, resolvedTitles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ajout rapide : import + sauvegarde directe en "à voir", sans passer par
