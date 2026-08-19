@@ -251,7 +251,7 @@ export async function fetchTMDBDiscoverMovies(genreIds = [], excludeTmdbIds = []
       const json = await res.json();
       return (json.results || [])
         .filter((m) => !excludeTmdbIds.includes(m.id))
-        .slice(0, 32)
+        .slice(0, 40)
         .map((m) => ({
           source:      "tmdb_movie",
           id:          m.id,
@@ -284,7 +284,7 @@ export async function fetchTMDBDiscoverSeries(genreIds = [], excludeTmdbIds = []
       const json = await res.json();
       return (json.results || [])
         .filter((s) => !excludeTmdbIds.includes(s.id))
-        .slice(0, 32)
+        .slice(0, 40)
         .map((s) => ({
           source:      "tmdb_tv",
           id:          s.id,

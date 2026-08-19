@@ -110,7 +110,7 @@ export function Recommendations() {
       const w = (e.status === "termine" || e.status === "en-cours") ? 2 : 1;
       (e.genres || []).forEach((g) => { tally[g] = (tally[g] || 0) + w; });
     });
-    return Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([g]) => g);
+    return Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 7).map(([g]) => g);
   }, [entries]);
 
   const animeTopGenresEN = useMemo(() => toEnglishGenres(animeTopGenres), [animeTopGenres]);
@@ -177,7 +177,7 @@ export function Recommendations() {
         const key = `${rec.source}:${rec.id}`;
 
         if (rec.source === "anilist") {
-          const match = await findTmdbMovie(...(rec.titleAlt || []), rec.title);
+          const match = await findTmdbMovie([...(rec.titleAlt || []), rec.title], rec.year ?? null);
           if (!match) return null;
           const matchNormTitle = normalizeSeriesTitle(match.title);
           const isDup = libraryTmdbIds.has(match.id)
@@ -188,7 +188,7 @@ export function Recommendations() {
           return { key, resolvedTitle: match.title, isDup };
         }
 
-        const match = await findAniListMovie(...(rec.titleAlt || []), rec.title);
+        const match = await findAniListMovie([...(rec.titleAlt || []), rec.title], rec.year ?? null);
         if (!match) return null;
         const matchTitle = match.titleEnglish || match.titleRomaji || match.title;
         const matchNormTitle = normalizeSeriesTitle(matchTitle);
@@ -456,7 +456,7 @@ export function Recommendations() {
         seen.add(key);
         return true;
       })
-      .slice(0, 20);
+      .slice(0, 24);
   }, [recs, libraryIds, libraryTmdbIds, libraryTitles, crossDupKeys, resolvedTitles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ajout rapide : import + sauvegarde directe en "à voir", sans passer par
@@ -552,110 +552,120 @@ export function Recommendations() {
   const DiceIcon        = rolling ? DICE_FACES[diceFace] : Dices;
 
   return (
-    <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <PullToRefresh onRefresh={handlePullRefresh}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-nav pt-safe-8">
+    <div className="h-[100dvh] bg-violet-950 text-violet-50 flex flex-col overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
 
-          {/* ── En-tête ── */}
-          <div className="flex items-start justify-between flex-wrap gap-3 mb-6">
-            <div className="min-w-0">
-              <button onClick={() => navigate(-1)}
-                className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 transition-colors mb-2">
-                <ChevronLeft size={16} /> Retour
-              </button>
-              <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">Basé sur tes goûts</p>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                Recommandations
-              </h1>
-            </div>
-            <TopBar />
+      {/* ══ Zone fixe (non scrollable) : en-tête, onglets, genres, surprise, bannières ══ */}
+      <div className="flex-shrink-0 max-w-4xl w-full mx-auto px-4 sm:px-6 pt-safe-8">
+
+        {/* ── En-tête ── */}
+        <div className="flex items-start justify-between flex-wrap gap-3 mb-6">
+          <div className="min-w-0">
+            <button onClick={() => navigate(-1)}
+              className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 transition-colors mb-2">
+              <ChevronLeft size={16} /> Retour
+            </button>
+            <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">Basé sur tes goûts</p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+              Recommandations
+            </h1>
           </div>
+          <TopBar />
+        </div>
 
-          {/* ── Sélecteur Anime / Séries / Films ── */}
-          <div className="flex justify-center mb-6">
-            <div className="inline-flex rounded-full bg-white/5 border border-white/10 p-0.5">
-              {TABS.map(({ key, label, Icon }) => (
-                <button
-                  key={key}
-                  onClick={() => { if (activeTab !== key) { setActiveTab(key); setRecs([]); setError(""); setRefreshNotice(""); } }}
-                  className={`relative flex items-center gap-1.5 px-5 py-1.5 rounded-full text-xs font-medium transition-colors duration-200
-                    active:scale-95 motion-reduce:transition-none ${
-                    activeTab === key
-                      ? "text-violet-950 font-semibold"
-                      : "text-violet-300 hover:text-violet-100"
-                  }`}
-                >
-                  {activeTab === key && (
-                    <motion.span
-                      layoutId="recs-tab-pill"
-                      className="absolute inset-0 bg-amber-400 rounded-full shadow-sm"
-                      transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                    />
-                  )}
-                  <span className="relative z-10 flex items-center gap-1.5"><Icon size={12} />{label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Genres utilisés ──
-              Sur mobile, l'encart tient sur une seule ligne : on passe en
-              défilement horizontal (flex-nowrap + overflow-x-auto) plutôt que
-              de laisser les badges retomber à la ligne. À partir de sm, il y a
-              assez de largeur pour repasser en flex-wrap classique. */}
-          {displayGenres.length > 0 && (
-            <div className="flex flex-nowrap sm:flex-wrap items-center gap-2 mb-5 overflow-x-auto sm:overflow-visible scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
-              <span className="flex-shrink-0 whitespace-nowrap text-[11px] text-violet-400 font-mono uppercase tracking-wide">Basé sur :</span>
-              {displayGenres.map((g) => (
-                <span key={g}
-                  className="flex-shrink-0 whitespace-nowrap px-2.5 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[11px] font-mono">
-                  {g}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* ── Surprends-moi ── */}
-          {!loading && !isNoTmdb && !error && (
-            <div className="flex justify-center mb-5">
+        {/* ── Sélecteur Anime / Séries / Films ── */}
+        <div className="flex justify-center mb-6">
+          <div className="inline-flex rounded-full bg-white/5 border border-white/10 p-0.5">
+            {TABS.map(({ key, label, Icon }) => (
               <button
-                onClick={handleSurpriseMe}
-                disabled={rolling || !canSurprise}
-                title={canSurprise ? undefined : "Pas encore assez de données pour cet onglet"}
-                className={`flex items-center gap-2 px-5 py-2 rounded-full border text-xs font-mono uppercase tracking-wide
-                  transition-all active:scale-95 motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed ${
-                  rolling
-                    ? "bg-amber-400/20 border-amber-400/40 text-amber-300"
-                    : "bg-white/5 border-white/10 text-violet-200 hover:bg-amber-400/10 hover:border-amber-400/30 hover:text-amber-300"
+                key={key}
+                onClick={() => { if (activeTab !== key) { setActiveTab(key); setRecs([]); setError(""); setRefreshNotice(""); } }}
+                className={`relative flex items-center gap-1.5 px-5 py-1.5 rounded-full text-xs font-medium transition-colors duration-200
+                  active:scale-95 motion-reduce:transition-none ${
+                  activeTab === key
+                    ? "text-violet-950 font-semibold"
+                    : "text-violet-300 hover:text-violet-100"
                 }`}
               >
-                <DiceIcon size={15} className={rolling ? "animate-diceShake" : ""} />
-                {rolling ? "Ça tourne…" : "Surprends-moi"}
+                {activeTab === key && (
+                  <motion.span
+                    layoutId="recs-tab-pill"
+                    className="absolute inset-0 bg-amber-400 rounded-full shadow-sm"
+                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-1.5"><Icon size={12} />{label}</span>
               </button>
-            </div>
-          )}
+            ))}
+          </div>
+        </div>
 
-          {/* ── Bannière hors-ligne ── */}
-          {isStale && (
-            <div className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 text-sm animate-fadeIn">
-              <WifiOff size={14} className="flex-shrink-0" />
-              <span>Mode hors-ligne — données mises en cache affichées.</span>
-            </div>
-          )}
+        {/* ── Genres utilisés ──
+            Sur mobile, l'encart tient sur une seule ligne : on passe en
+            défilement horizontal (flex-nowrap + overflow-x-auto) plutôt que
+            de laisser les badges retomber à la ligne. À partir de sm, il y a
+            assez de largeur pour repasser en flex-wrap classique. */}
+        {displayGenres.length > 0 && (
+          <div className="flex flex-nowrap sm:flex-wrap items-center gap-2 mb-5 overflow-x-auto sm:overflow-visible scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+            <span className="flex-shrink-0 whitespace-nowrap text-[11px] text-violet-400 font-mono uppercase tracking-wide">Basé sur :</span>
+            {displayGenres.map((g) => (
+              <span key={g}
+                className="flex-shrink-0 whitespace-nowrap px-2.5 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[11px] font-mono">
+                {g}
+              </span>
+            ))}
+          </div>
+        )}
 
-          {/* ── Confirmation d'ajout rapide ── */}
-          {addedToast && (
-            <div className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl bg-emerald-400/10 border border-emerald-400/20 text-emerald-300 text-sm animate-fadeIn">
-              <span>✓ Ajouté à ta bibliothèque.</span>
-            </div>
-          )}
+        {/* ── Surprends-moi ── */}
+        {!loading && !isNoTmdb && !error && (
+          <div className="flex justify-center mb-5">
+            <button
+              onClick={handleSurpriseMe}
+              disabled={rolling || !canSurprise}
+              title={canSurprise ? undefined : "Pas encore assez de données pour cet onglet"}
+              className={`flex items-center gap-2 px-5 py-2 rounded-full border text-xs font-mono uppercase tracking-wide
+                transition-all active:scale-95 motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed ${
+                rolling
+                  ? "bg-amber-400/20 border-amber-400/40 text-amber-300"
+                  : "bg-white/5 border-white/10 text-violet-200 hover:bg-amber-400/10 hover:border-amber-400/30 hover:text-amber-300"
+              }`}
+            >
+              <DiceIcon size={15} className={rolling ? "animate-diceShake" : ""} />
+              {rolling ? "Ça tourne…" : "Surprends-moi"}
+            </button>
+          </div>
+        )}
 
-          {/* ── Notice de rafraîchissement sans nouvelles suggestions ── */}
-          {refreshNotice && (
-            <div className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-300 text-sm animate-fadeIn">
-              <span>{refreshNotice}</span>
-            </div>
-          )}
+        {/* ── Bannière hors-ligne ── */}
+        {isStale && (
+          <div className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 text-sm animate-fadeIn">
+            <WifiOff size={14} className="flex-shrink-0" />
+            <span>Mode hors-ligne — données mises en cache affichées.</span>
+          </div>
+        )}
+
+        {/* ── Confirmation d'ajout rapide ── */}
+        {addedToast && (
+          <div className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl bg-emerald-400/10 border border-emerald-400/20 text-emerald-300 text-sm animate-fadeIn">
+            <span>✓ Ajouté à ta bibliothèque.</span>
+          </div>
+        )}
+
+        {/* ── Notice de rafraîchissement sans nouvelles suggestions ── */}
+        {refreshNotice && (
+          <div className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-300 text-sm animate-fadeIn">
+            <span>{refreshNotice}</span>
+          </div>
+        )}
+      </div>
+
+      {/* ══ Encart scrollable : uniquement les cartes. Le pull-to-refresh se
+          déclenche depuis le haut de CET encart (pas depuis le haut de la
+          page) — PullToRefresh détecte lui-même ce conteneur interne via son
+          overflow-y-auto et y attache le geste, cf. findScrollableAncestor
+          dans PullToRefresh.jsx. ══ */}
+      <PullToRefresh onRefresh={handlePullRefresh} className="flex-1 min-h-0 overflow-y-auto">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-nav">
 
           {/* ── Contenu principal ── */}
           {loading ? (

@@ -57,7 +57,8 @@ export async function importResult(result) {
     const isAnimatedFilm = (result.genreIds || []).includes(16);
     const anilistMatch = isAnimatedFilm
       ? await findAniListMovie(
-          result.originalTitle, ...(result.titleAlt || []), result.title
+          [result.originalTitle, ...(result.titleAlt || []), result.title],
+          result.year ?? null
         ).catch(() => null)
       : null;
 

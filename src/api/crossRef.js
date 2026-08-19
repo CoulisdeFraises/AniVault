@@ -23,22 +23,40 @@
 // Les résultats des deux fonctions ci-dessous passent déjà par le cache
 // existant de searchAniList/searchTMDBMovies, donc les appels répétés
 // (ex : au chargement de la page recommandations) restent bon marché.
-
+//
+// GARDE-FOU : on ne peut PAS valider un match en comparant le texte du
+// titre cherché à celui du résultat — c'est précisément parce que ces deux
+// titres sont censés être différents (langues différentes) que la
+// recherche croisée existe. Un texte proche prouverait juste que la
+// recherche a mal cherché. À la place, on valide par l'ANNÉE de sortie,
+// un signal fiable et indépendant de la langue que les deux APIs exposent.
+// Sans ce garde-fou, la recherche plein-texte de TMDB peut remonter un
+// résultat sans rapport dont le titre partage juste quelques mots avec la
+// requête (ex : chercher « Weathering With You » a pu remonter un ouvrage
+// sur le modélisme ferroviaire titré « Weathering Railroad Models With
+// Malcolm Furlow » — même mot "weathering", film totalement différent).
 import { searchTMDBMovies } from "./tmdb";
 import { searchAniList }    from "./anilist";
+
+function isPlausibleYear(expectedYear, candidateYear) {
+  if (expectedYear == null || candidateYear == null) return true; // pas assez d'info pour trancher, on garde le comportement précédent
+  return Math.abs(expectedYear - candidateYear) <= 1;
+}
 
 /**
  * Essaie de retrouver la fiche AniList d'un film, à partir d'une liste de
  * titres candidats (du plus fiable au moins fiable — idéalement le titre
- * original/romaji en premier, le titre affiché en dernier recours).
+ * original/romaji en premier, le titre affiché en dernier recours) et,
+ * si connue, de l'année de sortie attendue (filtre les faux positifs).
  * Retourne le meilleur résultat ({ id, title, ... }), ou null.
  */
-export async function findAniListMovie(...titles) {
+export async function findAniListMovie(titles, expectedYear = null) {
   for (const t of titles) {
     if (!t) continue;
     try {
       const results = await searchAniList(t);
-      if (results?.[0]) return results[0];
+      const top = results?.[0];
+      if (top && isPlausibleYear(expectedYear, top.year)) return top;
     } catch {
       // on tente le titre candidat suivant
     }
@@ -49,15 +67,17 @@ export async function findAniListMovie(...titles) {
 /**
  * Essaie de retrouver la fiche TMDB (film) correspondant à un titre
  * d'anime, à partir d'une liste de titres candidats (romaji/anglais en
- * priorité). Retourne le meilleur résultat ({ id, title, ... } — le titre
+ * priorité) et, si connue, de l'année de sortie attendue (filtre les faux
+ * positifs). Retourne le meilleur résultat ({ id, title, ... } — le titre
  * est déjà en français, TMDB étant interrogé en fr-FR), ou null.
  */
-export async function findTmdbMovie(...titles) {
+export async function findTmdbMovie(titles, expectedYear = null) {
   for (const t of titles) {
     if (!t) continue;
     try {
       const results = await searchTMDBMovies(t);
-      if (results?.[0]) return results[0];
+      const top = results?.[0];
+      if (top && isPlausibleYear(expectedYear, top.year)) return top;
     } catch {
       // on tente le titre candidat suivant
     }

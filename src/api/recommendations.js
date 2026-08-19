@@ -93,7 +93,7 @@ export async function fetchAniListRecommendations(genres = [], excludeAnilistIds
     return merged
       .filter((m) => !excludeAnilistIds.includes(m.id))
       .filter((m) => cultureMode || !m.isAdult)
-      .slice(0, 32)
+      .slice(0, 40)
       .map(mapMedia);
   } catch {
     return [];
@@ -204,7 +204,7 @@ function topGenresFromEntries(entries, type) {
   });
   return Object.entries(tally)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
+    .slice(0, 7)
     .map(([g]) => g);
 }
 
