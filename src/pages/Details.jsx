@@ -165,7 +165,8 @@ export function Details() {
     clearTimeout(celebrationTimerRef.current);
     setCelebration(payload);
     haptics.celebration();
-    celebrationTimerRef.current = setTimeout(() => setCelebration(null), payload.tier === "series" ? 4200 : 3200);
+    const duration = payload.tier === "series" ? 4200 : payload.tier === "caughtup" ? 1800 : 3200;
+    celebrationTimerRef.current = setTimeout(() => setCelebration(null), duration);
   }
 
   // ── Détection : une saison vient d'être terminée ────────────────────────────
@@ -191,28 +192,29 @@ export function Details() {
     prevSeasonWatchedRef.current = Object.fromEntries(entry.seasons.map((s, i) => [i, s.watchedEpisodes]));
   }, [entry?.seasons]); // eslint-disable-line
 
-  // ── Détection : la série entière vient d'être terminée ──────────────────────
-  useEffect(() => {
-    if (!entry) return;
-    const prev = prevStatusRef.current;
-    if (prev != null && prev !== "termine" && entry.status === "termine") {
-      triggerCelebration({ tier: "series", title: "Série terminée !", subtitle: entry.title });
-    }
-    prevStatusRef.current = entry.status;
-  }, [entry?.status]); // eslint-disable-line
-
-  // ── Prochain épisode prévu (AniList/TVmaze) ──────────────────────────────
-  // Un titre "Terminé" alors qu'un épisode est encore annoncé est incohérent
-  // (et bloquait la sync/les notifs, qui ignorent les titres "termine") :
-  // on récupère systématiquement l'info, y compris pour un titre déjà marqué
-  // terminé, et on corrige automatiquement le statut si besoin.
+  // ── Détection : la série entière vient d'être terminée (ou juste à jour) ───
+  // On fusionne cette détection avec la vérification "prochain épisode prévu" :
+  // impossible de savoir si passer à "termine" est une vraie fin de série ou
+  // juste un rattrapage sur une série toujours en production tant qu'on n'a
+  // pas interrogé AniList/TVmaze. On attend donc cette réponse avant de
+  // déclencher la célébration, plutôt que de célébrer puis corriger après coup.
   useEffect(() => {
     if (!entry) { setNextAiring(null); return; }
+
+    const becameTermine =
+      prevStatusRef.current != null &&
+      prevStatusRef.current !== "termine" &&
+      entry.status === "termine";
+    prevStatusRef.current = entry.status;
+
     if (entry.status === "abandonne") { setNextAiring(null); return; }
+
     if (!((entry.source === "anilist" && entry.anilistIds?.length) || (entry.source === "tvmaze" && entry.tvmazeId))) {
       setNextAiring(null);
+      if (becameTermine) triggerCelebration({ tier: "series", title: "Série terminée !", subtitle: entry.title });
       return;
     }
+
     let cancelled = false;
     (async () => {
       try {
@@ -220,9 +222,20 @@ export function Details() {
         if (cancelled) return;
         setNextAiring(r);
         if (r?.airingAt && entry.status === "termine") {
+          // Toujours en production : le statut "termine" était une fausse
+          // détection (rattrapage des épisodes déjà diffusés). On corrige et,
+          // si on venait juste de basculer, on affiche une célébration
+          // discrète "À jour !" plutôt que "Série terminée !".
           saveEntry({ ...entry, status: "en-cours" }, entry.id, true);
+          if (becameTermine) triggerCelebration({ tier: "caughtup", title: "À jour !", subtitle: entry.title });
+        } else if (becameTermine) {
+          triggerCelebration({ tier: "series", title: "Série terminée !", subtitle: entry.title });
         }
-      } catch (_) {}
+      } catch (_) {
+        // Requête échouée : on ne bloque pas la célébration d'une vraie fin
+        // de série pour un simple souci réseau.
+        if (becameTermine) triggerCelebration({ tier: "series", title: "Série terminée !", subtitle: entry.title });
+      }
     })();
     return () => { cancelled = true; };
   }, [entry?.id, entry?.source, entry?.status, entry?.anilistIds?.length, entry?.tvmazeId]); // eslint-disable-line
@@ -452,13 +465,13 @@ export function Details() {
 
   return (
     <>
-      <Confetti active={!!celebration} intensity={celebration?.tier === "series" ? "series" : "season"} />
+      <Confetti active={!!celebration} intensity={celebration?.tier ?? "season"} />
       <CelebrationBanner
         show={!!celebration}
         tier={celebration?.tier}
         title={celebration?.title}
         subtitle={celebration?.subtitle}
-        durationMs={celebration?.tier === "series" ? 4200 : 3200}
+        durationMs={celebration?.tier === "series" ? 4200 : celebration?.tier === "caughtup" ? 1800 : 3200}
       />
     <div
       className="fixed inset-0 z-50 text-violet-50 bg-black/60 backdrop-blur-sm

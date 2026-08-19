@@ -11,22 +11,28 @@ const SERIES_COLORS = [
 function rand(min, max) { return min + Math.random() * (max - min); }
 function pick(arr)       { return arr[Math.floor(Math.random() * arr.length)]; }
 
+// Palette "à jour" — très discrète, un seul ton doux
+const CAUGHTUP_COLORS = ["#38bdf8", "#7dd3fc", "#a78bfa"];
+
 /**
- * Confetti — pluie + burst + scintillements, avec deux intensités :
+ * Confetti — pluie + burst + scintillements, avec trois intensités :
+ *   - "caughtup" : à peine perceptible, pour un titre à jour mais toujours en production
  *   - "season" : célébration légère pour une saison terminée
  *   - "series" : célébration complète pour une série entièrement terminée
  */
 export function Confetti({ active, intensity = "series" }) {
-  const isFull = intensity === "series";
-  const colors = isFull ? SERIES_COLORS : SEASON_COLORS;
-  const scale  = isFull ? 1 : 0.45;
+  const isFull     = intensity === "series";
+  const isCaughtUp = intensity === "caughtup";
+  const colors = isCaughtUp ? CAUGHTUP_COLORS : isFull ? SERIES_COLORS : SEASON_COLORS;
+  const scale  = isCaughtUp ? 0.12 : isFull ? 1 : 0.45;
 
   const particles = useMemo(() => {
     if (!active) return [];
     const list = [];
 
     // ── Vague 1 : pluie classique depuis le haut ─────────────────────────
-    const rainCount = Math.round(65 * scale);
+    // Pas de pluie ni de burst pour "à jour" : juste quelques scintillements.
+    const rainCount = isCaughtUp ? 0 : Math.round(65 * scale);
     for (let i = 0; i < rainCount; i++) {
       const shape    = pick(["square", "circle", "ribbon"]);
       const baseSize = rand(5, isFull ? 13 : 10);
@@ -43,7 +49,7 @@ export function Confetti({ active, intensity = "series" }) {
     }
 
     // ── Vague 2 : burst façon feu d'artifice depuis le bas-centre ────────
-    const burstCount = Math.round(45 * scale);
+    const burstCount = isCaughtUp ? 0 : Math.round(45 * scale);
     for (let i = 0; i < burstCount; i++) {
       const angle    = rand(-175, -5);
       const power    = rand(isFull ? 60 : 40, isFull ? 320 : 180);
@@ -63,14 +69,15 @@ export function Confetti({ active, intensity = "series" }) {
     }
 
     // ── Vague 3 : mini scintillements dorés retardés ─────────────────────
-    const sparkleCount = Math.round(20 * scale);
+    // Pour "à jour" : quelques scintillements doux au centre, teinte sobre.
+    const sparkleCount = isCaughtUp ? 7 : Math.round(20 * scale);
     for (let i = 0; i < sparkleCount; i++) {
       list.push({
         id: `sparkle-${i}`, type: "sparkle",
-        x: rand(15, 85), top: rand(15, 65),
-        color: pick(["#fbbf24", "#facc15", "#fde68a", "#ffffff"]),
-        delay: rand(0.4, isFull ? 2.0 : 1.1), duration: rand(0.6, 1.2),
-        size: rand(3, isFull ? 7 : 5.5),
+        x: isCaughtUp ? rand(35, 65) : rand(15, 85), top: isCaughtUp ? rand(30, 50) : rand(15, 65),
+        color: isCaughtUp ? pick(CAUGHTUP_COLORS) : pick(["#fbbf24", "#facc15", "#fde68a", "#ffffff"]),
+        delay: rand(0.2, isCaughtUp ? 0.9 : isFull ? 2.0 : 1.1), duration: rand(0.6, 1.2),
+        size: isCaughtUp ? rand(2.5, 4) : rand(3, isFull ? 7 : 5.5),
       });
     }
 
