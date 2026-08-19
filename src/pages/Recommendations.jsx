@@ -15,7 +15,7 @@ import {
   fetchTMDBSeriesRecommendations,
   fetchAniListRandomTitle,
 } from "../api/recommendations";
-import { hasTMDB, fetchTMDBRandomMovie, fetchTMDBRandomSeries } from "../api/tmdb";
+import { hasTMDB, fetchTMDBRandomMovie, fetchTMDBRandomSeries, fetchTMDBMovieTitles } from "../api/tmdb";
 import { findAniListMovie, findTmdbMovie } from "../api/crossRef";
 import { importResult }        from "../api";
 import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
@@ -128,6 +128,57 @@ export function Recommendations() {
   }, [entries]);
   const libraryTitleList = useMemo(() => [...libraryTitles], [libraryTitles]);
 
+  // ── Titres alternatifs des films de la bibliothèque (résolus par ID) ───────
+  // Pour chaque film de la bibliothèque ajouté via TMDB (tmdbId connu), on
+  // récupère son titre anglais + original directement par ID (fiable, pas
+  // de recherche floue) — comparable aux titres romaji/anglais qu'expose
+  // AniList. C'est la vérification PRINCIPALE pour détecter qu'une reco
+  // anime-film est déjà en bibliothèque : chercher par TEXTE le titre
+  // anglais d'un anime sur TMDB s'est révélé peu fiable (son classement par
+  // pertinence peut remonter un résultat sans rapport — cf. le faux match
+  // « Weathering Railroad Models... » pour « Weathering With You »),
+  // alors qu'ici on part de l'ID déjà connu, donc aucune ambiguïté.
+  const [libraryMovieAltTitles, setLibraryMovieAltTitles] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function run() {
+      const movies = entries.filter((e) => e.category === "movie" && e.tmdbId);
+      if (!movies.length) { if (!cancelled) setLibraryMovieAltTitles([]); return; }
+
+      const settled = await Promise.allSettled(
+        movies.slice(0, 60).map((e) => fetchTMDBMovieTitles(e.tmdbId))
+      );
+      if (cancelled) return;
+
+      setLibraryMovieAltTitles(
+        settled.filter((r) => r.status === "fulfilled" && r.value).map((r) => r.value)
+      );
+    }
+
+    run();
+    return () => { cancelled = true; };
+  }, [entries]);
+
+  // Une reco anime-film correspond-elle à un film de la bibliothèque sous
+  // son titre anglais/original ? Comparaison synchrone, déjà résolue par
+  // l'effet ci-dessus — pas d'appel réseau ici.
+  function matchesLibraryMovieByAltTitle(rec) {
+    if (rec.source !== "anilist" || rec.format !== "MOVIE" || !libraryMovieAltTitles.length) return false;
+    const recTitles = [rec.title, ...(rec.titleAlt || [])].filter(Boolean).map(normalizeSeriesTitle);
+    return libraryMovieAltTitles.some((m) => {
+      // Filet de sécurité par année : un même film a (quasi) la même année
+      // des deux côtés — écarte un match texte accidentel entre deux films
+      // différents partageant des mots communs.
+      if (rec.year != null && m.year != null && Math.abs(rec.year - m.year) > 1) return false;
+      const mTitles = [m.title, m.originalTitle].filter(Boolean).map(normalizeSeriesTitle);
+      return recTitles.some((rt) =>
+        mTitles.some((mt) => rt === mt || titleSimilarity(rt, mt) >= 0.75)
+      );
+    });
+  }
+
   // ── Anti-doublons croisés (films uniquement) ────────────────────────────
   // Un même film peut être présent dans la bibliothèque sous un ID/titre
   // totalement différent selon la source d'ajout (ex : ajouté via TMDB sous
@@ -164,6 +215,7 @@ export function Recommendations() {
           if (!isAnimeMovie && !isTmdbMovie) return false;
           if (libraryIds.has(rec.id)) return false;
           if (isTmdbMovie && libraryTmdbIds.has(rec.id)) return false;
+          if (isAnimeMovie && matchesLibraryMovieByAltTitle(rec)) return false; // déjà détecté, fiable
           const normTitles = [rec.title, ...(rec.titleAlt || [])].map(normalizeSeriesTitle);
           return !normTitles.some((t) => libraryTitles.has(t));
         })
@@ -214,7 +266,7 @@ export function Recommendations() {
 
     run();
     return () => { cancelled = true; };
-  }, [recs, libraryIds, libraryTmdbIds, libraryTitles]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [recs, libraryIds, libraryTmdbIds, libraryTitles, libraryMovieAltTitles]); // eslint-disable-line react-hooks/exhaustive-deps
   const animeCacheKey    = useMemo(
     () => `recs_en_${[...animeTopGenresEN].sort().join("_")}`,
     [animeTopGenresEN]
@@ -404,21 +456,26 @@ export function Recommendations() {
   }, [addedToast]);
 
   // Vérifie l'appartenance à la bibliothèque quelle que soit la source
-  // (AniList ou TMDB), en 3 passes de plus en plus tolérantes :
+  // (AniList ou TMDB), en 4 passes de plus en plus tolérantes :
   //  1. ID exact (le plus fiable)
-  //  2. Titre normalisé exact — inclut désormais le(s) titre(s) alternatif(s)
+  //  2. Titres alternatifs des films de bibliothèque résolus par ID TMDB
+  //     (matchesLibraryMovieByAltTitle) — la vérification la plus fiable
+  //     pour les recos anime-films : pas de recherche floue, on part
+  //     directement de l'ID connu du film en bibliothèque.
+  //  3. Titre normalisé exact — inclut désormais le(s) titre(s) alternatif(s)
   //     de la reco (titleAlt : romaji/anglais/original_title côté TMDB), pas
   //     seulement son titre d'affichage, pour attraper les cas où l'entrée
   //     de bibliothèque a été enregistrée sous un autre titre que celui
   //     renvoyé par la reco (ex : ajoutée sous son titre anglais, reproposée
   //     sous son titre romaji, ou l'inverse).
-  //  3. Similarité floue (fuzzy) en filet de sécurité, pour les variantes
+  //  4. Similarité floue (fuzzy) en filet de sécurité, pour les variantes
   //     quasi-identiques qui échappent encore à la normalisation stricte
   //     (petite faute de frappe, ordre des mots différent…). Seuil élevé
   //     pour ne pas confondre deux œuvres différentes au titre proche.
   function isInLibrary(rec) {
     if (libraryIds.has(rec.id)) return true;
     if ((rec.source === "tmdb_movie" || rec.source === "tmdb_tv") && libraryTmdbIds.has(rec.id)) return true;
+    if (matchesLibraryMovieByAltTitle(rec)) return true;
     if (crossDupKeys.has(`${rec.source}:${rec.id}`)) return true;
 
     const recTitles = [rec.title, ...(rec.titleAlt || [])].filter(Boolean);
@@ -458,7 +515,7 @@ export function Recommendations() {
         return true;
       })
       .slice(0, 15);
-  }, [recs, libraryIds, libraryTmdbIds, libraryTitles, crossDupKeys, resolvedTitles]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [recs, libraryIds, libraryTmdbIds, libraryTitles, crossDupKeys, resolvedTitles, libraryMovieAltTitles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ajout rapide : import + sauvegarde directe en "à voir", sans passer par
   // le formulaire manuel (TitleFormModal) — l'utilisateur veut un ajout en

@@ -13,6 +13,38 @@ export function hasTMDB() {
   return Boolean(TMDB_BEARER_TOKEN);
 }
 
+// ── Titres canoniques d'un film TMDB, par ID ──────────────────────────────────
+// Contrairement à searchTMDBMovies (recherche plein-texte, dont le classement
+// par pertinence peut remonter un résultat sans rapport — cf. le faux match
+// « Weathering Railroad Models... » pour une recherche "Weathering With
+// You"), cette fonction interroge directement la fiche du film par son ID :
+// c'est fiable à 100%, aucune ambiguïté de recherche possible. Utilisé pour
+// rattacher un film de la bibliothèque (ajouté via TMDB, donc avec un
+// tmdbId connu) à son titre anglais/original — comparable aux titres
+// romaji/anglais qu'expose AniList, contrairement au titre français stocké
+// tel quel dans la bibliothèque.
+export async function fetchTMDBMovieTitles(tmdbId) {
+  if (!TMDB_BEARER_TOKEN || !tmdbId) return null;
+  return withCache(`tmdb:movie:titles:${tmdbId}`, CACHE_TTL, async () => {
+    try {
+      const res = await fetch(
+        `https://api.themoviedb.org/3/movie/${tmdbId}?language=en-US`,
+        { headers: tmdbHeaders() }
+      );
+      if (!res.ok) return null;
+      const json = await res.json();
+      return {
+        id:            json.id,
+        title:         json.title || null,          // titre anglais
+        originalTitle: json.original_title || null, // titre original (souvent romaji/japonais)
+        year:          json.release_date ? parseInt(json.release_date.slice(0, 4)) : null,
+      };
+    } catch {
+      return null;
+    }
+  });
+}
+
 // ── Recherche + titre FR ──────────────────────────────────────────────────────
 export async function searchTMDBShow(title) {
   if (!TMDB_BEARER_TOKEN) return null;
