@@ -925,15 +925,21 @@ export function Recommendations() {
 
               {/* ── Culture Zone ──
                   Bonus éditorial, animes uniquement, visible seulement si le
-                  Mode Culture est activé. L'en-tête est cliquable pour
-                  afficher/masquer la ligne (pas de vue étendue) ; un bouton
-                  dédié permet de flouter les cartes (activé par défaut),
-                  à côté du refresh. */}
+                  Mode Culture est activé. L'en-tête est un encart à part
+                  entière (fond + bordure teintés) — pas juste du texte sur le
+                  fond de la page — pour qu'il soit reconnaissable au premier
+                  coup d'œil comme cliquable. Cliquer dessus affiche/masque la
+                  ligne (pas de vue étendue) ; un bouton dédié permet de
+                  flouter les cartes (activé par défaut), à côté du refresh. */}
               {activeTab === "anime" && cultureMode && (cultureZoneRecs.length > 0 || cultureZoneLoading) && (
                 <div className="mt-8">
                   <div
                     onClick={() => setCultureZoneVisible((v) => !v)}
-                    className="flex items-center justify-between mb-3 cursor-pointer select-none active:opacity-80"
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setCultureZoneVisible((v) => !v); } }}
+                    aria-expanded={cultureZoneVisible}
+                    className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-pink-400/[0.07] border border-pink-400/25 cursor-pointer select-none transition-colors hover:bg-pink-400/[0.13] active:bg-pink-400/[0.18] motion-reduce:transition-none"
                   >
                     <div className="flex items-center gap-2">
                       <HeartIcon size={15} className="text-pink-400" />
@@ -948,7 +954,7 @@ export function Recommendations() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={(e) => { e.stopPropagation(); setCultureZoneBlurred((v) => !v); }}
-                        className="p-1.5 rounded-full text-pink-300/70 hover:text-pink-300 hover:bg-pink-400/10 transition-colors active:scale-95 motion-reduce:transition-none"
+                        className="p-1.5 rounded-full text-pink-300/70 hover:text-pink-300 hover:bg-pink-400/15 transition-colors active:scale-95 motion-reduce:transition-none"
                         aria-label={cultureZoneBlurred ? "Révéler les cartes" : "Flouter les cartes"}
                       >
                         {cultureZoneBlurred ? <EyeOff size={13} /> : <Eye size={13} />}
@@ -956,7 +962,7 @@ export function Recommendations() {
                       <button
                         onClick={(e) => { e.stopPropagation(); handleCultureZoneRefresh(); }}
                         disabled={cultureZoneRefreshing || cultureZoneLoading}
-                        className="p-1.5 rounded-full text-pink-300/70 hover:text-pink-300 hover:bg-pink-400/10 transition-colors active:scale-95 motion-reduce:transition-none disabled:opacity-40"
+                        className="p-1.5 rounded-full text-pink-300/70 hover:text-pink-300 hover:bg-pink-400/15 transition-colors active:scale-95 motion-reduce:transition-none disabled:opacity-40"
                         aria-label="Rafraîchir la Culture Zone"
                       >
                         <RefreshCw size={13} className={cultureZoneRefreshing ? "animate-spin" : ""} />
@@ -975,7 +981,7 @@ export function Recommendations() {
                     <div
                       onTouchStart={(e) => e.stopPropagation()}
                       onTouchEnd={(e) => e.stopPropagation()}
-                      className="flex flex-nowrap gap-2 sm:gap-3 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 animate-fadeIn"
+                      className="flex flex-nowrap gap-2 sm:gap-3 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 pt-3 animate-fadeIn"
                     >
                       {cultureZoneRecs
                         .filter((rec) => !isInLibrary(rec))
