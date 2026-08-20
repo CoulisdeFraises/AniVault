@@ -482,7 +482,7 @@ export function Home() {
                 <span className="font-mono text-[11px] uppercase tracking-widest text-violet-500 group-hover:text-violet-300 transition-colors select-none">
                   {cachetteOpen ? "Masquer" : "Cachette secrète"} · {hiddenFullEntries.length} titre{hiddenFullEntries.length > 1 ? "s" : ""}
                 </span>
-                {!cachetteOpen && <HeartIcon size={20} className="text-pink-400 flex-shrink-0" />}
+                {!cachetteOpen && <HeartIcon size={20} className="text-pink-400 flex-shrink-0" />} 
               </button>
 
               {cachetteOpen && (
