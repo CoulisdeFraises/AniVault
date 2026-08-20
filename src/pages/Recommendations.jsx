@@ -394,18 +394,26 @@ export function Recommendations() {
   const [cultureZoneRecs,       setCultureZoneRecs]       = useState([]);
   const [cultureZoneLoading,    setCultureZoneLoading]    = useState(false);
   const [cultureZoneRefreshing, setCultureZoneRefreshing] = useState(false);
-  const [cultureZoneVisible,    setCultureZoneVisible]    = useState(true);  // affichée / masquée via l'en-tête
+  const [cultureZoneVisible,    setCultureZoneVisible]    = useState(false);  // affichée / masquée via l'en-tête
   const [cultureZoneBlurred,    setCultureZoneBlurred]    = useState(true);  // flou activé par défaut, pour plus de mystère
   const cultureZonePageRef = useRef(1);
+  const CULTURE_ZONE_CACHE_KEY = "rec_culture_zone";
 
   useEffect(() => {
     if (activeTab !== "anime" || !cultureMode) { setCultureZoneRecs([]); return; }
     let cancelled = false;
 
     async function load() {
+      const cached = getCached(CULTURE_ZONE_CACHE_KEY);
+      if (cached) { setCultureZoneRecs(cached); return; }
+
       setCultureZoneLoading(true);
       const data = await fetchCultureZoneRecommendations([...libraryIds]);
-      if (!cancelled) { setCultureZoneRecs(data); setCultureZoneLoading(false); }
+      if (!cancelled) { 
+        setCultureZoneRecs(data); 
+        setCultureZoneLoading(false);
+        if (data.length) setCached(CULTURE_ZONE_CACHE_KEY, data, TTL.RECOMMENDATIONS)
+       }
     }
 
     load();
@@ -420,7 +428,10 @@ export function Recommendations() {
     if (data.length === 0 && cultureZonePageRef.current !== 1) {
       data = await fetchCultureZoneRecommendations(excludeIds, { page: 1 });
     }
-    if (data.length > 0) setCultureZoneRecs(data);
+    if (data.length > 0) {
+      setCultureZoneRecs(data);
+      setCached(CULTURE_ZONE_CACHE_KEY, data, TTL.RECOMMENDATIONS);
+    }
     setCultureZoneRefreshing(false);
   }
 
