@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
 import { Modal } from "../Modal/Modal";
-import { STATUS, STATUS_ORDER } from "../../utils/status";
+import { STATUS, FILTER_STATUS_ORDER } from "../../utils/status";
 
 function Chip({ active, onClick, disabled, children, colorClass }) {
   return (
@@ -13,6 +13,7 @@ function Chip({ active, onClick, disabled, children, colorClass }) {
 
 const STATUS_CHIP_COLOR = {
   "en-cours":  "bg-amber-400/90 border-amber-400 text-violet-950",
+  "a-jour":    "bg-lime-400/90 border-lime-400 text-violet-950",
   "termine":   "bg-teal-400/90 border-teal-400 text-violet-950",
   "a-voir":    "bg-sky-400/90 border-sky-400 text-violet-950",
   "abandonne": "bg-rose-400/90 border-rose-400 text-violet-950",
@@ -65,7 +66,7 @@ export function FilterPanel({
               )}
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {STATUS_ORDER.map(k => (
+              {FILTER_STATUS_ORDER.map(k => (
                 <Chip key={k} active={selectedStatuses.includes(k)} onClick={() => onToggleStatus(k)} colorClass={STATUS_CHIP_COLOR[k]}>
                   <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${STATUS[k].dot}`} />
                   {STATUS[k].label}

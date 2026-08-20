@@ -18,6 +18,8 @@ import { ContinueWatching } from "../components/common/ContinueWatching";
 import { FilterPanel }      from "../components/common/FilterPanel";
 import { AnimatePresence }  from "motion/react";
 import { fetchWeeklySchedule } from "../api/anilist";
+import { fetchNextAiring } from "../api";
+import { getDisplayStatus } from "../utils/status";
 import { getCached, setCached, getStaleCached, TTL } from "../lib/cache";
 import { haptics } from "../utils/haptics";
 import { titleSimilarity } from "../utils/fuzzy";
@@ -123,6 +125,7 @@ export function Home() {
   const [showCalendarOnly,  setShowCalendarOnly]  = useState(false);
   const [airingIds,         setAiringIds]         = useState(new Set());
   const [todaySchedules,    setTodaySchedules]    = useState([]);
+  const [nextAiringByEntry, setNextAiringByEntry] = useState(new Map()); // entryId -> { episode, airingAt } | null — pour dériver le statut "à jour"
   const [cachetteOpen,      setCachetteOpen]      = useState(false);
   const [cachetteRevealed,  setCachetteRevealed]  = useState(false);
   const [cachetteSortBy,    setCachetteSortBy]    = useState("date");
@@ -179,6 +182,39 @@ export function Home() {
     return () => { cancelled = true; };
   }, []);
 
+  // ── Prochaine diffusion connue pour les titres "en-cours" ───────────────────
+  // Nécessaire pour dériver le statut d'affichage "à jour" (voir
+  // utils/status.js::getDisplayStatus) sur TOUTE la bibliothèque, pas
+  // seulement les cartes actuellement montées à l'écran — sinon le filtre
+  // "à jour" ne pourrait matcher que ce qui est déjà visible. Repose sur le
+  // même cache (clé + TTL) que celui utilisé par Card.jsx pour son propre
+  // compte à rebours : ça ne double pas le trafic réseau, ça se contente de
+  // lire/amorcer le même cache un peu plus tôt.
+  useEffect(() => {
+    let cancelled = false;
+    const targets = entries.filter((e) =>
+      e.status === "en-cours" &&
+      ((e.source === "anilist" && e.anilistIds?.length) || (e.source === "tvmaze" && e.tvmazeId))
+    );
+    if (!targets.length) { setNextAiringByEntry(new Map()); return; }
+
+    // Étalé dans le temps (comme Card.jsx) pour ne pas envoyer une rafale
+    // de requêtes simultanées si beaucoup de titres sont "en-cours".
+    Promise.all(targets.map((e, i) =>
+      new Promise((resolve) => {
+        setTimeout(async () => {
+          try { resolve([e.id, await fetchNextAiring(e)]); }
+          catch { resolve([e.id, null]); }
+        }, (i % 12) * 120);
+      })
+    )).then((pairs) => {
+      if (cancelled) return;
+      setNextAiringByEntry(new Map(pairs));
+    });
+
+    return () => { cancelled = true; };
+  }, [entries]);
+
   const hiddenListEntries = useMemo(() => {
     const hidden = lists.find(l => l.id === HIDDEN_LIST_ID);
     return new Set((hidden?.entries || []).map(e => e.entryId));
@@ -230,7 +266,8 @@ export function Home() {
     const q = searchQuery.trim();
     const qLower = q.toLowerCase();
     return byType.filter((e) => {
-      const statusOk   = selectedStatuses.length === 0 || selectedStatuses.includes(e.status);
+      const statusOk   = selectedStatuses.length === 0
+        || selectedStatuses.includes(getDisplayStatus(e, nextAiringByEntry.get(e.id)));
       const favOk      = !showFavoritesOnly || favoritesEntryIds.has(e.id);
       const calendarOk = !showCalendarOnly  || isAiringThisWeek(e);
 
@@ -254,7 +291,7 @@ export function Home() {
         || (e.notes || "").toLowerCase().includes(qLower);
       return statusOk && favOk && calendarOk && searchOk;
     });
-  }, [byType, selectedStatuses, searchQuery, showFavoritesOnly, favoritesEntryIds, showCalendarOnly, isAiringThisWeek]);
+  }, [byType, selectedStatuses, searchQuery, showFavoritesOnly, favoritesEntryIds, showCalendarOnly, isAiringThisWeek, nextAiringByEntry]);
 
   const sorted = useMemo(() => sortEntries(filtered, sortBy), [filtered, sortBy]);
 

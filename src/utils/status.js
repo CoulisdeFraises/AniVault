@@ -1,10 +1,21 @@
 export const STATUS = {
   "en-cours":  { label: "En cours",  dot: "bg-amber-400", text: "text-amber-300", border: "border-amber-400", bar: "bg-amber-400", color: "#fbbf24" },
+  "a-jour":    { label: "À jour",    dot: "bg-lime-400",  text: "text-lime-300",  border: "border-lime-400",  bar: "bg-lime-400",  color: "#a3e635" },
   "termine":   { label: "Terminé",   dot: "bg-teal-400",  text: "text-teal-300",  border: "border-teal-400",  bar: "bg-teal-400",  color: "#2dd4bf" },
   "a-voir":    { label: "À voir",    dot: "bg-sky-400",   text: "text-sky-300",   border: "border-sky-400",   bar: "bg-sky-400",   color: "#38bdf8" },
   "abandonne": { label: "Abandonné", dot: "bg-rose-400",  text: "text-rose-300",  border: "border-rose-400",  bar: "bg-rose-400",  color: "#fb7185" },
 };
+// Statuts persistés/éditables manuellement (formulaire d'édition, sanitize
+// de LibraryContext, achievements, sync, notifs...) — INCHANGÉ à dessein.
+// "à jour" n'y figure PAS : ce n'est pas un statut stocké mais un affichage
+// dérivé (voir getDisplayStatus ci-dessous), calculé à la volée à partir du
+// statut "en-cours" + de la prochaine diffusion connue. Le stocker tel quel
+// casserait toute la logique qui teste `entry.status === "en-cours"`
+// ailleurs dans l'app (sync, notifications, achievements...).
 export const STATUS_ORDER = ["en-cours", "termine", "a-voir", "abandonne"];
+// Ordre utilisé UNIQUEMENT pour les puces de filtre (FilterPanel), qui elles
+// doivent pouvoir cibler "à jour" séparément de "en-cours".
+export const FILTER_STATUS_ORDER = ["en-cours", "a-jour", "termine", "a-voir", "abandonne"];
 
 export function seasonTotals(seasons) {
   if (!seasons?.length) return { watched: 0, total: 0 };
@@ -26,6 +37,36 @@ export function autoStatus(entry, updatedSeasons) {
   if (watched > 0 && entry.status === "a-voir") return "en-cours";
   if (watched === 0 && entry.status === "en-cours") return "a-voir";
   return entry.status;
+}
+
+/**
+ * isCaughtUp — un titre "en-cours" est-il "à jour" ? C'est-à-dire : tous
+ * les épisodes déjà sortis ont été vus, mais la diffusion continue (un
+ * prochain épisode est déjà annoncé).
+ *
+ * `nextAiring` est la donnée { episode, airingAt } déjà récupérée par
+ * ailleurs (Card.jsx / Details.jsx font déjà cet appel pour le compte à
+ * rebours et l'auto-correction d'un statut "Terminé" resté figé) — cette
+ * fonction ne fait AUCUN appel réseau, elle ne fait que la lecture.
+ *
+ * `nextAiring.episode` est le numéro du PROCHAIN épisode (pas encore
+ * diffusé) : episode - 1 est donc le nombre d'épisodes déjà sortis.
+ */
+export function isCaughtUp(entry, nextAiring) {
+  if (entry.status !== "en-cours") return false;
+  if (!nextAiring?.airingAt || nextAiring.episode == null) return false;
+  const { watched } = seasonTotals(entry.seasons);
+  return watched >= nextAiring.episode - 1;
+}
+
+/**
+ * getDisplayStatus — statut à AFFICHER (puce/chip), distinct du statut
+ * STOCKÉ (`entry.status`). Ne jamais utiliser cette valeur pour de la
+ * logique métier (sync, notifs, achievements...) : ces derniers doivent
+ * continuer à tester `entry.status` directement.
+ */
+export function getDisplayStatus(entry, nextAiring) {
+  return isCaughtUp(entry, nextAiring) ? "a-jour" : entry.status;
 }
 
 export function formatCountdown(airingAt) {

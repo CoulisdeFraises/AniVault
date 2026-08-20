@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useLists }         from "../../context/ListsContext";
 import { ConfirmDialog }    from "../Modal/Modal";
 import { StarRating, getRatingEmoji } from "../common/Rating";
-import { STATUS, seasonTotals, formatCountdown, formatRating } from "../../utils/status";
+import { STATUS, seasonTotals, formatCountdown, formatRating, getDisplayStatus } from "../../utils/status";
 import { useLibrary }       from "../../context/LibraryContext";
 import { fetchNextAiring, refreshEntryCard } from "../../api";
 import { getShowProgress }  from "../../context/PrefsContext";
@@ -68,7 +68,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   const ptrRef      = useRef({ id: null, startX: 0, startY: 0, timer: null, axis: null });
 
   const isAbandoned = entry.status === "abandonne";
-  const s           = STATUS[entry.status] ?? STATUS["a-voir"];
+  const s           = STATUS[getDisplayStatus(entry, nextAiring)] ?? STATUS["a-voir"];
   const dimmed      = isAbandoned ? "opacity-50 grayscale" : "";
   const cur         = tvSeasons[Math.min(activeTVIdx, Math.max(0, tvSeasons.length - 1))] ?? null;
   // Saison ciblée par la notation rapide (swipe) : la saison TV en cours,
