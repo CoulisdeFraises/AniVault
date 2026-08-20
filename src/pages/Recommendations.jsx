@@ -1,19 +1,22 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ChevronLeft, Loader2, Film, Tv, Clapperboard, WifiOff,
+  ChevronLeft, Loader2, Film, Tv, Clapperboard, WifiOff, RefreshCw,
   Dices, Dice1, Dice2, Dice3, Dice4, Dice5, Dice6,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useLibrary }          from "../context/LibraryContext";
+import { usePrefs }            from "../context/PrefsContext";
 import { TopBar }          from "../components/common/TopBar";
 import { SynopsisModal }       from "../components/common/SynopsisModal";
 import { PullToRefresh }       from "../components/common/PullToRefresh";
+import { HeartIcon }           from "../components/common/icons";
 import {
   fetchAniListRecommendations,
   fetchTMDBMovieRecommendations,
   fetchTMDBSeriesRecommendations,
   fetchAniListRandomTitle,
+  fetchCultureZoneRecommendations,
 } from "../api/recommendations";
 import { hasTMDB, fetchTMDBRandomMovie, fetchTMDBRandomSeries, fetchTMDBMovieTitles } from "../api/tmdb";
 import { findAniListMovie, findTmdbMovie } from "../api/crossRef";
@@ -60,6 +63,34 @@ function RecCard({ rec, onClick }) {
   );
 }
 
+// ── Carte compacte pour le carrousel Culture Zone ──────────────────────────────
+function CultureZoneCard({ rec, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      className="relative flex-shrink-0 w-28 rounded-xl overflow-hidden bg-violet-950 group cursor-pointer active:scale-[0.97] transition-transform"
+    >
+      <div className="aspect-[2/3] w-full overflow-hidden">
+        {rec.image ? (
+          <img
+            src={rec.image} alt={rec.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-violet-900/50">
+            <Film size={20} className="text-violet-600" />
+          </div>
+        )}
+      </div>
+      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-1.5 pt-6">
+        <p className="font-mono text-[9px] text-white leading-tight line-clamp-2" title={rec.title}>
+          {rec.title}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Onglets ───────────────────────────────────────────────────────────────────
 const TABS = [
   { key: "anime", label: "Animes", Icon: Film        },
@@ -75,6 +106,7 @@ const ROLL_DURATION_MS = 900; // durée mini de l'animation de suspense
 export function Recommendations() {
   const navigate           = useNavigate();
   const { entries, saveEntry } = useLibrary();
+  const { cultureMode }    = usePrefs();
 
   const [activeTab,    setActiveTab]    = useState("anime");
   const [recs,         setRecs]         = useState([]);
@@ -354,6 +386,41 @@ export function Recommendations() {
     load();
     return () => { cancelled = true; };
   }, [activeTab, animeCacheKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Culture Zone (bonus éditorial, onglet Animes uniquement) ────────────────
+  // Chargée indépendamment des recos principales : ne dépend pas des goûts du
+  // profil, seulement du Mode Culture. Rien n'est interrogé tant que le mode
+  // est désactivé.
+  const [cultureZoneRecs,       setCultureZoneRecs]       = useState([]);
+  const [cultureZoneLoading,    setCultureZoneLoading]    = useState(false);
+  const [cultureZoneRefreshing, setCultureZoneRefreshing] = useState(false);
+  const cultureZonePageRef = useRef(1);
+
+  useEffect(() => {
+    if (activeTab !== "anime" || !cultureMode) { setCultureZoneRecs([]); return; }
+    let cancelled = false;
+
+    async function load() {
+      setCultureZoneLoading(true);
+      const data = await fetchCultureZoneRecommendations([...libraryIds]);
+      if (!cancelled) { setCultureZoneRecs(data); setCultureZoneLoading(false); }
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, [activeTab, cultureMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleCultureZoneRefresh() {
+    setCultureZoneRefreshing(true);
+    const excludeIds = [...libraryIds, ...cultureZoneRecs.map((r) => r.id)];
+    cultureZonePageRef.current = cultureZonePageRef.current > 1 ? 1 : Math.floor(Math.random() * 4) + 2; // alterne entre page 1 et une page 2-5
+    let data = await fetchCultureZoneRecommendations(excludeIds, { page: cultureZonePageRef.current });
+    if (data.length === 0 && cultureZonePageRef.current !== 1) {
+      data = await fetchCultureZoneRecommendations(excludeIds, { page: 1 });
+    }
+    if (data.length > 0) setCultureZoneRecs(data);
+    setCultureZoneRefreshing(false);
+  }
 
   // ── Pull-to-refresh ────────────────────────────────────────────────────────
   // Tire un nouveau lot de recommandations DIFFÉRENT de celui affiché : page
@@ -840,6 +907,49 @@ export function Recommendations() {
                   {dedupedRecs.map((rec) => (
                     <RecCard key={`${rec.source}-${rec.id}`} rec={rec} onClick={() => { setSurpriseOpen(false); setSynopsisRec(rec); }} />
                   ))}
+                </div>
+              )}
+
+              {/* ── Culture Zone ──
+                  Bonus éditorial, animes uniquement, visible seulement si le
+                  Mode Culture est activé. Ligne scrollable horizontalement,
+                  10 titres max, rafraîchissable indépendamment du reste. */}
+              {activeTab === "anime" && cultureMode && (cultureZoneRecs.length > 0 || cultureZoneLoading) && (
+                <div className="mt-8">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <HeartIcon size={15} className="text-pink-400" />
+                      <span className="font-mono text-[11px] text-pink-300 uppercase tracking-wide">
+                        Culture Zone
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleCultureZoneRefresh}
+                      disabled={cultureZoneRefreshing || cultureZoneLoading}
+                      className="p-1.5 rounded-full text-pink-300/70 hover:text-pink-300 hover:bg-pink-400/10 transition-colors active:scale-95 motion-reduce:transition-none disabled:opacity-40"
+                      aria-label="Rafraîchir la Culture Zone"
+                    >
+                      <RefreshCw size={13} className={cultureZoneRefreshing ? "animate-spin" : ""} />
+                    </button>
+                  </div>
+
+                  {cultureZoneLoading ? (
+                    <div className="flex items-center justify-center py-10">
+                      <Loader2 size={20} className="animate-spin text-pink-400/70" />
+                    </div>
+                  ) : (
+                    <div className="flex flex-nowrap gap-2 sm:gap-3 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 pb-1">
+                      {cultureZoneRecs
+                        .filter((rec) => !isInLibrary(rec))
+                        .map((rec) => (
+                          <CultureZoneCard
+                            key={`cz-${rec.source}-${rec.id}`}
+                            rec={rec}
+                            onClick={() => { setSurpriseOpen(false); setSynopsisRec(rec); }}
+                          />
+                        ))}
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>

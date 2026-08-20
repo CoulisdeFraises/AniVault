@@ -138,6 +138,60 @@ export async function fetchSimilarTitles(anilistId, excludeAnilistIds = []) {
   }
 }
 
+// ── Culture Zone ───────────────────────────────────────────────────────────
+// Section additionnelle de l'onglet Animes, visible uniquement quand le
+// Mode Culture est activé. Basée sur un pool de genres fixe (modifiable
+// ci-dessous) plutôt que sur les goûts du profil — un vrai bonus éditorial,
+// pas une recommandation personnalisée.
+//
+// `genre_in` côté AniList fonctionne en ET : un titre doit posséder TOUS les
+// genres listés pour matcher. Avec ["Romance", "Drama"], on cible donc les
+// œuvres qui sont À LA FOIS romance ET drame — pour élargir vers "au moins
+// un des genres", remplacer par plusieurs appels + entrelacement comme dans
+// fetchAniListRecommendations.
+export const CULTURE_ZONE_GENRES = ["Romance", "Drama"];
+const CULTURE_ZONE_MAX = 10;
+
+export async function fetchCultureZoneRecommendations(excludeAnilistIds = [], { page = 1 } = {}) {
+  // Garde-fou : cette section ne doit jamais être interrogée si le Mode
+  // Culture est désactivé, même en cas d'appel direct hors du composant.
+  if (!isCultureModeOn()) return [];
+
+  const query = `
+    query ($genres: [String], $page: Int) {
+      Page(page: $page, perPage: 20) {
+        media(
+          genre_in: $genres
+          type: ANIME
+          sort: POPULARITY_DESC
+          status_in: [FINISHED, RELEASING, HIATUS]
+          format_in: [TV, TV_SHORT, OVA, ONA, MOVIE]
+        ) {
+          id
+          title { english romaji }
+          coverImage { large }
+          genres
+          episodes
+          description(asHtml: false)
+          seasonYear
+          averageScore
+          isAdult
+          format
+        }
+      }
+    }
+  `;
+
+  try {
+    const { data } = await anilistQuery(query, { genres: CULTURE_ZONE_GENRES, page });
+    const list = (data?.Page?.media || [])
+      .filter((m) => !excludeAnilistIds.includes(m.id));
+    return list.slice(0, CULTURE_ZONE_MAX).map(mapMedia);
+  } catch {
+    return [];
+  }
+}
+
 // Tire un anime VRAIMENT au hasard dans le catalogue AniList, sans aucun
 // filtre de genre — contrairement à fetchAniListRecommendations, qui reste
 // ancré aux goûts du profil. Utilisé par « Surprends-moi » pour proposer
