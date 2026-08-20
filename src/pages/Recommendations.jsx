@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ChevronLeft, ChevronDown, Loader2, Film, Tv, Clapperboard, WifiOff, RefreshCw,
+  ChevronLeft, ChevronDown, Loader2, Film, Tv, Clapperboard, WifiOff, RefreshCw, Eye, EyeOff,
   Dices, Dice1, Dice2, Dice3, Dice4, Dice5, Dice6,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -64,7 +64,7 @@ function RecCard({ rec, onClick }) {
 }
 
 // ── Carte compacte pour le carrousel Culture Zone ──────────────────────────────
-function CultureZoneCard({ rec, onClick }) {
+function CultureZoneCard({ rec, onClick, blurred }) {
   return (
     <div
       onClick={onClick}
@@ -74,7 +74,7 @@ function CultureZoneCard({ rec, onClick }) {
         {rec.image ? (
           <img
             src={rec.image} alt={rec.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none"
+            className={`w-full h-full object-cover scale-110 transition-[filter,transform] duration-300 motion-reduce:transition-none group-hover:scale-125 ${blurred ? "blur-md" : ""}`}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-violet-900/50">
@@ -83,7 +83,7 @@ function CultureZoneCard({ rec, onClick }) {
         )}
       </div>
       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-1.5 pt-6">
-        <p className="font-mono text-[9px] text-white leading-tight line-clamp-2" title={rec.title}>
+        <p className={`font-mono text-[9px] text-white leading-tight line-clamp-2 ${blurred ? "blur-[3px] select-none" : ""}`} title={blurred ? undefined : rec.title}>
           {rec.title}
         </p>
       </div>
@@ -394,7 +394,8 @@ export function Recommendations() {
   const [cultureZoneRecs,       setCultureZoneRecs]       = useState([]);
   const [cultureZoneLoading,    setCultureZoneLoading]    = useState(false);
   const [cultureZoneRefreshing, setCultureZoneRefreshing] = useState(false);
-  const [cultureZoneExpanded,   setCultureZoneExpanded]   = useState(false);
+  const [cultureZoneVisible,    setCultureZoneVisible]    = useState(true);  // affichée / masquée via l'en-tête
+  const [cultureZoneBlurred,    setCultureZoneBlurred]    = useState(true);  // flou activé par défaut, pour plus de mystère
   const cultureZonePageRef = useRef(1);
 
   useEffect(() => {
@@ -913,13 +914,14 @@ export function Recommendations() {
 
               {/* ── Culture Zone ──
                   Bonus éditorial, animes uniquement, visible seulement si le
-                  Mode Culture est activé. Ligne scrollable horizontalement
-                  par défaut, 10 titres max, rafraîchissable indépendamment
-                  du reste ; l'en-tête est cliquable pour développer en grille. */}
+                  Mode Culture est activé. L'en-tête est cliquable pour
+                  afficher/masquer la ligne (pas de vue étendue) ; un bouton
+                  dédié permet de flouter les cartes (activé par défaut),
+                  à côté du refresh. */}
               {activeTab === "anime" && cultureMode && (cultureZoneRecs.length > 0 || cultureZoneLoading) && (
                 <div className="mt-8">
                   <div
-                    onClick={() => setCultureZoneExpanded((v) => !v)}
+                    onClick={() => setCultureZoneVisible((v) => !v)}
                     className="flex items-center justify-between mb-3 cursor-pointer select-none active:opacity-80"
                   >
                     <div className="flex items-center gap-2">
@@ -929,43 +931,40 @@ export function Recommendations() {
                       </span>
                       <ChevronDown
                         size={13}
-                        className={`text-pink-300/60 transition-transform duration-200 motion-reduce:transition-none ${cultureZoneExpanded ? "rotate-180" : ""}`}
+                        className={`text-pink-300/60 transition-transform duration-200 motion-reduce:transition-none ${cultureZoneVisible ? "" : "-rotate-90"}`}
                       />
                     </div>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleCultureZoneRefresh(); }}
-                      disabled={cultureZoneRefreshing || cultureZoneLoading}
-                      className="p-1.5 rounded-full text-pink-300/70 hover:text-pink-300 hover:bg-pink-400/10 transition-colors active:scale-95 motion-reduce:transition-none disabled:opacity-40"
-                      aria-label="Rafraîchir la Culture Zone"
-                    >
-                      <RefreshCw size={13} className={cultureZoneRefreshing ? "animate-spin" : ""} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setCultureZoneBlurred((v) => !v); }}
+                        className="p-1.5 rounded-full text-pink-300/70 hover:text-pink-300 hover:bg-pink-400/10 transition-colors active:scale-95 motion-reduce:transition-none"
+                        aria-label={cultureZoneBlurred ? "Révéler les cartes" : "Flouter les cartes"}
+                      >
+                        {cultureZoneBlurred ? <EyeOff size={13} /> : <Eye size={13} />}
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleCultureZoneRefresh(); }}
+                        disabled={cultureZoneRefreshing || cultureZoneLoading}
+                        className="p-1.5 rounded-full text-pink-300/70 hover:text-pink-300 hover:bg-pink-400/10 transition-colors active:scale-95 motion-reduce:transition-none disabled:opacity-40"
+                        aria-label="Rafraîchir la Culture Zone"
+                      >
+                        <RefreshCw size={13} className={cultureZoneRefreshing ? "animate-spin" : ""} />
+                      </button>
+                    </div>
                   </div>
 
                   {cultureZoneLoading ? (
                     <div className="flex items-center justify-center py-10">
                       <Loader2 size={20} className="animate-spin text-pink-400/70" />
                     </div>
-                  ) : cultureZoneExpanded ? (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 sm:gap-3 animate-fadeIn">
-                      {cultureZoneRecs
-                        .filter((rec) => !isInLibrary(rec))
-                        .map((rec) => (
-                          <RecCard
-                            key={`cz-${rec.source}-${rec.id}`}
-                            rec={rec}
-                            onClick={() => { setSurpriseOpen(false); setSynopsisRec(rec); }}
-                          />
-                        ))}
-                    </div>
-                  ) : (
+                  ) : cultureZoneVisible && (
                     // stopPropagation sur touchstart/touchend : le scroll horizontal
                     // de cet encart ne doit jamais être interprété comme le swipe de
                     // changement d'onglet (géré au niveau du conteneur parent).
                     <div
                       onTouchStart={(e) => e.stopPropagation()}
                       onTouchEnd={(e) => e.stopPropagation()}
-                      className="flex flex-nowrap gap-2 sm:gap-3 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 pb-1"
+                      className="flex flex-nowrap gap-2 sm:gap-3 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 animate-fadeIn"
                     >
                       {cultureZoneRecs
                         .filter((rec) => !isInLibrary(rec))
@@ -973,6 +972,7 @@ export function Recommendations() {
                           <CultureZoneCard
                             key={`cz-${rec.source}-${rec.id}`}
                             rec={rec}
+                            blurred={cultureZoneBlurred}
                             onClick={() => { setSurpriseOpen(false); setSynopsisRec(rec); }}
                           />
                         ))}
