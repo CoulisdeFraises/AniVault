@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Plus, Trash2, Pencil, X, Check, ListPlus, Eye, EyeOff, Globe, Lock } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, Pencil, X, Check, ListPlus, Eye, EyeOff, Globe, Lock, Film, Tv, Clapperboard, Folder } from "lucide-react";
 import { useLists, HIDDEN_LIST_ID } from "../context/ListsContext";
 import { useLibrary } from "../context/LibraryContext";
 import { TopBar } from "../components/common/TopBar";
 import { LibraryEntryModal } from "../components/common/LibraryEntryModal";
+import { ListIcon } from "../components/common/ListIcon";
+import { HeartIcon } from "../components/common/icons";
 import { AnimatePresence } from "motion/react";
 
 function EntryCard({ item, onRemove, blurred = false, onClick }) {
+  const CategoryIcon = item.category === "movie" ? Clapperboard : item.type === "anime" ? Film : Tv;
   return (
     <div
       className={`relative group rounded-xl overflow-hidden bg-violet-950 cursor-pointer transition-all duration-300 ${blurred ? "blur-sm hover:blur-none" : ""}`}
@@ -16,8 +19,8 @@ function EntryCard({ item, onRemove, blurred = false, onClick }) {
       <div className="aspect-[2/3] overflow-hidden">
         {item.coverImage
           ? <img src={item.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 motion-reduce:transition-none" />
-          : <div className="w-full h-full bg-violet-900/50 flex items-center justify-center text-2xl">
-              {item.category === "movie" ? "🎬" : item.type === "anime" ? "🎌" : "📺"}
+          : <div className="w-full h-full bg-violet-900/50 flex items-center justify-center">
+              <CategoryIcon size={20} className="text-violet-600" />
             </div>
         }
       </div>
@@ -53,7 +56,7 @@ function ListCard({ list, onDelete, onRename, onRemoveEntry, onTogglePublic }) {
   return (
     <div className={`rounded-2xl border overflow-hidden transition-colors ${list.isFavorites ? "bg-pink-950/20 border-pink-500/20" : "bg-violet-900/20 border-white/5"}`}>
       <div className="flex items-center gap-3 px-4 py-3">
-        <span className="text-xl flex-shrink-0">{list.emoji}</span>
+        <ListIcon list={list} size={20} className="flex-shrink-0" />
         {editing ? (
           <input
             autoFocus
@@ -165,7 +168,7 @@ function HiddenListCard({ list, onRemoveEntry }) {
   return (
     <div className="rounded-2xl border border-violet-600/30 bg-violet-950/40 overflow-hidden">
       <div className="flex items-center gap-3 px-4 py-3">
-        <span className="text-xl flex-shrink-0 select-none">🙈</span>
+        <HeartIcon size={20} className="text-pink-400 flex-shrink-0" />
         <button onClick={() => setExpanded(v => !v)} className="flex-1 text-left min-w-0">
           <p className="font-semibold text-sm text-violet-300 truncate" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
             {list.name}
@@ -193,7 +196,9 @@ function HiddenListCard({ list, onRemoveEntry }) {
       {expanded && (
         <div className="px-4 pb-4">
           {entries.length === 0 ? (
-            <p className="text-sm text-violet-600 italic text-center py-4">Rien de caché ici… pour l'instant 👀</p>
+            <p className="text-sm text-violet-600 italic text-center py-4 flex items-center justify-center gap-1.5">
+              Rien de caché ici… pour l'instant <HeartIcon size={12} className="text-pink-400/60" />
+            </p>
           ) : (
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
               {entries.map(item => (
@@ -305,7 +310,7 @@ export function Lists() {
 
           {otherLists.length === 0 && !creating ? (
             <div className="text-center py-12 rounded-2xl border border-dashed border-white/10">
-              <p className="text-3xl mb-3">📋</p>
+              <Folder size={32} className="text-violet-500 mx-auto mb-3" />
               <p className="text-violet-300 mb-1">Aucune liste pour l'instant</p>
               <p className="text-sm text-violet-500">Crée ta première liste pour organiser tes titres.</p>
             </div>

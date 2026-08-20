@@ -64,8 +64,8 @@ export function AchievementToast({ achievement, onDone }) {
         `}
       >
         {/* Icône */}
-        <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 text-2xl select-none">
-          {achievement.icon}
+        <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 text-amber-400">
+          <achievement.icon size={20} />
         </div>
 
         {/* Texte */}

@@ -15,6 +15,7 @@ import {
   ChevronDown, SlidersHorizontal, WifiOff, CalendarDays,
 } from "lucide-react";
 import { ContinueWatching } from "../components/common/ContinueWatching";
+import { HeartIcon }        from "../components/common/icons";
 import { FilterPanel }      from "../components/common/FilterPanel";
 import { AnimatePresence }  from "motion/react";
 import { fetchWeeklySchedule } from "../api/anilist";
@@ -481,7 +482,7 @@ export function Home() {
                 <span className="font-mono text-[11px] uppercase tracking-widest text-violet-500 group-hover:text-violet-300 transition-colors select-none">
                   {cachetteOpen ? "Masquer" : "Cachette secrète"} · {hiddenFullEntries.length} titre{hiddenFullEntries.length > 1 ? "s" : ""}
                 </span>
-                {!cachetteOpen && <span className="font-mono text-[10px] text-violet-700 animate-bounce">👀</span>}
+                {!cachetteOpen && <HeartIcon size={11} className="text-violet-700 animate-bounce" />}
               </button>
 
               {cachetteOpen && (

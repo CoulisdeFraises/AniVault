@@ -3,6 +3,7 @@ import { useNavigate }        from "react-router-dom";
 import {
   Loader2, Check, Lock, Trash2, ArrowLeft,
   ChevronDown, Eye, EyeOff, KeyRound, AlertTriangle, Copy, Camera, X as XIcon,
+  Film, Tv, Clapperboard,
 } from "lucide-react";
 import { supabase }        from "../lib/supabase";
 import { useAuth }         from "../context/AuthContext";
@@ -629,19 +630,22 @@ export function Profile() {
           ) : (
             <div className="p-4">
               <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                {favoritesList.entries.map(item => (
+                {favoritesList.entries.map(item => {
+                  const CategoryIcon = item.category === "movie" ? Clapperboard : item.type === "anime" ? Film : Tv;
+                  return (
                   <div key={item.entryId} className="relative rounded-xl overflow-hidden bg-violet-950 aspect-[2/3]">
                     {item.coverImage
                       ? <img src={item.coverImage} alt="" className="w-full h-full object-cover" />
-                      : <div className="w-full h-full bg-violet-900 flex items-center justify-center text-lg">
-                          {item.category === "movie" ? "🎬" : item.type === "anime" ? "🎌" : "📺"}
+                      : <div className="w-full h-full bg-violet-900 flex items-center justify-center">
+                          <CategoryIcon size={16} className="text-violet-600" />
                         </div>
                     }
                     <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-1">
                       <p className="font-mono text-[8px] text-white leading-tight line-clamp-2">{item.title}</p>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

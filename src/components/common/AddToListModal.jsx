@@ -2,6 +2,7 @@ import { useState } from "react";
 import { X, Plus, Check } from "lucide-react";
 import { useLists } from "../../context/ListsContext";
 import { Modal } from "../Modal/Modal";
+import { ListIcon } from "./ListIcon";
 
 export function AddToListModal({ entry, onClose }) {
   const { lists, addEntryToList, removeEntryFromList, isInList, createList } = useLists();
@@ -47,7 +48,7 @@ export function AddToListModal({ entry, onClose }) {
                     ? "bg-teal-500/15 border border-teal-500/30 text-teal-300"
                     : "bg-white/[0.04] border border-white/5 hover:bg-white/10 text-violet-200"
                 }`}>
-                <span className="text-base flex-shrink-0">{list.emoji}</span>
+                <ListIcon list={list} size={16} className="flex-shrink-0" />
                 <span className="flex-1 text-left font-medium truncate">{list.name}</span>
                 {inList && <Check size={13} className="flex-shrink-0 text-teal-400" />}
               </button>

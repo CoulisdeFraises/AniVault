@@ -25,8 +25,8 @@ function AchievementRow({ achievement, unlocked }) {
       `}
     >
       {/* Icône */}
-      <span className={`text-lg select-none flex-shrink-0 ${!unlocked && "grayscale"}`}>
-        {achievement.icon}
+      <span className={`flex items-center justify-center w-6 h-6 flex-shrink-0 ${unlocked ? "text-amber-400" : "text-violet-500 grayscale"}`}>
+        <achievement.icon size={16} />
       </span>
 
       {/* Nom + description */}
@@ -86,7 +86,9 @@ function CategoryAccordion({ category, achievements, unlockedIds, defaultOpen })
         </span>
 
         {/* Icône + label catégorie */}
-        <span className="text-base select-none flex-shrink-0">{category.icon}</span>
+        <span className="text-violet-400 flex-shrink-0">
+          <category.icon size={15} />
+        </span>
         <span
           className="flex-1 text-xs font-semibold text-violet-100 truncate"
           style={{ fontFamily: "'Space Grotesk', sans-serif" }}

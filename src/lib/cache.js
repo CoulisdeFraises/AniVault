@@ -1,7 +1,12 @@
 // ── Cache localStorage avec TTL et fallback hors-ligne ──────────────────────
 //
 //  TTL recommandés :
-//    Recommandations  → 6h   (6 * 60 * 60 * 1000)
+//    Recommandations  → 7j   — volontairement long : les recos affichées
+//                              doivent rester identiques après un refresh de
+//                              page ou une réouverture de l'app. Elles ne
+//                              changent que via une action explicite
+//                              (pull-to-refresh, "Surprends-moi", ou goûts
+//                              modifiés → clé de cache différente).
 //    Calendrier       → 30min (30 * 60 * 1000)
 
 const PREFIX = "av_cache_";
@@ -84,7 +89,7 @@ export function purgeStaleCaches() {
 
 // TTL constants
 export const TTL = {
-  RECOMMENDATIONS: 6  * 60 * 60 * 1000, //  6 heures
+  RECOMMENDATIONS: 7  * 24 * 60 * 60 * 1000, //  7 jours — persistance entre sessions
   CALENDAR:        30 * 60 * 1000,       // 30 minutes
   TMDB_TITLES:     24 * 60 * 60 * 1000,  // 24 heures
   SERIES_CALENDAR: 3  * 60 * 60 * 1000,  //  3 heures — planning TV, change peu dans la journée

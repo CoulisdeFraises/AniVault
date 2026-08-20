@@ -10,6 +10,7 @@ import { TopBar } from "../components/common/TopBar";
 import { Modal }      from "../components/Modal/Modal";
 import { AnimatePresence } from "motion/react";
 import { Avatar }     from "../components/common/Avatar";
+import { ListIcon }   from "../components/common/ListIcon";
 import {
   fetchFriends, fetchPendingRequests, fetchSentRequests, searchUserByUsername,
   sendFriendRequest, acceptFriendRequest, removeFriend,
@@ -178,7 +179,7 @@ function FriendProfileModal({ friend, onClose, onRemove }) {
                           onClick={() => setOpenListId(isOpen ? null : l.id)}
                           className="w-full flex items-center gap-2 px-2.5 py-2 hover:bg-white/5 transition-colors"
                         >
-                          <span className="text-sm flex-shrink-0">{l.emoji}</span>
+                          <ListIcon list={l} size={14} className="flex-shrink-0" />
                           <span className="flex-1 text-left text-xs text-violet-200 truncate">{l.name}</span>
                           <span className="font-mono text-[10px] text-violet-500 flex-shrink-0">{entries.length}</span>
                           <ChevronDown size={11} className={`text-violet-500 flex-shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
@@ -232,8 +233,9 @@ function FriendProfileModal({ friend, onClose, onRemove }) {
                       return (
                         <span key={id}
                           title={meta?.description}
-                          className="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/20 font-mono text-[10px] text-amber-300">
-                          {meta ? `${meta.icon} ${meta.name}` : `🏆 ${id}`}
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/20 font-mono text-[10px] text-amber-300">
+                          {meta ? <meta.icon size={11} /> : <Trophy size={11} />}
+                          {meta ? meta.name : id}
                         </span>
                       );
                     })}
