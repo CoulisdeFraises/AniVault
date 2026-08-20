@@ -144,12 +144,12 @@ export async function fetchSimilarTitles(anilistId, excludeAnilistIds = []) {
 // ci-dessous) plutôt que sur les goûts du profil — un vrai bonus éditorial,
 // pas une recommandation personnalisée.
 //
-// `genre_in` côté AniList fonctionne en ET : un titre doit posséder TOUS les
-// genres listés pour matcher. Avec ["Romance", "Drama"], on cible donc les
-// œuvres qui sont À LA FOIS romance ET drame — pour élargir vers "au moins
-// un des genres", remplacer par plusieurs appels + entrelacement comme dans
-// fetchAniListRecommendations.
-export const CULTURE_ZONE_GENRES = ["Romance", "Drama"];
+// `genre_in` côté AniList fonctionne en ET, pas en OU — un titre doit
+// posséder TOUS les genres listés pour matcher. On veut ici « au moins un
+// des genres » : chaque genre est donc interrogé séparément (en parallèle),
+// puis les listes sont fusionnées en entrelaçant les résultats (round-robin)
+// pour qu'aucun genre n'écrase les autres en tête de liste.
+export const CULTURE_ZONE_GENRES = ["Ecchi", "Hentai"];
 const CULTURE_ZONE_MAX = 10;
 
 export async function fetchCultureZoneRecommendations(excludeAnilistIds = [], { page = 1 } = {}) {
@@ -158,10 +158,10 @@ export async function fetchCultureZoneRecommendations(excludeAnilistIds = [], { 
   if (!isCultureModeOn()) return [];
 
   const query = `
-    query ($genres: [String], $page: Int) {
+    query ($genre: String, $page: Int) {
       Page(page: $page, perPage: 20) {
         media(
-          genre_in: $genres
+          genre_in: [$genre]
           type: ANIME
           sort: POPULARITY_DESC
           status_in: [FINISHED, RELEASING, HIATUS]
@@ -183,10 +183,27 @@ export async function fetchCultureZoneRecommendations(excludeAnilistIds = [], { 
   `;
 
   try {
-    const { data } = await anilistQuery(query, { genres: CULTURE_ZONE_GENRES, page });
-    const list = (data?.Page?.media || [])
-      .filter((m) => !excludeAnilistIds.includes(m.id));
-    return list.slice(0, CULTURE_ZONE_MAX).map(mapMedia);
+    const settled = await Promise.allSettled(
+      CULTURE_ZONE_GENRES.map((genre) => anilistQuery(query, { genre, page }))
+    );
+    const perGenreLists = settled.map((r) =>
+      r.status === "fulfilled" ? (r.value.data?.Page?.media || []) : []
+    );
+
+    const merged = [];
+    const seen = new Set();
+    const maxLen = Math.max(0, ...perGenreLists.map((l) => l.length));
+    for (let i = 0; i < maxLen; i++) {
+      for (const list of perGenreLists) {
+        const m = list[i];
+        if (m && !seen.has(m.id)) { seen.add(m.id); merged.push(m); }
+      }
+    }
+
+    return merged
+      .filter((m) => !excludeAnilistIds.includes(m.id))
+      .slice(0, CULTURE_ZONE_MAX)
+      .map(mapMedia);
   } catch {
     return [];
   }

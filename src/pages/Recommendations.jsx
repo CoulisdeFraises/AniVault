@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ChevronLeft, Loader2, Film, Tv, Clapperboard, WifiOff, RefreshCw,
+  ChevronLeft, ChevronDown, Loader2, Film, Tv, Clapperboard, WifiOff, RefreshCw,
   Dices, Dice1, Dice2, Dice3, Dice4, Dice5, Dice6,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -394,6 +394,7 @@ export function Recommendations() {
   const [cultureZoneRecs,       setCultureZoneRecs]       = useState([]);
   const [cultureZoneLoading,    setCultureZoneLoading]    = useState(false);
   const [cultureZoneRefreshing, setCultureZoneRefreshing] = useState(false);
+  const [cultureZoneExpanded,   setCultureZoneExpanded]   = useState(false);
   const cultureZonePageRef = useRef(1);
 
   useEffect(() => {
@@ -912,19 +913,27 @@ export function Recommendations() {
 
               {/* ── Culture Zone ──
                   Bonus éditorial, animes uniquement, visible seulement si le
-                  Mode Culture est activé. Ligne scrollable horizontalement,
-                  10 titres max, rafraîchissable indépendamment du reste. */}
+                  Mode Culture est activé. Ligne scrollable horizontalement
+                  par défaut, 10 titres max, rafraîchissable indépendamment
+                  du reste ; l'en-tête est cliquable pour développer en grille. */}
               {activeTab === "anime" && cultureMode && (cultureZoneRecs.length > 0 || cultureZoneLoading) && (
                 <div className="mt-8">
-                  <div className="flex items-center justify-between mb-3">
+                  <div
+                    onClick={() => setCultureZoneExpanded((v) => !v)}
+                    className="flex items-center justify-between mb-3 cursor-pointer select-none active:opacity-80"
+                  >
                     <div className="flex items-center gap-2">
                       <HeartIcon size={15} className="text-pink-400" />
                       <span className="font-mono text-[11px] text-pink-300 uppercase tracking-wide">
                         Culture Zone
                       </span>
+                      <ChevronDown
+                        size={13}
+                        className={`text-pink-300/60 transition-transform duration-200 motion-reduce:transition-none ${cultureZoneExpanded ? "rotate-180" : ""}`}
+                      />
                     </div>
                     <button
-                      onClick={handleCultureZoneRefresh}
+                      onClick={(e) => { e.stopPropagation(); handleCultureZoneRefresh(); }}
                       disabled={cultureZoneRefreshing || cultureZoneLoading}
                       className="p-1.5 rounded-full text-pink-300/70 hover:text-pink-300 hover:bg-pink-400/10 transition-colors active:scale-95 motion-reduce:transition-none disabled:opacity-40"
                       aria-label="Rafraîchir la Culture Zone"
@@ -937,8 +946,27 @@ export function Recommendations() {
                     <div className="flex items-center justify-center py-10">
                       <Loader2 size={20} className="animate-spin text-pink-400/70" />
                     </div>
+                  ) : cultureZoneExpanded ? (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 sm:gap-3 animate-fadeIn">
+                      {cultureZoneRecs
+                        .filter((rec) => !isInLibrary(rec))
+                        .map((rec) => (
+                          <RecCard
+                            key={`cz-${rec.source}-${rec.id}`}
+                            rec={rec}
+                            onClick={() => { setSurpriseOpen(false); setSynopsisRec(rec); }}
+                          />
+                        ))}
+                    </div>
                   ) : (
-                    <div className="flex flex-nowrap gap-2 sm:gap-3 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 pb-1">
+                    // stopPropagation sur touchstart/touchend : le scroll horizontal
+                    // de cet encart ne doit jamais être interprété comme le swipe de
+                    // changement d'onglet (géré au niveau du conteneur parent).
+                    <div
+                      onTouchStart={(e) => e.stopPropagation()}
+                      onTouchEnd={(e) => e.stopPropagation()}
+                      className="flex flex-nowrap gap-2 sm:gap-3 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 pb-1"
+                    >
                       {cultureZoneRecs
                         .filter((rec) => !isInLibrary(rec))
                         .map((rec) => (
