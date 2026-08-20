@@ -228,7 +228,9 @@ const TIER_BORDER = { bronze: "border-amber-700/60", silver: "border-slate-400/6
 function AchievementRow({ achievement, unlocked }) {
   return (
     <div className={`flex items-center gap-3 px-4 py-2.5 border-b border-white/5 last:border-0 transition-opacity motion-reduce:transition-none ${unlocked ? "opacity-100" : "opacity-35"}`}>
-      <span className={`text-lg select-none flex-shrink-0 ${!unlocked ? "grayscale" : ""}`}>{achievement.icon}</span>
+      <span className={`flex items-center justify-center w-6 h-6 flex-shrink-0 ${unlocked ? "text-amber-400" : "text-violet-500 grayscale"}`}>
+        <achievement.icon size={16} />
+      </span>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-semibold text-violet-50 leading-tight truncate" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{achievement.name}</p>
         <p className="text-[10px] text-violet-400 leading-snug mt-0.5 line-clamp-1">{achievement.description}</p>
@@ -256,7 +258,9 @@ function CategoryAccordion({ category, achievements, unlockedIds }) {
         <span className="text-violet-500 flex-shrink-0 transition-transform motion-reduce:transition-none" style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)" }}>
           <ChevronDown size={14} />
         </span>
-        <span className="text-base select-none flex-shrink-0">{category.icon}</span>
+        <span className="text-violet-400 flex-shrink-0">
+          <category.icon size={15} />
+        </span>
         <span className="flex-1 text-xs font-semibold text-violet-100 truncate" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{category.label}</span>
         <div className="flex items-center gap-2 flex-shrink-0">
           <div className="w-16 h-1.5 rounded-full bg-white/10 overflow-hidden">
