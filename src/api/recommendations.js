@@ -149,7 +149,7 @@ export async function fetchSimilarTitles(anilistId, excludeAnilistIds = []) {
 // des genres » : chaque genre est donc interrogé séparément (en parallèle),
 // puis les listes sont fusionnées en entrelaçant les résultats (round-robin)
 // pour qu'aucun genre n'écrase les autres en tête de liste.
-export const CULTURE_ZONE_GENRES = ["Ecchi", "Hentai"];
+export const CULTURE_ZONE_GENRES = ["Hentai"];
 const CULTURE_ZONE_MAX = 10;
 
 export async function fetchCultureZoneRecommendations(excludeAnilistIds = [], { page = 1 } = {}) {

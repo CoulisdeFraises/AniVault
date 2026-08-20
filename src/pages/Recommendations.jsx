@@ -415,7 +415,7 @@ export function Recommendations() {
   async function handleCultureZoneRefresh() {
     setCultureZoneRefreshing(true);
     const excludeIds = [...libraryIds, ...cultureZoneRecs.map((r) => r.id)];
-    cultureZonePageRef.current = cultureZonePageRef.current > 1 ? 1 : Math.floor(Math.random() * 4) + 2; // alterne entre page 1 et une page 2-5
+    cultureZonePageRef.current = cultureZonePageRef.current > 1 ? 1 : Math.floor(Math.random() * 20) + 2; // alterne entre page 1 et une page 2-5
     let data = await fetchCultureZoneRecommendations(excludeIds, { page: cultureZonePageRef.current });
     if (data.length === 0 && cultureZonePageRef.current !== 1) {
       data = await fetchCultureZoneRecommendations(excludeIds, { page: 1 });
