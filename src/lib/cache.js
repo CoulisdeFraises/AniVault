@@ -11,16 +11,30 @@
 
 const PREFIX = "av_cache_";
 
+// ── Repli mémoire (process JS) ──────────────────────────────────────────────
+// Filet de sécurité en plus de localStorage : sur certains navigateurs/
+// configurations (mode privé, restrictions de stockage tierces, quota...),
+// l'écriture dans localStorage peut échouer silencieusement (le try/catch
+// ci-dessous l'avale), donnant l'impression que le cache "ne retient rien" —
+// symptôme : on retrouve d'anciennes recos après avoir quitté la page puis
+// être revenu dessus. `memCache` vit tant que l'app JS tourne (navigation
+// interne, changement de page) : même si localStorage est indisponible, la
+// donnée reste donc valable pour la session en cours.
+const memCache = new Map();
+
 /**
  * Lire une entrée du cache.
  * Retourne null si absente ou expirée.
  */
 export function getCached(key) {
+  const mem = memCache.get(key);
+  if (mem) return Date.now() > mem.expiresAt ? null : mem.data;
   try {
     const raw = localStorage.getItem(PREFIX + key);
     if (!raw) return null;
     const { data, expiresAt } = JSON.parse(raw);
     if (Date.now() > expiresAt) return null; // expiré
+    memCache.set(key, { data, expiresAt }); // resynchronise le repli mémoire
     return data;
   } catch {
     return null;
@@ -32,10 +46,13 @@ export function getCached(key) {
  * Retourne null si absente.
  */
 export function getStaleCached(key) {
+  const mem = memCache.get(key);
+  if (mem) return mem.data;
   try {
     const raw = localStorage.getItem(PREFIX + key);
     if (!raw) return null;
-    const { data } = JSON.parse(raw);
+    const { data, expiresAt } = JSON.parse(raw);
+    memCache.set(key, { data, expiresAt });
     return data ?? null;
   } catch {
     return null;
@@ -46,10 +63,12 @@ export function getStaleCached(key) {
  * Écrire dans le cache avec un TTL en millisecondes.
  */
 export function setCached(key, data, ttlMs) {
+  const expiresAt = Date.now() + ttlMs;
+  memCache.set(key, { data, expiresAt }); // toujours écrit, même si localStorage échoue plus bas
   try {
     localStorage.setItem(
       PREFIX + key,
-      JSON.stringify({ data, expiresAt: Date.now() + ttlMs, cachedAt: Date.now() })
+      JSON.stringify({ data, expiresAt, cachedAt: Date.now() })
     );
   } catch {
     // localStorage plein — on purge les vieilles entrées et on réessaie
@@ -57,9 +76,9 @@ export function setCached(key, data, ttlMs) {
       purgeStaleCaches();
       localStorage.setItem(
         PREFIX + key,
-        JSON.stringify({ data, expiresAt: Date.now() + ttlMs, cachedAt: Date.now() })
+        JSON.stringify({ data, expiresAt, cachedAt: Date.now() })
       );
-    } catch { /* abandon silencieux */ }
+    } catch { /* le repli mémoire ci-dessus reste actif malgré tout */ }
   }
 }
 
@@ -67,6 +86,7 @@ export function setCached(key, data, ttlMs) {
  * Supprimer une entrée du cache.
  */
 export function removeCached(key) {
+  memCache.delete(key);
   try { localStorage.removeItem(PREFIX + key); } catch { /* */ }
 }
 
