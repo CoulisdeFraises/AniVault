@@ -2,6 +2,7 @@ import { X, Star, Plus, Loader2, Eye} from "lucide-react";
 import { motion } from "motion/react";
 import { EyePlus } from "./icons";
 import { Modal } from "../Modal/Modal";
+import { stripHtml } from "../../utils/html";
 
 export function SynopsisModal({ rec, onClose, onAdd, onAddSeen, adding, alreadyInLib, surprise = false }) {
   if (!rec) return null;
@@ -50,7 +51,7 @@ export function SynopsisModal({ rec, onClose, onAdd, onAddSeen, adding, alreadyI
 
           <div className="max-h-28 overflow-y-auto pr-1">
             {rec.description
-              ? <p className="text-[11px] text-violet-300/80 leading-relaxed">{rec.description}</p>
+              ? <p className="text-[11px] text-violet-300/80 leading-relaxed whitespace-pre-line">{stripHtml(rec.description)}</p>
               : <p className="text-[11px] text-violet-600 italic">Aucun synopsis disponible.</p>
             }
           </div>
