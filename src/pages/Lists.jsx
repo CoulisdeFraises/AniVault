@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Plus, Trash2, Pencil, X, Check, ListPlus, Eye, EyeOff, Globe, Lock, Film, Tv, Clapperboard, Folder } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, Pencil, X, Check, ListPlus, Eye, EyeOff, Globe, Lock, Film, Tv, Clapperboard, Database } from "lucide-react";
 import { useLists, HIDDEN_LIST_ID } from "../context/ListsContext";
 import { useLibrary } from "../context/LibraryContext";
 import { TopBar } from "../components/common/TopBar";
@@ -310,7 +310,7 @@ export function Lists() {
 
           {otherLists.length === 0 && !creating ? (
             <div className="text-center py-12 rounded-2xl border border-dashed border-white/10">
-              <Folder size={32} className="text-violet-500 mx-auto mb-3" />
+              <Database size={32} className="text-violet-500 mx-auto mb-3" />
               <p className="text-violet-300 mb-1">Aucune liste pour l'instant</p>
               <p className="text-sm text-violet-500">Crée ta première liste pour organiser tes titres.</p>
             </div>

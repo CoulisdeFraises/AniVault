@@ -1,90 +1,40 @@
-// Icônes des succès et catégories — plus d'emoji, uniquement des icônes JS (lucide-react).
+// Icônes des succès et catégories — plus d'emoji. Choisies dans le
+// sous-ensemble d'icônes lucide-react déjà utilisées ailleurs dans
+// l'app (donc garanties compatibles avec la version installée).
 import {
   AlertTriangle,
-  Ambulance,
-  Archive,
-  Award,
-  Ban,
-  Bed,
-  Book,
-  BookOpen,
-  Building2,
-  CalendarCheck,
+  Calendar,
+  CalendarClock,
   CalendarDays,
-  CalendarRange,
+  Camera,
+  CheckCheck,
+  CheckCircle2,
   Clapperboard,
   Clock,
-  CloudFog,
-  Compass,
-  Construction,
   Copy,
-  Crown,
+  Database,
   Dices,
-  Disc,
-  Droplet,
-  Dumbbell,
+  Disc2,
   Eye,
   EyeOff,
-  FastForward,
-  FileText,
   Film,
-  Flame,
-  Footprints,
-  Frown,
-  Gem,
-  Glasses,
-  GraduationCap,
-  HelpCircle,
-  Image,
-  ImageOff,
-  Infinity,
-  Keyboard,
-  Landmark,
-  Layers,
-  Library,
-  Link,
-  Link2,
+  Globe,
+  Heart,
+  KeyRound,
   ListPlus,
-  Map,
-  Medal,
-  Meh,
-  Moon,
-  Mountain,
-  Music,
-  Notebook,
-  Palette,
-  PartyPopper,
-  PenLine,
-  Popcorn,
-  Puzzle,
-  Radio,
-  Rocket,
+  Pencil,
+  Plus,
+  RefreshCw,
   RotateCcw,
-  Scale,
-  ScrollText,
-  Shapes,
   Shield,
-  Shuffle,
-  Skull,
-  Sofa,
-  Sparkle,
+  SlidersHorizontal,
   Sparkles,
   Star,
-  Sunrise,
-  Swords,
-  Target,
-  ThumbsDown,
-  Timer,
   Trash2,
-  TreePine,
   Trophy,
   Tv,
-  Type,
-  UtensilsCrossed,
-  Wand2,
-  Waves,
+  X,
   XCircle,
-  Zap,
 } from "lucide-react";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -269,17 +219,17 @@ const hasNewYearEp = (entries) =>
 // ── Catégories ────────────────────────────────────────────────────────────────
 // Utilisées par l'UI pour grouper les succès en accordéon
 export const ACHIEVEMENT_CATEGORIES = [
-  { id: "library",   label: "Bibliothèque",      icon: Library },
+  { id: "library",   label: "Bibliothèque",      icon: Database },
   { id: "episodes",  label: "Épisodes",           icon: Film },
   { id: "finished",  label: "Titres terminés",    icon: Trophy },
   { id: "ratings",   label: "Notes & Avis",       icon: Star },
-  { id: "abandoned", label: "Abandons",           icon: Ban },
+  { id: "abandoned", label: "Abandons",           icon: XCircle },
   { id: "watching",  label: "En cours & Backlog", icon: Tv },
-  { id: "diversity", label: "Diversité",          icon: Shuffle },
+  { id: "diversity", label: "Diversité",          icon: Globe },
   { id: "seasons",   label: "Saisons",            icon: CalendarDays },
-  { id: "habits",    label: "Habitudes",          icon: Moon },
+  { id: "habits",    label: "Habitudes",          icon: Clock },
   { id: "special",   label: "Spéciaux",           icon: Dices },
-  { id: "meta",      label: "Insolite",           icon: Puzzle },
+  { id: "meta",      label: "Insolite",           icon: SlidersHorizontal },
 ];
 
 // ── Définition des succès ─────────────────────────────────────────────────────
@@ -290,7 +240,7 @@ export const ACHIEVEMENTS = [
   {
     id: "first_title",
     category: "library",
-    icon: Footprints,
+    icon: Plus,
     name: "Premier pas",
     description: "Ajouter ton premier titre",
     tier: "bronze",
@@ -299,7 +249,7 @@ export const ACHIEVEMENTS = [
   {
     id: "library_10",
     category: "library",
-    icon: BookOpen,
+    icon: Database,
     name: "Bibliophile",
     description: "10 titres dans ta bibliothèque",
     tier: "silver",
@@ -308,7 +258,7 @@ export const ACHIEVEMENTS = [
   {
     id: "library_25",
     category: "library",
-    icon: Book,
+    icon: Database,
     name: "Collectionneur",
     description: "25 titres dans ta bibliothèque",
     tier: "gold",
@@ -317,7 +267,7 @@ export const ACHIEVEMENTS = [
   {
     id: "library_50",
     category: "library",
-    icon: Landmark,
+    icon: Database,
     name: "Archiviste",
     description: "50 titres dans ta bibliothèque",
     tier: "gold",
@@ -326,7 +276,7 @@ export const ACHIEVEMENTS = [
   {
     id: "library_100",
     category: "library",
-    icon: Archive,
+    icon: Sparkles,
     name: "Encyclopédiste",
     description: "100 titres dans ta bibliothèque",
     tier: "gold",
@@ -335,7 +285,7 @@ export const ACHIEVEMENTS = [
   {
     id: "library_200",
     category: "library",
-    icon: Building2,
+    icon: Sparkles,
     name: "Seigneur des archives",
     description: "200 titres dans ta bibliothèque",
     tier: "gold",
@@ -344,7 +294,7 @@ export const ACHIEVEMENTS = [
   {
     id: "library_500",
     category: "library",
-    icon: Sparkles,
+    icon: Star,
     name: "Bibliothèque d'Alexandrie",
     description: "500 titres dans ta bibliothèque — c'est presque un travail à temps plein",
     tier: "gold",
@@ -355,7 +305,7 @@ export const ACHIEVEMENTS = [
   {
     id: "eps_100",
     category: "episodes",
-    icon: Target,
+    icon: Film,
     name: "Centurion",
     description: "100 épisodes visionnés",
     tier: "bronze",
@@ -364,7 +314,7 @@ export const ACHIEVEMENTS = [
   {
     id: "eps_500",
     category: "episodes",
-    icon: Rocket,
+    icon: Film,
     name: "Marathon",
     description: "500 épisodes visionnés",
     tier: "silver",
@@ -373,7 +323,7 @@ export const ACHIEVEMENTS = [
   {
     id: "eps_1000",
     category: "episodes",
-    icon: Flame,
+    icon: Film,
     name: "Légende",
     description: "1 000 épisodes visionnés",
     tier: "gold",
@@ -382,7 +332,7 @@ export const ACHIEVEMENTS = [
   {
     id: "eps_2500",
     category: "episodes",
-    icon: Sparkle,
+    icon: Sparkles,
     name: "Transcendance",
     description: "2 500 épisodes visionnés",
     tier: "gold",
@@ -391,7 +341,7 @@ export const ACHIEVEMENTS = [
   {
     id: "eps_5000",
     category: "episodes",
-    icon: Skull,
+    icon: Star,
     name: "Tu n'as plus de vie",
     description: "5 000 épisodes visionnés — vraiment ?",
     tier: "gold",
@@ -409,7 +359,7 @@ export const ACHIEVEMENTS = [
   {
     id: "binge_10",
     category: "episodes",
-    icon: Popcorn,
+    icon: Tv,
     name: "Soirée Netflix",
     description: "10 épisodes regardés en une seule journée",
     tier: "bronze",
@@ -418,7 +368,7 @@ export const ACHIEVEMENTS = [
   {
     id: "binge_25",
     category: "episodes",
-    icon: Sofa,
+    icon: Tv,
     name: "Canapé world-class",
     description: "25 épisodes regardés en une seule journée",
     tier: "silver",
@@ -427,7 +377,7 @@ export const ACHIEVEMENTS = [
   {
     id: "binge_50",
     category: "episodes",
-    icon: Ambulance,
+    icon: AlertTriangle,
     name: "Appelle un médecin",
     description: "50 épisodes regardés en une seule journée",
     tier: "gold",
@@ -436,7 +386,7 @@ export const ACHIEVEMENTS = [
   {
     id: "fast_binge",
     category: "episodes",
-    icon: Timer,
+    icon: Clock,
     name: "Rush total",
     description: "Regarder un titre entier (24 épisodes ou plus) en moins de 48h",
     tier: "gold",
@@ -445,7 +395,7 @@ export const ACHIEVEMENTS = [
   {
     id: "streak_7",
     category: "episodes",
-    icon: Link2,
+    icon: RefreshCw,
     name: "Sur ma lancée",
     description: "7 jours d'affilée avec au moins un épisode regardé",
     tier: "silver",
@@ -454,7 +404,7 @@ export const ACHIEVEMENTS = [
   {
     id: "streak_30",
     category: "episodes",
-    icon: Link,
+    icon: RefreshCw,
     name: "Rituel quotidien",
     description: "30 jours d'affilée avec au moins un épisode regardé",
     tier: "gold",
@@ -474,7 +424,7 @@ export const ACHIEVEMENTS = [
   {
     id: "finish_5",
     category: "finished",
-    icon: Dumbbell,
+    icon: Trophy,
     name: "Persévérant",
     description: "Terminer 5 titres",
     tier: "silver",
@@ -483,7 +433,7 @@ export const ACHIEVEMENTS = [
   {
     id: "finish_10",
     category: "finished",
-    icon: Award,
+    icon: Star,
     name: "Expert",
     description: "Terminer 10 titres",
     tier: "gold",
@@ -492,7 +442,7 @@ export const ACHIEVEMENTS = [
   {
     id: "finish_25",
     category: "finished",
-    icon: GraduationCap,
+    icon: Trophy,
     name: "Maître",
     description: "Terminer 25 titres",
     tier: "gold",
@@ -501,7 +451,7 @@ export const ACHIEVEMENTS = [
   {
     id: "finish_50",
     category: "finished",
-    icon: Wand2,
+    icon: Trophy,
     name: "Grand Maître",
     description: "Terminer 50 titres",
     tier: "gold",
@@ -510,7 +460,7 @@ export const ACHIEVEMENTS = [
   {
     id: "finish_100",
     category: "finished",
-    icon: Crown,
+    icon: Trophy,
     name: "Centurion du Finish",
     description: "Terminer 100 titres",
     tier: "gold",
@@ -519,7 +469,7 @@ export const ACHIEVEMENTS = [
   {
     id: "one_ep_finish",
     category: "finished",
-    icon: Zap,
+    icon: CheckCircle2,
     name: "Court mais efficace",
     description: "Terminer un titre en un seul épisode",
     tier: "bronze",
@@ -528,7 +478,7 @@ export const ACHIEVEMENTS = [
   {
     id: "single_day_finish",
     category: "finished",
-    icon: FastForward,
+    icon: CheckCheck,
     name: "Tout d'un coup",
     description: "Regarder un titre entier (3 épisodes ou plus) en une seule journée",
     tier: "silver",
@@ -537,7 +487,7 @@ export const ACHIEVEMENTS = [
   {
     id: "finish_spree_3",
     category: "finished",
-    icon: PartyPopper,
+    icon: Sparkles,
     name: "Journée productive",
     description: "Terminer 3 titres le même jour",
     tier: "silver",
@@ -546,7 +496,7 @@ export const ACHIEVEMENTS = [
   {
     id: "finish_spree_5",
     category: "finished",
-    icon: Medal,
+    icon: Sparkles,
     name: "Marathon de fins",
     description: "Terminer 5 titres le même jour",
     tier: "gold",
@@ -575,7 +525,7 @@ export const ACHIEVEMENTS = [
   {
     id: "rated_10",
     category: "ratings",
-    icon: Medal,
+    icon: Star,
     name: "Juré",
     description: "Noter 10 titres",
     tier: "silver",
@@ -584,7 +534,7 @@ export const ACHIEVEMENTS = [
   {
     id: "rated_25",
     category: "ratings",
-    icon: Award,
+    icon: Star,
     name: "Grand Critique",
     description: "Noter 25 titres",
     tier: "gold",
@@ -593,7 +543,7 @@ export const ACHIEVEMENTS = [
   {
     id: "rated_50",
     category: "ratings",
-    icon: FileText,
+    icon: Star,
     name: "Ebert",
     description: "Noter 50 titres",
     tier: "gold",
@@ -611,7 +561,7 @@ export const ACHIEVEMENTS = [
   {
     id: "perfect_5",
     category: "ratings",
-    icon: Sparkle,
+    icon: Sparkles,
     name: "Perfectionniste",
     description: "Donner un 10/10 à 5 titres",
     tier: "gold",
@@ -620,7 +570,7 @@ export const ACHIEVEMENTS = [
   {
     id: "low_rater",
     category: "ratings",
-    icon: ThumbsDown,
+    icon: X,
     name: "Difficile à satisfaire",
     description: "Donner un 1/10 à un titre",
     tier: "bronze",
@@ -629,7 +579,7 @@ export const ACHIEVEMENTS = [
   {
     id: "harsh_jury",
     category: "ratings",
-    icon: Swords,
+    icon: XCircle,
     name: "Impitoyable",
     description: "Donner un 1/10 à 5 titres",
     tier: "silver",
@@ -647,7 +597,7 @@ export const ACHIEVEMENTS = [
   {
     id: "average_joe",
     category: "ratings",
-    icon: Meh,
+    icon: Eye,
     name: "Monsieur Moyen",
     description: "Moyenne de bibliothèque à 5/10 (sur ≥ 10 titres notés)",
     tier: "silver",
@@ -661,7 +611,7 @@ export const ACHIEVEMENTS = [
   {
     id: "first_note",
     category: "ratings",
-    icon: Notebook,
+    icon: Pencil,
     name: "Journaliste",
     description: "Écrire une note sur un titre",
     tier: "bronze",
@@ -670,7 +620,7 @@ export const ACHIEVEMENTS = [
   {
     id: "notes_10",
     category: "ratings",
-    icon: BookOpen,
+    icon: Pencil,
     name: "Chroniqueur",
     description: "Écrire des notes sur 10 titres",
     tier: "silver",
@@ -680,7 +630,7 @@ export const ACHIEVEMENTS = [
   {
     id: "notes_essayist",
     category: "ratings",
-    icon: PenLine,
+    icon: Pencil,
     name: "Essayiste",
     description: "Écrire une note de plus de 300 caractères",
     tier: "silver",
@@ -689,7 +639,7 @@ export const ACHIEVEMENTS = [
   {
     id: "notes_thesis",
     category: "ratings",
-    icon: GraduationCap,
+    icon: Pencil,
     name: "Thèse universitaire",
     description: "Écrire une note de plus de 1 000 caractères sur un seul titre",
     tier: "gold",
@@ -698,7 +648,7 @@ export const ACHIEVEMENTS = [
   {
     id: "monotone",
     category: "ratings",
-    icon: Music,
+    icon: Disc2,
     name: "Monotone",
     description: "Donner exactement la même note à 10 titres notés",
     tier: "silver",
@@ -707,7 +657,7 @@ export const ACHIEVEMENTS = [
   {
     id: "roller_coaster",
     category: "ratings",
-    icon: Waves,
+    icon: AlertTriangle,
     name: "Montagnes russes",
     description: "Sur un même titre, un écart de 6 points ou plus entre la meilleure et la pire saison notée",
     tier: "gold",
@@ -716,7 +666,7 @@ export const ACHIEVEMENTS = [
   {
     id: "loyal_masterpiece",
     category: "ratings",
-    icon: Gem,
+    icon: Heart,
     name: "Sans fausse note",
     description: "Un titre d'au moins 5 saisons, toutes notées 8/10 ou plus",
     tier: "gold",
@@ -745,7 +695,7 @@ export const ACHIEVEMENTS = [
   {
     id: "abandoned_25",
     category: "abandoned",
-    icon: Skull,
+    icon: Trash2,
     name: "Bourreau de séries",
     description: "Abandonner 25 titres",
     tier: "gold",
@@ -754,7 +704,7 @@ export const ACHIEVEMENTS = [
   {
     id: "abandon_more_than_finish",
     category: "abandoned",
-    icon: Frown,
+    icon: AlertTriangle,
     name: "Quel gâchis",
     description: "Plus d'abandons que de titres terminés (min. 3 abandons)",
     tier: "silver",
@@ -765,7 +715,7 @@ export const ACHIEVEMENTS = [
   {
     id: "watching_5",
     category: "watching",
-    icon: Layers,
+    icon: Tv,
     name: "Jongleur",
     description: "5 titres en cours simultanément",
     tier: "silver",
@@ -774,7 +724,7 @@ export const ACHIEVEMENTS = [
   {
     id: "watching_10",
     category: "watching",
-    icon: Shuffle,
+    icon: Tv,
     name: "Chaos organisé",
     description: "10 titres en cours simultanément",
     tier: "gold",
@@ -783,7 +733,7 @@ export const ACHIEVEMENTS = [
   {
     id: "watchlist_5",
     category: "watching",
-    icon: Clock,
+    icon: ListPlus,
     name: "Liste d'attente",
     description: "5 titres « À voir »",
     tier: "bronze",
@@ -812,7 +762,7 @@ export const ACHIEVEMENTS = [
   {
     id: "eclectic",
     category: "diversity",
-    icon: Shuffle,
+    icon: Globe,
     name: "Éclectique",
     description: "Avoir des animes et des séries",
     tier: "bronze",
@@ -822,7 +772,7 @@ export const ACHIEVEMENTS = [
   {
     id: "genres_5",
     category: "diversity",
-    icon: Palette,
+    icon: Globe,
     name: "Touche-à-tout",
     description: "Explorer 5 genres différents",
     tier: "silver",
@@ -831,7 +781,7 @@ export const ACHIEVEMENTS = [
   {
     id: "genres_10",
     category: "diversity",
-    icon: Compass,
+    icon: Globe,
     name: "Explorateur",
     description: "Explorer 10 genres différents",
     tier: "gold",
@@ -840,7 +790,7 @@ export const ACHIEVEMENTS = [
   {
     id: "genres_15",
     category: "diversity",
-    icon: Map,
+    icon: Globe,
     name: "Cartographe du divertissement",
     description: "Explorer 15 genres différents",
     tier: "gold",
@@ -858,7 +808,7 @@ export const ACHIEVEMENTS = [
   {
     id: "ova_collector",
     category: "diversity",
-    icon: Disc,
+    icon: Disc2,
     name: "Collectionneur de OAV",
     description: "10 OAV / ONA / Specials dans ta bibliothèque",
     tier: "silver",
@@ -878,7 +828,7 @@ export const ACHIEVEMENTS = [
   {
     id: "movie_buff_25",
     category: "diversity",
-    icon: Film,
+    icon: Clapperboard,
     name: "Grand Cinéphile",
     description: "25 films d'animation dans ta bibliothèque",
     tier: "gold",
@@ -888,7 +838,7 @@ export const ACHIEVEMENTS = [
   {
     id: "series_buff",
     category: "diversity",
-    icon: Radio,
+    icon: Tv,
     name: "Sériephile",
     description: "50 séries dans ta bibliothèque",
     tier: "gold",
@@ -899,7 +849,7 @@ export const ACHIEVEMENTS = [
   {
     id: "seasons_50",
     category: "seasons",
-    icon: CalendarRange,
+    icon: CalendarDays,
     name: "Marathonien des saisons",
     description: "50 saisons au total dans ta bibliothèque",
     tier: "silver",
@@ -917,7 +867,7 @@ export const ACHIEVEMENTS = [
   {
     id: "long_runner",
     category: "seasons",
-    icon: Construction,
+    icon: CalendarClock,
     name: "Long-courrier",
     description: "Un titre avec au moins 5 saisons",
     tier: "silver",
@@ -926,7 +876,7 @@ export const ACHIEVEMENTS = [
   {
     id: "ultra_long_runner",
     category: "seasons",
-    icon: Mountain,
+    icon: CalendarClock,
     name: "Saga sans fin",
     description: "Un titre avec au moins 10 saisons",
     tier: "gold",
@@ -935,7 +885,7 @@ export const ACHIEVEMENTS = [
   {
     id: "format_collector",
     category: "seasons",
-    icon: Shapes,
+    icon: SlidersHorizontal,
     name: "Collectionneur de formats",
     description: "Avoir des saisons d'au moins 4 formats différents (TV, Film, OAV...)",
     tier: "silver",
@@ -946,7 +896,7 @@ export const ACHIEVEMENTS = [
   {
     id: "night_owl",
     category: "habits",
-    icon: Moon,
+    icon: Clock,
     name: "Hibou",
     description: "Regarder un épisode entre minuit et 4h du matin",
     tier: "bronze",
@@ -955,7 +905,7 @@ export const ACHIEVEMENTS = [
   {
     id: "binge_night",
     category: "habits",
-    icon: Moon,
+    icon: Clock,
     name: "Nuit blanche",
     description: "10 épisodes regardés lors d'une même nuit (0h–4h)",
     tier: "silver",
@@ -976,7 +926,7 @@ export const ACHIEVEMENTS = [
   {
     id: "chronic_owl",
     category: "habits",
-    icon: Moon,
+    icon: Clock,
     name: "Insomniaque chronique",
     description: "Regarder au moins un épisode entre minuit et 4h, sur 7 jours différents",
     tier: "gold",
@@ -992,7 +942,7 @@ export const ACHIEVEMENTS = [
   {
     id: "early_bird",
     category: "habits",
-    icon: Sunrise,
+    icon: Clock,
     name: "Lève-tôt",
     description: "Regarder un épisode entre 5h et 7h du matin",
     tier: "bronze",
@@ -1001,7 +951,7 @@ export const ACHIEVEMENTS = [
   {
     id: "lunch_break",
     category: "habits",
-    icon: UtensilsCrossed,
+    icon: Clock,
     name: "Pause déjeuner",
     description: "20 épisodes regardés entre 12h et 13h",
     tier: "silver",
@@ -1010,7 +960,7 @@ export const ACHIEVEMENTS = [
   {
     id: "weekend_warrior",
     category: "habits",
-    icon: Bed,
+    icon: Calendar,
     name: "Guerrier du week-end",
     description: "50 épisodes regardés le week-end (samedi ou dimanche)",
     tier: "silver",
@@ -1019,7 +969,7 @@ export const ACHIEVEMENTS = [
   {
     id: "full_year",
     category: "habits",
-    icon: CalendarCheck,
+    icon: CalendarDays,
     name: "Fidèle toute l'année",
     description: "Avoir regardé au moins un épisode chaque mois sur 12 mois différents",
     tier: "gold",
@@ -1028,7 +978,7 @@ export const ACHIEVEMENTS = [
   {
     id: "christmas_watch",
     category: "habits",
-    icon: TreePine,
+    icon: Sparkles,
     name: "Marathon de Noël",
     description: "Regarder un épisode le 24 ou le 25 décembre",
     tier: "bronze",
@@ -1037,7 +987,7 @@ export const ACHIEVEMENTS = [
   {
     id: "new_year_watch",
     category: "habits",
-    icon: PartyPopper,
+    icon: Sparkles,
     name: "Premier réflexe de l'année",
     description: "Regarder un épisode dans la demi-heure suivant minuit le 1er janvier",
     tier: "gold",
@@ -1048,7 +998,7 @@ export const ACHIEVEMENTS = [
   {
     id: "the_one",
     category: "special",
-    icon: Glasses,
+    icon: Star,
     name: "L'Élu",
     description: "Exactement 1 titre noté 10/10 et 1 noté 1/10",
     tier: "silver",
@@ -1059,7 +1009,7 @@ export const ACHIEVEMENTS = [
   {
     id: "symmetric_library",
     category: "special",
-    icon: Scale,
+    icon: SlidersHorizontal,
     name: "Équilibriste",
     description: "Autant d'animes que de séries (min. 5 de chaque)",
     tier: "silver",
@@ -1093,7 +1043,7 @@ export const ACHIEVEMENTS = [
   {
     id: "cover_collector",
     category: "special",
-    icon: Image,
+    icon: Camera,
     name: "Galerie d'art",
     description: "25 titres avec une image de couverture",
     tier: "bronze",
@@ -1102,7 +1052,7 @@ export const ACHIEVEMENTS = [
   {
     id: "anilist_fan",
     category: "special",
-    icon: Link,
+    icon: Heart,
     name: "Fan d'AniList",
     description: "10 titres importés depuis AniList",
     tier: "silver",
@@ -1114,7 +1064,7 @@ export const ACHIEVEMENTS = [
   {
     id: "tvmaze_fan",
     category: "special",
-    icon: Radio,
+    icon: Tv,
     name: "Fan de TVmaze",
     description: "10 titres importés depuis TVmaze",
     tier: "silver",
@@ -1123,7 +1073,7 @@ export const ACHIEVEMENTS = [
   {
     id: "pure_manual",
     category: "special",
-    icon: Keyboard,
+    icon: KeyRound,
     name: "À l'ancienne",
     description: "10 titres ajoutés manuellement (sans import)",
     tier: "bronze",
@@ -1141,7 +1091,7 @@ export const ACHIEVEMENTS = [
   {
     id: "short_title",
     category: "meta",
-    icon: Type,
+    icon: Pencil,
     name: "Minimaliste",
     description: "Un titre dont le nom fait 3 caractères ou moins",
     tier: "bronze",
@@ -1150,7 +1100,7 @@ export const ACHIEVEMENTS = [
   {
     id: "long_title",
     category: "meta",
-    icon: ScrollText,
+    icon: Pencil,
     name: "Le titre ne tient pas sur une ligne",
     description: "Un titre dont le nom fait plus de 60 caractères",
     tier: "bronze",
@@ -1168,7 +1118,7 @@ export const ACHIEVEMENTS = [
   {
     id: "mystery_titles",
     category: "meta",
-    icon: CloudFog,
+    icon: EyeOff,
     name: "Mystère total",
     description: "10 titres sans aucun genre renseigné",
     tier: "silver",
@@ -1177,7 +1127,7 @@ export const ACHIEVEMENTS = [
   {
     id: "no_cover_10",
     category: "meta",
-    icon: ImageOff,
+    icon: EyeOff,
     name: "Minimalisme visuel",
     description: "10 titres sans image de couverture",
     tier: "bronze",
@@ -1186,7 +1136,7 @@ export const ACHIEVEMENTS = [
   {
     id: "gargantuan_show",
     category: "meta",
-    icon: Infinity,
+    icon: Film,
     name: "Le jamais fini",
     description: "Un titre prévu pour plus de 500 épisodes au total",
     tier: "gold",
@@ -1196,7 +1146,7 @@ export const ACHIEVEMENTS = [
   {
     id: "contradictory",
     category: "meta",
-    icon: HelpCircle,
+    icon: AlertTriangle,
     name: "Contradictoire",
     description: "Un titre noté 10/10 alors qu'une de ses saisons est notée 1/10",
     tier: "gold",
@@ -1206,7 +1156,7 @@ export const ACHIEVEMENTS = [
   {
     id: "sadist",
     category: "meta",
-    icon: Droplet,
+    icon: AlertTriangle,
     name: "Sadique",
     description: "Noter 3 films ou OAV à 1/10",
     tier: "silver",
