@@ -28,7 +28,7 @@
 //     mettre en cache des réponses liées à une session utilisateur)
 // ─────────────────────────────────────────────────────────────────────────
 
-const SW_VERSION = "v3";
+const SW_VERSION = "v4";
 
 const STATIC_CACHE = `anivault-static-${SW_VERSION}`;
 const ASSETS_CACHE = `anivault-assets-${SW_VERSION}`;
@@ -54,6 +54,8 @@ const PRECACHE = [
   "/site.webmanifest",
   "/logo.png",
   "/logo-wide.png",
+  "/splash-poster.png",
+  "/splash-anim.gif",
   "/favicon.svg",
   "/favicon-96x96.png",
   "/apple-touch-icon.png",

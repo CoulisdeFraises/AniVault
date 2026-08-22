@@ -26,6 +26,12 @@ const SplashScreen = ({ onFinish, isLoading = false }) => {
   const [progress,      setProgress]      = useState(0);
   const [bursting,      setBursting]      = useState(false);
   const [exiting,       setExiting]       = useState(false);
+  // Le gif du logo reste figé sur sa 1ère frame tant que playAnim est false.
+  // Il ne se déclenche qu'une fois, exactement quand le chargement se
+  // termine (dans tryExit) — puis se fige tout seul sur sa dernière frame
+  // (le gif est encodé sans extension de bouclage), jusqu'à la prochaine
+  // ouverture de l'app qui remonte le composant et remet playAnim à false.
+  const [playAnim,      setPlayAnim]      = useState(false);
 
   const exitTriggered = useRef(false);
   const animDone      = useRef(false);
@@ -40,6 +46,7 @@ const SplashScreen = ({ onFinish, isLoading = false }) => {
   const tryExit = () => {
     if (exitTriggered.current || isLoadingRef.current || !animDone.current) return;
     exitTriggered.current = true;
+    setPlayAnim(true);
     setBursting(true);
     setTimeout(() => {
       setExiting(true);
@@ -101,7 +108,8 @@ const SplashScreen = ({ onFinish, isLoading = false }) => {
         <div className="splash-logo-wrap">
           <div className="splash-logo-glow" />
           <img
-            src="/logo.png"
+            key={playAnim ? "anim" : "poster"}
+            src={playAnim ? "/splash-anim.gif" : "/splash-poster.png"}
             alt="AniVault"
             className={`splash-logo${bursting ? ' logo-burst' : ''}`}
           />
