@@ -27,6 +27,20 @@ export function seasonTotals(seasons) {
 
 function isTVSeason(s) { const f = s.format; return !f || f === "TV" || f === "TV_SHORT"; }
 
+/**
+ * getActiveTVSeason — la saison TV "en cours de diffusion" : la première
+ * saison pas encore complète, sinon la dernière saison TV de la fiche.
+ * C'est cette même saison que vise `fetchNextAiring` (dernier anilistId /
+ * tvmazeId), donc c'est la seule dont le nombre d'épisodes vus doit être
+ * comparé au seuil `nextAiring.episode`.
+ */
+function getActiveTVSeason(seasons) {
+  const tv = (seasons || []).filter(isTVSeason);
+  if (!tv.length) return null;
+  const i = tv.findIndex((s) => s.totalEpisodes == null || s.watchedEpisodes < s.totalEpisodes);
+  return i === -1 ? tv[tv.length - 1] : tv[i];
+}
+
 export function autoStatus(entry, updatedSeasons) {
   const tvS  = updatedSeasons.filter(isTVSeason);
   const ref  = tvS.length ? tvS : updatedSeasons;
@@ -41,8 +55,8 @@ export function autoStatus(entry, updatedSeasons) {
 
 /**
  * isCaughtUp — un titre "en-cours" est-il "à jour" ? C'est-à-dire : tous
- * les épisodes déjà sortis ont été vus, mais la diffusion continue (un
- * prochain épisode est déjà annoncé).
+ * les épisodes déjà sortis de la saison actuellement diffusée ont été vus,
+ * mais la diffusion continue (un prochain épisode est déjà annoncé).
  *
  * `nextAiring` est la donnée { episode, airingAt } déjà récupérée par
  * ailleurs (Card.jsx / Details.jsx font déjà cet appel pour le compte à
@@ -51,11 +65,18 @@ export function autoStatus(entry, updatedSeasons) {
  *
  * `nextAiring.episode` est le numéro du PROCHAIN épisode (pas encore
  * diffusé) : episode - 1 est donc le nombre d'épisodes déjà sortis.
+ *
+ * FIX : on ne compare plus au total tous-saisons-confondues (`entry.seasons`),
+ * qui restait artificiellement élevé sur une fiche multi-saisons (saisons
+ * précédentes déjà vues) et empêchait le chip de redescendre — même après
+ * un -1 sur la saison en cours, ou quand un nouvel épisode sortait. On ne
+ * compare désormais qu'à la saison TV active elle-même.
  */
 export function isCaughtUp(entry, nextAiring) {
   if (entry.status !== "en-cours") return false;
   if (!nextAiring?.airingAt || nextAiring.episode == null) return false;
-  const { watched } = seasonTotals(entry.seasons);
+  const active = getActiveTVSeason(entry.seasons);
+  const watched = active?.watchedEpisodes || 0;
   return watched >= nextAiring.episode - 1;
 }
 
