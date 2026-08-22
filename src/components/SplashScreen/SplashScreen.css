@@ -141,8 +141,8 @@
 /* ── Logo + anneaux ─────────────────────────────────────────────────── */
 .splash-logo-wrap {
   position: relative;
-  width: 128px;
-  height: 128px;
+  width: 184px;
+  height: 184px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -151,7 +151,7 @@
 /* Halo radial derrière le logo */
 .splash-logo-glow {
   position: absolute;
-  inset: -28px;
+  inset: -34px;
   background: radial-gradient(circle, #a855f755 0%, #7c3aed22 45%, transparent 68%);
   border-radius: 50%;
   animation: glow-breathe 3.5s ease-in-out infinite;
@@ -164,7 +164,7 @@
 
 /* Logo */
 .splash-logo {
-  width: 88px;
+  width: 136px;
   height: auto;
   position: relative;
   z-index: 2;

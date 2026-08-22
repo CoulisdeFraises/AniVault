@@ -8,7 +8,7 @@ const BURST_COLORS = ['#fbbf24', '#a78bfa', '#fde68a', '#c4b5fd'];
 const BURST_COUNT  = 18;
 const BURST_PARTICLES = [...Array(BURST_COUNT)].map((_, i) => ({
   angle: (360 / BURST_COUNT) * i,
-  dist:  86 + (i % 4) * 16,
+  dist:  118 + (i % 4) * 20,
   size:  3 + (i % 3),
   delay: (i % 6) * 0.025,
   color: BURST_COLORS[i % BURST_COLORS.length],
