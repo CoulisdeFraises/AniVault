@@ -1,4 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
 // AniVault — Service Worker
 //
 // Objectif : app pleinement utilisable hors ligne pour tout ce qui a déjà
@@ -28,7 +29,7 @@
 //     mettre en cache des réponses liées à une session utilisateur)
 // ─────────────────────────────────────────────────────────────────────────
 
-const SW_VERSION = "v6";
+const SW_VERSION = "v7";
 
 const STATIC_CACHE = `anivault-static-${SW_VERSION}`;
 const ASSETS_CACHE = `anivault-assets-${SW_VERSION}`;
@@ -310,3 +311,4 @@ self.addEventListener("notificationclick", (e) => {
     })
   );
 });
+
