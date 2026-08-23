@@ -11,11 +11,16 @@
 // travers la détection de doublons.
 import { normalizeForSearch } from "./fuzzy";
 
-export function normalizeSeriesTitle(title) {
-  return normalizeForSearch(title)
+// stripBareNumber désactivable pour les films : un numéro final y désigne un
+// épisode distinct de la franchise (Toy Story 4 ≠ Toy Story 5), alors que
+// pour une série/anime c'est souvent une saison numérotée sans mot-clé
+// (Attack on Titan 2 = Attack on Titan Season 2). Sans cette distinction,
+// « Toy Story 5 » était normalisé en « Toy Story » et confondu avec les
+// films 1 à 4 déjà en bibliothèque.
+export function normalizeSeriesTitle(title, stripBareNumber = true) {
+  const base = normalizeForSearch(title)
     .replace(/\s*(season|saison|part|cour)\s*\d+/gi, "")
     .replace(/\s+\d+(st|nd|rd|th)\s+season/gi, "")
-    .replace(/\s+s\d+$/i, "")
-    .replace(/\s+\d+$/, "")
-    .trim();
+    .replace(/\s+s\d+$/i, "");
+  return (stripBareNumber ? base.replace(/\s+\d+$/, "") : base).trim();
 }

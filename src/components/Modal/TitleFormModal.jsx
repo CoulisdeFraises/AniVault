@@ -60,7 +60,7 @@ export function TitleFormModal({ editingEntry, onClose, onSave }) {
   function handleSubmit(e) {
     e.preventDefault();
     if (!form.title.trim()) { setFormError("Le titre est obligatoire."); return; }
-    const dup = findDuplicate(form.title, editingId); if (dup) { setDuplicateWarning(dup); return; }
+    const dup = findDuplicate(form.title, editingId, form.category); if (dup) { setDuplicateWarning(dup); return; }
     commit();
   }
 

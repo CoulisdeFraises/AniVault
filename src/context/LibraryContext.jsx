@@ -154,13 +154,19 @@ export function LibraryProvider({ children }) {
   // et "Blue Box Season 2" sont donc bien reconnus comme le même titre) et
   // non plus en égalité stricte, sinon une saison ultérieure d'une œuvre
   // déjà en bibliothèque passe à travers le garde-fou et crée un doublon.
-  const findDuplicate = useCallback((title, editingId) => {
-    const key = normalizeSeriesTitle(title);
-    if (!key) return null;
+  const findDuplicate = useCallback((title, editingId, category) => {
+    const isMovie = category === "movie";
+    if (!normalizeSeriesTitle(title, !isMovie)) return null;
     return entriesRef.current.find((e) => {
       if (e.id === editingId) return false;
+      // Un film ne se fait jamais absorber par un autre numéro de la même
+      // franchise : dès que l'un des deux titres comparés est un film, on
+      // garde le numéro final dans la clé de comparaison (Toy Story 5 ≠
+      // Toy Story 4), au lieu de le retirer comme pour une saison de série.
+      const stripBareNumber = !isMovie && e.category !== "movie";
+      const key = normalizeSeriesTitle(title, stripBareNumber);
       const candidates = [e.title, e.titleFrench, e.titleRomaji, e.titleEnglish].filter(Boolean);
-      return candidates.some((t) => normalizeSeriesTitle(t) === key);
+      return candidates.some((t) => normalizeSeriesTitle(t, stripBareNumber) === key);
     }) ?? null;
   }, []);
 
