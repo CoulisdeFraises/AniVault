@@ -52,11 +52,11 @@ export function Header({
       >
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center gap-2.5">
-            <img src="/logo.png" alt="" className="h-8 w-8 rounded-xl flex-shrink-0" aria-hidden />
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="" className="h-12 w-12 rounded-xl flex-shrink-0" aria-hidden />
             <div>
               <p className="font-mono text-[9px] tracking-[0.25em] text-violet-500 uppercase leading-none mb-0.5 hidden sm:block">Journal de visionnage</p>
-              <h1 className="text-lg font-bold tracking-tight leading-none" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>ANIVAULT</h1>
+              <h1 className="text-2xl font-bold italic tracking-tight leading-none" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>ANIVAULT</h1>
             </div>
           </div>
           {/* Actions */}
