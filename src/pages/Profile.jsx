@@ -3,7 +3,7 @@ import { useNavigate }        from "react-router-dom";
 import {
   Loader2, Check, Lock, Trash2, ArrowLeft,
   ChevronDown, Eye, EyeOff, KeyRound, AlertTriangle, Copy, Camera, X as XIcon,
-  Film, Tv, Clapperboard,
+  Film, Tv, Clapperboard, Trophy, Clock, PlayCircle, Pencil,
 } from "lucide-react";
 import { supabase }        from "../lib/supabase";
 import { useAuth }         from "../context/AuthContext";
@@ -17,6 +17,7 @@ import { ACHIEVEMENT_CATEGORIES } from "../utils/achievements";
 import { updateProfileMeta, changeUsername, uploadAvatarPhoto, removeAvatarPhoto } from "../services/community";
 import { useLists, fetchUserFavorites } from "../context/ListsContext";
 import { COMPANIONS } from "../utils/companions";
+import { calcWatchTime } from "../utils/watchTime";
 
 const AVATAR_COLORS = [
   "#7c3aed", "#f59e0b", "#0ea5e9", "#10b981",
@@ -336,6 +337,12 @@ export function Profile() {
   const [copiedId,        setCopiedId]        = useState(false);
 
   const [achievementsOpen, setAchievementsOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const watchTime = useMemo(() => calcWatchTime(entries), [entries]);
+  const episodesWatched = useMemo(
+    () => entries.reduce((s, e) => s + e.seasons.reduce((s2, se) => s2 + (se.watchedEpisodes || 0), 0), 0),
+    [entries]
+  );
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting,      setDeleting]      = useState(false);
@@ -466,156 +473,215 @@ export function Profile() {
         <TopBar />
       </div>
 
-      {/* Identité */}
-      <Section title="Identité">
-        <div className="flex flex-col items-center gap-5 px-5 pt-6 pb-4">
-          <div className="relative">
-            <Avatar name={username} color={color} photoUrl={avatarUrl} size="xl"
-              className="shadow-lg" />
-            {uploadingPhoto && (
-              <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
-                <Loader2 size={20} className="animate-spin text-white" />
-              </div>
-            )}
-            <label
-              htmlFor="avatar-upload"
-              title="Changer la photo"
-              className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-violet-700 hover:bg-violet-600 border-2 border-violet-950 flex items-center justify-center cursor-pointer transition-colors motion-reduce:transition-none"
-            >
-              <Camera size={14} className="text-white" />
-            </label>
-            <input id="avatar-upload" type="file" accept="image/*" className="hidden"
-              onChange={handlePhotoSelect} disabled={uploadingPhoto} />
-            {avatarUrl && (
-              <button
-                onClick={handlePhotoRemove}
-                title="Retirer la photo"
-                disabled={uploadingPhoto}
-                className="absolute bottom-0 left-0 w-8 h-8 rounded-full bg-rose-600 hover:bg-rose-500 border-2 border-violet-950 flex items-center justify-center transition-colors motion-reduce:transition-none disabled:opacity-50"
+      {/* Identité — hero */}
+      <div className="rounded-3xl overflow-hidden border border-white/5 bg-violet-900/30 animate-fadeInUp">
+        {/* Bannière — halftone façon trame de manga, teintée par la couleur d'avatar */}
+        <div
+          className="relative h-28 sm:h-32"
+          style={{
+            backgroundColor: "#150826",
+            backgroundImage: [
+              `radial-gradient(circle at 50% 130%, ${color}55, transparent 65%)`,
+              `radial-gradient(${color}99 1px, transparent 1.4px)`,
+            ].join(", "),
+            backgroundSize: "auto, 13px 13px",
+            backgroundPosition: "center, 0 0",
+          }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-t from-violet-900/40 via-transparent to-black/20" />
+        </div>
+
+        <div className="px-5 sm:px-6 pb-6">
+          {/* Avatar chevauchant la bannière */}
+          <div className="relative -mt-12 flex items-end justify-between">
+            <div className="relative">
+              <Avatar name={username} color={color} photoUrl={avatarUrl} size="xl"
+                className="shadow-xl ring-4 ring-violet-900/30 border-4 border-[#150826]" />
+              {uploadingPhoto && (
+                <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+                  <Loader2 size={20} className="animate-spin text-white" />
+                </div>
+              )}
+              <label
+                htmlFor="avatar-upload"
+                title="Changer la photo"
+                className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-violet-700 hover:bg-violet-600 border-2 border-[#150826] flex items-center justify-center cursor-pointer transition-colors motion-reduce:transition-none"
               >
-                <XIcon size={14} className="text-white" />
-              </button>
-            )}
-          </div>
-          {photoError && <p className="text-xs text-rose-400 -mt-2">{photoError}</p>}
-
-          <div className="text-center">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400 mb-2">
-              Couleur de l'avatar {avatarUrl && <span className="text-violet-600">(utilisée si tu retires la photo)</span>}
-            </p>
-            <div className="flex gap-2 justify-center">
-              {AVATAR_COLORS.map((c) => (
-                <button key={c} onClick={() => setColor(c)} aria-label={`Couleur ${c}`}
-                  className="w-7 h-7 rounded-full hover:scale-110 transition-transform motion-reduce:transition-none"
-                  style={{ backgroundColor: c, outline: color === c ? "3px solid white" : "none", outlineOffset: "2px" }} />
-              ))}
-            </div>
-          </div>
-
-          <div className="text-center w-full">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400 mb-2">
-              Compagnon <span className="text-violet-600 normal-case tracking-normal">— change les émojis de note</span>
-            </p>
-            <div className="flex gap-2 justify-center flex-wrap">
-              {COMPANIONS.filter((c) => c.id !== "default").map((c) => (
+                <Camera size={14} className="text-white" />
+              </label>
+              <input id="avatar-upload" type="file" accept="image/*" className="hidden"
+                onChange={handlePhotoSelect} disabled={uploadingPhoto} />
+              {avatarUrl && (
                 <button
-                  key={c.id}
-                  onClick={() => setCompanion(c.id)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-left transition-all active:scale-95 motion-reduce:transition-none ${
-                    companion === c.id
-                      ? "bg-white/10 border-white/25"
-                      : "bg-white/[0.03] border-white/5 hover:bg-white/5"
+                  onClick={handlePhotoRemove}
+                  title="Retirer la photo"
+                  disabled={uploadingPhoto}
+                  className="absolute bottom-0 left-0 w-8 h-8 rounded-full bg-rose-600 hover:bg-rose-500 border-2 border-[#150826] flex items-center justify-center transition-colors motion-reduce:transition-none disabled:opacity-50"
+                >
+                  <XIcon size={14} className="text-white" />
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={() => setEditOpen((v) => !v)}
+              className={`mb-1 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all active:scale-95 motion-reduce:transition-none ${
+                editOpen
+                  ? "bg-amber-400 text-violet-950 border-amber-400"
+                  : "bg-white/5 text-violet-200 border-white/10 hover:bg-white/10"
+              }`}
+            >
+              <Pencil size={13} /> {editOpen ? "Fermer" : "Modifier"}
+            </button>
+          </div>
+          {photoError && <p className="text-xs text-rose-400 mt-2">{photoError}</p>}
+
+          {/* Pseudo + description */}
+          <div className="mt-4">
+            <h2 className="text-xl sm:text-2xl font-bold text-violet-50 tracking-tight truncate" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+              {username || "Sans pseudo"}
+            </h2>
+            <p className="text-sm text-violet-300/80 mt-1 leading-relaxed">
+              {description ? description : <span className="italic text-violet-600">Pas de description — présente-toi via « Modifier ».</span>}
+            </p>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-4 gap-2 mt-5">
+            {[
+              { icon: <Film size={15} />,      value: entries.length,                            label: "Titres"   },
+              { icon: <PlayCircle size={15} />, value: episodesWatched,                           label: "Épisodes" },
+              { icon: <Clock size={15} />,     value: watchTime,                                  label: "Temps"    },
+              { icon: <Trophy size={15} />,    value: `${unlockedCount}/${allAchievements.length}`, label: "Succès" },
+            ].map(({ icon, value, label }) => (
+              <div key={label} className="rounded-xl bg-white/5 border border-white/5 py-3 px-1 text-center">
+                <div className="flex justify-center mb-1 text-amber-400/90">{icon}</div>
+                <p className="font-mono text-[13px] sm:text-sm font-bold text-violet-50 tabular-nums leading-tight">{value}</p>
+                <p className="font-mono text-[8px] sm:text-[9px] uppercase tracking-wider text-violet-500 mt-0.5">{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Panneau d'édition — repliable */}
+        {editOpen && (
+          <div className="border-t border-white/5 px-5 sm:px-6 py-5 space-y-5 animate-fadeInUp">
+            <div className="text-center">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400 mb-2">
+                Couleur de l'avatar {avatarUrl && <span className="text-violet-600">(utilisée si tu retires la photo)</span>}
+              </p>
+              <div className="flex gap-2 justify-center">
+                {AVATAR_COLORS.map((c) => (
+                  <button key={c} onClick={() => setColor(c)} aria-label={`Couleur ${c}`}
+                    className="w-7 h-7 rounded-full hover:scale-110 transition-transform motion-reduce:transition-none"
+                    style={{ backgroundColor: c, outline: color === c ? "3px solid white" : "none", outlineOffset: "2px" }} />
+                ))}
+              </div>
+            </div>
+
+            <div className="text-center w-full">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400 mb-2">
+                Compagnon <span className="text-violet-600 normal-case tracking-normal">— change les émojis de note</span>
+              </p>
+              <div className="flex gap-2 justify-center flex-wrap">
+                {COMPANIONS.filter((c) => c.id !== "default").map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setCompanion(c.id)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-left transition-all active:scale-95 motion-reduce:transition-none ${
+                      companion === c.id
+                        ? "bg-white/10 border-white/25"
+                        : "bg-white/[0.03] border-white/5 hover:bg-white/5"
+                    }`}
+                  >
+                    <span className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold text-white"
+                      style={{ backgroundColor: c.swatch }}>
+                      {c.name[0]}
+                    </span>
+                    <span className="min-w-0">
+                      <p className="text-xs font-semibold text-violet-100">{c.name}</p>
+                      <p className="text-[10px] text-violet-500 truncate max-w-[140px]">{c.description}</p>
+                    </span>
+                    {companion === c.id && <Check size={14} className="text-emerald-400 flex-shrink-0 ml-1" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">
+                ID unique <span className="normal-case tracking-normal text-violet-600">— pour l'ajout d'amis</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  value={user?.id || ""}
+                  disabled
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-violet-950/30 border border-white/5 text-violet-500 cursor-not-allowed text-xs font-mono overflow-hidden"
+                />
+                <button
+                  onClick={handleCopyId}
+                  title="Copier l'ID"
+                  className={`flex-shrink-0 p-2.5 rounded-xl border transition-all active:scale-95 ${
+                    copiedId
+                      ? "bg-teal-500/20 border-teal-500/40 text-teal-300"
+                      : "bg-violet-900/50 border-white/10 text-violet-400 hover:text-violet-200 hover:bg-white/10"
                   }`}
                 >
-                  <span className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold text-white"
-                    style={{ backgroundColor: c.swatch }}>
-                    {c.name[0]}
-                  </span>
-                  <span className="min-w-0">
-                    <p className="text-xs font-semibold text-violet-100">{c.name}</p>
-                    <p className="text-[10px] text-violet-500 truncate max-w-[140px]">{c.description}</p>
-                  </span>
-                  {companion === c.id && <Check size={14} className="text-emerald-400 flex-shrink-0 ml-1" />}
+                  {copiedId ? <Check size={14} /> : <Copy size={14} />}
                 </button>
-              ))}
+              </div>
+              <p className="text-[10px] text-violet-600 mt-1">Cet identifiant est permanent et ne peut pas être modifié.</p>
             </div>
-          </div>
-        </div>
 
-        <div className="px-5 pb-5 space-y-4">
-          <div>
-            <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">
-              ID unique <span className="normal-case tracking-normal text-violet-600">— pour l'ajout d'amis</span>
-            </label>
-            <div className="flex items-center gap-2">
+            <div>
+              <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Pseudo</label>
               <input
-                value={user?.id || ""}
-                disabled
-                className="flex-1 px-4 py-2.5 rounded-xl bg-violet-950/30 border border-white/5 text-violet-500 cursor-not-allowed text-xs font-mono overflow-hidden"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={!canChangeUsername}
+                placeholder="Ton pseudo…"
+                className="w-full px-4 py-2.5 rounded-xl bg-violet-950/60 border border-white/10 text-violet-50 placeholder-violet-500 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              <button
-                onClick={handleCopyId}
-                title="Copier l'ID"
-                className={`flex-shrink-0 p-2.5 rounded-xl border transition-all active:scale-95 ${
-                  copiedId
-                    ? "bg-teal-500/20 border-teal-500/40 text-teal-300"
-                    : "bg-violet-900/50 border-white/10 text-violet-400 hover:text-violet-200 hover:bg-white/10"
-                }`}
-              >
-                {copiedId ? <Check size={14} /> : <Copy size={14} />}
-              </button>
+              {canChangeUsername ? (
+                <p className="text-[10px] text-violet-600 mt-1">
+                  💡 Tu ne peux changer ton pseudo qu'une fois par semaine.
+                </p>
+              ) : (
+                <p className="text-[11px] text-amber-400/80 mt-1">
+                  🔒 Pseudo modifiable à partir du {nextChangeDate} ({daysLeft} jour{daysLeft > 1 ? "s" : ""})
+                </p>
+              )}
             </div>
-            <p className="text-[10px] text-violet-600 mt-1">Cet identifiant est permanent et ne peut pas être modifié.</p>
+
+            <div>
+              <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Description</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                maxLength={200}
+                placeholder="Présente-toi en quelques mots…"
+                className="w-full px-4 py-2.5 rounded-xl bg-violet-950/60 border border-white/10 text-violet-50 placeholder-violet-500 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+              <p className="text-[10px] text-violet-600 mt-0.5 text-right">{description.length}/200</p>
+            </div>
+
+            <div>
+              <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Email</label>
+              <input value={user?.email || ""} disabled
+                className="w-full px-4 py-2.5 rounded-xl bg-violet-950/30 border border-white/5 text-violet-500 cursor-not-allowed" />
+            </div>
+
+            <Msg {...profileMsg} />
+
+            <button onClick={handleSaveProfile} disabled={savingProfile || !username.trim()}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-400 text-violet-950 font-semibold text-sm hover:bg-amber-300 disabled:opacity-60 transition-colors motion-reduce:transition-none">
+              {savingProfile ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              Sauvegarder
+            </button>
           </div>
-
-          <div>
-            <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Pseudo</label>
-            <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              disabled={!canChangeUsername}
-              placeholder="Ton pseudo…"
-              className="w-full px-4 py-2.5 rounded-xl bg-violet-950/60 border border-white/10 text-violet-50 placeholder-violet-500 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            {canChangeUsername ? (
-              <p className="text-[10px] text-violet-600 mt-1">
-                💡 Tu ne peux changer ton pseudo qu'une fois par semaine.
-              </p>
-            ) : (
-              <p className="text-[11px] text-amber-400/80 mt-1">
-                🔒 Pseudo modifiable à partir du {nextChangeDate} ({daysLeft} jour{daysLeft > 1 ? "s" : ""})
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Description</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              maxLength={200}
-              placeholder="Présente-toi en quelques mots…"
-              className="w-full px-4 py-2.5 rounded-xl bg-violet-950/60 border border-white/10 text-violet-50 placeholder-violet-500 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-400"
-            />
-            <p className="text-[10px] text-violet-600 mt-0.5 text-right">{description.length}/200</p>
-          </div>
-
-          <div>
-            <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Email</label>
-            <input value={user?.email || ""} disabled
-              className="w-full px-4 py-2.5 rounded-xl bg-violet-950/30 border border-white/5 text-violet-500 cursor-not-allowed" />
-          </div>
-
-          <Msg {...profileMsg} />
-
-          <button onClick={handleSaveProfile} disabled={savingProfile || !username.trim()}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-400 text-violet-950 font-semibold text-sm hover:bg-amber-300 disabled:opacity-60 transition-colors motion-reduce:transition-none">
-            {savingProfile ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-            Sauvegarder
-          </button>
-        </div>
-      </Section>
+        )}
+      </div>
 
       {/* Mot de passe */}
       <PasswordSection userEmail={user?.email || ""} />
