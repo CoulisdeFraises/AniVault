@@ -66,13 +66,17 @@ export function Header({
         <div className="flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <img
-              src={logoPlaying ? `/splash-anim.gif?t=${logoPlaying}` : "/logo.png"}
-              alt="Logo AniVault" onClick={playLogoOnce}
-              role="button" tabIndex={0}
-              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playLogoOnce(); } }}
-              className="h-12 w-12 rounded-xl flex-shrink-0 ring-2 ring-white/80 cursor-pointer active:scale-95 transition-transform motion-reduce:transition-none"
-            />
+            <button
+              type="button" onClick={playLogoOnce}
+              aria-label="Rejouer l'animation du logo"
+              className="flex-shrink-0 h-12 w-12 rounded-full bg-white p-[3px] shadow-sm active:scale-95 transition-transform motion-reduce:transition-none"
+            >
+              <img
+                src={logoPlaying ? `/splash-anim.gif?t=${logoPlaying}` : "/logo.png"}
+                alt="Logo AniVault"
+                className="h-full w-full rounded-full object-cover"
+              />
+            </button>
             <div>
               <p className="font-mono text-[9px] tracking-[0.25em] text-violet-500 uppercase leading-none mb-0.5 hidden sm:block">Journal de visionnage</p>
               <h1 className="text-2xl font-bold italic tracking-tight leading-none" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>ANIVAULT</h1>
