@@ -25,9 +25,11 @@ export function getRatingEmoji(rating, companionId) {
 /**
  * RatingBadge — affiche la note sous forme d'image (si le compagnon a un jeu
  * d'images, ex. Chlo) ou d'émoji (fallback pour les compagnons sans images).
- * `className` contrôle la taille : les classes text-* fixent le font-size de
- * l'élément (image comme span), et h-[1.15em] s'appuie dessus pour que
- * l'image et l'émoji restent visuellement à la même échelle partout.
+ * `className` peut combiner librement :
+ *   - des classes text-* (utilisées par l'émoji, ignorées par l'image)
+ *   - des classes h-*   (utilisées par l'image, ignorées par l'émoji)
+ * afin que chaque appelant choisisse la bonne taille pour son contexte
+ * (l'illustration a besoin de beaucoup plus de place qu'un simple émoji).
  */
 export function RatingBadge({ rating, companionId, className = "" }) {
   const band = getRatingBand(rating);
@@ -41,7 +43,7 @@ export function RatingBadge({ rating, companionId, className = "" }) {
       <img
         src={`${companion.imageFolder}/rating-${band}.png`}
         alt={`Note ${rating}/10`}
-        className={`inline-block h-[1.15em] w-auto align-middle ${className}`}
+        className={`inline-block w-auto align-middle ${className}`}
         loading="lazy"
       />
     );

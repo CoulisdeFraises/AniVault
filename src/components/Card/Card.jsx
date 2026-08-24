@@ -439,7 +439,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
                 </span>
                 {entry.rating > 0 && <Star size={13} fill="#fbbf24" strokeWidth={0} />}
               </div>
-              <RatingBadge rating={entry.rating} className="text-xl sm:text-2xl" />
+              <RatingBadge rating={entry.rating} className="text-xl sm:text-2xl h-8 sm:h-10" />
             </div>
           </div>
 

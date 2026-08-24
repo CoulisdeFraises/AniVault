@@ -590,7 +590,7 @@ export function Details() {
                   {formatRating(entry.rating) || "—"}
                 </span>
                 {entry.rating > 0 && <Star size={18} fill="#fbbf24" strokeWidth={0} />}
-                {entry.rating > 0 && <RatingBadge rating={entry.rating} className="text-xl sm:text-3xl" />}
+                {entry.rating > 0 && <RatingBadge rating={entry.rating} className="text-xl sm:text-3xl h-12 sm:h-16" />}
               </div>
               <p className="font-mono text-[10px] text-violet-500">
                 {entry.rating > 0 ? "Moyenne des saisons notées — note-les ci-dessous" : "Aucune saison notée pour l'instant"}

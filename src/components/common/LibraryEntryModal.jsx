@@ -39,7 +39,7 @@ export function LibraryEntryModal({ item, entry, onClose, onRemove }) {
           {entry?.rating > 0 && (
             <span className="absolute bottom-3 right-3 inline-flex items-center gap-1 font-mono text-[11px] text-amber-400 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm">
               <Star size={9} fill="#fbbf24" strokeWidth={0} /> {formatRating(entry.rating)}/10
-              <RatingBadge rating={entry.rating} className="text-[11px] ml-0.5" />
+              <RatingBadge rating={entry.rating} className="text-[11px] h-5 ml-0.5" />
             </span>
           )}
           {s && (
