@@ -141,17 +141,30 @@
 /* ── Logo + anneaux ─────────────────────────────────────────────────── */
 .splash-logo-wrap {
   position: relative;
-  width: 184px;
-  height: 184px;
+  width: 208px;
+  height: 208px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+/* Zoom + fondu du logo (glow + burst compris, via l'opacity héritée) au
+   moment où le chargement est terminé et que l'app s'apprête à s'ouvrir.
+   Durée alignée sur .splash-exiting (0.7s) pour que tout se termine pile
+   à l'ouverture de l'app (déclenchement de onFinish). */
+.splash-logo-wrap.logo-exit {
+  animation: logo-zoom-fade 0.7s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes logo-zoom-fade {
+  0%   { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(2.4); }
+}
+
 /* Halo radial derrière le logo */
 .splash-logo-glow {
   position: absolute;
-  inset: -34px;
+  inset: -38px;
   background: radial-gradient(circle, #a855f755 0%, #7c3aed22 45%, transparent 68%);
   border-radius: 50%;
   animation: glow-breathe 3.5s ease-in-out infinite;
@@ -164,7 +177,7 @@
 
 /* Logo */
 .splash-logo {
-  width: 136px;
+  width: 156px;
   height: auto;
   position: relative;
   z-index: 2;

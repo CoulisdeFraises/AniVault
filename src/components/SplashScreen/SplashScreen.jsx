@@ -105,7 +105,7 @@ const SplashScreen = ({ onFinish, isLoading = false }) => {
       <div className="splash-content">
 
         {/* Logo */}
-        <div className="splash-logo-wrap">
+        <div className={`splash-logo-wrap${exiting ? ' logo-exit' : ''}`}>
           <div className="splash-logo-glow" />
           <img
             key={playAnim ? "anim" : "poster"}
