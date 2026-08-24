@@ -15,15 +15,15 @@ export const COMPANIONS = [
     swatch: "#a78bfa",
   },
   {
-    id: "luna",
-    name: "Luna",
-    description: "Un compagnon lunaire — à personnaliser avec tes propres dessins.",
+    id: "chlo",
+    name: "Chlo",
+    description: "La petite démone.",
     swatch: "#818cf8",
   },
   {
     id: "sora",
     name: "Sora",
-    description: "Un compagnon solaire — à personnaliser avec tes propres dessins.",
+    description: "Un compagnon solaire.",
     swatch: "#fbbf24",
   },
 ];
@@ -33,7 +33,7 @@ export const COMPANIONS = [
 export const RATING_EMOJIS = {
   default: ["😭", "😞", "😐", "😊", "😁", "🤩"],
   // Placeholders "Luna" — à remplacer par les dessins personnalisés
-  luna:    ["😿", "😾", "😼", "😺", "😸", "😻"],
+  chlo:    ["😿", "😾", "😼", "😺", "😸", "😻"],
   // Placeholders "Sora" — à remplacer par les dessins personnalisés
   sora:    ["🥱", "😑", "🙂", "😃", "😄", "🌟"],
 };
