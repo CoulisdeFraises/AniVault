@@ -59,15 +59,15 @@ export function SynopsisModal({ rec, onClose, onAdd, onAddSeen, adding, alreadyI
           {alreadyInLib ? (
             <p className="text-center font-mono text-[11px] text-violet-500 py-1">✓ Déjà dans ta liste</p>
           ) : (
-            <div className="space-y-2">
+            <div className="flex gap-2">
               {/* Ajouter → ouvre le formulaire de confirmation */}
               <button
                 onClick={() => onAdd(rec)}
                 disabled={adding}
-                className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-amber-400/20 border border-amber-400/30 text-amber-300 text-sm font-medium hover:bg-amber-400/30 active:scale-95 transition-all disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-amber-400/20 border border-amber-400/30 text-amber-300 text-sm font-medium hover:bg-amber-400/30 active:scale-95 transition-all disabled:opacity-50"
               >
                 {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                Ajouter à ma liste
+                Ajouter
               </button>
 
               {/* Marquer comme vu — uniquement si le handler est fourni */}
@@ -75,7 +75,7 @@ export function SynopsisModal({ rec, onClose, onAdd, onAddSeen, adding, alreadyI
                 <button
                   onClick={() => onAddSeen(rec)}
                   disabled={adding}
-                  className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-teal-500/15 border border-teal-500/25 text-teal-300 text-sm font-medium hover:bg-teal-500/25 active:scale-95 transition-all disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-teal-500/15 border border-teal-500/25 text-teal-300 text-sm font-medium hover:bg-teal-500/25 active:scale-95 transition-all disabled:opacity-50"
                 >
                   {adding ? <Loader2 size={14} className="animate-spin" /> : <EyePlus size={14} />}
                   Marquer comme vu

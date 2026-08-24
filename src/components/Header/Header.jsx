@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import {
   Plus, Film, Tv, Clapperboard, RefreshCw, X, Search,
   LibraryBig, PlayCircle, CheckCircle2, Bookmark, XCircle,
-  Clock, Sparkles, Flame,
+  Clock, Flame,
 } from "lucide-react";
 import { useLibrary }           from "../../context/LibraryContext";
 import { useCountUp }           from "../../hooks/useCountUp";
@@ -18,7 +18,6 @@ const STAT_TINTS = {
   sky:    "bg-sky-400/10 text-sky-300",
   amber:  "bg-amber-400/10 text-amber-300",
   teal:   "bg-teal-400/10 text-teal-300",
-  pink:   "bg-pink-400/10 text-pink-300",
   rose:   "bg-rose-400/10 text-rose-300",
   flame:  "bg-orange-400/10 text-orange-300",
 };
@@ -82,7 +81,6 @@ export function Header({
     if (typeFilter === "serie") return entries.filter(e => e.type === "serie" && e.category !== "movie");
     return entries.filter(e => e.type === typeFilter); // "anime"
   }, [entries, typeFilter]);
-  const topGenres    = useMemo(() => { const t = {}; entries.forEach(e => e.genres.forEach(g => { t[g] = (t[g] || 0) + 1; })); return Object.entries(t).sort((a, b) => b[1] - a[1]).slice(0, 3); }, [entries]);
   const totalWatched = useMemo(() => entries.reduce((s, e) => s + e.seasons.reduce((s2, se) => s2 + (se.watchedEpisodes || 0), 0), 0), [entries]);
   const totalKnown   = useMemo(() => entries.reduce((s, e) => s + e.seasons.reduce((s2, se) => s2 + (se.totalEpisodes || 0), 0), 0), [entries]);
   const globalPct    = totalKnown > 0 ? Math.min(100, (totalWatched / totalKnown) * 100) : 0;
@@ -166,7 +164,7 @@ export function Header({
       {/* Stats — un seul bloc, séparateurs sobres, progression intégrée */}
       {!loading && entries.length > 0 && (
         <div className="mb-5 rounded-xl sm:rounded-2xl bg-violet-900/30 border border-white/5 overflow-hidden">
-          <div className="grid grid-cols-5 divide-x divide-white/5">
+          <div className="grid grid-cols-4 divide-x divide-white/5">
             <StatCell
               icon={<LibraryBig size={13} />}
               tint={STAT_TINTS.sky}
@@ -204,13 +202,6 @@ export function Header({
               dots={TIME_UNITS.map((u) => (
                 <span key={u} className={`w-1 h-1 rounded-full ${u === timeUnit ? "bg-teal-300" : "bg-white/15"}`} />
               ))}
-            />
-
-            <StatCell
-              icon={<Sparkles size={13} />}
-              tint={STAT_TINTS.pink}
-              value={topGenres.length > 0 ? topGenres.map(([g]) => g).join(", ") : "—"}
-              label="Genres"
             />
           </div>
 
