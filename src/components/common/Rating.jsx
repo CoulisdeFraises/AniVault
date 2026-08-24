@@ -1,35 +1,42 @@
 import { useState } from "react";
 import { Star } from "lucide-react";
 
-// CORRECTION : Ajustez le chemin pour pointer vers votre dossier utils/companions.js
-import { RATING_EMOJIS, getCompanion } from "../../utils/companions"; // <--- PARENTHESES SUPPRIMÉES
+// Import depuis utils, pas des dossiers voisins (pour éviter le bug Rollup)
+import { RATING_EMOJIS, getCompanion } from "../../utils/companions";
 
-
-/**
- * Retourne l'HTML (img ou span) correspondant à une note (1-10).
- * Utilise les images personnalisées si la config du compagnon le permet, sinon les émojis.
- */
 export function getRatingIcon(rating, companionId) {
   if (!rating) return null;
 
+  // 1. On récupère la configuration du compagnon (ex: "chlo")
   const id = companionId || (typeof localStorage !== "undefined" ? localStorage.getItem("pref_companion") : null) || "default";
   const companion = getCompanion(id);
-  const emojis = RATING_EMOJIS[id] || RATING_EMOJIS.default;
   
-  // Calcul de la tranche (0 à 5)
-  const band = rating <= 2 ? 0 : rating <= 4 ? 1 : rating === 5 ? 2 : rating <= 7 ? 3 : rating <= 9 ? 4 : 5;
+  // Fallback vers les émojis si le compagnon n'est pas trouvé ou est par défaut
+  const emojis = RATING_EMOJIS[id] || RATING_EMOJIS.default;
 
-  // Déterminer le chemin d'image
+  // 2. Calcul de la tranche (band)
+  const band = rating <= 2 ? 0 : 
+               rating <= 4 ? 1 : 
+               rating === 5 ? 2 : 
+               rating <= 7 ? 3 : 
+               rating <= 9 ? 4 : 5;
+
+  // 3. Construction du chemin d'image
   let imageSrc = null;
   
   if (companion?.imageFolder) {
-    // Cas Chlo : les images sont dans /public/chlo/ directement
-    const folderName = companion.imageFolder;
-    const extension = window.location.search.includes("dev") ? "jpg" : "png"; 
-    imageSrc = `/companions/${folderName}/rating-${band}.${extension}`;
+    // Si le compagnon a une config "imageFolder" (ex: "/companions/chlo"), on l'utilise
+    // L'URL finale sera : /companions/chlo/rating-0.png
+    const folderName = companion.imageFolder; 
+    imageSrc = `${folderName}/rating-${band}.png`; 
+  } else {
+    // Fallback standard pour les compagnons sans images personnalisées
+    // L'URL finale serait : /companions/default/rating-0.png
+    const defaultPath = `companions/${id}`;
+    imageSrc = `${defaultPath}/rating-${band}.png`;
   }
 
-  // Retourner soit l'image, soit le placeholder emoji
+  // Retour de l'image (si le fichier existe sur le serveur) ou du span d'émoji
   if (imageSrc) {
     return `<img src="${imageSrc}" alt="Note ${rating}" class="h-6 w-auto" loading="lazy" />`;
   } else {
