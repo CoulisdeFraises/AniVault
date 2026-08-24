@@ -33,6 +33,32 @@ export function calcWatchTime(entries, unit = "auto") {
   return formatWatchTime(calcWatchMinutes(entries), unit);
 }
 
+// Série de jours consécutifs (streak) en cours : nombre de jours d'affilée
+// jusqu'à aujourd'hui, avec au moins un épisode vu chaque jour. Si rien n'a
+// encore été vu aujourd'hui, on démarre le décompte à hier (la journée en
+// cours n'est "cassée" qu'à minuit, pas avant).
+export function calcCurrentStreak(entries) {
+  const days = new Set();
+  entries.forEach((entry) => {
+    (entry.watchHistory || []).forEach((h) => {
+      if (!h.watchedAt) return;
+      const d = new Date(h.watchedAt);
+      d.setHours(0, 0, 0, 0);
+      days.add(d.getTime());
+    });
+  });
+  if (!days.size) return 0;
+
+  const DAY   = 86400000;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  let cursor  = today.getTime();
+  if (!days.has(cursor)) cursor -= DAY;
+
+  let streak = 0;
+  while (days.has(cursor)) { streak++; cursor -= DAY; }
+  return streak;
+}
+
 // Regroupe le watchHistory par mois sur les N derniers mois
 export function groupHistoryByMonth(entries, months = 6) {
   const now    = new Date();
