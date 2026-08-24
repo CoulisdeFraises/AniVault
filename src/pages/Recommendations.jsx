@@ -942,7 +942,7 @@ export function Recommendations() {
                     className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-pink-400/[0.07] border border-pink-400/25 cursor-pointer select-none transition-colors hover:bg-pink-400/[0.13] active:bg-pink-400/[0.18] motion-reduce:transition-none"
                   >
                     <div className="flex items-center gap-2">
-                      <HeartIcon size={15} className="text-pink-400" />
+                      <HeartIcon size={15} strokeWidth={18} className="text-pink-400 flex-shrink-0" />
                       <span className="font-mono text-[11px] text-pink-300 uppercase tracking-wide">
                         Culture Zone
                       </span>

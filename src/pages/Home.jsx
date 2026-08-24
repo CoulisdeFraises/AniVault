@@ -487,18 +487,18 @@ export function Home() {
               </button>
 
               {cachetteOpen && (
-                <div className="mt-4 rounded-2xl border border-violet-700/20 bg-violet-950/60 overflow-hidden animate-fadeIn">
-                  <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-violet-800/30">
-                    <p className="font-mono text-[10px] uppercase tracking-widest text-violet-600 flex-shrink-0">Contenu secret</p>
+                <div className="mt-4 rounded-2xl border border-pink-500/25 bg-pink-950/40 overflow-hidden animate-fadeIn">
+                  <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-pink-500/15">
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-pink-300/70 flex-shrink-0">Contenu secret</p>
                     <div className="flex items-center gap-2">
                       <div className="relative">
                         <select
                           value={cachetteSortBy}
                           onChange={(e) => setCachetteSortBy(e.target.value)}
                           className="appearance-none flex items-center gap-1.5 h-8 pl-3 pr-7 rounded-full
-                            bg-white/5 border border-white/10 text-violet-400
-                            hover:bg-white/10 hover:text-violet-200
-                            focus:outline-none focus:border-violet-500/50
+                            bg-white/5 border border-pink-500/20 text-pink-200 font-mono text-[10px]
+                            hover:bg-white/10 hover:text-pink-100
+                            focus:outline-none focus:border-pink-400/50
                             transition-all cursor-pointer"
                         >
                           {SORT_OPTIONS.map(opt => (
@@ -507,12 +507,12 @@ export function Home() {
                             </option>
                           ))}
                         </select>
-                        <ChevronDown size={10} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-violet-500" />
+                        <ChevronDown size={10} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-pink-300/70" />
                       </div>
                       <button onClick={() => setCachetteRevealed(v => !v)}
                         className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-[10px] font-mono border transition-all active:scale-95 flex-shrink-0 ${cachetteRevealed
                           ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
-                          : "bg-white/5 border-white/10 text-violet-500 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400"}`}>
+                          : "bg-white/5 border-pink-500/20 text-pink-200 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-100"}`}>
                         {cachetteRevealed ? <Eye size={11} /> : <EyeOff size={11} />}
                         {cachetteRevealed ? "Flouter" : "Révéler"}
                       </button>
