@@ -14,7 +14,7 @@ export const COMPANIONS = [
     name: "Chlo",
     description: "La petite démone.",
     swatch: "#818cf8",
-    imageFolder: "/companions/chlo", // CORRECTION : Pointe vers le dossier réel des images
+    imageFolder: "chlo", // CORRECTION : Pointe vers le dossier réel des images
   },
   {
     id: "sora",
