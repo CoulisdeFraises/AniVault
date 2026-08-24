@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate }  from "react-router-dom";
 import { Header }           from "../components/Header/Header";
 import { Card }             from "../components/Card/Card";
@@ -130,8 +130,19 @@ export function Home() {
   const [cachetteOpen,      setCachetteOpen]      = useState(false);
   const [cachetteRevealed,  setCachetteRevealed]  = useState(false);
   const [cachetteSortBy,    setCachetteSortBy]    = useState("date");
+  const [cachetteSortOpen,  setCachetteSortOpen]  = useState(false);
   const [mainListCollapsed, setMainListCollapsed] = useState(false);
   const [showFilterPanel,   setShowFilterPanel]   = useState(false);
+  const cachetteSortRef = useRef(null);
+
+  useEffect(() => {
+    if (!cachetteSortOpen) return;
+    function handleOutside(e) {
+      if (!cachetteSortRef.current?.contains(e.target)) setCachetteSortOpen(false);
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [cachetteSortOpen]);
 
   useEffect(() => {
     const p = {};
@@ -470,16 +481,19 @@ export function Home() {
             )
           )}
 
-          {/* ── Cachette secrète ── */}
+          {/* ── Cachette secrète — un seul bloc, thème rosé, fusionné une fois ouvert ── */}
           {hiddenFullEntries.length > 0 && (
-            <div className="mt-6" id="cachette-section">
+            <div
+              className={`mt-6 rounded-2xl border overflow-hidden transition-colors motion-reduce:transition-none ${
+                cachetteOpen ? "border-pink-500/25 bg-pink-950/40" : "border-pink-500/15 bg-pink-950/10 hover:bg-pink-950/20"
+              }`}
+              id="cachette-section"
+            >
               <button onClick={() => setCachetteOpen(v => !v)}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-xl
-                  bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06]
-                  text-violet-500 hover:text-violet-300 transition-all active:scale-[0.99] motion-reduce:transition-none">
-                <span className="flex items-center gap-2">
-                  {cachetteOpen ? <EyeOff size={13} /> : <Eye size={13} />}
-                  <span className="font-mono text-[10px] uppercase tracking-widest">
+                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-pink-300/80 hover:text-pink-200 transition-colors active:scale-[0.99] motion-reduce:transition-none">
+                <span className="flex items-center gap-2 min-w-0">
+                  {cachetteOpen ? <EyeOff size={13} className="flex-shrink-0" /> : <Eye size={13} className="flex-shrink-0" />}
+                  <span className="font-mono text-[10px] uppercase tracking-widest truncate">
                     {cachetteOpen ? "Masquer" : "Cachette secrète"} · {hiddenFullEntries.length} titre{hiddenFullEntries.length > 1 ? "s" : ""}
                   </span>
                 </span>
@@ -487,30 +501,38 @@ export function Home() {
               </button>
 
               {cachetteOpen && (
-                <div className="mt-4 rounded-2xl border border-pink-500/25 bg-pink-950/40 overflow-hidden animate-fadeIn">
-                  <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-pink-500/15">
+                <div className="border-t border-pink-500/15 animate-fadeIn">
+                  <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-pink-500/15 flex-wrap">
                     <p className="font-mono text-[10px] uppercase tracking-widest text-pink-300/70 flex-shrink-0">Contenu secret</p>
-                    <div className="flex items-center gap-2">
-                      <div className="relative">
-                        <select
-                          value={cachetteSortBy}
-                          onChange={(e) => setCachetteSortBy(e.target.value)}
-                          className="appearance-none flex items-center gap-1.5 h-8 pl-3 pr-7 rounded-full
-                            bg-white/5 border border-pink-500/20 text-pink-200 font-mono text-[10px]
-                            hover:bg-white/10 hover:text-pink-100
-                            focus:outline-none focus:border-pink-400/50
-                            transition-all cursor-pointer"
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      <div className="relative" ref={cachetteSortRef}>
+                        <button
+                          onClick={() => setCachetteSortOpen(v => !v)}
+                          className="flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[10px] font-mono
+                            bg-white/5 border border-pink-500/20 text-pink-200
+                            hover:bg-white/10 hover:text-pink-100 transition-all active:scale-95"
                         >
-                          {SORT_OPTIONS.map(opt => (
-                            <option key={opt.key} value={opt.key} className="bg-violet-900 text-violet-100">
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown size={10} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-pink-300/70" />
+                          {SORT_OPTIONS.find(o => o.key === cachetteSortBy)?.label}
+                          <ChevronDown size={10} className={`transition-transform motion-reduce:transition-none ${cachetteSortOpen ? "rotate-180" : ""}`} />
+                        </button>
+                        {cachetteSortOpen && (
+                          <div className="absolute right-0 top-full mt-1 z-20 w-32 rounded-xl bg-violet-900 border border-pink-500/20 shadow-xl overflow-hidden animate-fadeIn">
+                            {SORT_OPTIONS.map(opt => (
+                              <button
+                                key={opt.key}
+                                onClick={() => { setCachetteSortBy(opt.key); setCachetteSortOpen(false); }}
+                                className={`w-full text-left px-3 py-2 text-[11px] font-mono transition-colors motion-reduce:transition-none ${
+                                  opt.key === cachetteSortBy ? "text-pink-300 bg-pink-500/10" : "text-violet-200 hover:bg-white/5"
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <button onClick={() => setCachetteRevealed(v => !v)}
-                        className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-[10px] font-mono border transition-all active:scale-95 flex-shrink-0 ${cachetteRevealed
+                        className={`flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[10px] font-mono border transition-all active:scale-95 flex-shrink-0 ${cachetteRevealed
                           ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
                           : "bg-white/5 border-pink-500/20 text-pink-200 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-100"}`}>
                         {cachetteRevealed ? <Eye size={11} /> : <EyeOff size={11} />}
