@@ -169,10 +169,14 @@ export function Details() {
   }
 
   // ── Détection : une saison vient d'être terminée ────────────────────────────
+  // Les saisons de format "MOVIE" sont exclues : leur passage à "vu" a déjà sa
+  // propre célébration dédiée ("Film vu !", déclenchée par le toggle dans la
+  // section Films), pour éviter un doublon avec "Saison X terminée !".
   useEffect(() => {
     if (!entry) return;
     const prevMap = prevSeasonWatchedRef.current;
     entry.seasons.forEach((s, i) => {
+      if (s.format === "MOVIE") return;
       const total = s.totalEpisodes;
       if (total == null || total <= 0) return;
       const isNowDone = s.watchedEpisodes >= total;
@@ -198,10 +202,15 @@ export function Details() {
   // nombre d'épisodes diffusés à ce jour). Dans ce cas c'est "À jour !" qu'il
   // faut afficher, pas "Série terminée !" — l'effet de correction juste après
   // (ligne ~222) remet d'ailleurs le statut à "en-cours" dans la foulée.
+  //
+  // Pour un film (entry.category === "movie"), un statut "termine" signifie
+  // juste "vu" : ce n'est pas une série, donc ni "Série terminée !" ni
+  // "À jour !" n'ont de sens ici — le toggle "Vu"/"Pas vu" déclenche déjà sa
+  // propre célébration ("Film vu !", tier "movie"), donc on ignore ce cas.
   useEffect(() => {
     if (!entry) return;
     const prev = prevStatusRef.current;
-    if (prev != null && prev !== "termine" && entry.status === "termine") {
+    if (prev != null && prev !== "termine" && entry.status === "termine" && entry.category !== "movie") {
       if (nextAiring?.airingAt) {
         triggerCelebration({ tier: "caughtup", title: "À jour !", subtitle: entry.title });
       } else {

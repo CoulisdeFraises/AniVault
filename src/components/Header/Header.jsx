@@ -44,6 +44,19 @@ export function Header({
   const animWatched  = useCountUp(totalWatched);
   const isSearch     = searchQuery.trim().length > 0;
 
+  const [logoPlaying, setLogoPlaying] = useState(false);
+  const logoTimerRef = useRef(null);
+
+  // Rejoue le gif du logo une fois au clic, puis revient au logo statique.
+  // Le "?t=" force le navigateur à relancer l'animation depuis la 1ère frame
+  // à chaque clic (sinon un gif déjà en cache ne redémarre pas).
+  function playLogoOnce() {
+    clearTimeout(logoTimerRef.current);
+    setLogoPlaying(Date.now());
+    logoTimerRef.current = setTimeout(() => setLogoPlaying(false), 850);
+  }
+  useEffect(() => () => clearTimeout(logoTimerRef.current), []);
+
   return (
     <>
       <div
@@ -53,7 +66,13 @@ export function Header({
         <div className="flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="" className="h-12 w-12 rounded-xl flex-shrink-0" aria-hidden />
+            <img
+              src={logoPlaying ? `/splash-anim.gif?t=${logoPlaying}` : "/logo.png"}
+              alt="Logo AniVault" onClick={playLogoOnce}
+              role="button" tabIndex={0}
+              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playLogoOnce(); } }}
+              className="h-12 w-12 rounded-xl flex-shrink-0 ring-2 ring-white/80 cursor-pointer active:scale-95 transition-transform motion-reduce:transition-none"
+            />
             <div>
               <p className="font-mono text-[9px] tracking-[0.25em] text-violet-500 uppercase leading-none mb-0.5 hidden sm:block">Journal de visionnage</p>
               <h1 className="text-2xl font-bold italic tracking-tight leading-none" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>ANIVAULT</h1>
@@ -109,7 +128,7 @@ export function Header({
           <Search size={15} className={`flex-shrink-0 transition-colors duration-200 motion-reduce:transition-none ${searchFocused || isSearch ? "text-violet-300" : "text-violet-500"}`} />
           <input ref={searchRef} type="text" value={searchQuery} onChange={e => onSearchChange(e.target.value)}
             onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)}
-            placeholder="Dans ta bibliothèque (Titre, genre, note...)"
+            placeholder="Rechercher dans ta bibliothèque (Titre, genre, note...)"
             className="flex-1 bg-transparent text-sm text-violet-50 placeholder-violet-500 focus:outline-none" />
           {isSearch && (
             <button onClick={() => { onSearchChange(""); searchRef.current?.focus(); }} aria-label="Effacer"
