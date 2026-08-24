@@ -618,6 +618,30 @@ export function Recommendations() {
     }
   }
 
+  // Depuis SynopsisModal : "Marquer comme vu" → sauvegarde directe avec tous
+  // les épisodes déjà cochés et le statut "Terminé".
+  async function handleAddSeen(rec) {
+    if (isInLibrary(rec)) { setSynopsisRec(null); return; } // garde-fou pour les doublons
+    setAdding(rec.id);
+    try {
+      const data = await importResult(rec);
+      const seenSeasons = data.seasons.map((s) => ({
+        ...s,
+        watchedEpisodes: s.totalEpisodes ?? 1,
+      }));
+      saveEntry({ ...data, seasons: seenSeasons, status: "termine" }, null);
+      haptics.success();
+      setSynopsisRec(null);
+      setSurpriseOpen(false);
+      setAddedToast(true);
+    } catch {
+      haptics.error();
+      setError("Erreur lors de l'ajout du titre.");
+    } finally {
+      setAdding(null);
+    }
+  }
+
   // ── Tirage aléatoire d'un titre selon l'onglet actif ──────────────────────
   // Volontairement DÉCORRÉLÉ des recommandations basées sur les goûts : on
   // pioche dans le catalogue populaire général (AniList / TMDB), sans filtre
@@ -1010,6 +1034,7 @@ export function Recommendations() {
             rec={synopsisRec}
             onClose={() => { setSynopsisRec(null); setSurpriseOpen(false); }}
             onAdd={handleAdd}
+            onAddSeen={handleAddSeen}
             adding={adding === synopsisRec.id}
             alreadyInLib={isInLibrary(synopsisRec)}
             surprise={surpriseOpen}
