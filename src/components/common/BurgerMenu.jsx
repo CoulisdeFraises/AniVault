@@ -57,17 +57,16 @@ export function BurgerMenu() {
       style={{ position: "fixed", top: pos.top, right: pos.right, zIndex: 9999, width: "14rem" }}
       className="rounded-2xl bg-violet-900 border border-white/10 shadow-2xl overflow-hidden animate-fadeIn"
     >
-      <div className="flex items-center justify-center px-4 py-3 border-b border-white/5">
-        <img src="/logo-wide.png" alt="AniVault" className="h-6 object-contain" />
-      </div>
-
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
+      <button
+        onClick={() => go("/profile")}
+        className="w-full flex items-center gap-3 px-4 py-3 border-b border-white/5 text-left hover:bg-white/10 active:bg-white/20 transition-colors motion-reduce:transition-none"
+      >
         <Avatar name={profile} color={avatarColor} photoUrl={userProfile?.avatar_url} size="md" />
         <div className="min-w-0">
           <p className="text-sm font-semibold text-violet-50 truncate">{profile}</p>
           <p className="text-[10px] text-violet-400 truncate">{user?.email}</p>
         </div>
-      </div>
+      </button>
 
       <nav className="py-1">
         {[
@@ -123,9 +122,10 @@ export function BurgerMenu() {
           onClick={menuOpen ? closeMenu : openMenu}
           aria-label="Menu"
           aria-expanded={menuOpen}
-          className="h-9 w-9 flex items-center justify-center hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
+          className="h-9 pl-2.5 pr-2 flex items-center gap-1.5 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
         >
           <Menu size={16} className="text-violet-400" />
+          <Avatar name={profile} color={avatarColor} photoUrl={userProfile?.avatar_url} size="xs" />
         </button>
       </div>
 

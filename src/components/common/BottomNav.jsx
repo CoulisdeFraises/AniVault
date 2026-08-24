@@ -7,10 +7,10 @@ import { Home, ListPlus, Calendar, Search, Sparkles, Users, User } from "lucide-
 // données & sauvegarde, déconnexion, notifs) restent en haut de chaque page
 // via <TopBar />. Ici : uniquement la navigation entre les grandes sections.
 const ITEMS = [
-  { path: "/",                icon: Home,     label: "Accueil"  },
+  { path: "/search",          icon: Search,   label: "Ajouter"  },
   { path: "/lists",           icon: ListPlus, label: "Listes"   },
   { path: "/calendar",        icon: Calendar, label: "Agenda"   },
-  { path: "/search",          icon: Search,   label: "Ajouter",  primary: true },
+  { path: "/",                icon: Home,     label: "Accueil",  primary: true },
   { path: "/recommendations", icon: Sparkles, label: "Recos"    },
   { path: "/community",       icon: Users,    label: "Amis"     },
   { path: "/profile",         icon: User,     label: "Profil"   },

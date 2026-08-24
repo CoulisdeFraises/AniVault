@@ -156,68 +156,66 @@ function PasswordSection({ userEmail }) {
       <AnimatePresence>
         {showConfirmModal && <PasswordConfirmModal key="password-confirm" onConfirm={handleConfirmChange} onCancel={() => setShowConfirmModal(false)} loading={saving} />}
       </AnimatePresence>
-      <Section title="Mot de passe">
-        {!open ? (
-          <div className="px-5 py-4">
-            <button onClick={() => setOpen(true)} className="flex items-center gap-2 text-sm font-medium text-violet-300 hover:text-violet-100 transition-colors motion-reduce:transition-none">
-              <KeyRound size={15} /> Modifier mon mot de passe
-            </button>
-            <p className="text-[11px] text-violet-500 mt-1">Une vérification de ton mot de passe actuel sera demandée.</p>
-          </div>
-        ) : (
-          <div className="px-5 py-5 space-y-4 animate-fadeInUp">
-            <div>
-              <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Mot de passe actuel</label>
-              <div className="relative">
-                <input type={showCurrent ? "text" : "password"} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Ton mot de passe actuel" autoComplete="current-password"
-                  className="w-full px-4 py-2.5 pr-10 rounded-xl bg-violet-950/60 border border-white/10 text-violet-50 placeholder-violet-500 focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                <button type="button" onClick={() => setShowCurrent((v) => !v)} tabIndex={-1}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-violet-500 hover:text-violet-300 transition-colors motion-reduce:transition-none">
-                  {showCurrent ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Nouveau mot de passe</label>
-              <div className="relative">
-                <input type={showNew ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Au moins 8 caractères" autoComplete="new-password"
-                  className="w-full px-4 py-2.5 pr-10 rounded-xl bg-violet-950/60 border border-white/10 text-violet-50 placeholder-violet-500 focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                <button type="button" onClick={() => setShowNew((v) => !v)} tabIndex={-1}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-violet-500 hover:text-violet-300 transition-colors motion-reduce:transition-none">
-                  {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
-              <div className="mt-2"><PasswordStrength password={newPassword} /></div>
-            </div>
-            <div>
-              <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Confirmer le nouveau mot de passe</label>
-              <div className="relative">
-                <input type={showConfirm ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Répète le nouveau mot de passe" autoComplete="new-password"
-                  className={`w-full px-4 py-2.5 pr-10 rounded-xl bg-violet-950/60 border text-violet-50 placeholder-violet-500 focus:outline-none focus:ring-2 focus:ring-amber-400 transition-colors motion-reduce:transition-none ${confirmPassword && confirmPassword !== newPassword ? "border-rose-500/60" : "border-white/10"}`} />
-                <button type="button" onClick={() => setShowConfirm((v) => !v)} tabIndex={-1}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-violet-500 hover:text-violet-300 transition-colors motion-reduce:transition-none">
-                  {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
-              {confirmPassword && confirmPassword !== newPassword && (
-                <p className="text-[10px] text-rose-400 mt-1 animate-fadeIn">Les mots de passe ne correspondent pas.</p>
-              )}
-            </div>
-            <Msg {...msg} />
-            <div className="flex gap-2 pt-1">
-              <button onClick={handleClose}
-                className="flex-1 px-4 py-2 rounded-xl text-sm font-medium bg-white/10 text-violet-200 hover:bg-white/20 transition-colors motion-reduce:transition-none">Annuler</button>
-              <button onClick={handleRequestChange} disabled={saving || !currentPassword || !newPassword || !confirmPassword}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-violet-700 text-violet-100 font-semibold text-sm hover:bg-violet-600 disabled:opacity-50 transition-colors motion-reduce:transition-none">
-                <Lock size={14} /> Changer
+      {!open ? (
+        <div className="px-5 py-4">
+          <button onClick={() => setOpen(true)} className="flex items-center gap-2 text-sm font-medium text-violet-300 hover:text-violet-100 transition-colors motion-reduce:transition-none">
+            <KeyRound size={15} /> Modifier mon mot de passe
+          </button>
+          <p className="text-[11px] text-violet-500 mt-1">Une vérification de ton mot de passe actuel sera demandée.</p>
+        </div>
+      ) : (
+        <div className="px-5 py-5 space-y-4 animate-fadeInUp">
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Mot de passe actuel</label>
+            <div className="relative">
+              <input type={showCurrent ? "text" : "password"} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Ton mot de passe actuel" autoComplete="current-password"
+                className="w-full px-4 py-2.5 pr-10 rounded-xl bg-violet-950/60 border border-white/10 text-violet-50 placeholder-violet-500 focus:outline-none focus:ring-2 focus:ring-amber-400" />
+              <button type="button" onClick={() => setShowCurrent((v) => !v)} tabIndex={-1}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-violet-500 hover:text-violet-300 transition-colors motion-reduce:transition-none">
+                {showCurrent ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
           </div>
-        )}
-      </Section>
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Nouveau mot de passe</label>
+            <div className="relative">
+              <input type={showNew ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Au moins 8 caractères" autoComplete="new-password"
+                className="w-full px-4 py-2.5 pr-10 rounded-xl bg-violet-950/60 border border-white/10 text-violet-50 placeholder-violet-500 focus:outline-none focus:ring-2 focus:ring-amber-400" />
+              <button type="button" onClick={() => setShowNew((v) => !v)} tabIndex={-1}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-violet-500 hover:text-violet-300 transition-colors motion-reduce:transition-none">
+                {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+            <div className="mt-2"><PasswordStrength password={newPassword} /></div>
+          </div>
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-violet-400 block mb-1.5">Confirmer le nouveau mot de passe</label>
+            <div className="relative">
+              <input type={showConfirm ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Répète le nouveau mot de passe" autoComplete="new-password"
+                className={`w-full px-4 py-2.5 pr-10 rounded-xl bg-violet-950/60 border text-violet-50 placeholder-violet-500 focus:outline-none focus:ring-2 focus:ring-amber-400 transition-colors motion-reduce:transition-none ${confirmPassword && confirmPassword !== newPassword ? "border-rose-500/60" : "border-white/10"}`} />
+              <button type="button" onClick={() => setShowConfirm((v) => !v)} tabIndex={-1}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-violet-500 hover:text-violet-300 transition-colors motion-reduce:transition-none">
+                {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+            {confirmPassword && confirmPassword !== newPassword && (
+              <p className="text-[10px] text-rose-400 mt-1 animate-fadeIn">Les mots de passe ne correspondent pas.</p>
+            )}
+          </div>
+          <Msg {...msg} />
+          <div className="flex gap-2 pt-1">
+            <button onClick={handleClose}
+              className="flex-1 px-4 py-2 rounded-xl text-sm font-medium bg-white/10 text-violet-200 hover:bg-white/20 transition-colors motion-reduce:transition-none">Annuler</button>
+            <button onClick={handleRequestChange} disabled={saving || !currentPassword || !newPassword || !confirmPassword}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-violet-700 text-violet-100 font-semibold text-sm hover:bg-violet-600 disabled:opacity-50 transition-colors motion-reduce:transition-none">
+              <Lock size={14} /> Changer
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -683,9 +681,6 @@ export function Profile() {
         )}
       </div>
 
-      {/* Mot de passe */}
-      <PasswordSection userEmail={user?.email || ""} />
-
       {/* ── FIX : Favoris déplacé AU-DESSUS des Succès ── */}
 
       {/* Favoris */}
@@ -746,6 +741,9 @@ export function Profile() {
       {/* Zone de danger */}
       <Section title="Zone de danger">
         <div className="divide-y divide-white/5">
+          {/* Mot de passe */}
+          <PasswordSection userEmail={user?.email || ""} />
+
           <div className="px-5 py-4">
             {!confirmReset ? (
               <>
