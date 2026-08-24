@@ -1,23 +1,59 @@
 import { useMemo, useRef, useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Plus, Film, Tv, Clapperboard, RefreshCw, X, Search, LibraryBig, PlayCircle, Clock, Sparkles } from "lucide-react";
+import {
+  Plus, Film, Tv, Clapperboard, RefreshCw, X, Search,
+  LibraryBig, PlayCircle, CheckCircle2, Bookmark, XCircle,
+  Clock, Sparkles, Flame,
+} from "lucide-react";
 import { useLibrary }           from "../../context/LibraryContext";
 import { useCountUp }           from "../../hooks/useCountUp";
 import { BurgerMenu }           from "../common/BurgerMenu";
 import { NotificationPanel }    from "../common/NotificationPanel";  // ← AJOUT
-import { calcWatchMinutes, formatWatchTime } from "../../utils/watchTime";
+import { calcWatchMinutes, formatWatchTime, calcCurrentStreak } from "../../utils/watchTime";
+import { STATUS, STATUS_ORDER } from "../../utils/status";
 
-// Teintes des cartes de stats — classes complètes (et non interpolées) pour
-// rester détectables par le scanner JIT de Tailwind.
+// Teintes des cellules de stats — classes complètes (et non interpolées)
+// pour rester détectables par le scanner JIT de Tailwind.
 const STAT_TINTS = {
-  sky:   { glow: "bg-sky-400/10",   chip: "bg-sky-400/10 text-sky-300",     value: "text-violet-50" },
-  amber: { glow: "bg-amber-400/10", chip: "bg-amber-400/10 text-amber-300", value: "text-violet-50" },
-  teal:  { glow: "bg-teal-400/10",  chip: "bg-teal-400/10 text-teal-300",   value: "text-violet-50" },
-  pink:  { glow: "bg-pink-400/10",  chip: "bg-pink-400/10 text-pink-300",   value: "text-violet-50" },
+  sky:    "bg-sky-400/10 text-sky-300",
+  amber:  "bg-amber-400/10 text-amber-300",
+  teal:   "bg-teal-400/10 text-teal-300",
+  pink:   "bg-pink-400/10 text-pink-300",
+  rose:   "bg-rose-400/10 text-rose-300",
+  flame:  "bg-orange-400/10 text-orange-300",
 };
 
-// Unités cyclées au clic sur la carte "Temps total"
+// Unités cyclées au clic sur la cellule "Temps total"
 const TIME_UNITS = ["auto", "months", "years"];
+
+// Icône + teinte par statut, pour la cellule "Titres en cours" cyclable
+const STATUS_STAT_ICON = { "en-cours": PlayCircle, "termine": CheckCircle2, "a-voir": Bookmark, "abandonne": XCircle };
+const STATUS_STAT_TINT = { "en-cours": STAT_TINTS.amber, "termine": STAT_TINTS.teal, "a-voir": STAT_TINTS.sky, "abandonne": STAT_TINTS.rose };
+
+// Petite cellule de stat — structure identique pour toutes (icône → valeur →
+// libellé) afin que les icônes restent parfaitement alignées entre elles,
+// quelle que soit la longueur du contenu affiché.
+function StatCell({ icon, tint, value, label, onClick, ariaLabel, dots }) {
+  const Comp = onClick ? "button" : "div";
+  return (
+    <Comp
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      aria-label={onClick ? ariaLabel : undefined}
+      title={onClick ? ariaLabel : undefined}
+      className={`flex flex-col items-start px-1.5 py-2 sm:px-3 sm:py-3 text-left min-w-0 ${onClick ? "active:scale-[0.96] transition-transform motion-reduce:transition-none" : ""}`}
+    >
+      <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center mb-1 sm:mb-1.5 flex-shrink-0 ${tint}`}>
+        {icon}
+      </div>
+      <p className="font-mono text-sm sm:text-lg font-bold tabular-nums leading-tight text-violet-50 truncate w-full">{value}</p>
+      <div className="flex items-center justify-between w-full mt-0.5 gap-1">
+        <p className="text-[8px] sm:text-[10px] text-violet-400 uppercase tracking-wide leading-tight truncate">{label}</p>
+        {dots && <div className="flex gap-0.5 flex-shrink-0">{dots}</div>}
+      </div>
+    </Comp>
+  );
+}
 
 export function Header({
   typeFilter, searchQuery = "",
@@ -54,9 +90,22 @@ export function Header({
   const [timeUnit, setTimeUnit] = useState("auto");
   const watchTime    = useMemo(() => formatWatchTime(watchMinutes, timeUnit), [watchMinutes, timeUnit]);
   const cycleTimeUnit = () => setTimeUnit((u) => TIME_UNITS[(TIME_UNITS.indexOf(u) + 1) % TIME_UNITS.length]);
-  const animTotal    = useCountUp(entries.length);
-  const animEnCours  = useCountUp(byType.filter(e => e.status === "en-cours").length);
-  const animWatched  = useCountUp(totalWatched);
+
+  // Cellule "Titres en cours" cyclable : clic → statut suivant
+  const [statusStatIdx, setStatusStatIdx] = useState(0);
+  const statusStatKey = STATUS_ORDER[statusStatIdx];
+  const statusStatCount = useMemo(() => byType.filter(e => e.status === statusStatKey).length, [byType, statusStatKey]);
+  const cycleStatusStat = () => setStatusStatIdx((i) => (i + 1) % STATUS_ORDER.length);
+  const StatusStatIcon = STATUS_STAT_ICON[statusStatKey];
+
+  const currentStreak = useMemo(() => calcCurrentStreak(entries), [entries]);
+
+  const animTotal       = useCountUp(entries.length);
+  const animStatusStat  = useCountUp(statusStatCount);
+  const animStreak      = useCountUp(currentStreak);
+  const animWatched     = useCountUp(totalWatched);
+  const animKnown       = useCountUp(totalKnown);
+  const animPct         = useCountUp(Math.round(globalPct));
   const isSearch     = searchQuery.trim().length > 0;
 
   const [logoPlaying, setLogoPlaying] = useState(false);
@@ -114,63 +163,63 @@ export function Header({
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats — un seul bloc, séparateurs sobres, progression intégrée */}
       {!loading && entries.length > 0 && (
-        <div className="mb-5">
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5">
-            <div className="relative rounded-xl sm:rounded-2xl bg-violet-900/30 border border-white/5 p-2 sm:p-3 overflow-hidden">
-              <div className={`absolute -right-3 -top-3 w-10 h-10 rounded-full ${STAT_TINTS.sky.glow} blur-lg pointer-events-none`} />
-              <div className={`relative w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center mb-1 sm:mb-1.5 ${STAT_TINTS.sky.chip}`}><LibraryBig size={13} /></div>
-              <p className="relative font-mono text-sm sm:text-lg font-bold tabular-nums leading-tight text-violet-50">{animTotal}</p>
-              <p className="relative text-[8px] sm:text-[10px] text-violet-400 uppercase tracking-wide mt-0.5 leading-tight">Titres</p>
-            </div>
+        <div className="mb-5 rounded-xl sm:rounded-2xl bg-violet-900/30 border border-white/5 overflow-hidden">
+          <div className="grid grid-cols-5 divide-x divide-white/5">
+            <StatCell
+              icon={<LibraryBig size={13} />}
+              tint={STAT_TINTS.sky}
+              value={animTotal}
+              label="Titres"
+            />
 
-            <div className="relative rounded-xl sm:rounded-2xl bg-violet-900/30 border border-white/5 p-2 sm:p-3 overflow-hidden">
-              <div className={`absolute -right-3 -top-3 w-10 h-10 rounded-full ${STAT_TINTS.amber.glow} blur-lg pointer-events-none`} />
-              <div className={`relative w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center mb-1 sm:mb-1.5 ${STAT_TINTS.amber.chip}`}><PlayCircle size={13} /></div>
-              <p className="relative font-mono text-sm sm:text-lg font-bold tabular-nums leading-tight text-violet-50">{animEnCours}</p>
-              <p className="relative text-[8px] sm:text-[10px] text-violet-400 uppercase tracking-wide mt-0.5 leading-tight">En cours</p>
-            </div>
+            <StatCell
+              icon={<StatusStatIcon size={13} />}
+              tint={STATUS_STAT_TINT[statusStatKey]}
+              value={animStatusStat}
+              label={STATUS[statusStatKey].label}
+              onClick={cycleStatusStat}
+              ariaLabel="Afficher un autre statut"
+              dots={STATUS_ORDER.map((s) => (
+                <span key={s} className={`w-1 h-1 rounded-full ${s === statusStatKey ? "bg-amber-300" : "bg-white/15"}`} />
+              ))}
+            />
+
+            <StatCell
+              icon={<Flame size={13} />}
+              tint={STAT_TINTS.flame}
+              value={animStreak}
+              label="Streak"
+            />
 
             {/* Temps total — cliquable, cycle auto → mois → années */}
-            <button
-              type="button"
+            <StatCell
+              icon={<Clock size={13} />}
+              tint={STAT_TINTS.teal}
+              value={watchTime}
+              label="Temps"
               onClick={cycleTimeUnit}
-              aria-label="Changer l'unité du temps total"
-              title="Toucher pour changer l'unité"
-              className="relative rounded-xl sm:rounded-2xl bg-violet-900/30 border border-white/5 p-2 sm:p-3 overflow-hidden text-left active:scale-[0.96] transition-transform motion-reduce:transition-none"
-            >
-              <div className={`absolute -right-3 -top-3 w-10 h-10 rounded-full ${STAT_TINTS.teal.glow} blur-lg pointer-events-none`} />
-              <div className={`relative w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center mb-1 sm:mb-1.5 ${STAT_TINTS.teal.chip}`}><Clock size={13} /></div>
-              <p className="relative font-mono text-[11px] sm:text-base font-bold tabular-nums leading-tight text-violet-50 truncate">{watchTime}</p>
-              <div className="relative flex items-center justify-between mt-0.5">
-                <p className="text-[8px] sm:text-[10px] text-violet-400 uppercase tracking-wide leading-tight">Temps</p>
-                <div className="flex gap-0.5">
-                  {TIME_UNITS.map((u) => (
-                    <span key={u} className={`w-1 h-1 rounded-full ${u === timeUnit ? "bg-teal-300" : "bg-white/15"}`} />
-                  ))}
-                </div>
-              </div>
-            </button>
+              ariaLabel="Changer l'unité du temps total"
+              dots={TIME_UNITS.map((u) => (
+                <span key={u} className={`w-1 h-1 rounded-full ${u === timeUnit ? "bg-teal-300" : "bg-white/15"}`} />
+              ))}
+            />
 
-            <div className="relative rounded-xl sm:rounded-2xl bg-violet-900/30 border border-white/5 p-2 sm:p-3 overflow-hidden">
-              <div className={`absolute -right-3 -top-3 w-10 h-10 rounded-full ${STAT_TINTS.pink.glow} blur-lg pointer-events-none`} />
-              <div className={`relative w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center mb-1 sm:mb-1.5 ${STAT_TINTS.pink.chip}`}><Sparkles size={13} /></div>
-              {topGenres.length > 0 ? (
-                <p className="relative text-[10px] sm:text-xs font-semibold text-violet-50 leading-tight line-clamp-2">{topGenres.map(([g]) => g).join(", ")}</p>
-              ) : (
-                <p className="relative text-xs font-semibold text-violet-600">—</p>
-              )}
-              <p className="relative text-[8px] sm:text-[10px] text-violet-400 uppercase tracking-wide mt-0.5 leading-tight">Genres</p>
-            </div>
+            <StatCell
+              icon={<Sparkles size={13} />}
+              tint={STAT_TINTS.pink}
+              value={topGenres.length > 0 ? topGenres.map(([g]) => g).join(", ") : "—"}
+              label="Genres"
+            />
           </div>
 
           {totalKnown > 0 && (
-            <div className="mt-1.5 sm:mt-2 rounded-xl sm:rounded-2xl bg-violet-900/30 border border-white/5 px-3 sm:px-4 pt-2 sm:pt-2.5 pb-2.5 sm:pb-3">
+            <div className="border-t border-white/5 px-3 sm:px-4 pt-2 sm:pt-2.5 pb-2.5 sm:pb-3">
               <div className="flex items-center justify-between mb-1.5">
                 <p className="font-mono text-[9px] sm:text-[10px] uppercase tracking-widest text-violet-400">Progression</p>
                 <p className="font-mono text-[10px] sm:text-[11px] text-violet-300 tabular-nums">
-                  {animWatched}/{totalKnown} <span className="text-amber-300 font-semibold">· {Math.round(globalPct)}%</span>
+                  {animWatched}/{animKnown} <span className="text-amber-300 font-semibold">· {animPct}%</span>
                 </p>
               </div>
               <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
