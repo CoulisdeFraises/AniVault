@@ -109,7 +109,7 @@ export function Header({
           <Search size={15} className={`flex-shrink-0 transition-colors duration-200 motion-reduce:transition-none ${searchFocused || isSearch ? "text-violet-300" : "text-violet-500"}`} />
           <input ref={searchRef} type="text" value={searchQuery} onChange={e => onSearchChange(e.target.value)}
             onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)}
-            placeholder="Rechercher dans ta bibliothèque (Titre, genre, note...)"
+            placeholder="Dans ta bibliothèque (Titre, genre, note...)"
             className="flex-1 bg-transparent text-sm text-violet-50 placeholder-violet-500 focus:outline-none" />
           {isSearch && (
             <button onClick={() => { onSearchChange(""); searchRef.current?.focus(); }} aria-label="Effacer"
