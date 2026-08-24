@@ -1,12 +1,24 @@
 // Durée moyenne par épisode (en minutes)
 const AVG_DURATION = { anime: 24, serie: 45 };
 
-export function calcWatchTime(entries) {
-  const totalMinutes = entries.reduce((sum, entry) => {
+export function calcWatchMinutes(entries) {
+  return entries.reduce((sum, entry) => {
     const duration = AVG_DURATION[entry.type] ?? 24;
     const eps = entry.seasons.reduce((s, season) => s + (season.watchedEpisodes || 0), 0);
     return sum + eps * duration;
   }, 0);
+}
+
+// unit : "auto" (jours/heures/minutes, par défaut) | "months" | "years"
+export function formatWatchTime(totalMinutes, unit = "auto") {
+  if (unit === "years") {
+    const years = totalMinutes / (60 * 24 * 365.25);
+    return years >= 0.1 ? `${years.toFixed(1)} an${years >= 1.95 ? "s" : ""}` : "< 1 mois";
+  }
+  if (unit === "months") {
+    const months = totalMinutes / (60 * 24 * 30.44);
+    return months >= 0.1 ? `${months.toFixed(1)} mois` : `${totalMinutes}min`;
+  }
 
   const hours = Math.floor(totalMinutes / 60);
   const days  = Math.floor(hours / 24);
@@ -15,6 +27,10 @@ export function calcWatchTime(entries) {
   if (days >= 1)  return `${days}j ${hours % 24}h`;
   if (hours >= 1) return `${hours}h ${mins}min`;
   return `${totalMinutes}min`;
+}
+
+export function calcWatchTime(entries, unit = "auto") {
+  return formatWatchTime(calcWatchMinutes(entries), unit);
 }
 
 // Regroupe le watchHistory par mois sur les N derniers mois
