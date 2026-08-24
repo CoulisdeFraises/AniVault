@@ -48,7 +48,7 @@ export function BottomNav() {
                 onClick={() => navigate(path)}
                 aria-label={label}
                 aria-current={active ? "page" : undefined}
-                className={`flex-shrink-0 -mt-4 w-12 h-12 rounded-full flex items-center justify-center
+                className={`flex-shrink-0 -mt-6 w-14 h-14 rounded-full flex items-center justify-center
                   shadow-lg shadow-amber-500/30 active:scale-90 transition-all motion-reduce:transition-none
                   ${active ? "bg-amber-300" : "bg-amber-400"}`}
               >
