@@ -5,7 +5,7 @@ import { useLibrary }           from "../../context/LibraryContext";
 import { useCountUp }           from "../../hooks/useCountUp";
 import { BurgerMenu }           from "../common/BurgerMenu";
 import { NotificationPanel }    from "../common/NotificationPanel";  // ← AJOUT
-import { calcWatchTime }        from "../../utils/watchTime";
+import { calcWatchMinutes, formatWatchTime } from "../../utils/watchTime";
 
 // Teintes des cartes de stats — classes complètes (et non interpolées) pour
 // rester détectables par le scanner JIT de Tailwind.
@@ -15,6 +15,9 @@ const STAT_TINTS = {
   teal:  { glow: "bg-teal-400/10",  chip: "bg-teal-400/10 text-teal-300",   value: "text-violet-50" },
   pink:  { glow: "bg-pink-400/10",  chip: "bg-pink-400/10 text-pink-300",   value: "text-violet-50" },
 };
+
+// Unités cyclées au clic sur la carte "Temps total"
+const TIME_UNITS = ["auto", "months", "years"];
 
 export function Header({
   typeFilter, searchQuery = "",
@@ -47,7 +50,10 @@ export function Header({
   const totalWatched = useMemo(() => entries.reduce((s, e) => s + e.seasons.reduce((s2, se) => s2 + (se.watchedEpisodes || 0), 0), 0), [entries]);
   const totalKnown   = useMemo(() => entries.reduce((s, e) => s + e.seasons.reduce((s2, se) => s2 + (se.totalEpisodes || 0), 0), 0), [entries]);
   const globalPct    = totalKnown > 0 ? Math.min(100, (totalWatched / totalKnown) * 100) : 0;
-  const watchTime    = useMemo(() => calcWatchTime(entries), [entries]);
+  const watchMinutes = useMemo(() => calcWatchMinutes(entries), [entries]);
+  const [timeUnit, setTimeUnit] = useState("auto");
+  const watchTime    = useMemo(() => formatWatchTime(watchMinutes, timeUnit), [watchMinutes, timeUnit]);
+  const cycleTimeUnit = () => setTimeUnit((u) => TIME_UNITS[(TIME_UNITS.indexOf(u) + 1) % TIME_UNITS.length]);
   const animTotal    = useCountUp(entries.length);
   const animEnCours  = useCountUp(byType.filter(e => e.status === "en-cours").length);
   const animWatched  = useCountUp(totalWatched);
@@ -110,47 +116,66 @@ export function Header({
 
       {/* Stats */}
       {!loading && entries.length > 0 && (
-        <div className="mb-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            {[
-              { icon: <LibraryBig size={16} />,  value: animTotal,   label: "Titres suivis", tint: "sky" },
-              { icon: <PlayCircle size={16} />,  value: animEnCours, label: "En cours",      tint: "amber" },
-              { icon: <Clock size={16} />,       value: watchTime,   label: "Temps total",   tint: "teal" },
-            ].map(({ icon, value, label, tint }) => (
-              <div
-                key={label}
-                className="relative rounded-2xl bg-violet-900/30 border border-white/5 p-3.5 overflow-hidden active:scale-[0.97] transition-transform motion-reduce:transition-none"
-              >
-                <div className={`absolute -right-4 -top-4 w-16 h-16 rounded-full ${STAT_TINTS[tint].glow} blur-xl pointer-events-none`} />
-                <div className={`relative w-8 h-8 rounded-xl flex items-center justify-center mb-2.5 ${STAT_TINTS[tint].chip}`}>{icon}</div>
-                <p className={`relative font-mono text-xl sm:text-2xl font-bold tabular-nums leading-none ${STAT_TINTS[tint].value}`}>{value}</p>
-                <p className="relative text-[10px] text-violet-400 uppercase tracking-wide mt-1.5">{label}</p>
-              </div>
-            ))}
+        <div className="mb-5">
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5">
+            <div className="relative rounded-xl sm:rounded-2xl bg-violet-900/30 border border-white/5 p-2 sm:p-3 overflow-hidden">
+              <div className={`absolute -right-3 -top-3 w-10 h-10 rounded-full ${STAT_TINTS.sky.glow} blur-lg pointer-events-none`} />
+              <div className={`relative w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center mb-1 sm:mb-1.5 ${STAT_TINTS.sky.chip}`}><LibraryBig size={13} /></div>
+              <p className="relative font-mono text-sm sm:text-lg font-bold tabular-nums leading-tight text-violet-50">{animTotal}</p>
+              <p className="relative text-[8px] sm:text-[10px] text-violet-400 uppercase tracking-wide mt-0.5 leading-tight">Titres</p>
+            </div>
 
-            <div className="relative rounded-2xl bg-violet-900/30 border border-white/5 p-3.5 overflow-hidden active:scale-[0.97] transition-transform motion-reduce:transition-none">
-              <div className={`absolute -right-4 -top-4 w-16 h-16 rounded-full ${STAT_TINTS.pink.glow} blur-xl pointer-events-none`} />
-              <div className={`relative w-8 h-8 rounded-xl flex items-center justify-center mb-2.5 ${STAT_TINTS.pink.chip}`}><Sparkles size={16} /></div>
+            <div className="relative rounded-xl sm:rounded-2xl bg-violet-900/30 border border-white/5 p-2 sm:p-3 overflow-hidden">
+              <div className={`absolute -right-3 -top-3 w-10 h-10 rounded-full ${STAT_TINTS.amber.glow} blur-lg pointer-events-none`} />
+              <div className={`relative w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center mb-1 sm:mb-1.5 ${STAT_TINTS.amber.chip}`}><PlayCircle size={13} /></div>
+              <p className="relative font-mono text-sm sm:text-lg font-bold tabular-nums leading-tight text-violet-50">{animEnCours}</p>
+              <p className="relative text-[8px] sm:text-[10px] text-violet-400 uppercase tracking-wide mt-0.5 leading-tight">En cours</p>
+            </div>
+
+            {/* Temps total — cliquable, cycle auto → mois → années */}
+            <button
+              type="button"
+              onClick={cycleTimeUnit}
+              aria-label="Changer l'unité du temps total"
+              title="Toucher pour changer l'unité"
+              className="relative rounded-xl sm:rounded-2xl bg-violet-900/30 border border-white/5 p-2 sm:p-3 overflow-hidden text-left active:scale-[0.96] transition-transform motion-reduce:transition-none"
+            >
+              <div className={`absolute -right-3 -top-3 w-10 h-10 rounded-full ${STAT_TINTS.teal.glow} blur-lg pointer-events-none`} />
+              <div className={`relative w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center mb-1 sm:mb-1.5 ${STAT_TINTS.teal.chip}`}><Clock size={13} /></div>
+              <p className="relative font-mono text-[11px] sm:text-base font-bold tabular-nums leading-tight text-violet-50 truncate">{watchTime}</p>
+              <div className="relative flex items-center justify-between mt-0.5">
+                <p className="text-[8px] sm:text-[10px] text-violet-400 uppercase tracking-wide leading-tight">Temps</p>
+                <div className="flex gap-0.5">
+                  {TIME_UNITS.map((u) => (
+                    <span key={u} className={`w-1 h-1 rounded-full ${u === timeUnit ? "bg-teal-300" : "bg-white/15"}`} />
+                  ))}
+                </div>
+              </div>
+            </button>
+
+            <div className="relative rounded-xl sm:rounded-2xl bg-violet-900/30 border border-white/5 p-2 sm:p-3 overflow-hidden">
+              <div className={`absolute -right-3 -top-3 w-10 h-10 rounded-full ${STAT_TINTS.pink.glow} blur-lg pointer-events-none`} />
+              <div className={`relative w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center mb-1 sm:mb-1.5 ${STAT_TINTS.pink.chip}`}><Sparkles size={13} /></div>
               {topGenres.length > 0 ? (
-                <p className="relative text-[13px] sm:text-sm font-semibold text-violet-50 leading-snug line-clamp-2">{topGenres.map(([g]) => g).join(", ")}</p>
+                <p className="relative text-[10px] sm:text-xs font-semibold text-violet-50 leading-tight line-clamp-2">{topGenres.map(([g]) => g).join(", ")}</p>
               ) : (
-                <p className="relative text-sm font-semibold text-violet-600">—</p>
+                <p className="relative text-xs font-semibold text-violet-600">—</p>
               )}
-              <p className="relative text-[10px] text-violet-400 uppercase tracking-wide mt-1.5">Genres préférés</p>
+              <p className="relative text-[8px] sm:text-[10px] text-violet-400 uppercase tracking-wide mt-0.5 leading-tight">Genres</p>
             </div>
           </div>
 
           {totalKnown > 0 && (
-            <div className="mt-2.5 rounded-2xl bg-violet-900/30 border border-white/5 px-4 pt-3.5 pb-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">Progression globale</p>
-                <p className="font-mono text-[11px] text-violet-300 tabular-nums">
-                  {animWatched} / {totalKnown} épisodes <span className="text-amber-300 font-semibold">· {Math.round(globalPct)}%</span>
+            <div className="mt-1.5 sm:mt-2 rounded-xl sm:rounded-2xl bg-violet-900/30 border border-white/5 px-3 sm:px-4 pt-2 sm:pt-2.5 pb-2.5 sm:pb-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="font-mono text-[9px] sm:text-[10px] uppercase tracking-widest text-violet-400">Progression</p>
+                <p className="font-mono text-[10px] sm:text-[11px] text-violet-300 tabular-nums">
+                  {animWatched}/{totalKnown} <span className="text-amber-300 font-semibold">· {Math.round(globalPct)}%</span>
                 </p>
               </div>
-              <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+              <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-amber-400 to-teal-400 shadow-[0_0_10px_rgba(45,212,191,0.45)] transition-[width] duration-1000 ease-out motion-reduce:transition-none"
+                  className="h-full rounded-full bg-gradient-to-r from-amber-400 to-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.45)] transition-[width] duration-1000 ease-out motion-reduce:transition-none"
                   style={{ width: `${globalPct}%` }}
                 />
               </div>
