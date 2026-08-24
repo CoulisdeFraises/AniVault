@@ -1,25 +1,56 @@
 import { useState } from "react";
 import { Star } from "lucide-react";
-import { RATING_EMOJIS } from "../../utils/companions";
+// Assurez-vous que getCompanion est disponible depuis le même dossier ou un autre composant exporté
+import { RATING_EMOJIS, getCompanion } from "./companions"; // <--- IMPORT OBLIGATOIRE
 
 /**
- * getRatingEmoji — retourne l'émoji correspondant à une note (1-10), selon
- * le compagnon choisi sur le profil. Si `companionId` n'est pas fourni,
- * lit la préférence mise en cache (synchronisée depuis le profil Supabase
- * par AuthContext) pour un accès synchrone rapide dans les listes de cartes.
+ * Retourne l'HTML (img ou span) correspondant à une note (1-10).
+ * Utilise les images personnalisées si la config du compagnon le permet, sinon les émojis.
+ */
+export function getRatingIcon(rating, companionId) {
+  if (!rating) return null;
+
+  const id = companionId || (typeof localStorage !== "undefined" ? localStorage.getItem("pref_companion") : null) || "default";
+  const companion = getCompanion(id);
+  const emojis = RATING_EMOJIS[id] || RATING_EMOJIS.default;
+  
+  // Calcul de la tranche (0 à 5)
+  const band = rating <= 2 ? 0 : rating <= 4 ? 1 : rating === 5 ? 2 : rating <= 7 ? 3 : rating <= 9 ? 4 : 5;
+
+  // Déterminer le chemin d'image
+  let imageSrc = null;
+  
+  if (companion?.imageFolder) {
+    // Cas Chlo : les images sont dans /public/chlo/ directement
+    const folderName = companion.imageFolder;
+    const extension = window.location.search.includes("dev") ? "jpg" : "png"; 
+    imageSrc = `/companions/${folderName}/rating-${band}.${extension}`;
+  }
+
+  // Retourner soit l'image, soit le placeholder emoji
+  if (imageSrc) {
+    return `<img src="${imageSrc}" alt="Note ${rating}" class="h-6 w-auto" loading="lazy" />`;
+  } else {
+    const emoji = emojis[band] || "";
+    return `<span>${emoji}</span>`;
+  }
+}
+
+/**
+ * getRatingEmoji — Version retour texte (pour fallback ou debugging)
  */
 export function getRatingEmoji(rating, companionId) {
   if (!rating) return null;
   const id = companionId || (typeof localStorage !== "undefined" ? localStorage.getItem("pref_companion") : null) || "default";
   const emojis = RATING_EMOJIS[id] || RATING_EMOJIS.default;
-  const band =
-    rating <= 2 ? 0 :
-    rating <= 4 ? 1 :
-    rating === 5 ? 2 :
-    rating <= 7 ? 3 :
-    rating <= 9 ? 4 : 5;
+
+  // Mêmes seuils que getRatingIcon
+  const band = rating <= 2 ? 0 : rating <= 4 ? 1 : rating === 5 ? 2 : rating <= 7 ? 3 : rating <= 9 ? 4 : 5;
+  
   return emojis[band];
 }
+
+// --- Composants d'interface (inchangés, sauf si vous utilisez getRatingIcon ici) ---
 
 export function RatingMeter({ value, onChange, size = "sm" }) {
   const h = size === "sm" ? "h-4" : "h-6";
@@ -68,5 +99,21 @@ export function StarRating({ value, onChange }) {
         </button>
       ))}
     </div>
+  );
+}
+
+/**
+ * Composant de visualisation pour l'affichage des notes (à utiliser avec getRatingIcon)
+ */
+export function RatingDisplay({ value, companionId }) {
+  const html = getRatingIcon(value, companionId);
+  
+  if (!html) return <span className="text-sm text-gray-400">Pas de note</span>;
+
+  return (
+    <div 
+      className="flex items-center gap-2"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
 }
