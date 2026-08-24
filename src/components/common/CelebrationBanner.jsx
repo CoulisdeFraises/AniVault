@@ -1,11 +1,12 @@
-import { Trophy, Sparkles, CheckCircle2 } from "lucide-react";
+import { Trophy, Sparkles, CheckCircle2, Film } from "lucide-react";
 
 /**
  * CelebrationBanner — badge centré qui apparaît en même temps que les
- * confettis pour annoncer la complétion d'une saison ou d'une série entière
- * (ou le fait d'être à jour sur une série toujours en production).
+ * confettis pour annoncer la complétion d'une saison ou d'une série entière,
+ * le visionnage d'un film, ou le fait d'être à jour sur une série toujours
+ * en production.
  *
- * tier: "caughtup" | "season" | "series"
+ * tier: "caughtup" | "season" | "series" | "movie"
  * durationMs doit correspondre à la durée pendant laquelle le parent garde
  * le composant monté (l'animation CSS interne dure exactement ce temps).
  */
@@ -14,6 +15,7 @@ export function CelebrationBanner({ show, tier = "series", title, subtitle, dura
 
   const isSeries   = tier === "series";
   const isCaughtUp = tier === "caughtup";
+  const isMovie    = tier === "movie";
 
   return (
     <div className="fixed inset-x-0 top-[18%] z-[85] flex justify-center px-6 pointer-events-none">
@@ -41,6 +43,8 @@ export function CelebrationBanner({ show, tier = "series", title, subtitle, dura
             ? "bg-gradient-to-br from-amber-400/25 via-violet-900/90 to-violet-900/90 border-amber-400/40"
             : isCaughtUp
             ? "bg-violet-900/85 border-sky-400/25"
+            : isMovie
+            ? "bg-gradient-to-br from-fuchsia-400/20 via-violet-900/90 to-violet-900/90 border-fuchsia-400/35"
             : "bg-gradient-to-br from-teal-400/20 via-violet-900/90 to-violet-900/90 border-teal-400/35"
         }`}
         style={{
@@ -52,7 +56,7 @@ export function CelebrationBanner({ show, tier = "series", title, subtitle, dura
         {/* Halo lumineux derrière l'icône — omis pour "à jour" (sobre) */}
         {!isCaughtUp && (
           <div
-            className={`absolute -left-2 -top-2 w-14 h-14 rounded-full blur-xl ${isSeries ? "bg-amber-400/40" : "bg-teal-400/35"}`}
+            className={`absolute -left-2 -top-2 w-14 h-14 rounded-full blur-xl ${isSeries ? "bg-amber-400/40" : isMovie ? "bg-fuchsia-400/35" : "bg-teal-400/35"}`}
             style={{ animation: "celebrationGlow 1.6s ease-in-out infinite" }}
           />
         )}
@@ -63,16 +67,18 @@ export function CelebrationBanner({ show, tier = "series", title, subtitle, dura
               ? "bg-amber-400/20 border-amber-400/40 text-amber-300"
               : isCaughtUp
               ? "bg-sky-400/10 border-sky-400/25 text-sky-300"
+              : isMovie
+              ? "bg-fuchsia-400/20 border-fuchsia-400/40 text-fuchsia-300"
               : "bg-teal-400/20 border-teal-400/40 text-teal-300"
           }`}
           style={isCaughtUp ? undefined : { animation: "celebrationIconPulse 1s ease-in-out infinite" }}
         >
-          {isSeries ? <Trophy size={18} /> : isCaughtUp ? <CheckCircle2 size={16} /> : <Sparkles size={17} />}
+          {isSeries ? <Trophy size={18} /> : isCaughtUp ? <CheckCircle2 size={16} /> : isMovie ? <Film size={16} /> : <Sparkles size={17} />}
         </div>
 
         <div className="relative min-w-0">
           <p
-            className={`font-semibold leading-tight ${isSeries ? "text-amber-200" : isCaughtUp ? "text-sky-200" : "text-teal-200"}`}
+            className={`font-semibold leading-tight ${isSeries ? "text-amber-200" : isCaughtUp ? "text-sky-200" : isMovie ? "text-fuchsia-200" : "text-teal-200"}`}
             style={{ fontFamily: "'Space Grotesk', sans-serif" }}
           >
             {title}

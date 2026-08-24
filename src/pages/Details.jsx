@@ -192,11 +192,21 @@ export function Details() {
   }, [entry?.seasons]); // eslint-disable-line
 
   // ── Détection : la série entière vient d'être terminée ──────────────────────
+  // Un statut qui bascule sur "termine" alors qu'un prochain épisode est déjà
+  // annoncé (nextAiring) ne signifie pas que la série est finie : on vient
+  // seulement de rattraper tous les épisodes sortis (ex. total encore égal au
+  // nombre d'épisodes diffusés à ce jour). Dans ce cas c'est "À jour !" qu'il
+  // faut afficher, pas "Série terminée !" — l'effet de correction juste après
+  // (ligne ~222) remet d'ailleurs le statut à "en-cours" dans la foulée.
   useEffect(() => {
     if (!entry) return;
     const prev = prevStatusRef.current;
     if (prev != null && prev !== "termine" && entry.status === "termine") {
-      triggerCelebration({ tier: "series", title: "Série terminée !", subtitle: entry.title });
+      if (nextAiring?.airingAt) {
+        triggerCelebration({ tier: "caughtup", title: "À jour !", subtitle: entry.title });
+      } else {
+        triggerCelebration({ tier: "series", title: "Série terminée !", subtitle: entry.title });
+      }
     }
     prevStatusRef.current = entry.status;
   }, [entry?.status]); // eslint-disable-line
@@ -452,7 +462,7 @@ export function Details() {
 
   return (
     <>
-      <Confetti active={!!celebration} intensity={celebration?.tier === "series" ? "series" : "season"} />
+      <Confetti active={!!celebration} intensity={celebration?.tier === "series" ? "series" : celebration?.tier === "caughtup" ? "caughtup" : "season"} />
       <CelebrationBanner
         show={!!celebration}
         tier={celebration?.tier}
@@ -778,7 +788,12 @@ export function Details() {
                                   <p className="font-mono text-[10px] text-violet-500 mt-0.5">{se.totalEpisodes} épisodes</p>
                                 )}
                               </div>
-                              <button onClick={() => { haptics.tap(); setEpisodeCount(entry.id, se.globalIndex, seen ? 0 : (se.totalEpisodes ?? 1)); }}
+                              <button onClick={() => {
+                                haptics.tap();
+                                const willBeSeen = !seen;
+                                setEpisodeCount(entry.id, se.globalIndex, willBeSeen ? (se.totalEpisodes ?? 1) : 0);
+                                if (willBeSeen) triggerCelebration({ tier: "movie", title: "Film vu !", subtitle: label });
+                              }}
                                 className={`font-mono text-[10px] px-2.5 py-1 rounded-full border transition-all active:scale-95 flex-shrink-0 ${seen ? "bg-teal-500/20 border-teal-500/40 text-teal-300 hover:bg-teal-500/30" : "bg-white/5 border-white/10 text-violet-400 hover:bg-white/10 hover:text-violet-200"}`}>
                                 {seen ? "✓ Vu" : "Pas vu"}
                               </button>
