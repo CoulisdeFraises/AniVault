@@ -1,20 +1,17 @@
-// Compagnons — personnalisation du profil qui change les émojis de note.
-
-// Liste des compagnons
 export const COMPANIONS = [
   {
     id: "default",
     name: "Classique",
     description: "Le jeu d'émojis par défaut.",
     swatch: "#a78bfa",
-    imageFolder: null, // Pas de dossier personnalisé
+    imageFolder: null, 
   },
   {
     id: "chlo",
     name: "Chlo",
     description: "La petite démone.",
     swatch: "#818cf8",
-    imageFolder: "/companions/chlo", // CORRECTION : Pointe vers le dossier réel des images
+    imageFolder: "/companions/chlo", // CORRECT : Le chemin absolu sans le préfixe /public/
   },
   {
     id: "sora",
@@ -25,17 +22,12 @@ export const COMPANIONS = [
   },
 ];
 
-// Émojis de fallback (pour le cas où les images ne sont pas chargées)
 export const RATING_EMOJIS = {
   default: ["😭", "😞", "😐", "😊", "😁", "🤩"],
   chlo:   ["😿", "😾", "😼", "😺", "😸", "😻"],
   sora:   ["🥱", "😑", "🙂", "😃", "😄", "🌟"],
 };
 
-/**
- * Récupère le compagnon par ID.
- * Utilisé pour déterminer les préférences (images ou émojis).
- */
 export function getCompanion(id) {
   return COMPANIONS.find((c) => c.id === id) || COMPANIONS[0];
 }

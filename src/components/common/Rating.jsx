@@ -1,43 +1,41 @@
 import { useState } from "react";
 import { Star } from "lucide-react";
 
-// Import depuis utils, pas des dossiers voisins (pour éviter le bug Rollup)
-import { RATING_EMOJIS, getCompanion } from "../../utils/companions";
+// Import correct avec le chemin relatif adapté à votre structure
+import { RATING_EMOJIS, getCompanion } from "../../utils/companions"; 
 
 export function getRatingIcon(rating, companionId) {
   if (!rating) return null;
 
-  // 1. On récupère la configuration du compagnon (ex: "chlo")
   const id = companionId || (typeof localStorage !== "undefined" ? localStorage.getItem("pref_companion") : null) || "default";
   const companion = getCompanion(id);
   
   // Fallback vers les émojis si le compagnon n'est pas trouvé ou est par défaut
   const emojis = RATING_EMOJIS[id] || RATING_EMOJIS.default;
 
-  // 2. Calcul de la tranche (band)
+  // Calcul de la tranche (band)
   const band = rating <= 2 ? 0 : 
                rating <= 4 ? 1 : 
                rating === 5 ? 2 : 
                rating <= 7 ? 3 : 
                rating <= 9 ? 4 : 5;
 
-  // 3. Construction du chemin d'image
+  // Construction du chemin d'image
   let imageSrc = null;
   
   if (companion?.imageFolder) {
-    // Si le compagnon a une config "imageFolder" (ex: "/companions/chlo"), on l'utilise
-    // L'URL finale sera : /companions/chlo/rating-0.png
-    const folderName = companion.imageFolder; 
+    const folderName = companion.imageFolder; // "/companions/chlo"
+    
+    // Le chemin sera : /companions/chlo/rating-0.png
+    // React Router ajoute automatiquement le préfixe public/ si configuré, ou bien c'est géré par le build
     imageSrc = `${folderName}/rating-${band}.png`; 
   } else {
-    // Fallback standard pour les compagnons sans images personnalisées
-    // L'URL finale serait : /companions/default/rating-0.png
     const defaultPath = `companions/${id}`;
     imageSrc = `${defaultPath}/rating-${band}.png`;
   }
 
-  // Retour de l'image (si le fichier existe sur le serveur) ou du span d'émoji
   if (imageSrc) {
+    // Ajoutez une vérification de l'existence pour éviter les erreurs si l'image n'est pas trouvée
     return `<img src="${imageSrc}" alt="Note ${rating}" class="h-6 w-auto" loading="lazy" />`;
   } else {
     const emoji = emojis[band] || "";
@@ -45,14 +43,11 @@ export function getRatingIcon(rating, companionId) {
   }
 }
 
-/**
- * getRatingEmoji — Version retour texte (pour fallback ou debugging)
- */
 export function getRatingEmoji(rating, companionId) {
   if (!rating) return null;
   const id = companionId || (typeof localStorage !== "undefined" ? localStorage.getItem("pref_companion") : null) || "default";
   const emojis = RATING_EMOJIS[id] || RATING_EMOJIS.default;
-
+  
   // Mêmes seuils que getRatingIcon
   const band = rating <= 2 ? 0 : rating <= 4 ? 1 : rating === 5 ? 2 : rating <= 7 ? 3 : rating <= 9 ? 4 : 5;
   
