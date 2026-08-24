@@ -1,11 +1,20 @@
 import { useMemo, useRef, useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Plus, Film, Tv, Clapperboard, RefreshCw, X, Search } from "lucide-react";
+import { Plus, Film, Tv, Clapperboard, RefreshCw, X, Search, LibraryBig, PlayCircle, Clock, Sparkles } from "lucide-react";
 import { useLibrary }           from "../../context/LibraryContext";
 import { useCountUp }           from "../../hooks/useCountUp";
 import { BurgerMenu }           from "../common/BurgerMenu";
 import { NotificationPanel }    from "../common/NotificationPanel";  // ← AJOUT
 import { calcWatchTime }        from "../../utils/watchTime";
+
+// Teintes des cartes de stats — classes complètes (et non interpolées) pour
+// rester détectables par le scanner JIT de Tailwind.
+const STAT_TINTS = {
+  sky:   { glow: "bg-sky-400/10",   chip: "bg-sky-400/10 text-sky-300",     value: "text-violet-50" },
+  amber: { glow: "bg-amber-400/10", chip: "bg-amber-400/10 text-amber-300", value: "text-violet-50" },
+  teal:  { glow: "bg-teal-400/10",  chip: "bg-teal-400/10 text-teal-300",   value: "text-violet-50" },
+  pink:  { glow: "bg-pink-400/10",  chip: "bg-pink-400/10 text-pink-300",   value: "text-violet-50" },
+};
 
 export function Header({
   typeFilter, searchQuery = "",
@@ -101,25 +110,49 @@ export function Header({
 
       {/* Stats */}
       {!loading && entries.length > 0 && (
-        <div className="rounded-2xl bg-violet-900/30 border border-white/5 mb-6 overflow-hidden">
-          <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
-            <div className="p-4"><p className="font-mono text-2xl font-medium">{animTotal}</p><p className="text-[11px] text-violet-400 uppercase tracking-wide">Titres suivis</p></div>
-            <div className="p-4"><p className="font-mono text-2xl font-medium">{animEnCours}</p><p className="text-[11px] text-violet-400 uppercase tracking-wide">En cours</p></div>
-            <div className="p-4"><p className="font-mono text-2xl font-medium text-amber-400">{watchTime}</p><p className="text-[11px] text-violet-400 uppercase tracking-wide">Temps total</p></div>
-            <div className="p-4">
-              {topGenres.length > 0
-                ? (<><p className="font-medium truncate">{topGenres.map(([g]) => g).join(", ")}</p><p className="text-[11px] text-violet-400 uppercase tracking-wide">Genres préférés</p></>)
-                : (<><p className="font-medium text-violet-500">—</p><p className="text-[11px] text-violet-400 uppercase tracking-wide">Genres préférés</p></>)}
+        <div className="mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            {[
+              { icon: <LibraryBig size={16} />,  value: animTotal,   label: "Titres suivis", tint: "sky" },
+              { icon: <PlayCircle size={16} />,  value: animEnCours, label: "En cours",      tint: "amber" },
+              { icon: <Clock size={16} />,       value: watchTime,   label: "Temps total",   tint: "teal" },
+            ].map(({ icon, value, label, tint }) => (
+              <div
+                key={label}
+                className="relative rounded-2xl bg-violet-900/30 border border-white/5 p-3.5 overflow-hidden active:scale-[0.97] transition-transform motion-reduce:transition-none"
+              >
+                <div className={`absolute -right-4 -top-4 w-16 h-16 rounded-full ${STAT_TINTS[tint].glow} blur-xl pointer-events-none`} />
+                <div className={`relative w-8 h-8 rounded-xl flex items-center justify-center mb-2.5 ${STAT_TINTS[tint].chip}`}>{icon}</div>
+                <p className={`relative font-mono text-xl sm:text-2xl font-bold tabular-nums leading-none ${STAT_TINTS[tint].value}`}>{value}</p>
+                <p className="relative text-[10px] text-violet-400 uppercase tracking-wide mt-1.5">{label}</p>
+              </div>
+            ))}
+
+            <div className="relative rounded-2xl bg-violet-900/30 border border-white/5 p-3.5 overflow-hidden active:scale-[0.97] transition-transform motion-reduce:transition-none">
+              <div className={`absolute -right-4 -top-4 w-16 h-16 rounded-full ${STAT_TINTS.pink.glow} blur-xl pointer-events-none`} />
+              <div className={`relative w-8 h-8 rounded-xl flex items-center justify-center mb-2.5 ${STAT_TINTS.pink.chip}`}><Sparkles size={16} /></div>
+              {topGenres.length > 0 ? (
+                <p className="relative text-[13px] sm:text-sm font-semibold text-violet-50 leading-snug line-clamp-2">{topGenres.map(([g]) => g).join(", ")}</p>
+              ) : (
+                <p className="relative text-sm font-semibold text-violet-600">—</p>
+              )}
+              <p className="relative text-[10px] text-violet-400 uppercase tracking-wide mt-1.5">Genres préférés</p>
             </div>
           </div>
+
           {totalKnown > 0 && (
-            <div className="px-4 pt-3 pb-4 border-t border-white/5">
+            <div className="mt-2.5 rounded-2xl bg-violet-900/30 border border-white/5 px-4 pt-3.5 pb-4">
               <div className="flex items-center justify-between mb-2">
                 <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">Progression globale</p>
-                <p className="font-mono text-[11px] text-violet-300">{animWatched} / {totalKnown} épisodes</p>
+                <p className="font-mono text-[11px] text-violet-300 tabular-nums">
+                  {animWatched} / {totalKnown} épisodes <span className="text-amber-300 font-semibold">· {Math.round(globalPct)}%</span>
+                </p>
               </div>
-              <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-                <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-teal-400 transition-[width] duration-1000 ease-out motion-reduce:transition-none" style={{ width: `${globalPct}%` }} />
+              <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-amber-400 to-teal-400 shadow-[0_0_10px_rgba(45,212,191,0.45)] transition-[width] duration-1000 ease-out motion-reduce:transition-none"
+                  style={{ width: `${globalPct}%` }}
+                />
               </div>
             </div>
           )}
