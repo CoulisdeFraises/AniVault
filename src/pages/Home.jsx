@@ -472,17 +472,18 @@ export function Home() {
 
           {/* ── Cachette secrète ── */}
           {hiddenFullEntries.length > 0 && (
-            <div className="mt-10" id="cachette-section">
+            <div className="mt-6" id="cachette-section">
               <button onClick={() => setCachetteOpen(v => !v)}
-                className="w-full flex items-center justify-center gap-3 py-3 px-5 rounded-2xl
-                  border border-violet-700/30 bg-violet-900/20 hover:bg-violet-900/40 transition-all group">
-                <span className={`text-violet-500 group-hover:text-violet-300 transition-all duration-300 ${cachetteOpen ? "scale-110" : "animate-pulse"}`}>
-                  {cachetteOpen ? <EyeOff size={20} /> : <Eye size={20} />}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl
+                  bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06]
+                  text-violet-500 hover:text-violet-300 transition-all active:scale-[0.99] motion-reduce:transition-none">
+                <span className="flex items-center gap-2">
+                  {cachetteOpen ? <EyeOff size={13} /> : <Eye size={13} />}
+                  <span className="font-mono text-[10px] uppercase tracking-widest">
+                    {cachetteOpen ? "Masquer" : "Cachette secrète"} · {hiddenFullEntries.length} titre{hiddenFullEntries.length > 1 ? "s" : ""}
+                  </span>
                 </span>
-                <span className="font-mono text-[11px] uppercase tracking-widest text-violet-500 group-hover:text-violet-300 transition-colors select-none">
-                  {cachetteOpen ? "Masquer" : "Cachette secrète"} · {hiddenFullEntries.length} titre{hiddenFullEntries.length > 1 ? "s" : ""}
-                </span>
-                {!cachetteOpen && <HeartIcon size={20} className="text-pink-400 flex-shrink-0" />} 
+                {!cachetteOpen && <HeartIcon size={14} strokeWidth={18} className="text-pink-400 flex-shrink-0" />}
               </button>
 
               {cachetteOpen && (
@@ -509,7 +510,7 @@ export function Home() {
                         <ChevronDown size={10} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-violet-500" />
                       </div>
                       <button onClick={() => setCachetteRevealed(v => !v)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-mono border transition-all active:scale-95 flex-shrink-0 ${cachetteRevealed
+                        className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-[10px] font-mono border transition-all active:scale-95 flex-shrink-0 ${cachetteRevealed
                           ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
                           : "bg-white/5 border-white/10 text-violet-500 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400"}`}>
                         {cachetteRevealed ? <Eye size={11} /> : <EyeOff size={11} />}

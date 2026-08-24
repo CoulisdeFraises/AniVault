@@ -16,7 +16,7 @@ export function EyePlus({ size = 24, className = "" }) {
 }
 
 // Icone — utilisee pour la section Culture Zone (recos Romance/Drame).
-export function HeartIcon({ size = 24, className = "" }) {
+export function HeartIcon({ size = 24, className = "", strokeWidth = 0 }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -24,6 +24,9 @@ export function HeartIcon({ size = 24, className = "" }) {
       width={size}
       height={size}
       fill="currentColor"
+      stroke={strokeWidth ? "currentColor" : "none"}
+      strokeWidth={strokeWidth}
+      strokeLinejoin="round"
       className={className}
       aria-hidden="true"
     >
