@@ -4,7 +4,7 @@ import { AnimatePresence } from "motion/react";
 import { X, Pencil, Star, Loader2, RefreshCw, Film, Tv, Disc2, Clapperboard,
          CheckCheck, ChevronRight, Check, Heart, ListPlus, AlertTriangle, WifiOff } from "lucide-react";
 import { EpisodeList }             from "../components/EpisodeList/EpisodeList";
-import { StarRating, getRatingEmoji } from "../components/common/Rating";
+import { StarRating, RatingBadge } from "../components/common/Rating";
 import { TitleFormModal }          from "../components/Modal/TitleFormModal";
 import { STATUS, seasonTotals, formatRating, getDisplayStatus }    from "../utils/status";
 import { useLibrary }              from "../context/LibraryContext";
@@ -590,7 +590,7 @@ export function Details() {
                   {formatRating(entry.rating) || "—"}
                 </span>
                 {entry.rating > 0 && <Star size={18} fill="#fbbf24" strokeWidth={0} />}
-                {getRatingEmoji(entry.rating) && <span className="text-xl sm:text-3xl">{getRatingEmoji(entry.rating)}</span>}
+                {entry.rating > 0 && <RatingBadge rating={entry.rating} className="text-xl sm:text-3xl" />}
               </div>
               <p className="font-mono text-[10px] text-violet-500">
                 {entry.rating > 0 ? "Moyenne des saisons notées — note-les ci-dessous" : "Aucune saison notée pour l'instant"}

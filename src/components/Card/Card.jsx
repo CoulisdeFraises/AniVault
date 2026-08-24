@@ -7,7 +7,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useLists }         from "../../context/ListsContext";
 import { ConfirmDialog }    from "../Modal/Modal";
-import { getRatingEmoji }   from "../common/Rating";
+import { RatingBadge }      from "../common/Rating";
 import { STATUS, seasonTotals, formatCountdown, formatRating, getDisplayStatus } from "../../utils/status";
 import { useLibrary }       from "../../context/LibraryContext";
 import { fetchNextAiring, refreshEntryCard } from "../../api";
@@ -439,9 +439,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
                 </span>
                 {entry.rating > 0 && <Star size={13} fill="#fbbf24" strokeWidth={0} />}
               </div>
-              {getRatingEmoji(entry.rating) && (
-                <span className="text-xl sm:text-2xl">{getRatingEmoji(entry.rating)}</span>
-              )}
+              <RatingBadge rating={entry.rating} className="text-xl sm:text-2xl" />
             </div>
           </div>
 

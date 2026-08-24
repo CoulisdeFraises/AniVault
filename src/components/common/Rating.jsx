@@ -4,54 +4,51 @@ import { Star } from "lucide-react";
 // Import correct avec le chemin relatif adapté à votre structure
 import { RATING_EMOJIS, getCompanion } from "../../utils/companions"; 
 
-export function getRatingIcon(rating, companionId) {
+export function getRatingBand(rating) {
   if (!rating) return null;
-
-  const id = companionId || (typeof localStorage !== "undefined" ? localStorage.getItem("pref_companion") : null) || "default";
-  const companion = getCompanion(id);
-  
-  // Fallback vers les émojis si le compagnon n'est pas trouvé ou est par défaut
-  const emojis = RATING_EMOJIS[id] || RATING_EMOJIS.default;
-
-  // Calcul de la tranche (band)
-  const band = rating <= 2 ? 0 : 
-               rating <= 4 ? 1 : 
-               rating === 5 ? 2 : 
-               rating <= 7 ? 3 : 
-               rating <= 9 ? 4 : 5;
-
-  // Construction du chemin d'image
-  let imageSrc = null;
-  
-  if (companion?.imageFolder) {
-    const folderName = companion.imageFolder; // "/companions/chlo"
-    
-    // Le chemin sera : /companions/chlo/rating-0.png
-    // React Router ajoute automatiquement le préfixe public/ si configuré, ou bien c'est géré par le build
-    imageSrc = `${folderName}/rating-${band}.png`; 
-  } else {
-    const defaultPath = `companions/${id}`;
-    imageSrc = `${defaultPath}/rating-${band}.png`;
-  }
-
-  if (imageSrc) {
-    // Ajoutez une vérification de l'existence pour éviter les erreurs si l'image n'est pas trouvée
-    return `<img src="${imageSrc}" alt="Note ${rating}" class="h-6 w-auto" loading="lazy" />`;
-  } else {
-    const emoji = emojis[band] || "";
-    return `<span>${emoji}</span>`;
-  }
+  if (rating <= 2) return 0;
+  if (rating <= 4) return 1;
+  if (rating === 5) return 2;
+  if (rating <= 7) return 3;
+  if (rating <= 9) return 4;
+  return 5;
 }
 
 export function getRatingEmoji(rating, companionId) {
-  if (!rating) return null;
+  const band = getRatingBand(rating);
+  if (band === null) return null;
   const id = companionId || (typeof localStorage !== "undefined" ? localStorage.getItem("pref_companion") : null) || "default";
   const emojis = RATING_EMOJIS[id] || RATING_EMOJIS.default;
-  
-  // Mêmes seuils que getRatingIcon
-  const band = rating <= 2 ? 0 : rating <= 4 ? 1 : rating === 5 ? 2 : rating <= 7 ? 3 : rating <= 9 ? 4 : 5;
-  
   return emojis[band];
+}
+
+/**
+ * RatingBadge — affiche la note sous forme d'image (si le compagnon a un jeu
+ * d'images, ex. Chlo) ou d'émoji (fallback pour les compagnons sans images).
+ * `className` contrôle la taille : les classes text-* fixent le font-size de
+ * l'élément (image comme span), et h-[1.15em] s'appuie dessus pour que
+ * l'image et l'émoji restent visuellement à la même échelle partout.
+ */
+export function RatingBadge({ rating, companionId, className = "" }) {
+  const band = getRatingBand(rating);
+  if (band === null) return null;
+
+  const id = companionId || (typeof localStorage !== "undefined" ? localStorage.getItem("pref_companion") : null) || "default";
+  const companion = getCompanion(id);
+
+  if (companion?.imageFolder) {
+    return (
+      <img
+        src={`${companion.imageFolder}/rating-${band}.png`}
+        alt={`Note ${rating}/10`}
+        className={`inline-block h-[1.15em] w-auto align-middle ${className}`}
+        loading="lazy"
+      />
+    );
+  }
+
+  const emojis = RATING_EMOJIS[id] || RATING_EMOJIS.default;
+  return <span className={className}>{emojis[band]}</span>;
 }
 
 // --- Composants d'interface ---
@@ -107,17 +104,15 @@ export function StarRating({ value, onChange }) {
 }
 
 /**
- * Composant de visualisation pour l'affichage des notes (à utiliser avec getRatingIcon)
+ * Composant de visualisation pour l'affichage des notes (image du compagnon
+ * si disponible, sinon émoji) — wrapper pratique autour de RatingBadge.
  */
-export function RatingDisplay({ value, companionId }) {
-  const html = getRatingIcon(value, companionId);
-  
-  if (!html) return <span className="text-sm text-gray-400">Pas de note</span>;
+export function RatingDisplay({ value, companionId, className = "text-xl" }) {
+  if (!value) return <span className="text-sm text-gray-400">Pas de note</span>;
 
   return (
-    <div 
-      className="flex items-center gap-2"
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    <div className="flex items-center gap-2">
+      <RatingBadge rating={value} companionId={companionId} className={className} />
+    </div>
   );
 }

@@ -4,21 +4,21 @@ export const COMPANIONS = [
     name: "Classique",
     description: "Le jeu d'émojis par défaut.",
     swatch: "#a78bfa",
-    imageFolder: null, 
+    imageFolder: null,
   },
   {
     id: "chlo",
     name: "Chlo",
     description: "La petite démone.",
     swatch: "#818cf8",
-    imageFolder: "/companions/chlo", // CORRECT : Le chemin absolu sans le préfixe /public/
+    imageFolder: "/companions/chlo",
   },
   {
     id: "sora",
     name: "Sora",
     description: "Un compagnon solaire.",
     swatch: "#fbbf24",
-    imageFolder: null,
+    imageFolder: null, // placeholder — pas encore dessiné, reste sur emojis
   },
 ];
 

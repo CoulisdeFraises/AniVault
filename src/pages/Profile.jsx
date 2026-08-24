@@ -592,9 +592,11 @@ export function Profile() {
                         : "bg-white/[0.03] border-white/5 hover:bg-white/5"
                     }`}
                   >
-                    <span className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold text-white"
+                    <span className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold text-white overflow-hidden"
                       style={{ backgroundColor: c.swatch }}>
-                      {c.name[0]}
+                      {c.imageFolder
+                        ? <img src={`${c.imageFolder}/rating-2.png`} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+                        : c.name[0]}
                     </span>
                     <span className="min-w-0">
                       <p className="text-xs font-semibold text-violet-100">{c.name}</p>
