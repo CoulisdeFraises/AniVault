@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Star } from "lucide-react";
-// Assurez-vous que getCompanion est disponible depuis le même dossier ou un autre composant exporté
-import { RATING_EMOJIS, getCompanion } from "./companions"; // <--- IMPORT OBLIGATOIRE
+
+// CORRECTION : Ajustez le chemin pour pointer vers votre dossier utils/companions.js
+import { RATING_EMOJIS, getCompanion } from "../../utils/companions"; // <--- PARENTHESES SUPPRIMÉES
+
 
 /**
  * Retourne l'HTML (img ou span) correspondant à une note (1-10).
@@ -50,7 +52,7 @@ export function getRatingEmoji(rating, companionId) {
   return emojis[band];
 }
 
-// --- Composants d'interface (inchangés, sauf si vous utilisez getRatingIcon ici) ---
+// --- Composants d'interface ---
 
 export function RatingMeter({ value, onChange, size = "sm" }) {
   const h = size === "sm" ? "h-4" : "h-6";
