@@ -29,6 +29,19 @@ const TIME_UNITS = ["auto", "months", "years"];
 const STATUS_STAT_ICON = { "en-cours": PlayCircle, "termine": CheckCircle2, "a-voir": Bookmark, "abandonne": XCircle };
 const STATUS_STAT_TINT = { "en-cours": STAT_TINTS.amber, "termine": STAT_TINTS.teal, "a-voir": STAT_TINTS.sky, "abandonne": STAT_TINTS.rose };
 
+// Cellule "Titres" cyclable : tout → séries → animes → films
+const TITLE_STAT_ORDER = ["all", "serie", "anime", "film"];
+const TITLE_STAT_LABEL = { all: "Titres", serie: "Séries", anime: "Animes", film: "Films" };
+const TITLE_STAT_ICON  = { all: LibraryBig, serie: Tv, anime: Film, film: Clapperboard };
+const TITLE_STAT_TINT  = { all: STAT_TINTS.sky, serie: STAT_TINTS.sky, anime: STAT_TINTS.sky, film: STAT_TINTS.sky };
+
+function filterByType(entries, key) {
+  if (key === "all")   return entries;
+  if (key === "film")  return entries.filter((e) => e.category === "movie");
+  if (key === "serie") return entries.filter((e) => e.type === "serie" && e.category !== "movie");
+  return entries.filter((e) => e.type === key); // "anime"
+}
+
 // Petite cellule de stat — structure identique pour toutes (icône → valeur →
 // libellé) afin que les icônes restent parfaitement alignées entre elles,
 // quelle que soit la longueur du contenu affiché.
@@ -75,12 +88,7 @@ export function Header({
     return () => window.removeEventListener("keydown", h);
   }, []);
 
-  const byType = useMemo(() => {
-    if (typeFilter === "all")   return entries;
-    if (typeFilter === "film")  return entries.filter(e => e.category === "movie");
-    if (typeFilter === "serie") return entries.filter(e => e.type === "serie" && e.category !== "movie");
-    return entries.filter(e => e.type === typeFilter); // "anime"
-  }, [entries, typeFilter]);
+  const byType = useMemo(() => filterByType(entries, typeFilter), [entries, typeFilter]);
   const totalWatched = useMemo(() => entries.reduce((s, e) => s + e.seasons.reduce((s2, se) => s2 + (se.watchedEpisodes || 0), 0), 0), [entries]);
   const totalKnown   = useMemo(() => entries.reduce((s, e) => s + e.seasons.reduce((s2, se) => s2 + (se.totalEpisodes || 0), 0), 0), [entries]);
   const globalPct    = totalKnown > 0 ? Math.min(100, (totalWatched / totalKnown) * 100) : 0;
@@ -98,7 +106,14 @@ export function Header({
 
   const currentStreak = useMemo(() => calcCurrentStreak(entries), [entries]);
 
-  const animTotal       = useCountUp(entries.length);
+  // Cellule "Titres" cyclable : clic → type suivant (tout / séries / animes / films)
+  const [titleStatIdx, setTitleStatIdx] = useState(0);
+  const titleStatKey   = TITLE_STAT_ORDER[titleStatIdx];
+  const titleStatCount = useMemo(() => filterByType(entries, titleStatKey).length, [entries, titleStatKey]);
+  const cycleTitleStat = () => setTitleStatIdx((i) => (i + 1) % TITLE_STAT_ORDER.length);
+  const TitleStatIcon  = TITLE_STAT_ICON[titleStatKey];
+
+  const animTotal       = useCountUp(titleStatCount);
   const animStatusStat  = useCountUp(statusStatCount);
   const animStreak      = useCountUp(currentStreak);
   const animWatched     = useCountUp(totalWatched);
@@ -166,10 +181,15 @@ export function Header({
         <div className="mb-5 rounded-xl sm:rounded-2xl bg-violet-900/30 border border-white/5 overflow-hidden">
           <div className="grid grid-cols-4 divide-x divide-white/5">
             <StatCell
-              icon={<LibraryBig size={13} />}
-              tint={STAT_TINTS.sky}
+              icon={<TitleStatIcon size={13} />}
+              tint={TITLE_STAT_TINT[titleStatKey]}
               value={animTotal}
-              label="Titres"
+              label={TITLE_STAT_LABEL[titleStatKey]}
+              onClick={cycleTitleStat}
+              ariaLabel="Afficher un autre type de titres"
+              dots={TITLE_STAT_ORDER.map((k) => (
+                <span key={k} className={`w-1 h-1 rounded-full ${k === titleStatKey ? "bg-sky-300" : "bg-white/15"}`} />
+              ))}
             />
 
             <StatCell

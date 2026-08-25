@@ -777,7 +777,7 @@ export function Recommendations() {
       <div className="flex-shrink-0 max-w-4xl w-full mx-auto px-4 sm:px-6 pt-safe-8">
 
         {/* ── En-tête ── */}
-        <div className="flex items-start justify-between flex-wrap gap-3 mb-6">
+        <div className="flex items-start justify-between gap-3 mb-6">
           <div className="min-w-0">
             <button onClick={() => navigate(-1)}
               className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 transition-colors mb-2">
