@@ -444,10 +444,10 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             </div>
           </div>
 
-          {/* ── Compagnon qui "sort" du coin bas-droit (façon visual novel) ── */}
+          {/* ── Compagnon qui "sort" du coin bas-droit, juste au-dessus de la barre de progression ── */}
           {companionImgSrc && (
             <CompanionPeek rating={entry.rating}
-              className="-bottom-2 -right-1 sm:-right-2 h-20 sm:h-28 z-[15]" />
+              className="bottom-1.5 -right-1 sm:-right-2 h-20 sm:h-28 z-[15]" />
           )}
 
           <AnimatePresence>
