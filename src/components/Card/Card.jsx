@@ -417,7 +417,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
           </div>
 
           <div
-            className={`flex flex-col items-center justify-center gap-1 pl-2 sm:pl-3 border-l border-white/5 min-w-[44px] sm:min-w-[52px] flex-shrink-0 relative z-10 ${dimmed}`}
+            className={`flex flex-col items-center justify-start pt-1 gap-1 pl-2 sm:pl-3 border-l border-white/5 min-w-[44px] sm:min-w-[52px] flex-shrink-0 relative z-10 ${dimmed}`}
           >
             {entry.rating > 0 ? (
               <div className="flex flex-col items-center gap-1">
