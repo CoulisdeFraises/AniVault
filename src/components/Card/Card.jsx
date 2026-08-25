@@ -417,37 +417,32 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
           </div>
 
           <div
-            className={`flex flex-col items-center gap-2 pl-2 sm:pl-3 border-l border-white/5 min-w-[40px] sm:min-w-[48px] flex-shrink-0 relative z-10 ${dimmed}`}
-            onClick={e => e.stopPropagation()}
+            className={`flex flex-col items-center justify-center gap-1 pl-2 sm:pl-3 border-l border-white/5 min-w-[44px] sm:min-w-[52px] flex-shrink-0 relative z-10 ${dimmed}`}
           >
-            {!isAbandoned && (
-              <div className="flex flex-col gap-0.5">
-                <button onClick={() => onEdit(entry)} aria-label="Modifier"
-                  className="p-1.5 rounded-lg text-violet-400 hover:bg-white/10 hover:text-violet-50 active:scale-95 transition-all motion-reduce:transition-none">
-                  <Pencil size={13} />
-                </button>
-                <button onClick={() => setShowDel(true)} aria-label="Supprimer"
-                  className="p-1.5 rounded-lg text-violet-400 hover:bg-rose-500/20 hover:text-rose-300 active:scale-95 transition-all motion-reduce:transition-none">
-                  <Trash2 size={13} />
-                </button>
+            {entry.rating > 0 ? (
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-400/10 border border-amber-400/20">
+                  <Star size={11} fill="#fbbf24" strokeWidth={0} className="flex-shrink-0" />
+                  <span className="text-sm sm:text-base font-bold text-amber-300 tabular-nums leading-none"
+                    style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+                    {formatRating(entry.rating)}
+                  </span>
+                </div>
+                {!companionImgSrc && <RatingBadge rating={entry.rating} className="text-xl sm:text-2xl h-8 sm:h-10" />}
+                <p className="font-mono text-[8px] uppercase tracking-widest text-violet-500 hidden sm:block">Note</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-0.5 opacity-40">
+                <Star size={14} className="text-violet-500" />
+                <span className="font-mono text-[9px] text-violet-500">—</span>
               </div>
             )}
-            <div className="flex flex-col items-center justify-center gap-0.5 mt-auto">
-              <p className="font-mono text-[9px] uppercase tracking-widest text-violet-400 hidden sm:block">Note</p>
-              <div className="flex items-center gap-0.5">
-                <span className="text-lg sm:text-xl font-bold text-violet-50" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-                  {formatRating(entry.rating) || "—"}
-                </span>
-                {entry.rating > 0 && <Star size={13} fill="#fbbf24" strokeWidth={0} />}
-              </div>
-              {!companionImgSrc && <RatingBadge rating={entry.rating} className="text-xl sm:text-2xl h-8 sm:h-10" />}
-            </div>
           </div>
 
           {/* ── Compagnon qui "sort" du coin bas-droit, juste au-dessus de la barre de progression ── */}
           {companionImgSrc && (
             <CompanionPeek rating={entry.rating}
-              className="bottom-1.5 -right-1 sm:-right-2 h-20 sm:h-28 z-[15]" />
+              className="bottom-1.5 right-0 sm:right-1 h-20 sm:h-28 z-[15]" />
           )}
 
           <AnimatePresence>
@@ -491,60 +486,69 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             className="absolute inset-0 z-30 rounded-2xl bg-violet-950/70 backdrop-blur-xl flex flex-col items-center justify-center gap-1.5 p-3 overflow-y-auto"
             onClick={e => e.stopPropagation()}
           >
-            <p className="font-mono text-xs uppercase tracking-widest text-white/90 mb-0.5 truncate max-w-full px-2 text-center">
+            <p className="font-mono text-xs uppercase tracking-widest text-white/90 mb-1 truncate max-w-full px-2 text-center">
               {entry.title}
             </p>
 
-            {/* Actualiser — reste ouvert, résultat inline, auto-fermeture */}
-            <button
-              onClick={(e) => { e.stopPropagation(); haptics.tap(); handleRefresh(e); }}
-              disabled={refreshing || !!refreshResult}
-              className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl border text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:cursor-default ${
-                refreshResult?.status === "new"
-                  ? "bg-teal-500/20 border-teal-400/40"
-                  : refreshResult?.status === "error"
-                  ? "bg-rose-500/20 border-rose-400/40"
-                  : refreshResult?.status === "ok"
-                  ? "bg-white/10 border-white/20"
-                  : "bg-white/15 border-white/25 hover:bg-white/20 disabled:opacity-60"
-              }`}
-            >
-              <RefreshCw size={16} className={`flex-shrink-0 transition-colors ${
-                refreshing                        ? "animate-spin text-white" :
-                refreshResult?.status === "new"   ? "text-teal-300"          :
-                refreshResult?.status === "error" ? "text-rose-300"          :
-                refreshResult?.status === "ok"    ? "text-teal-300"          :
-                "text-white"
-              }`} />
-              <span>
-                {refreshing                        ? "Actualisation…"                :
-                 refreshResult?.status === "ok"    ? `✓ ${refreshResult.message}`   :
-                 refreshResult?.status === "new"   ? `✨ ${refreshResult.message}`  :
-                 refreshResult?.status === "error" ? "✗ Erreur d'actualisation"     :
-                 "Actualiser"}
-              </span>
-            </button>
+            <div className="grid grid-cols-4 gap-2 w-full">
+              {/* Actualiser — reste ouvert, résultat inline, auto-fermeture */}
+              <button
+                onClick={(e) => { e.stopPropagation(); haptics.tap(); handleRefresh(e); }}
+                disabled={refreshing || !!refreshResult}
+                className={`flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border text-[9px] font-mono text-white leading-tight text-center transition-all active:scale-95 disabled:cursor-default ${
+                  refreshResult?.status === "new"
+                    ? "bg-teal-500/20 border-teal-400/40"
+                    : refreshResult?.status === "error"
+                    ? "bg-rose-500/20 border-rose-400/40"
+                    : refreshResult?.status === "ok"
+                    ? "bg-white/10 border-white/20"
+                    : "bg-white/15 border-white/25 hover:bg-white/20 disabled:opacity-60"
+                }`}
+              >
+                <RefreshCw size={16} className={`flex-shrink-0 transition-colors ${
+                  refreshing                        ? "animate-spin text-white" :
+                  refreshResult?.status === "new"   ? "text-teal-300"          :
+                  refreshResult?.status === "error" ? "text-rose-300"          :
+                  refreshResult?.status === "ok"    ? "text-teal-300"          :
+                  "text-white"
+                }`} />
+                <span>
+                  {refreshing                        ? "Actu.…"   :
+                   refreshResult?.status === "ok"    ? "À jour"   :
+                   refreshResult?.status === "new"   ? "Nouveau"  :
+                   refreshResult?.status === "error" ? "Erreur"   :
+                   "Actualiser"}
+                </span>
+              </button>
 
-            {/* FIX : stopPropagation explicite + gesturedRef reset sur chaque bouton */}
-            <button
-              onClick={(e) => { e.stopPropagation(); haptics.tap(); setLongPressMenu(false); gesturedRef.current = false; setShowAddToList(true); }}
-              className="w-full flex items-center gap-3 px-4 py-2 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 active:scale-[0.98] text-sm font-semibold text-white transition-all"
-            >
-              <ListPlus size={16} className="text-white flex-shrink-0" />
-              Ajouter à une liste
-            </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); haptics.tap(); setLongPressMenu(false); gesturedRef.current = false; setShowAddToList(true); }}
+                className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 active:scale-95 text-[9px] font-mono text-white leading-tight text-center transition-all"
+              >
+                <ListPlus size={16} className="text-white flex-shrink-0" />
+                <span>Liste</span>
+              </button>
 
-            <button
-              onClick={(e) => { e.stopPropagation(); haptics.medium(); setLongPressMenu(false); gesturedRef.current = false; setShowDel(true); }}
-              className="w-full flex items-center gap-3 px-4 py-2 rounded-xl bg-rose-500/25 border border-rose-400/40 hover:bg-rose-500/35 active:scale-[0.98] text-sm font-semibold text-white transition-all"
-            >
-              <Trash2 size={16} className="text-rose-200 flex-shrink-0" />
-              Supprimer
-            </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); haptics.tap(); setLongPressMenu(false); gesturedRef.current = false; onEdit(entry); }}
+                className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 active:scale-95 text-[9px] font-mono text-white leading-tight text-center transition-all"
+              >
+                <Pencil size={16} className="text-white flex-shrink-0" />
+                <span>Modifier</span>
+              </button>
+
+              <button
+                onClick={(e) => { e.stopPropagation(); haptics.medium(); setLongPressMenu(false); gesturedRef.current = false; setShowDel(true); }}
+                className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-rose-500/25 border border-rose-400/40 hover:bg-rose-500/35 active:scale-95 text-[9px] font-mono text-rose-100 leading-tight text-center transition-all"
+              >
+                <Trash2 size={16} className="text-rose-200 flex-shrink-0" />
+                <span>Suppr.</span>
+              </button>
+            </div>
 
             <button
               onClick={(e) => { e.stopPropagation(); haptics.tap(); setLongPressMenu(false); gesturedRef.current = false; }}
-              className="mt-0.5 text-xs text-white/70 hover:text-white active:scale-95 transition-all font-mono"
+              className="mt-1 text-xs text-white/70 hover:text-white active:scale-95 transition-all font-mono"
             >
               Annuler
             </button>
