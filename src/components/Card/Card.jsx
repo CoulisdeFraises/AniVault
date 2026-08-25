@@ -7,7 +7,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useLists }         from "../../context/ListsContext";
 import { ConfirmDialog }    from "../Modal/Modal";
-import { RatingBadge }      from "../common/Rating";
+import { RatingBadge, CompanionPeek, getRatingImageSrc } from "../common/Rating";
 import { STATUS, seasonTotals, formatCountdown, formatRating, getDisplayStatus } from "../../utils/status";
 import { useLibrary }       from "../../context/LibraryContext";
 import { fetchNextAiring, refreshEntryCard } from "../../api";
@@ -36,6 +36,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   const navigate   = useNavigate();
   const location   = useLocation();
   const seasons    = entry.seasons;
+  const companionImgSrc = entry.rating > 0 ? getRatingImageSrc(entry.rating) : null;
 
   const tvSeasons    = useMemo(() => seasons.map((s, i) => ({ ...s, globalIndex: i })).filter(s => getFormatGroup(s.format) === "tv"),    [seasons]);
   const extraSeasons = useMemo(() => seasons.map((s, i) => ({ ...s, globalIndex: i })).filter(s => getFormatGroup(s.format) === "extra"), [seasons]);
@@ -439,9 +440,15 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
                 </span>
                 {entry.rating > 0 && <Star size={13} fill="#fbbf24" strokeWidth={0} />}
               </div>
-              <RatingBadge rating={entry.rating} className="text-xl sm:text-2xl h-8 sm:h-10" />
+              {!companionImgSrc && <RatingBadge rating={entry.rating} className="text-xl sm:text-2xl h-8 sm:h-10" />}
             </div>
           </div>
+
+          {/* ── Compagnon qui "sort" du coin bas-droit (façon visual novel) ── */}
+          {companionImgSrc && (
+            <CompanionPeek rating={entry.rating}
+              className="-bottom-2 -right-1 sm:-right-2 h-20 sm:h-28 z-[15]" />
+          )}
 
           <AnimatePresence>
             {isAbandoned && (

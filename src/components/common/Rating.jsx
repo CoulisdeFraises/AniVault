@@ -14,12 +14,27 @@ export function getRatingBand(rating) {
   return 5;
 }
 
+export function resolveCompanion(companionId) {
+  const id = companionId || (typeof localStorage !== "undefined" ? localStorage.getItem("pref_companion") : null) || "default";
+  return getCompanion(id);
+}
+
 export function getRatingEmoji(rating, companionId) {
   const band = getRatingBand(rating);
   if (band === null) return null;
-  const id = companionId || (typeof localStorage !== "undefined" ? localStorage.getItem("pref_companion") : null) || "default";
-  const emojis = RATING_EMOJIS[id] || RATING_EMOJIS.default;
+  const companion = resolveCompanion(companionId);
+  const emojis = RATING_EMOJIS[companion.id] || RATING_EMOJIS.default;
   return emojis[band];
+}
+
+/** getRatingImageSrc — chemin de l'image de note du compagnon actif, ou null
+ * si ce compagnon n'a pas de jeu d'images (fallback émoji dans ce cas). */
+export function getRatingImageSrc(rating, companionId) {
+  const band = getRatingBand(rating);
+  if (band === null) return null;
+  const companion = resolveCompanion(companionId);
+  if (!companion?.imageFolder) return null;
+  return `${companion.imageFolder}/rating-${band}.png`;
 }
 
 /**
@@ -35,8 +50,7 @@ export function RatingBadge({ rating, companionId, className = "" }) {
   const band = getRatingBand(rating);
   if (band === null) return null;
 
-  const id = companionId || (typeof localStorage !== "undefined" ? localStorage.getItem("pref_companion") : null) || "default";
-  const companion = getCompanion(id);
+  const companion = resolveCompanion(companionId);
 
   if (companion?.imageFolder) {
     return (
@@ -49,8 +63,29 @@ export function RatingBadge({ rating, companionId, className = "" }) {
     );
   }
 
-  const emojis = RATING_EMOJIS[id] || RATING_EMOJIS.default;
+  const emojis = RATING_EMOJIS[companion.id] || RATING_EMOJIS.default;
   return <span className={className}>{emojis[band]}</span>;
+}
+
+/**
+ * CompanionPeek — le personnage du compagnon (ex. Chlo) qui "sort" du coin
+ * bas-droit du conteneur parent (celui-ci doit être `relative`), façon
+ * visual novel. Ne rend rien si le compagnon actif n'a pas d'images —
+ * dans ce cas, utiliser RatingBadge (émoji) à la place.
+ */
+export function CompanionPeek({ rating, companionId, className = "" }) {
+  const src = getRatingImageSrc(rating, companionId);
+  if (!src) return null;
+
+  return (
+    <img
+      src={src}
+      alt=""
+      aria-hidden="true"
+      loading="lazy"
+      className={`absolute w-auto object-contain pointer-events-none select-none drop-shadow-[0_6px_14px_rgba(0,0,0,0.5)] ${className}`}
+    />
+  );
 }
 
 // --- Composants d'interface ---

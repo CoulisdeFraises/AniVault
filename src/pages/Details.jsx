@@ -4,7 +4,7 @@ import { AnimatePresence } from "motion/react";
 import { X, Pencil, Star, Loader2, RefreshCw, Film, Tv, Disc2, Clapperboard,
          CheckCheck, ChevronRight, Check, Heart, ListPlus, AlertTriangle, WifiOff } from "lucide-react";
 import { EpisodeList }             from "../components/EpisodeList/EpisodeList";
-import { StarRating, RatingBadge } from "../components/common/Rating";
+import { StarRating, RatingBadge, CompanionPeek, getRatingImageSrc } from "../components/common/Rating";
 import { TitleFormModal }          from "../components/Modal/TitleFormModal";
 import { STATUS, seasonTotals, formatRating, getDisplayStatus }    from "../utils/status";
 import { useLibrary }              from "../context/LibraryContext";
@@ -393,6 +393,7 @@ export function Details() {
   const displayImage  = curTV?.coverImage || (activeTVIdx === 0 ? entry.coverImage : null);
   const fallbackImage = tvSeasons[0]?.coverImage || entry.coverImage;
   const showFallback  = !displayImage && activeTVIdx > 0 && fallbackImage;
+  const companionImgSrc = entry.rating > 0 ? getRatingImageSrc(entry.rating) : null;
   const FMT_LABEL     = { OVA: "OAV", ONA: "ONA", SPECIAL: "Spécial", TV_SHORT: "Court", MUSIC: "Musique" };
 
   function handleMarkAllWatched() {
@@ -505,7 +506,7 @@ export function Details() {
         </div>
 
         {/* ── Header ── */}
-        <div className="flex gap-3 sm:gap-4 p-4 sm:p-6 border-b border-white/5 flex-shrink-0">
+        <div className="relative flex gap-3 sm:gap-4 p-4 sm:p-6 border-b border-white/5 flex-shrink-0 overflow-hidden">
           {displayImage
             ? <img src={displayImage} alt="" loading="lazy"
                 className="w-16 h-24 sm:w-24 sm:h-36 object-cover rounded-xl flex-shrink-0" />
@@ -590,7 +591,7 @@ export function Details() {
                   {formatRating(entry.rating) || "—"}
                 </span>
                 {entry.rating > 0 && <Star size={18} fill="#fbbf24" strokeWidth={0} />}
-                {entry.rating > 0 && <RatingBadge rating={entry.rating} className="text-xl sm:text-3xl h-12 sm:h-16" />}
+                {entry.rating > 0 && !companionImgSrc && <RatingBadge rating={entry.rating} className="text-xl sm:text-3xl h-12 sm:h-16" />}
               </div>
               <p className="font-mono text-[10px] text-violet-500">
                 {entry.rating > 0 ? "Moyenne des saisons notées — note-les ci-dessous" : "Aucune saison notée pour l'instant"}
@@ -598,6 +599,12 @@ export function Details() {
             </div>
             {entry.notes && <p className="text-[11px] text-violet-300/80 italic mt-1 line-clamp-2">{entry.notes}</p>}
           </div>
+
+          {/* ── Compagnon qui "sort" du bas du header, collé au séparateur des saisons ── */}
+          {companionImgSrc && (
+            <CompanionPeek rating={entry.rating}
+              className="-bottom-1 -right-1 sm:-right-2 h-24 sm:h-32 z-10" />
+          )}
         </div>
 
         {/* ── Bannière résultat actualisation ── */}
