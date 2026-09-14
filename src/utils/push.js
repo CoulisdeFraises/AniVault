@@ -182,6 +182,18 @@ export async function syncMissedNotifications(userId, entries = []) {
   }
 
   data?.forEach((row) => {
+    // Alertes de streak (fonction Edge streak-alert) : pas d'entry associée,
+    // entry_key vaut toujours "streak-alert" — traitement à part.
+    if (row.entry_key === "streak-alert") {
+      addNotification({
+        title: "Ta streak était en danger 🔥",
+        body: "Tu as reçu une alerte pendant que l'app était fermée.",
+        icon: "flame",
+        dedupeKey: `streak-alert-${row.sent_at}`,
+      });
+      return;
+    }
+
     const entry = entries.find((e) => buildEntryKey(e) === row.entry_key);
     const body  = entry
       ? `${entry.title} — Épisode ${row.episode} disponible !`
