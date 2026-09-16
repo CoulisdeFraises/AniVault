@@ -120,33 +120,42 @@ export function Companion() {
 
             {/* Bulle de texte, par-dessus le portrait */}
             <motion.div
-              className={`relative z-20 min-w-0 flex-1 ${portraitSrc ? "-ml-6 sm:-ml-10 max-w-md sm:max-w-lg" : "max-w-md sm:max-w-lg"}`}
+              className={`relative z-20 min-w-0 flex-1 ${portraitSrc ? "-ml-6 sm:-ml-10 max-w-lg sm:max-w-2xl" : "max-w-lg sm:max-w-2xl"}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.12, delay: portraitSrc ? 0.08 : 0 }}
             >
-              <div className="relative w-full">
-                <img
-                  src="/companion-bubble.png"
-                  alt=""
-                  aria-hidden="true"
-                  className="w-full h-auto select-none pointer-events-none drop-shadow-2xl"
-                  onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
-                />
-                {/* Texte, cadré sur la zone pleine de la bulle */}
-                <div
-                  className="absolute flex items-center"
-                  style={{ left: "23%", right: "20%", top: "33%", bottom: "22%" }}
+              {/* La bulle elle-même : le fond (companion-bubble.png) est étiré en
+                  background-size 100% 100% sur ce conteneur, dont la hauteur est
+                  fixée par le CONTENU (padding autour du texte). Contrairement à
+                  un <img> à ratio fixe, la bulle s'agrandit donc automatiquement
+                  avec le texte au lieu de le laisser déborder par-dessus. */}
+              <div
+                className="relative min-h-[86px] sm:min-h-[104px] drop-shadow-2xl flex items-center rounded-2xl bg-black/70"
+                style={{
+                  backgroundImage: "url('/companion-bubble.png')",
+                  backgroundSize: "100% 100%",
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "center",
+                }}
+              >
+                {/* Zone de texte : le padding respecte les pointes du contour de
+                    la bulle (proportionnel, pas de valeurs fixes en px) tout en
+                    laissant le texte pousser la hauteur autant que nécessaire. */}
+                <p
+                  className="w-full text-white font-bold text-sm sm:text-base leading-snug break-words"
+                  style={{
+                    fontFamily: "'Space Grotesk', sans-serif",
+                    paddingLeft: "16%",
+                    paddingRight: "13%",
+                    paddingTop: "14%",
+                    paddingBottom: "14%",
+                  }}
                 >
-                  <p
-                    className="text-white font-bold text-[11px] sm:text-sm leading-snug"
-                    style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                  >
-                    {current.text.slice(0, shownLength)}
-                    {isTyping && <span className="animate-pulse">▌</span>}
-                  </p>
-                </div>
+                  {current.text.slice(0, shownLength)}
+                  {isTyping && <span className="animate-pulse">▌</span>}
+                </p>
               </div>
 
               <p className="mt-1.5 text-[9px] sm:text-[10px] uppercase tracking-widest text-white/60 text-right pr-1">

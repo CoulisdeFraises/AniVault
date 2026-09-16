@@ -9,20 +9,23 @@ import { useCompanion } from "../context/CompanionContext";
 //   - streak record battu / streak perdue (comparaison avec le dernier état connu)
 //   - streak en danger (le soir, si rien regardé aujourd'hui)
 //   - retour après une absence (comeback)
-//   - message d'accueil aléatoire (idle), si rien d'autre ne s'est déclenché
+//   - message d'accueil (idle), si rien d'autre ne s'est déclenché — une
+//     ligne différente est piochée au hasard à chaque ouverture (voir
+//     utils/companionLines.js), et s'affiche de façon fiable une fois par
+//     session (dédoublonné par catégorie dans CompanionContext), plutôt que
+//     de dépendre d'un tirage aléatoire qui pouvait ne jamais s'afficher.
 //
-// Chacun a un cooldown persisté en localStorage pour ne pas spammer d'un
-// jour sur l'autre (sauf le record, qui ne peut logiquement se reproduire
-// que si le record est effectivement battu).
+// Les autres déclencheurs (streak, comeback) ont un cooldown persisté en
+// localStorage pour ne pas spammer d'un jour sur l'autre (sauf le record,
+// qui ne peut logiquement se reproduire que si le record est effectivement
+// battu).
 
 const LS_BEST_STREAK   = "anivault:companion:bestStreak";
 const LS_LAST_STREAK   = "anivault:companion:lastStreak";
 const LS_LAST_ACTIVE   = "anivault:companion:lastActiveDate";     // dernier jour où une activité a été vue
 const LS_DANGER_SHOWN  = "anivault:companion:dangerShownDate";
-const LS_IDLE_SHOWN    = "anivault:companion:idleShownDate";
 
 const DANGER_HOUR_START = 21; // même fenêtre que la notif push streak-alert
-const IDLE_CHANCE       = 0.3; // 30% de chances d'afficher le message d'accueil aléatoire
 
 function todayKey() {
   // Clé de date locale au navigateur (cohérent avec calcCurrentStreak, qui
@@ -107,11 +110,12 @@ export function useCompanionWatcher(entries, loading) {
       }
 
       function maybeTriggerIdle() {
-        const idleShown = localStorage.getItem(LS_IDLE_SHOWN);
-        if (idleShown === today) return;
-        if (Math.random() > IDLE_CHANCE) return;
+        // Message d'accueil piocher au hasard dans utils/companionLines.js
+        // (voir pickCompanionLine) — affiché de façon fiable à chaque
+        // ouverture de l'app (une fois par session, via firedThisSession
+        // dans CompanionContext) plutôt qu'avec une chance aléatoire de ne
+        // jamais apparaître.
         triggerCompanion("idle");
-        localStorage.setItem(LS_IDLE_SHOWN, today);
       }
 
       localStorage.setItem(LS_LAST_ACTIVE, today);
