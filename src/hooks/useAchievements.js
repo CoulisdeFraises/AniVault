@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import { useLibrary } from "../context/LibraryContext";
+import { useCompanion } from "../context/CompanionContext";
 import { ACHIEVEMENTS, computeUnlocked } from "../utils/achievements";
 import { haptics } from "../utils/haptics";
 
@@ -19,6 +20,7 @@ function saveSeen(set) {
 
 export function useAchievements() {
   const { entries, loading } = useLibrary();
+  const { triggerCompanion } = useCompanion();
 
   const unlocked   = useMemo(() => computeUnlocked(entries), [entries]);
   const initialized = useRef(false);          // vrai après le 1er chargement réel
@@ -47,6 +49,9 @@ export function useAchievements() {
     saveSeen(seenRef.current);
     haptics.celebration();
     setQueue((q) => [...q, ...newOnes]);
+    // Le compagnon ne réagit qu'au premier de la salve, pour ne pas empiler
+    // les bulles si plusieurs succès tombent d'un coup (rare mais possible).
+    triggerCompanion("achievement", { name: newOnes[0].name }, { allowRepeat: true });
   }, [unlocked, loading]);
 
   // ── Défilement de la file de toasts (1 à la fois) ────────────────────────

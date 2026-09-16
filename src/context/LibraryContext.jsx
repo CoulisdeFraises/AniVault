@@ -4,6 +4,7 @@ import { useAuth } from "./AuthContext";
 import { seasonTotals, autoStatus, computeOverallRating } from "../utils/status";
 import { normalizeSeriesTitle } from "../utils/titles";
 import { getStaleCached, setCached, TTL } from "../lib/cache";
+import { useCompanion } from "./CompanionContext";
 
 const libraryCacheKey = (uid) => `library_${uid}`;
 
@@ -89,6 +90,7 @@ function autoBackup(entries) {
 
 export function LibraryProvider({ children }) {
   const { user } = useAuth();
+  const { triggerCompanion } = useCompanion();
   const [entries, setEntriesState] = useState([]);
   const [loading, setLoading]      = useState(true);
   const [saveError, setSaveError]  = useState(false);
@@ -202,7 +204,11 @@ export function LibraryProvider({ children }) {
     persist(editingId
       ? entriesRef.current.map((e) => e.id === editingId ? cleaned : e)
       : [cleaned, ...entriesRef.current]);
-  }, [user]);
+
+    if (!editingId) {
+      triggerCompanion("newEntry", { title: cleaned.title });
+    }
+  }, [user, triggerCompanion]);
 
   const setEntries   = useCallback((next) => persist(next), [user]);
   const deleteEntry  = useCallback((id) => persist(entriesRef.current.filter((e) => e.id !== id)), [user]);
@@ -218,9 +224,13 @@ export function LibraryProvider({ children }) {
       });
       const history = [...(e.watchHistory || []),
         { seasonIndex, episode: seasons[seasonIndex].watchedEpisodes, watchedAt: now }];
-      return { ...e, seasons, status: auto ? autoStatus(e, seasons) : e.status, watchHistory: history, updatedAt: now };
+      const newStatus = auto ? autoStatus(e, seasons) : e.status;
+      if (newStatus === "termine" && e.status !== "termine") {
+        triggerCompanion("finished", { title: e.title });
+      }
+      return { ...e, seasons, status: newStatus, watchHistory: history, updatedAt: now };
     }));
-  }, [user]);
+  }, [user, triggerCompanion]);
 
   const decrementEpisode = useCallback((id, seasonIndex) => {
     const now = Date.now(); const auto = shouldAutoStatus();
@@ -248,15 +258,24 @@ export function LibraryProvider({ children }) {
         ? Array.from({ length: nw - old }, (_, i) =>
             ({ seasonIndex, episode: old + i + 1, watchedAt: now + i }))
         : [];
+      const newStatus = auto ? autoStatus(e, seasons) : e.status;
+      if (newStatus === "termine" && e.status !== "termine") {
+        triggerCompanion("finished", { title: e.title });
+      }
       return { ...e, seasons,
-        status: auto ? autoStatus(e, seasons) : e.status,
+        status: newStatus,
         watchHistory: [...(e.watchHistory || []), ...hist],
         updatedAt: now };
     }));
-  }, [user]);
+  }, [user, triggerCompanion]);
 
-  const markDone = useCallback((id) =>
-    persist(entriesRef.current.map((e) => e.id === id ? { ...e, status: "termine", updatedAt: Date.now() } : e)), [user]);
+  const markDone = useCallback((id) => {
+    const entry = entriesRef.current.find((e) => e.id === id);
+    if (entry && entry.status !== "termine") {
+      triggerCompanion("finished", { title: entry.title });
+    }
+    persist(entriesRef.current.map((e) => e.id === id ? { ...e, status: "termine", updatedAt: Date.now() } : e));
+  }, [user, triggerCompanion]);
 
   const updateRating = useCallback((id, rating) =>
     persist(entriesRef.current.map((e) => e.id === id ? { ...e, rating, updatedAt: Date.now() } : e)), [user]);

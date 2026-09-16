@@ -3,12 +3,15 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-
 import { AnimatePresence, MotionConfig } from "motion/react";
 import { Loader2 }             from "lucide-react";
 import { AuthProvider, useAuth }       from "./context/AuthContext";
+import { CompanionProvider }           from "./context/CompanionContext";
 import { LibraryProvider, useLibrary } from "./context/LibraryContext";
 import { PrefsProvider }               from "./context/PrefsContext";
 import { ListsProvider }               from "./context/ListsContext";
 import { ErrorBoundary }               from "./components/common/ErrorBoundary";
 import { InstallPrompt }               from "./components/common/InstallPrompt";
 import { AchievementToast }            from "./components/common/AchievementToast";
+import { Companion }                   from "./components/common/Companion";
+import { useCompanionWatcher }         from "./hooks/useCompanionWatcher";
 import { BottomNav }                   from "./components/common/BottomNav";
 import { PageTransition }              from "./components/common/PageTransition";
 import { useAchievements }             from "./hooks/useAchievements";
@@ -67,6 +70,16 @@ const ProtectedRoute = ({ children }) => {
 function AchievementLayer() {
   const { currentToast, dismissToast } = useAchievements();
   return <AchievementToast achievement={currentToast} onDone={dismissToast} />;
+}
+
+// ── CompanionWatcherLayer — branche les déclencheurs "passifs" du compagnon
+// (streak record/perdue/en danger, comeback, idle) — voir useCompanionWatcher.
+// Les déclencheurs "actifs" (ajout d'entrée, anime terminé, achievement) sont
+// directement dans LibraryContext.jsx et useAchievements.js.
+function CompanionWatcherLayer() {
+  const { entries, loading } = useLibrary();
+  useCompanionWatcher(entries, loading);
+  return null;
 }
 
 // ── ProfileStatsSyncLayer — tient entries_count/episodes_watched à jour ────
@@ -252,6 +265,8 @@ const AppRoutes = () => {
       <AchievementLayer />
       {user && <AnnouncementLayer />}
       {user && <ProfileStatsSyncLayer />}
+      {user && <CompanionWatcherLayer />}
+      <Companion />
       <NotificationToast />
       <InstallPrompt />
     </div>
@@ -294,13 +309,15 @@ function SplashGate() {
 const App = () => (
   <ErrorBoundary>
     <AuthProvider>
-      <LibraryProvider>
-        <ListsProvider>
-          <PrefsProvider>
-            <SplashGate />
-          </PrefsProvider>
-        </ListsProvider>
-      </LibraryProvider>
+      <CompanionProvider>
+        <LibraryProvider>
+          <ListsProvider>
+            <PrefsProvider>
+              <SplashGate />
+            </PrefsProvider>
+          </ListsProvider>
+        </LibraryProvider>
+      </CompanionProvider>
     </AuthProvider>
   </ErrorBoundary>
 );
