@@ -194,6 +194,85 @@ export async function syncMissedNotifications(userId, entries = []) {
       return;
     }
 
+    // Récap hebdo (fonction Edge weekly-summary) : idem, pas d'entry associée.
+    // On ne reconstruit pas les stats ici (coûteux et déjà périmé) — on
+    // renvoie juste vers le panel pour inciter à ouvrir l'app.
+    if (row.entry_key === "weekly-summary") {
+      addNotification({
+        title: "Ton récap de la semaine 📊",
+        body: "Ouvre l'app pour voir ton récap complet.",
+        icon: "bar-chart",
+        dedupeKey: `weekly-summary-${row.sent_at}`,
+      });
+      return;
+    }
+
+    // Programme du jour (fonction Edge daily-digest) : idem.
+    if (row.entry_key === "daily-digest") {
+      addNotification({
+        title: "📺 Programme du jour",
+        body: "Ouvre l'app pour voir ce qui sort aujourd'hui.",
+        icon: "calendar-days",
+        dedupeKey: `daily-digest-${row.sent_at}`,
+      });
+      return;
+    }
+
+    // Rappel d'inactivité globale (fonction Edge inactivity-reminder).
+    if (row.entry_key === "inactivity-reminder") {
+      addNotification({
+        title: "On ne t'a pas vu récemment 👋",
+        body: "Ta bibliothèque t'attend — un petit épisode ce soir ?",
+        icon: "moon",
+        dedupeKey: `inactivity-reminder-${row.sent_at}`,
+      });
+      return;
+    }
+
+    // "Bientôt terminé" (fonction Edge episode-soon-finishing) : liée à une
+    // entry, mais avec un entry_key préfixé ("finishing_anilist_123_24"),
+    // donc pas de match direct via buildEntryKey.
+    if (row.entry_key.startsWith("finishing_")) {
+      const key = row.entry_key.replace(/^finishing_/, "").replace(/_\d+$/, "");
+      const entry = entries.find((e) => buildEntryKey(e) === key);
+      addNotification({
+        title: "Bientôt la fin ! 🏁",
+        body: entry ? `Tu approches de la fin de ${entry.title}.` : "Une de tes séries touche à sa fin.",
+        entryId: entry?.id ?? null,
+        icon: "flag",
+        dedupeKey: row.entry_key,
+      });
+      return;
+    }
+
+    // "Nouvelle saison" (fonction Edge new-season-check).
+    if (row.entry_key.startsWith("newseason_")) {
+      const key = row.entry_key.replace(/^newseason_/, "");
+      const entry = entries.find((e) => buildEntryKey(e) === key);
+      addNotification({
+        title: "Nouvelle saison ! ✨",
+        body: entry ? `Une suite à ${entry.title} est disponible.` : "Une suite est disponible sur une de tes séries.",
+        entryId: entry?.id ?? null,
+        icon: "sparkles",
+        dedupeKey: row.entry_key,
+      });
+      return;
+    }
+
+    // "Entrée oubliée" (fonction Edge stalled-entry).
+    if (row.entry_key.startsWith("stalled_")) {
+      const key = row.entry_key.replace(/^stalled_/, "");
+      const entry = entries.find((e) => buildEntryKey(e) === key);
+      addNotification({
+        title: "Ça prend la poussière 📺",
+        body: entry ? `Ça fait un moment que tu n'as pas avancé sur ${entry.title}.` : "Une de tes séries n'a pas bougé depuis un moment.",
+        entryId: entry?.id ?? null,
+        icon: "clock",
+        dedupeKey: `${row.entry_key}-${row.sent_at}`,
+      });
+      return;
+    }
+
     const entry = entries.find((e) => buildEntryKey(e) === row.entry_key);
     const body  = entry
       ? `${entry.title} — Épisode ${row.episode} disponible !`

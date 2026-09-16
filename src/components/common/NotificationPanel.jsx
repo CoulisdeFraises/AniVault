@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Bell, X, Check, Trash2, BellOff, Sparkles, UserPlus, UserCheck, Flame } from "lucide-react";
+import { Bell, X, Check, Trash2, BellOff, Sparkles, UserPlus, UserCheck, Flame, BarChart3, Flag, Clock, Moon, CalendarDays } from "lucide-react";
 import { useNotificationStore } from "../../hooks/useNotificationStore";
 import { requestNotificationPermission } from "../../hooks/useNotifications";
 import { subscribeToPush } from "../../utils/push";
@@ -20,7 +20,11 @@ function timeAgo(ts) {
   return `Il y a ${d}j`;
 }
 
-const NOTIF_ICONS = { sparkles: Sparkles, "user-plus": UserPlus, "user-check": UserCheck, flame: Flame };
+const NOTIF_ICONS = {
+  sparkles: Sparkles, "user-plus": UserPlus, "user-check": UserCheck,
+  flame: Flame, "bar-chart": BarChart3, flag: Flag, clock: Clock,
+  moon: Moon, "calendar-days": CalendarDays,
+};
 
 export function NotificationPanel() {
   const { user } = useAuth();
