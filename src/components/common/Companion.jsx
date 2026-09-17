@@ -58,17 +58,17 @@ function getCompanionPortrait(category) {
 // pilotée par le texte (padding normal, comme n'importe quelle boîte), donc
 // le texte ne peut plus jamais déborder du dessin, quelle que soit sa
 // longueur — contrairement à une image à silhouette fixe.
-// Léger creux à (4%, 50%) sur le bord gauche : juste de quoi accueillir
+// Léger creux à (3%, 50%) sur le bord gauche : juste de quoi accueillir
 // proprement la BUBBLE_TAIL (élément séparé, voir plus bas) sans les faire
 // paraître disjoints.
 const BUBBLE_CLIP_PATH =
-  "polygon(9% 4%, 21% 10%, 100% 0%, 98% 80%, 90% 97%, 26% 100%, 11% 89%, 4% 50%, 11% 19%)";
+  "polygon(7% 4%, 17% 10%, 100% 0%, 98% 80%, 92% 97%, 22% 100%, 9% 89%, 3% 50%, 9% 19%)";
 
 // Pointe de la bulle : un élément à part (fine et longue, façon manga),
 // plutôt qu'une pointe découpée dans la silhouette de la bulle elle-même —
 // posée entre le portrait (z-10) et la bulle (z-20) pour venir se
 // superposer légèrement PAR-DESSUS le portrait.
-const TAIL_CLIP_PATH = "polygon(100% 30%, 100% 70%, 0% 50%)";
+const TAIL_CLIP_PATH = "polygon(100% 26%, 100% 74%, 0% 50%)";
 
 // Petit fanion blanc, incliné à -15°, qui porte le nom du compagnon — posé
 // par-dessus le coin supérieur gauche de la bulle.
@@ -178,10 +178,10 @@ export function Companion() {
 
                 {/* Pointe : élément séparé, fin et long, posé entre le
                     portrait (z-10) et la bulle (z-20) pour se superposer
-                    légèrement devant le portrait. */}
+                    largement devant le portrait. */}
                 {portraitSrc && (
                   <div
-                    className="absolute top-1/2 -translate-y-1/2 -left-8 w-11 h-[18px] sm:-left-12 sm:w-16 sm:h-6 z-[15] bg-neutral-950 drop-shadow-lg"
+                    className="absolute top-1/2 -translate-y-1/2 -left-12 w-[58px] h-[26px] sm:-left-20 sm:w-[94px] sm:h-10 z-[15] bg-neutral-950 drop-shadow-lg"
                     style={{ clipPath: TAIL_CLIP_PATH }}
                   />
                 )}
@@ -192,7 +192,7 @@ export function Companion() {
                     dans la zone délimitée ci-dessous — plus aucun débordement
                     possible, et pas de fond de secours qui dépasse du dessin. */}
                 <div
-                  className="relative flex items-center bg-neutral-950 drop-shadow-2xl min-w-[150px] sm:min-w-[220px] min-h-[68px] sm:min-h-[92px] pl-6 pr-5 py-4 sm:pl-9 sm:pr-8 sm:py-6"
+                  className="relative flex items-center bg-neutral-950 drop-shadow-2xl min-w-[190px] sm:min-w-[300px] min-h-[68px] sm:min-h-[92px] pl-6 pr-6 py-4 sm:pl-10 sm:pr-9 sm:py-6"
                   style={{ clipPath: BUBBLE_CLIP_PATH }}
                 >
                   {/* Zone de texte délimitée : simple contenu paddé du bloc
