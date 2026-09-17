@@ -11,10 +11,11 @@ import { resolveCompanion } from "./Rating";
 //
 // Mise en scène :
 //   - le portrait du compagnon actif (voir utils/companions.js) arrive en
-//     glissade rapide depuis le bord gauche de l'écran ;
+//     glissade rapide depuis le bord gauche de l'écran, en grand format ;
 //   - la bulle — silhouette "BD" dentelée dessinée en CSS (clip-path), voir
-//     BUBBLE_CLIP_PATH plus bas — apparaît en fondu rapide PAR-DESSUS le
-//     portrait, en chevauchement prononcé ;
+//     BUBBLE_CLIP_PATH plus bas, avec une petite pointe façon manga sur son
+//     bord gauche qui pointe vers le portrait — apparaît en fondu rapide
+//     PAR-DESSUS le portrait, en chevauchement prononcé ;
 //   - un petit fanion blanc incliné à -15° affiche le nom du compagnon sur
 //     le coin de la bulle ;
 //   - le texte s'écrit progressivement à l'intérieur de la bulle, comme
@@ -55,8 +56,10 @@ function getCompanionPortrait(category) {
 // pilotée par le texte (padding normal, comme n'importe quelle boîte), donc
 // le texte ne peut plus jamais déborder du dessin, quelle que soit sa
 // longueur — contrairement à une image à silhouette fixe.
+// Le point (0%, 52%) au milieu du bord gauche forme la petite pointe façon
+// manga qui pointe vers le portrait du compagnon.
 const BUBBLE_CLIP_PATH =
-  "polygon(1.5% 18%, 9% 3%, 20% 9%, 100% 0%, 98.5% 82%, 91% 97%, 10% 100%, 0% 91%)";
+  "polygon(9% 4%, 21% 10%, 100% 0%, 98% 80%, 90% 97%, 26% 100%, 11% 89%, 0% 52%, 11% 19%)";
 
 // Petit fanion blanc, incliné à -15°, qui porte le nom du compagnon — posé
 // par-dessus le coin supérieur gauche de la bulle.
@@ -119,7 +122,7 @@ export function Companion() {
           {/* Scène : portrait (derrière) + bulle (devant) */}
           <div
             className={`relative z-10 mb-6 sm:mb-0 w-full max-w-xl sm:max-w-2xl px-5 flex ${
-              portraitSrc ? "items-end justify-start" : "items-center justify-center"
+              portraitSrc ? "items-center justify-start" : "items-center justify-center"
             }`}
           >
             {portraitSrc && (
@@ -127,7 +130,7 @@ export function Companion() {
                 src={portraitSrc}
                 alt=""
                 aria-hidden="true"
-                className="relative z-10 w-28 sm:w-44 h-auto shrink-0 pointer-events-none select-none drop-shadow-2xl rounded-xl"
+                className="relative z-10 w-40 sm:w-60 h-auto shrink-0 pointer-events-none select-none drop-shadow-2xl rounded-xl"
                 initial={{ x: "-120%", opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: "-40%", opacity: 0 }}
@@ -138,7 +141,7 @@ export function Companion() {
 
             {/* Bulle de texte, par-dessus le portrait (chevauchement plus prononcé) */}
             <motion.div
-              className={`relative z-20 min-w-0 flex-1 ${portraitSrc ? "-ml-10 sm:-ml-16 max-w-lg sm:max-w-2xl" : "max-w-lg sm:max-w-2xl"}`}
+              className={`relative z-20 min-w-0 flex-1 ${portraitSrc ? "-ml-6 sm:-ml-9 max-w-lg sm:max-w-2xl" : "max-w-lg sm:max-w-2xl"}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -148,7 +151,7 @@ export function Companion() {
                   incliné à -15°. */}
               {companionName && (
                 <div
-                  className="absolute -top-2.5 left-5 sm:-top-3 sm:left-6 z-30 bg-white text-neutral-900 font-extrabold uppercase tracking-wide text-[10px] sm:text-[13px] px-3 py-1 sm:px-4 sm:py-1.5 shadow-lg whitespace-nowrap"
+                  className="absolute -top-2.5 left-8 sm:-top-3 sm:left-9 z-30 bg-white text-neutral-900 font-extrabold uppercase tracking-wide text-[10px] sm:text-[13px] px-3 py-1 sm:px-4 sm:py-1.5 shadow-lg whitespace-nowrap"
                   style={{
                     fontFamily: "'Space Grotesk', sans-serif",
                     transform: "rotate(-15deg)",
@@ -160,12 +163,15 @@ export function Companion() {
               )}
 
               {/* Corps de la bulle : silhouette dentelée en CSS (clip-path), pas
-                  d'image. La hauteur/largeur suit le CONTENU (padding + texte),
-                  donc le texte est toujours entièrement contenu dans la zone
-                  délimitée ci-dessous — plus aucun débordement possible, et
-                  pas de fond de secours qui dépasse du dessin. */}
+                  d'image, avec une petite pointe façon manga sur le bord gauche
+                  (côté portrait) qui pointe vers le compagnon. La hauteur/
+                  largeur suit le CONTENU (padding + texte), donc le texte est
+                  toujours entièrement contenu dans la zone délimitée ci-dessous
+                  — plus aucun débordement possible, et pas de fond de secours
+                  qui dépasse du dessin. Le padding-left généreux laisse la
+                  place à la pointe sans jamais mordre sur le texte. */}
               <div
-                className="relative flex items-center bg-neutral-950 drop-shadow-2xl min-w-[170px] sm:min-w-[220px] min-h-[78px] sm:min-h-[96px] px-6 py-5 pt-6 sm:px-8 sm:py-6 sm:pt-7"
+                className="relative flex items-center bg-neutral-950 drop-shadow-2xl min-w-[150px] sm:min-w-[220px] min-h-[70px] sm:min-h-[92px] pl-7 pr-5 py-4 sm:pl-11 sm:pr-8 sm:py-6"
                 style={{ clipPath: BUBBLE_CLIP_PATH }}
               >
                 {/* Zone de texte délimitée : simple contenu paddé du bloc
