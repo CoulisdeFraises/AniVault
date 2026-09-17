@@ -12,10 +12,15 @@ import { resolveCompanion } from "./Rating";
 // Mise en scène :
 //   - le portrait du compagnon actif (voir utils/companions.js) arrive en
 //     glissade rapide depuis le bord gauche de l'écran ;
-//   - la bulle (/companion-bubble.png) apparaît en fondu rapide PAR-DESSUS
-//     le portrait, légèrement décalée vers la droite ;
+//   - la bulle — silhouette "BD" dentelée dessinée en CSS (clip-path), voir
+//     BUBBLE_CLIP_PATH plus bas — apparaît en fondu rapide PAR-DESSUS le
+//     portrait, en chevauchement prononcé ;
+//   - un petit fanion blanc incliné à -15° affiche le nom du compagnon sur
+//     le coin de la bulle ;
 //   - le texte s'écrit progressivement à l'intérieur de la bulle, comme
-//     dans un jeu (effet machine à écrire).
+//     dans un jeu (effet machine à écrire). Comme la bulle est une boîte
+//     normale (padding autour du texte) et non une image à silhouette
+//     fixe, elle grandit avec le contenu et le texte ne peut plus déborder.
 //
 // Si le compagnon actif n'a pas de jeu d'images (ex. "Classique" / émojis),
 // on n'affiche que la bulle, centrée, sans portrait — rien ne casse
@@ -45,6 +50,18 @@ function getCompanionPortrait(category) {
   return `${companion.imageFolder}/rating-${band}.png`;
 }
 
+// Silhouette "BD" dentelée de la bulle, dessinée en CSS (clip-path) plutôt
+// qu'avec une image (/companion-bubble.png) : la hauteur du conteneur est
+// pilotée par le texte (padding normal, comme n'importe quelle boîte), donc
+// le texte ne peut plus jamais déborder du dessin, quelle que soit sa
+// longueur — contrairement à une image à silhouette fixe.
+const BUBBLE_CLIP_PATH =
+  "polygon(1.5% 18%, 9% 3%, 20% 9%, 100% 0%, 98.5% 82%, 91% 97%, 10% 100%, 0% 91%)";
+
+// Petit fanion blanc, incliné à -15°, qui porte le nom du compagnon — posé
+// par-dessus le coin supérieur gauche de la bulle.
+const NAME_TAG_CLIP_PATH = "polygon(0% 0%, 100% 0%, 88% 100%, 0% 100%)";
+
 export function Companion() {
   const { current, dismissCompanion } = useCompanion();
 
@@ -69,6 +86,7 @@ export function Companion() {
   }, [current, isTyping, shownLength]);
 
   const portraitSrc = current ? getCompanionPortrait(current.category) : null;
+  const companionName = current ? resolveCompanion()?.name : null;
 
   // Premier tap : termine la frappe en cours. Second tap : ferme / suivant.
   const handleAdvance = () => {
@@ -109,7 +127,7 @@ export function Companion() {
                 src={portraitSrc}
                 alt=""
                 aria-hidden="true"
-                className="relative z-10 w-24 sm:w-36 h-auto shrink-0 pointer-events-none select-none drop-shadow-2xl rounded-xl"
+                className="relative z-10 w-28 sm:w-44 h-auto shrink-0 pointer-events-none select-none drop-shadow-2xl rounded-xl"
                 initial={{ x: "-120%", opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: "-40%", opacity: 0 }}
@@ -118,40 +136,43 @@ export function Companion() {
               />
             )}
 
-            {/* Bulle de texte, par-dessus le portrait */}
+            {/* Bulle de texte, par-dessus le portrait (chevauchement plus prononcé) */}
             <motion.div
-              className={`relative z-20 min-w-0 flex-1 ${portraitSrc ? "-ml-6 sm:-ml-10 max-w-lg sm:max-w-2xl" : "max-w-lg sm:max-w-2xl"}`}
+              className={`relative z-20 min-w-0 flex-1 ${portraitSrc ? "-ml-10 sm:-ml-16 max-w-lg sm:max-w-2xl" : "max-w-lg sm:max-w-2xl"}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.12, delay: portraitSrc ? 0.08 : 0 }}
             >
-              {/* La bulle elle-même : le fond (companion-bubble.png) est étiré en
-                  background-size 100% 100% sur ce conteneur, dont la hauteur est
-                  fixée par le CONTENU (padding autour du texte). Contrairement à
-                  un <img> à ratio fixe, la bulle s'agrandit donc automatiquement
-                  avec le texte au lieu de le laisser déborder par-dessus. */}
-              <div
-                className="relative min-h-[86px] sm:min-h-[104px] drop-shadow-2xl flex items-center rounded-2xl bg-black/70"
-                style={{
-                  backgroundImage: "url('/companion-bubble.png')",
-                  backgroundSize: "100% 100%",
-                  backgroundRepeat: "no-repeat",
-                  backgroundPosition: "center",
-                }}
-              >
-                {/* Zone de texte : le padding respecte les pointes du contour de
-                    la bulle (proportionnel, pas de valeurs fixes en px) tout en
-                    laissant le texte pousser la hauteur autant que nécessaire. */}
-                <p
-                  className="w-full text-white font-bold text-sm sm:text-base leading-snug break-words"
+              {/* Fanion avec le nom du compagnon, posé sur le coin de la bulle,
+                  incliné à -15°. */}
+              {companionName && (
+                <div
+                  className="absolute -top-2.5 left-5 sm:-top-3 sm:left-6 z-30 bg-white text-neutral-900 font-extrabold uppercase tracking-wide text-[10px] sm:text-[13px] px-3 py-1 sm:px-4 sm:py-1.5 shadow-lg whitespace-nowrap"
                   style={{
                     fontFamily: "'Space Grotesk', sans-serif",
-                    paddingLeft: "16%",
-                    paddingRight: "13%",
-                    paddingTop: "14%",
-                    paddingBottom: "14%",
+                    transform: "rotate(-15deg)",
+                    clipPath: NAME_TAG_CLIP_PATH,
                   }}
+                >
+                  {companionName}
+                </div>
+              )}
+
+              {/* Corps de la bulle : silhouette dentelée en CSS (clip-path), pas
+                  d'image. La hauteur/largeur suit le CONTENU (padding + texte),
+                  donc le texte est toujours entièrement contenu dans la zone
+                  délimitée ci-dessous — plus aucun débordement possible, et
+                  pas de fond de secours qui dépasse du dessin. */}
+              <div
+                className="relative flex items-center bg-neutral-950 drop-shadow-2xl min-w-[170px] sm:min-w-[220px] min-h-[78px] sm:min-h-[96px] px-6 py-5 pt-6 sm:px-8 sm:py-6 sm:pt-7"
+                style={{ clipPath: BUBBLE_CLIP_PATH }}
+              >
+                {/* Zone de texte délimitée : simple contenu paddé du bloc
+                    ci-dessus, garanti à l'intérieur de la silhouette. */}
+                <p
+                  className="w-full text-white font-bold text-sm sm:text-base leading-snug break-words"
+                  style={{ fontFamily: "'Space Grotesk', sans-serif" }}
                 >
                   {current.text.slice(0, shownLength)}
                   {isTyping && <span className="animate-pulse">▌</span>}
