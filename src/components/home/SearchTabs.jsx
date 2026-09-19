@@ -46,16 +46,16 @@ export function SearchTabs({ searchQuery, onSearchChange, typeFilter, onTypeFilt
         </button>
       </div>
 
-      <div className="flex rounded-2xl bg-violet-900/40 border border-white/10 p-1 mb-5">
+      <div className="flex rounded-2xl bg-violet-900/40 border border-white/10 p-0.5 mb-3">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button key={key} onClick={() => onTypeFilterChange(key)}
-            className={`relative flex-1 flex items-center justify-center gap-1.5 h-10 rounded-xl text-[13px] font-medium active:scale-95 transition-colors motion-reduce:transition-none ${
+            className={`relative flex-1 flex items-center justify-center gap-1.5 h-8 rounded-[10px] text-xs font-medium active:scale-95 transition-colors motion-reduce:transition-none ${
               typeFilter === key ? "text-violet-950 font-semibold" : "text-violet-200 hover:text-white"}`}>
             {typeFilter === key && (
-              <motion.span layoutId="home-type-filter-pill" className="absolute inset-0 bg-amber-400 rounded-xl shadow-md shadow-amber-500/20"
+              <motion.span layoutId="home-type-filter-pill" className="absolute inset-0 bg-amber-400 rounded-[10px] shadow-md shadow-amber-500/20"
                 transition={{ type: "spring", stiffness: 500, damping: 35 }} />
             )}
-            <span className="relative z-10 flex items-center gap-1.5"><Icon size={15} />{label}</span>
+            <span className="relative z-10 flex items-center gap-1"><Icon size={13} />{label}</span>
           </button>
         ))}
       </div>
