@@ -21,7 +21,7 @@ import { useFriendRequestNotifications } from "./hooks/useFriendRequestNotificat
 import { addNotification }             from "./hooks/useNotificationStore";
 import SplashScreen                    from "./components/SplashScreen/SplashScreen";
 import { NotificationToast}            from "./components/common/NotificationToast";
-import { syncSubscription, syncMissedNotifications } from "./utils/push";
+import { syncSubscription, syncMissedNotifications, markNotificationsSyncedNow } from "./utils/push";
 import { fetchLatestAnnouncement, fetchSeenAnnouncementId, markAnnouncementSeen } from "./services/announcements";
 import { AnnouncementModal } from "./components/common/AnnouncementModal";
 
@@ -190,11 +190,22 @@ function NotificationLayer() {
         return;
       }
       if (event.data?.type !== "PUSH_RECEIVED") return;
-      const { title, body, entryId, icon, link } = event.data;
+      const { title, body, entryId, icon, link, episode, tag } = event.data;
       addNotification({
         title, body, entryId, icon, link,
-        dedupeKey: entryId != null && event.data.episode != null ? `${entryId}-ep${event.data.episode}` : null,
+        // Clé épisode (`${entryId}-ep${episode}`) si dispo, sinon le tag —
+        // stable côté serveur (voir sw.js) et identique à ce que
+        // syncMissedNotifications reconstruit depuis `entry_key` en base :
+        // sans ce fallback, les notifs sans entrée (Programme du jour,
+        // récap hebdo, streak, inactivité...) n'avaient AUCUN dedupeKey.
+        dedupeKey: entryId != null && episode != null ? `${entryId}-ep${episode}` : (tag || null),
       });
+      // Empêche syncMissedNotifications de re-fetcher (et donc réafficher)
+      // cette même notif au prochain lancement de l'app : c'était la cause
+      // du doublon "Programme du jour" — reçue en direct ici, puis
+      // redécouverte comme "manquée" au rattrapage suivant parce que le
+      // curseur `since` n'avait jamais bougé entre-temps.
+      markNotificationsSyncedNow();
     }
     navigator.serviceWorker.addEventListener("message", handleMessage);
     return () => navigator.serviceWorker.removeEventListener("message", handleMessage);

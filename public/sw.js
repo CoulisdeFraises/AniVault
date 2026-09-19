@@ -285,6 +285,7 @@ self.addEventListener("push", (e) => {
             episode: data.episode ?? null,
             icon: data.icon || "sparkles",
             link: data.link ?? null,
+            tag, // ← identifiant stable de la notif (voir App.jsx: dedup live/rattrapage)
           }))
         )
       );

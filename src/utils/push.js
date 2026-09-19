@@ -145,6 +145,22 @@ export async function syncSubscription(userId) {
 // côté edge function (`${source}_${id}`).
 const LAST_SYNC_KEY = "anivault:notif-last-sync";
 
+/**
+ * markNotificationsSyncedNow — avance le curseur "dernier sync" à l'instant
+ * présent. À appeler dès qu'une notif est reçue EN DIRECT (app ouverte, SW
+ * message), pour que le prochain `syncMissedNotifications` (au lancement
+ * suivant) ne la re-fetch pas depuis `sent_notifications` et ne l'affiche
+ * pas une seconde fois.
+ *
+ * Sans ça : une notif reçue en direct à 10h n'avance jamais ce curseur ;
+ * s'il est resté à 9h (dernier sync du matin), rouvrir l'app le soir relance
+ * syncMissedNotifications avec `since = 9h`, qui re-découvre la ligne de
+ * 10h et la réaffiche — d'où le doublon "Programme du jour" remonté ici.
+ */
+export function markNotificationsSyncedNow() {
+  localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
+}
+
 function buildEntryKey(entry) {
   if (entry.source === "anilist" && entry.anilistIds?.length) {
     return `anilist_${entry.anilistIds[entry.anilistIds.length - 1]}`;
@@ -189,7 +205,7 @@ export async function syncMissedNotifications(userId, entries = []) {
         title: "Ta streak était en danger 🔥",
         body: "Tu as reçu une alerte pendant que l'app était fermée.",
         icon: "flame",
-        dedupeKey: `streak-alert-${row.sent_at}`,
+        dedupeKey: row.entry_key,
       });
       return;
     }
@@ -202,7 +218,7 @@ export async function syncMissedNotifications(userId, entries = []) {
         title: "Ton récap de la semaine 📊",
         body: "Ouvre l'app pour voir ton récap complet.",
         icon: "bar-chart",
-        dedupeKey: `weekly-summary-${row.sent_at}`,
+        dedupeKey: row.entry_key,
       });
       return;
     }
@@ -213,7 +229,7 @@ export async function syncMissedNotifications(userId, entries = []) {
         title: "📺 Programme du jour",
         body: "Ouvre l'app pour voir ce qui sort aujourd'hui.",
         icon: "calendar-days",
-        dedupeKey: `daily-digest-${row.sent_at}`,
+        dedupeKey: row.entry_key,
       });
       return;
     }
@@ -224,7 +240,7 @@ export async function syncMissedNotifications(userId, entries = []) {
         title: "On ne t'a pas vu récemment 👋",
         body: "Ta bibliothèque t'attend — un petit épisode ce soir ?",
         icon: "moon",
-        dedupeKey: `inactivity-reminder-${row.sent_at}`,
+        dedupeKey: row.entry_key,
       });
       return;
     }

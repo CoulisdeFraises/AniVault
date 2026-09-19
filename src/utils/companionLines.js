@@ -21,10 +21,10 @@ export const COMPANION_LINES = {
     "{name}... tu commences à devenir dangereux(se).",
   ],
   finished: [
-    "{title}, terminé ! Alors, ce dénouement ?",
+    "{title}, terminé ! Alors, c'était comment ?",
     "Tu viens de finir {title}. Un de plus sur la pile !",
     "{title} bouclé. Tu veux enchaîner sur autre chose ?",
-    "Voilà, {title} c'est dans la boîte.",
+    "Voilà, {title} finit ! C'est dans la boîte !",
   ],
   streakRecord: [
     "{streak} jours d'affilée — nouveau record ! Impressionnant.",
@@ -33,8 +33,9 @@ export const COMPANION_LINES = {
   ],
   streakLost: [
     "Ta série de jours s'est arrêtée là. Ça arrive, on repart de zéro.",
-    "Streak terminée pour cette fois. Prêt(e) à en relancer une nouvelle ?",
+    "Streak terminée pour cette fois. On se remet dedans ?",
     "Bon, la série est cassée — mais rien n'empêche d'en commencer une autre.",
+    "T'as rompu la streak nullos !"
   ],
   streakDanger: [
     "Ta streak de {streak} jours tient encore à un fil ce soir...",
@@ -43,13 +44,15 @@ export const COMPANION_LINES = {
   ],
   newEntry: [
     "{title} ajouté à ta liste. Bon choix ?",
-    "Une nouvelle entrée : {title}. On verra si ça tient la distance.",
+    "Une nouvelle entrée : {title}. On regarde ça quand ?",
     "{title} rejoint la collection. À voir quand tu t'y mets !",
   ],
   comeback: [
     "Ça faisait {days} jours ! Content(e) de te revoir.",
     "{days} jours sans nouvelles... tout va bien ?",
-    "Retour après {days} jours d'absence. Ta liste t'a attendu(e).",
+    "Retour après {days} jours d'absence. Je commençais à m'inquiéter !",
+    "Eeeeeeeh !!! Ça fait {days} jours ! T'étais où ?!",
+
   ],
   idle: [
     "Alors, on regarde quoi aujourd'hui ?",
@@ -71,28 +74,32 @@ const CHLO_LINES = {
   ],
   finished: [
     "{title} terminé. Tu vas faire semblant d'avoir une vie sociale maintenant ?",
-    "Ah, {title} plié. Bon, next épisode... euh, next série, je veux dire.",
+    "Aaah, {title} plié. Bon, next épisode... euh, next série, je veux dire.",
     "{title}, dans la boîte. Moi je retourne dormir, bon courage pour la suite.",
     "Terminé {title} ? Émotionnellement dévasté(e) ou juste vide comme d'hab ?",
   ],
   streakRecord: [
-    "{streak} jours d'affilée. OK là tu commences à me faire un peu peur.",
+    "{streak} jours d'affilée. C'est fort mais je fais mieux de mon côté.",
     "Nouveau record : {streak} jours. T'as vraiment rien d'autre à faire, hein ?",
-    "{streak} jours de suite, même moi je suis impressionnée, et j'impressionne difficilement.",
+    "{streak} jours de suite, même moi je suis impressionnée, et c'est dire si c'est difficile.",
+    "{streak} jours de suite, pas mal, mais si tu cherches à m'impressionner va falloir faire mieux !",
   ],
   streakLost: [
-    "Bon, la streak est morte. On l'a connue, on l'a peu pleurée.",
+    "Bon, la streak est morte. On la pleurera pas vu comment tu t'en occupes.",
     "Série cassée. C'est pas comme si je t'avais prévenu(e) genre 50 fois.",
     "R.I.P ta streak. Elle a bien vécu, vu tes horaires de sommeil.",
+    "Compteur de streak à 0, loser.",
+    "Ta streak : 'Veni, vedi, vici.' C'est elle qui t'a battu cette fois.",
   ],
   streakDanger: [
     "Ta streak de {streak} jours agonise, mais bon, fais comme tu veux.",
     "{streak} jours en jeu ce soir. Moi je dis rien, je regarde juste le désastre approcher.",
     "Encore un peu et ta streak de {streak} jours part en fumée. Juste FYI, hein.",
+    "Tu vas t'occuper de ta streak ou la laisser crever ? {streak} jours, allez un petit effort non ?"
   ],
   newEntry: [
     "{title} ajouté. Encore un truc que tu ne finiras jamais, statistiquement.",
-    "{title}, dans la pile. Elle commence à ressembler à une montagne, cette pile.",
+    "{title}, dans la pile. C'est plus une pile !.. C'est un tas!.. C'est un un mont!.. Que dis-je, c'est une... une.. Je sais pas en fait mais c'est trop là...",
     "Tiens, {title}. Ambitieux(se) aujourd'hui, on dirait.",
   ],
   comeback: [
