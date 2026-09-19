@@ -8,28 +8,28 @@ import { calcBestStreak } from "../../utils/weekStats";
 
 function Delta({ children, tone = "up" }) {
   const color = tone === "up" ? "text-emerald-400" : tone === "down" ? "text-rose-400" : "text-violet-400";
-  return <p className={`font-mono text-[10px] mt-1 truncate ${color}`}>{children}</p>;
+  return <p className={`font-mono text-[9px] truncate ${color}`}>{children}</p>;
 }
 
 function Stat({ icon, tint, value, label, delta }) {
   return (
     <div className="flex-1 min-w-0 px-1.5 first:pl-0">
       <div className="flex items-center gap-1.5">
-        <span className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${tint}`}>{icon}</span>
-        <span className="font-mono text-xl font-bold tabular-nums text-white leading-none">{value}</span>
+        <span className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${tint}`}>{icon}</span>
+        <span className="font-mono text-base font-bold tabular-nums text-white leading-none">{value}</span>
       </div>
-      <p className="text-[9px] uppercase tracking-wide text-violet-300 mt-1.5 leading-tight">{label}</p>
+      <p className="text-[8px] uppercase tracking-wide text-violet-300 mt-1 leading-tight">{label}</p>
       {delta}
     </div>
   );
 }
 
 function Ring({ pct }) {
-  const r = 26, c = 2 * Math.PI * r;
+  const r = 21, c = 2 * Math.PI * r;
   return (
-    <svg width="64" height="64" viewBox="0 0 64 64" className="-rotate-90">
-      <circle cx="32" cy="32" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="6" />
-      <circle cx="32" cy="32" r={r} fill="none" stroke="#fbbf24" strokeWidth="6" strokeLinecap="round"
+    <svg width="52" height="52" viewBox="0 0 52 52" className="-rotate-90">
+      <circle cx="26" cy="26" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="5" />
+      <circle cx="26" cy="26" r={r} fill="none" stroke="#fbbf24" strokeWidth="5" strokeLinecap="round"
         strokeDasharray={c} strokeDashoffset={c * (1 - Math.min(1, pct / 100))}
         className="transition-[stroke-dashoffset] duration-1000 ease-out motion-reduce:transition-none" />
     </svg>
@@ -76,13 +76,13 @@ export function WeekSummary({ entries, week, goal, onGoalChange, onOpenHistory }
   }
 
   return (
-    <section className="relative rounded-2xl bg-violet-900/40 backdrop-blur-sm border border-white/10 shadow-lg shadow-black/20 mb-4 overflow-hidden">
+    <section className="relative rounded-2xl bg-violet-900/40 backdrop-blur-sm border border-white/10 shadow-lg shadow-black/20 mb-3 overflow-hidden">
       <button onClick={onOpenHistory} aria-label="Voir l'historique"
-        className="absolute top-3 right-3 text-violet-400 hover:text-violet-200 z-10"><ChevronRight size={18} /></button>
-      <p className="px-4 pt-3 font-semibold text-sm text-violet-50 flex items-center gap-2" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+        className="absolute top-2 right-2.5 text-violet-400 hover:text-violet-200 z-10"><ChevronRight size={16} /></button>
+      <p className="px-3 pt-2 font-semibold text-xs text-violet-50 flex items-center gap-2" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
         Votre semaine
       </p>
-      <div className="flex items-start gap-1 px-4 pt-3 pb-3">
+      <div className="flex items-start gap-1 px-3 pt-2 pb-2.5">
         <div className="flex flex-1 min-w-0 divide-x divide-white/10">
           <Stat icon={<PlayCircle size={14} />} tint="bg-violet-500/25 text-violet-200" value={week.total} label="Épisodes regardés" delta={epDelta} />
           <Stat icon={<Clock size={14} />} tint="bg-indigo-400/20 text-indigo-200" value={inProgress} label="Titres en cours"
@@ -91,12 +91,12 @@ export function WeekSummary({ entries, week, goal, onGoalChange, onOpenHistory }
             delta={<Delta tone={streak > 0 && streak >= best ? "up" : "flat"}>{streak > 0 && streak >= best ? "▲ Record" : `Record ${best}`}</Delta>} />
         </div>
         <button onClick={() => { haptics.tap(); setEditGoal(true); }} aria-label={`Objectif hebdo : ${pct}%. Modifier`}
-          className="flex flex-col items-center flex-shrink-0 w-[78px] active:scale-95 transition-transform">
+          className="flex flex-col items-center flex-shrink-0 w-[64px] active:scale-95 transition-transform">
           <span className="relative flex items-center justify-center">
             <Ring pct={pct} />
-            <span className="absolute font-mono text-[13px] font-bold text-white">{pct}%</span>
+            <span className="absolute font-mono text-[11px] font-bold text-white">{pct}%</span>
           </span>
-          <span className="text-[8.5px] uppercase tracking-wide text-violet-300 mt-1 leading-tight text-center">Objectif hebdo</span>
+          <span className="text-[7.5px] uppercase tracking-wide text-violet-300 mt-0.5 leading-tight text-center">Objectif hebdo</span>
         </button>
       </div>
 

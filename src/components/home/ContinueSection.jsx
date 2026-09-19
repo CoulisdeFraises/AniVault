@@ -22,7 +22,7 @@ function getNext(entry) {
 function Rate({ rating }) {
   if (!rating) return null;
   return (
-    <span className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/50 backdrop-blur-md text-[11px] font-mono font-semibold text-white">
+    <span className="absolute top-1.5 right-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/50 backdrop-blur-md text-[10px] font-mono font-semibold text-white">
       <Star size={11} className="text-amber-400" fill="currentColor" strokeWidth={0} />{formatRating(rating)}
     </span>
   );
@@ -41,7 +41,7 @@ export function ContinueSection({ entries, onSeeAll }) {
   const HeroFallback = hero.type === "anime" ? Film : Tv;
 
   return (
-    <section className="mb-6 animate-fadeIn">
+    <section className="mb-4 animate-fadeIn">
       <SectionTitle
         icon={<span className="w-7 h-7 rounded-full bg-pink-400 flex items-center justify-center text-violet-950"><Play size={13} fill="currentColor" /></span>}
         title="Continuer de regarder" actionLabel="Tout voir" onAction={onSeeAll} />
@@ -49,24 +49,24 @@ export function ContinueSection({ entries, onSeeAll }) {
       <div className="flex gap-3">
         {/* Titre principal */}
         <div role="button" tabIndex={0} onClick={() => open(hero)} onKeyDown={(e) => e.key === "Enter" && open(hero)}
-          className="relative flex-1 min-w-0 h-[172px] rounded-2xl overflow-hidden border border-white/15 cursor-pointer active:scale-[0.98] transition-transform">
+          className="relative flex-1 min-w-0 h-[116px] rounded-2xl overflow-hidden border border-white/15 cursor-pointer active:scale-[0.98] transition-transform">
           {hero.coverImage
             ? <LazyImage src={hero.coverImage} alt={hero.title} className="absolute inset-0 w-full h-full [&_img]:object-[center_25%]" />
             : <div className="absolute inset-0 flex items-center justify-center bg-violet-900"><HeroFallback size={28} className="text-violet-600" /></div>}
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
           <Rate rating={hero.rating} />
-          <div className="absolute inset-x-0 bottom-0 p-3 flex items-end gap-2.5">
+          <div className="absolute inset-x-0 bottom-0 p-2.5 flex items-end gap-2">
             {heroNext?.canAdvance && (
               <button onClick={(e) => { e.stopPropagation(); haptics.success(); incrementEpisode(hero.id, heroNext.seasonIndex); }}
                 aria-label="Marquer l'épisode suivant comme vu"
-                className="w-10 h-10 rounded-full bg-amber-400 text-violet-950 flex items-center justify-center flex-shrink-0 shadow-lg active:scale-90 transition-transform">
-                <Check size={18} strokeWidth={3} />
+                className="w-8 h-8 rounded-full bg-amber-400 text-violet-950 flex items-center justify-center flex-shrink-0 shadow-lg active:scale-90 transition-transform">
+                <Check size={15} strokeWidth={3} />
               </button>
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-base font-bold text-white leading-tight truncate" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{hero.title}</p>
-              {heroNext && <p className="text-[11px] text-violet-200 mt-0.5">S{heroNext.season.number ?? heroNext.seasonIndex + 1} • EP {heroNext.ep}</p>}
-              <div className="flex items-center gap-2 mt-1.5">
+              <p className="text-sm font-bold text-white leading-tight truncate" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{hero.title}</p>
+              {heroNext && <p className="text-[10px] text-violet-200">S{heroNext.season.number ?? heroNext.seasonIndex + 1} • EP {heroNext.ep}</p>}
+              <div className="flex items-center gap-2 mt-1">
                 <span className="flex-1 h-1 rounded-full bg-white/20 overflow-hidden"><span className="block h-full bg-amber-400 rounded-full" style={{ width: `${hp}%` }} /></span>
                 {heroNext && <span className="font-mono text-[9px] text-white/90 flex-shrink-0">{heroNext.season.watchedEpisodes}/{heroNext.season.totalEpisodes ?? "?"}</span>}
               </div>
@@ -76,21 +76,21 @@ export function ContinueSection({ entries, onSeeAll }) {
 
         {/* Deux suivants */}
         {rest.length > 0 && (
-          <div className="flex flex-col gap-3 w-[46%] flex-shrink-0">
+          <div className="flex flex-col gap-2 w-[46%] flex-shrink-0">
             {rest.slice(0, 2).map((e) => {
               const n = getNext(e);
               return (
                 <button key={e.id} onClick={() => open(e)}
-                  className="relative flex h-[80px] rounded-2xl overflow-hidden border border-white/15 bg-violet-900/40 text-left active:scale-[0.98] transition-transform">
+                  className="relative flex h-[54px] rounded-2xl overflow-hidden border border-white/15 bg-violet-900/40 text-left active:scale-[0.98] transition-transform">
                   <div className="w-[38%] flex-shrink-0 relative">
                     {e.coverImage ? <LazyImage src={e.coverImage} alt={e.title} className="absolute inset-0 w-full h-full" /> : <div className="absolute inset-0 bg-violet-950" />}
                   </div>
-                  <div className="flex-1 min-w-0 p-2 pr-2.5 flex flex-col justify-center">
-                    <p className="text-[13px] font-semibold text-white leading-tight line-clamp-2" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{e.title}</p>
-                    {n && <p className="text-[10px] text-violet-300 mt-1">S{n.season.number ?? n.seasonIndex + 1} • EP {n.ep}</p>}
+                  <div className="flex-1 min-w-0 px-2 py-1 flex flex-col justify-center">
+                    <p className="text-[11px] font-semibold text-white leading-tight line-clamp-2" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{e.title}</p>
+                    {n && <p className="text-[9px] text-violet-300 mt-0.5">S{n.season.number ?? n.seasonIndex + 1} • EP {n.ep}</p>}
                   </div>
                   {e.rating > 0 && (
-                    <span className="absolute top-1.5 right-1.5 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-black/40 text-[9px] font-mono font-semibold text-white">
+                    <span className="absolute top-1 right-1 flex items-center gap-0.5 px-1 rounded-full bg-black/40 text-[8px] font-mono font-semibold text-white">
                       <Star size={9} className="text-amber-400" fill="currentColor" strokeWidth={0} />{formatRating(e.rating)}
                     </span>
                   )}
