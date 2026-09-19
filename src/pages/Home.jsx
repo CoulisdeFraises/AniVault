@@ -1,6 +1,13 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate }  from "react-router-dom";
-import { Header }           from "../components/Header/Header";
+import { HomeHeader }       from "../components/home/HomeHeader";
+import { HomeBackdrop }     from "../components/home/HomeBackdrop";
+import { WeekSummary }      from "../components/home/WeekSummary";
+import { SearchTabs }       from "../components/home/SearchTabs";
+import { TodaySection }     from "../components/home/TodaySection";
+import { ContinueSection }  from "../components/home/ContinueSection";
+import { ActivityCard }     from "../components/home/ActivityCard";
+import { calcWeekStats, getWeeklyGoal, WEEKLY_GOAL_KEY } from "../utils/weekStats";
 import { Card }             from "../components/Card/Card";
 import { TitleFormModal }   from "../components/Modal/TitleFormModal";
 import { Modal }            from "../components/Modal/Modal";
@@ -14,7 +21,6 @@ import {
   Film, Tv, ListPlus, X, Heart, Eye, EyeOff,
   ChevronDown, SlidersHorizontal, WifiOff, CalendarDays,
 } from "lucide-react";
-import { ContinueWatching } from "../components/common/ContinueWatching";
 import { HeartIcon }        from "../components/common/icons";
 import { FilterPanel }      from "../components/common/FilterPanel";
 import { AnimatePresence }  from "motion/react";
@@ -133,6 +139,7 @@ export function Home() {
   const [cachetteSortOpen,  setCachetteSortOpen]  = useState(false);
   const [mainListCollapsed, setMainListCollapsed] = useState(false);
   const [showFilterPanel,   setShowFilterPanel]   = useState(false);
+  const [weeklyGoal,       setWeeklyGoal]       = useState(getWeeklyGoal);
   const cachetteSortRef = useRef(null);
 
   useEffect(() => {
@@ -258,21 +265,31 @@ export function Home() {
     [airingIds]
   );
 
-  // ── Épisodes du jour pour les titres de la bibliothèque ──────────────────
+  // ── Épisodes du jour (titres visibles uniquement — la cachette reste secrète) ──
   const todayAiringEntries = useMemo(() => {
-    if (!todaySchedules.length || !entries.length) return [];
+    if (!todaySchedules.length || !byType.length) return [];
     const byAnilistId = new Map();
-    entries.forEach((e) => (e.anilistIds || []).forEach((id) => byAnilistId.set(String(id), e)));
+    byType.forEach((e) => (e.anilistIds || []).forEach((id) => byAnilistId.set(String(id), e)));
 
     return todaySchedules
       .map((s) => {
         const entry = byAnilistId.get(String(s.media?.id));
         if (!entry) return null;
-        return { entry, episode: s.episode, airingAt: s.airingAt, cover: s.media?.coverImage?.large || entry.coverImage };
+        return { entry, episode: s.episode, airingAt: s.airingAt, anilistId: s.media?.id, cover: s.media?.coverImage?.large || entry.coverImage };
       })
       .filter(Boolean)
       .sort((a, b) => a.airingAt - b.airingAt);
-  }, [todaySchedules, entries]);
+  }, [todaySchedules, byType]);
+
+  // ── "Continuer de regarder" : titres en cours, les plus récemment touchés d'abord ──
+  const continueEntries = useMemo(
+    () => byType.filter((e) => e.status === "en-cours").sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 3),
+    [byType]
+  );
+
+  // ── Stats de la semaine (tous titres, comme l'ancien bandeau de stats) ──
+  const week = useMemo(() => calcWeekStats(entries), [entries]);
+  const saveGoal = (v) => { localStorage.setItem(WEEKLY_GOAL_KEY, String(v)); setWeeklyGoal(v); };
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim();
@@ -318,9 +335,17 @@ export function Home() {
   const isSearchActive = searchQuery.trim().length > 0;
   const gridKey = `${typeFilter}-${selectedStatuses.join(",")}-${searchQuery}-${showFavoritesOnly}-${showCalendarOnly}-${sortBy}`;
   const activeFilterCount = selectedStatuses.length + (sortBy !== "date" ? 1 : 0);
+  const libraryRef = useRef(null);
+  const seeAllInProgress = () => {
+    haptics.tap();
+    setSelectedStatuses(["en-cours"]);
+    setMainListCollapsed(false);
+    setTimeout(() => libraryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
+  const hasLibraryFilters = selectedStatuses.length > 0 || showFavoritesOnly || showCalendarOnly;
 
   return (
-    <div className="min-h-screen bg-violet-950 text-violet-50 flex flex-col"
+    <div className="relative min-h-screen bg-violet-950 text-violet-50 flex flex-col"
       style={{ fontFamily: "'Inter', sans-serif" }}>
       {/*
        * PullToRefresh wrappe TOUT le contenu scrollable.
@@ -328,65 +353,13 @@ export function Home() {
        * Le composant utilise des listeners natifs (passive: false sur touchmove)
        * pour fonctionner correctement en mode PWA standalone sur Android/iOS.
        */}
+      <HomeBackdrop />
       <PullToRefresh onRefresh={() => syncAll(true)}>
-        <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 pt-safe-8 pb-nav">
-          <Header
-            typeFilter={typeFilter} searchQuery={searchQuery}
-            onTypeFilterChange={setTypeFilter}
-            onSearchChange={setSearchQuery}
-            onAddClick={() => setShowAddChoice(true)} syncing={syncing}
-            syncProgress={progress} onSyncClick={() => syncAll(true)}
-          />
-
-          {/* ── Barre de contrôles : Favoris + Cette semaine + Filtres ── */}
-          <div className="flex flex-wrap items-center justify-between gap-2 mt-3 mb-4">
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Favoris */}
-              <button
-                onClick={() => { haptics.tap(); setShowFavoritesOnly(v => !v); }}
-                className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-mono border flex-shrink-0
-                  transition-all active:scale-95 motion-reduce:transition-none ${showFavoritesOnly
-                    ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
-                    : "bg-white/5 border-white/10 text-violet-400 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400"}`}
-              >
-                <Heart size={12} className="flex-shrink-0" fill={showFavoritesOnly ? "currentColor" : "none"} />
-                Favoris
-              </button>
-
-              {/* Cette semaine */}
-              <button
-                onClick={() => { haptics.tap(); setShowCalendarOnly(v => !v); }}
-                disabled={airingIds.size === 0}
-                className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-mono border flex-shrink-0
-                  transition-all active:scale-95 motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed ${showCalendarOnly
-                    ? "bg-teal-500/20 border-teal-500/40 text-teal-300"
-                    : "bg-white/5 border-white/10 text-violet-400 hover:bg-teal-500/10 hover:border-teal-500/30 hover:text-teal-400"}`}
-              >
-                <CalendarDays size={12} className="flex-shrink-0" />
-                Cette semaine
-              </button>
-            </div>
-
-            {/* Filtres (statut + tri) regroupés ── */}
-            <button
-              onClick={() => { haptics.tap(); setShowFilterPanel(true); }}
-              className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-mono border flex-shrink-0
-                transition-all active:scale-95 motion-reduce:transition-none ${activeFilterCount > 0
-                  ? "bg-violet-600/30 border-violet-500/50 text-violet-200"
-                  : "bg-white/5 border-white/10 text-violet-400 hover:bg-white/10 hover:text-violet-100"}`}
-            >
-              <SlidersHorizontal size={12} className="flex-shrink-0" />
-              Filtres
-              {activeFilterCount > 0 && (
-                <span className="flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-amber-400 text-violet-950 text-[10px] font-bold">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
-          </div>
+        <div className="relative flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 pb-nav">
+          <HomeHeader syncing={syncing} syncProgress={progress} onSyncClick={() => syncAll(true)} />
 
           {offline && (
-            <div className="mb-4 flex items-center gap-2 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30
+            <div className="relative mb-4 flex items-center gap-2 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30
               rounded-lg px-3 py-2 animate-fadeIn">
               <WifiOff size={14} className="flex-shrink-0" />
               Mode hors-ligne — dernières données synchronisées affichées.
@@ -394,14 +367,55 @@ export function Home() {
           )}
 
           {saveError && !offline && (
-            <div className="mb-4 text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30
+            <div className="relative mb-4 text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30
               rounded-lg px-3 py-2 animate-fadeIn">
               La sauvegarde a échoué. Tes changements restent visibles mais pourraient ne pas persister.
             </div>
           )}
 
-          {/* ── Widget Continuer à regarder ── */}
-          {!loading && <ContinueWatching todayAiring={todayAiringEntries} />}
+          <div className="relative">
+            {!loading && entries.length > 0 && (
+              <WeekSummary entries={entries} week={week} goal={weeklyGoal}
+                onGoalChange={saveGoal} onOpenHistory={() => navigate("/history")} />
+            )}
+
+            <SearchTabs
+              searchQuery={searchQuery} onSearchChange={setSearchQuery}
+              typeFilter={typeFilter} onTypeFilterChange={setTypeFilter}
+              filterCount={activeFilterCount} onOpenFilters={() => { haptics.tap(); setShowFilterPanel(true); }}
+            />
+
+            {/* Dashboard masqué pendant une recherche texte : on n'affiche que les résultats */}
+            {!loading && !isSearchActive && (
+              <>
+                <TodaySection items={todayAiringEntries} nextAiringByEntry={nextAiringByEntry} />
+                <ContinueSection entries={continueEntries} onSeeAll={seeAllInProgress} />
+                {entries.length > 0 && <ActivityCard week={week} goal={weeklyGoal} onOpenHistory={() => navigate("/history")} />}
+              </>
+            )}
+
+            {/* ── Bibliothèque : filtres rapides ── */}
+            <div ref={libraryRef} className="scroll-mt-4 flex flex-wrap items-center gap-2 mb-2">
+              <button onClick={() => { haptics.tap(); setShowFavoritesOnly(v => !v); }}
+                className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-mono border transition-all active:scale-95 ${showFavoritesOnly
+                  ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
+                  : "bg-white/5 border-white/10 text-violet-400 hover:bg-pink-500/10 hover:text-pink-400"}`}>
+                <Heart size={12} fill={showFavoritesOnly ? "currentColor" : "none"} />Favoris
+              </button>
+              <button onClick={() => { haptics.tap(); setShowCalendarOnly(v => !v); }} disabled={airingIds.size === 0}
+                className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-mono border transition-all active:scale-95 disabled:opacity-40 ${showCalendarOnly
+                  ? "bg-teal-500/20 border-teal-500/40 text-teal-300"
+                  : "bg-white/5 border-white/10 text-violet-400 hover:bg-teal-500/10 hover:text-teal-400"}`}>
+                <CalendarDays size={12} />Cette semaine
+              </button>
+              {hasLibraryFilters && (
+                <button onClick={() => { setSelectedStatuses([]); setShowFavoritesOnly(false); setShowCalendarOnly(false); }}
+                  className="flex items-center gap-1 h-8 px-2.5 text-[11px] font-mono text-violet-300 hover:text-white">
+                  <X size={11} />Effacer
+                </button>
+              )}
+            </div>
+          </div>
 
            {/* ── Repli bibliothèque — visible seulement quand il y a des résultats ── */}
           {!loading && sorted.length > 0 && (
