@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { AnimatePresence } from "motion/react";
 import { X, Pencil, Star, Loader2, RefreshCw, Film, Tv, Disc2, Clapperboard,
-         CheckCheck, ChevronRight, Check, Heart, ListPlus, AlertTriangle, WifiOff } from "lucide-react";
+         CheckCheck, ChevronRight, ChevronLeft, ChevronDown, Check, Heart, ListPlus, AlertTriangle, WifiOff } from "lucide-react";
 import { EpisodeList }             from "../components/EpisodeList/EpisodeList";
 import { StarRating, RatingBadge, CompanionPeek, getRatingImageSrc } from "../components/common/Rating";
 import { TitleFormModal }          from "../components/Modal/TitleFormModal";
@@ -20,21 +20,64 @@ import { CelebrationBanner }  from "../components/common/CelebrationBanner";
 import { haptics } from "../utils/haptics";
 import { normalizeSeriesTitle } from "../utils/titles";
 
-function EpisodeSlider({ watched, total, entryId, globalIndex, setEpisodeCount }) {
-  const pct = total > 0 ? (watched / total) * 100 : 0;
+/**
+ * EpisodeProgressBody — bloc "progression" partagé par la saison TV unique
+ * (branche simple) et par la saison TV active en mode multi-sections : compte
+ * vu/total, barre de progression + pourcentage, note en étoiles, et les 3
+ * boutons d'action rapide (-1 / +1 / Tout). Centralisé ici pour que les deux
+ * branches restent visuellement identiques sans dupliquer le JSX.
+ */
+function EpisodeProgressBody({
+  watched, total, rating, onRateChange, ratingLabel,
+  onDecrement, showIncrement, onIncrement, canMarkAll, onMarkAll, markAllLabel,
+  entryId, globalIndex, setEpisodeCount, topRight,
+}) {
+  const pct = total > 0 ? Math.round((watched / total) * 100) : 0;
   return (
-    <div className="mb-3">
-      <input type="range" min={0} max={total} value={watched}
-        onChange={e => setEpisodeCount(entryId, globalIndex, Number(e.target.value))}
-        className="episode-slider w-full cursor-pointer"
-        style={{ background: `linear-gradient(to right, #a78bfa ${pct}%, rgba(109,40,217,0.25) ${pct}%)` }}
-      />
-      <div className="flex justify-between font-mono text-[10px] text-violet-600 mt-1">
-        <span>0</span>
-        <span className="text-violet-400 font-medium">{watched} / {total} ép.</span>
-        <span>{total}</span>
+    <>
+      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-xl font-bold text-violet-50" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+            {watched} / {total ?? "?"}
+          </span>
+          <span className="text-sm text-violet-400">épisodes</span>
+        </div>
+        {topRight}
       </div>
-    </div>
+
+      {total > 0 && (
+        <div className="flex items-center gap-3 mb-3">
+          <input type="range" min={0} max={total} value={watched}
+            onChange={e => setEpisodeCount(entryId, globalIndex, Number(e.target.value))}
+            className="episode-slider-lg flex-1 cursor-pointer"
+            style={{ background: `linear-gradient(to right, #a78bfa ${pct}%, rgba(255,255,255,0.08) ${pct}%)` }}
+          />
+          <span className="font-mono text-xs text-violet-400 flex-shrink-0 w-11 text-right">{pct} %</span>
+        </div>
+      )}
+
+      {onRateChange && (
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-violet-500">{ratingLabel || "Note"}</span>
+          <StarRating value={rating || 0} onChange={onRateChange} />
+        </div>
+      )}
+
+      <div className="grid grid-cols-3 gap-2">
+        <button onClick={onDecrement} disabled={!onDecrement}
+          className="font-mono text-xs py-2 rounded-full bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform disabled:opacity-30 disabled:cursor-default disabled:active:scale-100">
+          -1 ép.
+        </button>
+        <button onClick={onIncrement} disabled={!showIncrement}
+          className="font-mono text-xs py-2 rounded-full bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform disabled:opacity-30 disabled:cursor-default disabled:active:scale-100">
+          +1 ép.
+        </button>
+        <button onClick={onMarkAll} disabled={!canMarkAll}
+          className="font-mono text-xs py-2 rounded-full bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform disabled:opacity-30 disabled:cursor-default disabled:active:scale-100 flex items-center justify-center gap-1">
+          <CheckCheck size={12} />{markAllLabel || "Tout"}
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -128,6 +171,7 @@ export function Details() {
   const [touchStartY,    setTouchStartY]   = useState(null);
   const [celebration,    setCelebration]   = useState(null); // null | { tier, title, subtitle }
   const [nextAiring,     setNextAiring]    = useState(null);
+  const [descExpanded,   setDescExpanded]  = useState(false);
 
   const prevSeasonWatchedRef = useRef({});
   const prevStatusRef        = useRef(null);
@@ -151,8 +195,13 @@ export function Details() {
       movie: (entry?.seasons || []).length > 0 &&
             (entry?.seasons || []).every(s => getFormatGroup(s.format) === "movie"),
     });
-    setOpenEpisodes(false);
+    // Ouvert par défaut (comme la maquette) pour une saison "raisonnable" —
+    // au-delà, on laisse fermé pour éviter de monter d'un coup une très
+    // longue liste d'épisodes (ex. séries à 500+ ép.) à l'ouverture de la fiche.
+    const firstTV = (entry?.seasons || []).find(se => getFormatGroup(se.format) === "tv");
+    setOpenEpisodes(!!firstTV && (firstTV.totalEpisodes == null || firstTV.totalEpisodes <= 30));
     setRefreshResult(null);
+    setDescExpanded(false);
     // Réinitialise le suivi de complétion pour éviter une fausse célébration
     // en arrivant sur un titre déjà terminé.
     clearTimeout(celebrationTimerRef.current);
@@ -505,105 +554,122 @@ export function Details() {
           <div className="w-10 h-1 rounded-full bg-white/20" />
         </div>
 
+        {/* ── Barre de navigation : retour + actions ── */}
+        <div className="flex items-center justify-between px-4 sm:px-6 pt-1 pb-2 flex-shrink-0">
+          <button onClick={closeDetails} aria-label="Retour"
+            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/15 active:scale-95 flex items-center justify-center text-violet-100 transition-all flex-shrink-0">
+            <ChevronLeft size={19} />
+          </button>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button onClick={() => { haptics.light(); toggleFavorite(entry); }}
+              aria-label={isInFavorites(entry.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
+              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-95 ${isInFavorites(entry.id) ? "bg-pink-500/15 text-pink-400 hover:bg-pink-500/20" : "bg-white/10 text-violet-200 hover:bg-white/15 hover:text-pink-300"}`}>
+              <Heart size={16} fill={isInFavorites(entry.id) ? "currentColor" : "none"} />
+            </button>
+            <button onClick={() => setAddToListOpen(true)} aria-label="Ajouter à une liste"
+              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/15 active:scale-95 flex items-center justify-center text-violet-200 hover:text-amber-300 transition-all">
+              <ListPlus size={16} />
+            </button>
+            {/* ── Actualiser la carte (nouvelles saisons / OVA / Films) ── */}
+            {(entry.source === "anilist" || entry.source === "tvmaze") && (
+              <button
+                onClick={handleRefreshCard}
+                disabled={refreshingCard}
+                aria-label="Actualiser — chercher de nouveaux contenus"
+                title="Chercher de nouvelles saisons, OVA ou films"
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/15 active:scale-95 flex items-center justify-center text-violet-200 hover:text-teal-300 transition-all disabled:opacity-40"
+              >
+                <RefreshCw size={16} className={refreshingCard ? "animate-spin" : ""} />
+              </button>
+            )}
+            <button onClick={() => setEditing(true)} aria-label="Modifier"
+              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/15 active:scale-95 flex items-center justify-center text-violet-200 hover:text-violet-50 transition-all">
+              <Pencil size={16} />
+            </button>
+          </div>
+        </div>
+
         {/* ── Header ── */}
-        <div className="relative flex gap-3 sm:gap-4 p-4 sm:p-6 border-b border-white/5 flex-shrink-0 overflow-hidden">
-          {displayImage
-            ? <img src={displayImage} alt="" loading="lazy"
-                className="w-16 h-24 sm:w-24 sm:h-36 object-cover rounded-xl flex-shrink-0" />
-            : showFallback
-              ? <div className="relative w-16 h-24 sm:w-24 sm:h-36 rounded-xl overflow-hidden flex-shrink-0">
-                  <img src={fallbackImage} alt="" loading="lazy" className="w-full h-full object-cover brightness-[0.25]" />
-                  <span className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-white/50">?</span>
-                </div>
-              : null}
+        <div className="relative px-4 sm:px-6 pb-4 border-b border-white/5 flex-shrink-0">
+          <div className="flex gap-3 sm:gap-4">
+            {displayImage
+              ? <img src={displayImage} alt="" loading="lazy"
+                  className="w-20 h-28 sm:w-28 sm:h-40 object-cover rounded-2xl flex-shrink-0 shadow-lg shadow-black/40" />
+              : showFallback
+                ? <div className="relative w-20 h-28 sm:w-28 sm:h-40 rounded-2xl overflow-hidden flex-shrink-0 shadow-lg shadow-black/40">
+                    <img src={fallbackImage} alt="" loading="lazy" className="w-full h-full object-cover brightness-[0.25]" />
+                    <span className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-white/50">?</span>
+                  </div>
+                : <div className="w-20 h-28 sm:w-28 sm:h-40 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+                    {entry.category === "movie" ? <Clapperboard size={26} className="text-violet-600" /> : entry.type === "anime" ? <Film size={26} className="text-violet-600" /> : <Tv size={26} className="text-violet-600" />}
+                  </div>}
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2 mb-1.5">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-violet-300">
-                    {entry.category === "movie" ? <Clapperboard size={10} /> : entry.type === "anime" ? <Film size={10} /> : <Tv size={10} />}
-                    {entry.category === "movie" ? "Film" : entry.type === "anime" ? "Anime" : "Série"}
-                  </span>
-                  <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest ${s.text}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />{s.label}
-                  </span>
-                </div>
-                <h2 className="text-base sm:text-xl font-bold text-violet-50 leading-tight line-clamp-2"
-                  style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{entry.title}</h2>
-              </div>
-
-              {/* ── Boutons header ── */}
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <button onClick={() => { haptics.light(); toggleFavorite(entry); }}
-                  aria-label={isInFavorites(entry.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
-                  className={`p-1.5 rounded-lg transition-colors ${isInFavorites(entry.id) ? "text-pink-400 hover:bg-pink-500/10" : "text-violet-300 hover:bg-white/10 hover:text-pink-300"}`}>
-                  <Heart size={14} fill={isInFavorites(entry.id) ? "currentColor" : "none"} />
-                </button>
-                <button onClick={() => setAddToListOpen(true)} aria-label="Ajouter à une liste"
-                  className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-amber-300 transition-colors">
-                  <ListPlus size={14} />
-                </button>
-                {/* ── Actualiser la carte (nouvelles saisons / OVA / Films) ── */}
-                {(entry.source === "anilist" || entry.source === "tvmaze") && (
-                  <button
-                    onClick={handleRefreshCard}
-                    disabled={refreshingCard}
-                    aria-label="Actualiser — chercher de nouveaux contenus"
-                    title="Chercher de nouvelles saisons, OVA ou films"
-                    className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-teal-300 transition-colors disabled:opacity-40"
-                  >
-                    <RefreshCw size={14} className={refreshingCard ? "animate-spin" : ""} />
-                  </button>
-                )}
-                <button onClick={() => setEditing(true)}
-                  className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-violet-50">
-                  <Pencil size={14} />
-                </button>
-                <button onClick={closeDetails}
-                  className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10">
-                  <X size={14} />
-                </button>
-              </div>
-            </div>
-
-            {entry.genres.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-2">
-                {entry.genres.slice(0, 4).map(g => (
-                  <span key={g} className="px-1.5 py-0.5 rounded-full bg-white/5 text-[10px] text-violet-300">{g}</span>
-                ))}
-                {entry.genres.length > 4 && (
-                  <span className="px-1.5 py-0.5 rounded-full bg-white/5 text-[10px] text-violet-500">+{entry.genres.length - 4}</span>
-                )}
-              </div>
-            )}
-
-            {entry.description && (
-              <div className="mb-2 max-h-14 sm:max-h-20 overflow-y-auto border-l-2 border-violet-600 pl-2 pr-1">
-                <p className="text-[11px] text-violet-300/75 leading-relaxed italic">{entry.description}</p>
-              </div>
-            )}
-
-            <div className="mb-1">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-xl sm:text-3xl font-bold text-violet-50"
-                  style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-                  {formatRating(entry.rating) || "—"}
+            <div className="min-w-0 flex-1 pt-0.5">
+              <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-violet-300">
+                  {entry.category === "movie" ? <Clapperboard size={10} /> : entry.type === "anime" ? <Film size={10} /> : <Tv size={10} />}
+                  {entry.category === "movie" ? "Film" : entry.type === "anime" ? "Anime" : "Série"}
                 </span>
-                {entry.rating > 0 && <Star size={18} fill="#fbbf24" strokeWidth={0} />}
-                {entry.rating > 0 && !companionImgSrc && <RatingBadge rating={entry.rating} className="text-xl sm:text-3xl h-12 sm:h-16" />}
+                <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest ${s.text}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />{s.label}
+                </span>
               </div>
-              <p className="font-mono text-[10px] text-violet-500">
-                {entry.rating > 0 ? "Moyenne des saisons notées — note-les ci-dessous" : "Aucune saison notée pour l'instant"}
-              </p>
+              <h2 className="text-lg sm:text-2xl font-bold text-violet-50 leading-tight"
+                style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{entry.title}</h2>
+
+              {entry.genres.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {entry.genres.slice(0, 4).map(g => (
+                    <span key={g} className="px-1.5 py-0.5 rounded-full bg-white/5 text-[10px] text-violet-300">{g}</span>
+                  ))}
+                  {entry.genres.length > 4 && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-white/5 text-[10px] text-violet-500">+{entry.genres.length - 4}</span>
+                  )}
+                </div>
+              )}
             </div>
-            {entry.notes && <p className="text-[11px] text-violet-300/80 italic mt-1 line-clamp-2">{entry.notes}</p>}
           </div>
 
-          {/* ── Compagnon qui "sort" du bas du header, collé au séparateur des saisons ── */}
+          {entry.description && (
+            <div className="mt-3">
+              <p className={`text-[13px] text-violet-300/85 leading-relaxed ${descExpanded ? "" : "line-clamp-3"}`}>
+                {entry.description}
+              </p>
+              <button onClick={() => setDescExpanded(v => !v)}
+                className="mt-1 inline-flex items-center gap-0.5 text-[12px] font-medium text-violet-400 hover:text-violet-200 transition-colors">
+                {descExpanded ? "Lire moins" : "Lire plus"}
+                <ChevronDown size={13} className={`transition-transform ${descExpanded ? "rotate-180" : ""}`} />
+              </button>
+            </div>
+          )}
+
+          {entry.notes && <p className="text-[11px] text-violet-300/80 italic mt-2 line-clamp-2">{entry.notes}</p>}
+
+          {/* ── Barre note + statut ── */}
+          <div className="relative mt-4 flex items-center gap-3 rounded-2xl bg-white/5 border border-white/10 px-4 py-3">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <Star size={18} fill="#fbbf24" strokeWidth={0} className="flex-shrink-0" />
+              <span className="text-2xl font-bold text-violet-50" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+                {formatRating(entry.rating) || "—"}
+              </span>
+              <span className="text-sm text-violet-500">/10</span>
+              {entry.rating > 0 && !companionImgSrc && <RatingBadge rating={entry.rating} className="text-lg h-8 ml-1" />}
+            </div>
+            <div className="w-px h-6 bg-white/10 flex-shrink-0" />
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 text-xs font-medium flex-shrink-0 ${s.text}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />{s.label}
+            </span>
+          </div>
+          <p className="font-mono text-[10px] text-violet-500 mt-1.5 px-0.5">
+            {entry.rating > 0 ? "Moyenne des saisons notées — note-les ci-dessous" : "Aucune saison notée pour l'instant"}
+          </p>
+
+          {/* ── Compagnon qui "sort" du coin bas-droit de tout le bloc en-tête,
+               façon visual novel (voir CompanionPeek) — même ancrage que dans
+               l'ancienne maquette, juste réappliqué au nouveau bloc en-tête. ── */}
           {companionImgSrc && (
             <CompanionPeek rating={entry.rating}
-              className="-bottom-1 -right-1 sm:-right-2 h-24 sm:h-32 z-10" />
+              className="-bottom-2 -right-1 sm:-right-2 h-24 sm:h-32 z-10" />
           )}
         </div>
 
@@ -661,51 +727,35 @@ export function Details() {
                         </div>
                       )}
                       {curTV?.title && <p className="font-mono text-[11px] text-violet-500 truncate mt-2" title={curTV.title}>{curTV.title}</p>}
-                      {curTV && (
-                        <div className="flex items-center gap-2 mt-2 mb-1 flex-wrap">
-                          <span className="font-mono text-[10px] uppercase tracking-widest text-violet-500">
-                            Note S{curTV.number}
-                          </span>
-                          <StarRating value={curTV.rating || 0}
-                            onChange={r => { haptics.tap(); updateSeasonRating(entry.id, curTV.globalIndex, r); }} />
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between mt-3 mb-2 gap-2 flex-wrap">
-                        <p className="font-mono text-[11px] text-violet-400">{watched} / {curTV?.totalEpisodes ?? "?"} ép. vus</p>
-                        <div className="flex items-center gap-2">
-                          {canFinish && (
+
+                      <div className="mt-3">
+                        <EpisodeProgressBody
+                          watched={watched} total={curTV?.totalEpisodes ?? null}
+                          rating={curTV?.rating} ratingLabel={`Note S${curTV?.number ?? ""}`}
+                          onRateChange={curTV ? (r => { haptics.tap(); updateSeasonRating(entry.id, curTV.globalIndex, r); }) : undefined}
+                          onDecrement={curTV ? () => { haptics.tap(); decrementEpisode(entry.id, curTV.globalIndex); } : undefined}
+                          showIncrement={!!curTV && (curTV.totalEpisodes == null || curTV.watchedEpisodes < curTV.totalEpisodes)}
+                          onIncrement={curTV ? () => { haptics.tap(); incrementEpisode(entry.id, curTV.globalIndex); } : undefined}
+                          canMarkAll={!!curTV && curTV.totalEpisodes != null && curTV.watchedEpisodes < curTV.totalEpisodes}
+                          onMarkAll={handleMarkAllWatched}
+                          markAllLabel={hasNextTV ? "Tout → Suiv." : "Tout"}
+                          entryId={entry.id} globalIndex={curTV?.globalIndex} setEpisodeCount={setEpisodeCount}
+                          topRight={canFinish && (
                             <button onClick={() => markDone(entry.id)}
-                              className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 active:scale-95">
+                              className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-full bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 active:scale-95">
                               <Check size={10} /> Terminée
                             </button>
                           )}
-                        </div>
+                        />
                       </div>
-                      {curTV && (
-                        <div className="flex gap-1.5 sm:gap-2 mb-3 flex-wrap">
-                          <button onClick={() => { haptics.tap(); decrementEpisode(entry.id, curTV.globalIndex); }}
-                            className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">-1 ép.</button>
-                          {(curTV.totalEpisodes == null || curTV.watchedEpisodes < curTV.totalEpisodes) && (
-                            <button onClick={() => { haptics.tap(); incrementEpisode(entry.id, curTV.globalIndex); }}
-                              className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">+1 ép.</button>
-                          )}
-                          {curTV.totalEpisodes != null && curTV.watchedEpisodes < curTV.totalEpisodes && (
-                            <button onClick={handleMarkAllWatched}
-                              className="font-mono text-xs px-3 py-1.5 rounded-lg bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform flex items-center gap-1">
-                              <CheckCheck size={12} />{hasNextTV ? "Tout → Suiv." : "Tout"}
-                            </button>
-                          )}
-                        </div>
-                      )}
-                      {curTV && curTV.totalEpisodes != null && curTV.totalEpisodes > 0 && (
-                        <EpisodeSlider watched={curTV.watchedEpisodes} total={curTV.totalEpisodes}
-                          entryId={entry.id} globalIndex={curTV.globalIndex} setEpisodeCount={setEpisodeCount} />
-                      )}
-                      {loadingEps
-                        ? <div className="flex items-center gap-2 text-violet-400 text-sm py-4"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
-                        : <EpisodeList episodes={curEps} totalEpisodes={curTV?.totalEpisodes} watched={watched}
-                        unknownReason={curEpsReason}
-                            statusColor={s.color} onSetEpisode={v => curTV && setEpisodeCount(entry.id, curTV.globalIndex, v)} />}
+
+                      <div className="mt-3 rounded-xl bg-white/[0.02] border border-white/5 p-2">
+                        {loadingEps
+                          ? <div className="flex items-center gap-2 text-violet-400 text-sm py-4 justify-center"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
+                          : <EpisodeList episodes={curEps} totalEpisodes={curTV?.totalEpisodes} watched={watched}
+                              unknownReason={curEpsReason}
+                              statusColor={s.color} onSetEpisode={v => curTV && setEpisodeCount(entry.id, curTV.globalIndex, v)} />}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -828,9 +878,9 @@ export function Details() {
             </div>
 
           ) : (
-            <>
+            <div className="p-3 sm:p-4">
               {tvSeasons.length > 1 && (
-                <div className="flex gap-1.5 px-4 sm:px-6 pt-4 pb-1 overflow-x-auto scrollbar-none">
+                <div className="flex gap-1.5 pb-2 overflow-x-auto scrollbar-none">
                   {tvSeasons.map((se, i) => (
                     <button key={i} onClick={() => setActiveTVIdx(i)} title={se.title || undefined}
                       className={`px-3 py-1 rounded-md text-xs font-mono border flex-shrink-0 transition-colors ${i === activeTVIdx ? `${s.border} ${s.text} bg-white/10` : "border-white/10 text-violet-400 hover:bg-white/5"}`}>
@@ -840,75 +890,56 @@ export function Details() {
                 </div>
               )}
 
-              <div className="mx-3 sm:mx-4 mt-3 rounded-xl bg-white/[0.03] border border-white/5 overflow-hidden">
+              <div className="rounded-2xl bg-white/[0.03] border border-white/5 overflow-hidden">
                 <button type="button" onClick={() => setOpenEpisodes(v => !v)}
-                  className="flex items-center justify-between w-full px-3 sm:px-4 py-3 text-left group select-none border-b border-white/5">
+                  className="flex items-center justify-between w-full px-4 py-3.5 text-left group select-none">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <Tv size={15} className="text-violet-400 flex-shrink-0" />
+                    <Tv size={16} className="text-violet-400 flex-shrink-0" />
                     <span className="font-mono text-[11px] uppercase tracking-widest text-violet-400 group-hover:text-violet-200 transition-colors">
                       Épisodes{curTV?.title ? ` — ${curTV.title}` : curTV ? ` — S${curTV.number}` : ""}
                     </span>
                     <span className="font-mono text-[11px] text-violet-600">({curTV?.totalEpisodes ?? "?"})</span>
-                    {!openEpisodes && (
-                      <span className="font-mono text-[11px] text-violet-500 truncate ml-1">
-                        — {watched}{curTV?.totalEpisodes != null ? `/${curTV.totalEpisodes}` : ""} ép. vus
-                      </span>
-                    )}
                   </div>
-                  <ChevronRight size={14} className={`flex-shrink-0 ml-2 text-violet-500 group-hover:text-violet-300 transition-all duration-200 ${openEpisodes ? "rotate-90" : ""}`} />
+                  <ChevronDown size={15} className={`flex-shrink-0 ml-2 text-violet-500 group-hover:text-violet-300 transition-transform duration-200 ${openEpisodes ? "rotate-180" : ""}`} />
                 </button>
 
                 {openEpisodes && (
-                  <div className="px-3 sm:px-4 pb-4 pt-3">
-                    <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-                      <p className="font-mono text-[11px] text-violet-400">{watched} / {curTV?.totalEpisodes ?? "?"} ép. vus</p>
-                      {canFinish && (
-                        <button onClick={() => markDone(entry.id)}
-                          className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 active:scale-95">
-                          <Check size={10} /> Terminée
-                        </button>
-                      )}
-                    </div>
-                    {curTV && (
-                      <div className="flex items-center gap-2 mb-3 flex-wrap">
-                        <span className="font-mono text-[10px] uppercase tracking-widest text-violet-500">
-                          Note{tvSeasons.length > 1 ? ` S${curTV.number}` : ""}
-                        </span>
-                        <StarRating value={curTV.rating || 0}
-                          onChange={r => { haptics.tap(); updateSeasonRating(entry.id, curTV.globalIndex, r); }} />
-                      </div>
-                    )}
-                    {curTV && (
-                      <div className="flex gap-1.5 sm:gap-2 mb-3 flex-wrap">
-                        <button onClick={() => { haptics.tap(); decrementEpisode(entry.id, curTV.globalIndex); }}
-                          className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">-1 ép.</button>
-                        {(curTV.totalEpisodes == null || curTV.watchedEpisodes < curTV.totalEpisodes) && (
-                          <button onClick={() => { haptics.tap(); incrementEpisode(entry.id, curTV.globalIndex); }}
-                            className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">+1 ép.</button>
-                        )}
-                        {curTV.totalEpisodes != null && curTV.watchedEpisodes < curTV.totalEpisodes && (
-                          <button onClick={handleMarkAllWatched}
-                            className="font-mono text-xs px-3 py-1.5 rounded-lg bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform flex items-center gap-1">
-                            <CheckCheck size={12} />{hasNextTV ? "Tout → Suiv." : "Tout"}
+                  <div className="px-4 pb-4 pt-1 border-t border-white/5">
+                    <div className="pt-3">
+                      <EpisodeProgressBody
+                        watched={watched} total={curTV?.totalEpisodes ?? null}
+                        rating={curTV?.rating} ratingLabel={tvSeasons.length > 1 ? `Note S${curTV?.number ?? ""}` : "Note"}
+                        onRateChange={curTV ? (r => { haptics.tap(); updateSeasonRating(entry.id, curTV.globalIndex, r); }) : undefined}
+                        onDecrement={curTV ? () => { haptics.tap(); decrementEpisode(entry.id, curTV.globalIndex); } : undefined}
+                        showIncrement={!!curTV && (curTV.totalEpisodes == null || curTV.watchedEpisodes < curTV.totalEpisodes)}
+                        onIncrement={curTV ? () => { haptics.tap(); incrementEpisode(entry.id, curTV.globalIndex); } : undefined}
+                        canMarkAll={!!curTV && curTV.totalEpisodes != null && curTV.watchedEpisodes < curTV.totalEpisodes}
+                        onMarkAll={handleMarkAllWatched}
+                        markAllLabel={hasNextTV ? "Tout → Suiv." : "Tout"}
+                        entryId={entry.id} globalIndex={curTV?.globalIndex} setEpisodeCount={setEpisodeCount}
+                        topRight={canFinish && (
+                          <button onClick={() => markDone(entry.id)}
+                            className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-full bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 active:scale-95">
+                            <Check size={10} /> Terminée
                           </button>
                         )}
-                      </div>
-                    )}
-                    {curTV && curTV.totalEpisodes != null && curTV.totalEpisodes > 0 && (
-                      <EpisodeSlider watched={curTV.watchedEpisodes} total={curTV.totalEpisodes}
-                        entryId={entry.id} globalIndex={curTV.globalIndex} setEpisodeCount={setEpisodeCount} />
-                    )}
-                    {loadingEps
-                      ? <div className="flex items-center gap-2 text-violet-400 text-sm py-6"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
-                      : <EpisodeList episodes={curEps} totalEpisodes={curTV?.totalEpisodes} watched={watched}
-                        unknownReason={curEpsReason}
-                          statusColor={s.color} onSetEpisode={v => curTV && setEpisodeCount(entry.id, curTV.globalIndex, v)} />
-                    }
+                      />
+                    </div>
                   </div>
                 )}
               </div>
-              <div className="pb-4" />
-            </>
+
+              {openEpisodes && (
+                <div className="mt-3 rounded-2xl bg-white/[0.02] border border-white/5 p-2">
+                  {loadingEps
+                    ? <div className="flex items-center gap-2 text-violet-400 text-sm py-6 justify-center"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
+                    : <EpisodeList episodes={curEps} totalEpisodes={curTV?.totalEpisodes} watched={watched}
+                        unknownReason={curEpsReason}
+                        statusColor={s.color} onSetEpisode={v => curTV && setEpisodeCount(entry.id, curTV.globalIndex, v)} />
+                  }
+                </div>
+              )}
+            </div>
           )}
 
           {(loadingRecs || dedupedRecs.length > 0) && (
