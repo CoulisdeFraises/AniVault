@@ -1,13 +1,12 @@
 import { memo, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  Pencil, Trash2, Film, Tv, Disc2, Check, Star,
+  Pencil, Trash2, Film, Tv, Check, Star, Play, X,
   RotateCcw, Heart, RefreshCw, ListPlus, Clapperboard,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useLists }         from "../../context/ListsContext";
 import { ConfirmDialog }    from "../Modal/Modal";
-import { RatingBadge, CompanionPeek, getRatingImageSrc } from "../common/Rating";
 import { STATUS, seasonTotals, formatCountdown, formatRating, getDisplayStatus } from "../../utils/status";
 import { useLibrary }       from "../../context/LibraryContext";
 import { fetchNextAiring, refreshEntryCard } from "../../api";
@@ -36,7 +35,6 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   const navigate   = useNavigate();
   const location   = useLocation();
   const seasons    = entry.seasons;
-  const companionImgSrc = entry.rating > 0 ? getRatingImageSrc(entry.rating) : null;
 
   const tvSeasons    = useMemo(() => seasons.map((s, i) => ({ ...s, globalIndex: i })).filter(s => getFormatGroup(s.format) === "tv"),    [seasons]);
   const extraSeasons = useMemo(() => seasons.map((s, i) => ({ ...s, globalIndex: i })).filter(s => getFormatGroup(s.format) === "extra"), [seasons]);
@@ -264,28 +262,40 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   const coverImg = (() => {
     const img = cur?.coverImage || (activeTVIdx === 0 ? entry.coverImage : null);
     const fb  = tvSeasons[0]?.coverImage || entry.coverImage;
-    const sf  = !img && activeTVIdx > 0 && fb;
-    if (!img && !sf) return null;
+    const box = `w-[58px] h-[82px] rounded-xl overflow-hidden bg-white/5 border border-white/10 ${dimmed}`;
+    const TypeIcon = entry.category === "movie" ? Clapperboard : entry.type === "anime" ? Film : Tv;
     return (
-      <div className="relative flex-shrink-0 self-start">
+      <div className="relative flex-shrink-0 self-center">
         {img ? (
-          <div className={`aspect-[2/3] max-h-36 rounded-lg overflow-hidden bg-white/5 ${dimmed}`}>
-            <img src={img} alt="" loading="lazy" className="w-full h-full object-cover" />
+          <div className={box}><img src={img} alt="" loading="lazy" className="w-full h-full object-cover" /></div>
+        ) : fb ? (
+          <div className={`relative ${box}`}>
+            <img src={fb} alt="" className="w-full h-full object-cover brightness-[0.25]" />
+            <span className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-white/50">?</span>
           </div>
         ) : (
-          <div className={`relative aspect-[2/3] max-h-36 rounded-lg overflow-hidden bg-white/5 ${dimmed}`}>
-            <img src={fb} alt="" className="w-full h-full object-cover brightness-[0.25]" />
-            <span className="absolute inset-0 flex items-center justify-center text-5xl font-bold text-white/50">?</span>
-          </div>
+          <div className={`${box} flex items-center justify-center`}><TypeIcon size={20} className="text-violet-600" /></div>
         )}
         {isFavorite && (
-          <div className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-pink-500/90 shadow-md shadow-pink-500/50">
-            <Heart size={9} fill="white" className="text-white" />
+          <div className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-4 h-4 rounded-full bg-pink-500/90 shadow-md shadow-pink-500/50">
+            <Heart size={8} fill="white" className="text-white" />
           </div>
         )}
       </div>
     );
   })();
+
+  // ── Libellés compacts (ligne "Ép.") ───────────────────────────────────────
+  const hasTV    = tvSeasons.length > 0;
+  const epMain   = hasTV ? `Ép. ${tvW}` : movieSeasons.length ? `${filmSeen}/${movieSeasons.length}` : `Ép. ${totW}`;
+  const epSub    = hasTV ? `/ ${tvT ?? "?"} au total`
+                 : movieSeasons.length ? `film${movieSeasons.length > 1 ? "s" : ""}`
+                 : `/ ${totT ?? "?"} au total`;
+  const extraTxt = hasTV && extraSeasons.length ? ` · +${extW}${extT != null ? `/${extT}` : ""} OVA` : "";
+  const TypeIcon = entry.category === "movie" ? Clapperboard : entry.type === "anime" ? Film : Tv;
+  const cd       = nextAiring ? formatCountdown(nextAiring.airingAt) : null;
+  const genres   = entry.genres.slice(0, 2);
+  const pct      = progressTotal ? Math.min(100, (progressWatched / progressTotal) * 100) : 0;
 
   const swipeRevealOpacity = (val, dir) =>
     dir === "right" ? Math.min(1, val / SWIPE_THRESHOLD) : Math.min(1, Math.abs(val) / SWIPE_THRESHOLD);
@@ -328,122 +338,95 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             transform:  `translateX(${swipeX}px)`,
             transition: isSwiping ? "none" : "transform 0.35s cubic-bezier(0.34,1.56,0.64,1)",
           }}
-          className={`relative card-noise rounded-2xl overflow-hidden bg-violet-900/30 p-3 sm:p-4 flex gap-2 sm:gap-3 cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:shadow-violet-950/60 hover:bg-violet-800/40 transition-shadow motion-reduce:transition-none ${
+          className={`relative card-noise rounded-2xl overflow-hidden bg-violet-900/30 pl-4 pr-3 py-2.5 flex items-center gap-3 min-h-[100px] cursor-pointer hover:bg-violet-800/40 transition-colors motion-reduce:transition-none ${
             isAiring
               ? "border border-teal-400/60 shadow-[0_0_14px_-2px_rgba(45,212,191,0.55)]"
-              : "border-t border-r border-b border-white/5"
+              : "border border-white/10"
           }`}
         >
-          <div className="absolute inset-y-0 left-0 w-[3px] rounded-l-2xl"
-            style={{ background: `linear-gradient(to bottom,${s.color},${s.color}50,${s.color}10)` }} />
+          {/* Liseré de statut */}
+          <span className="absolute left-0 inset-y-2.5 w-1 rounded-r-full pointer-events-none"
+            style={{ background: s.color, boxShadow: `0 0 10px ${s.color}80` }} />
 
           {coverImg}
 
-          <div className="flex-1 min-w-0 flex flex-col gap-1.5 sm:gap-2 relative z-10">
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-violet-300 whitespace-nowrap ${dimmed}`}>
-                  {entry.category === "movie" ? <Clapperboard size={10} /> : entry.type === "anime" ? <Film size={10} /> : <Tv size={10} />}
-                  {entry.category === "movie" ? "Film" : entry.type === "anime" ? "Anime" : "Série"}
+          <div className="flex-1 min-w-0 flex flex-col gap-1 relative z-10">
+            {/* Ligne 1 : type + statut */}
+            <div className={`flex items-center gap-1.5 pr-14 min-w-0 overflow-hidden ${dimmed}`}>
+              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-violet-300 whitespace-nowrap flex-shrink-0">
+                <TypeIcon size={10} />
+                {entry.category === "movie" ? "Film" : entry.type === "anime" ? "Anime" : "Série"}
+              </span>
+              {showEnProduction ? (
+                <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-indigo-400/15 text-indigo-300 whitespace-nowrap">
+                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse flex-shrink-0" />En production
                 </span>
-                <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/5 whitespace-nowrap ${s.text}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${s.dot}`} />
-                  {s.label}
+              ) : (
+                <span className={`inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-white/5 whitespace-nowrap ${s.text}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${s.dot}`} />{s.label}
                 </span>
-                {showEnProduction && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-indigo-400/15 border border-indigo-400/25 text-indigo-300 whitespace-nowrap">
-                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse flex-shrink-0" />
-                    En Production
-                  </span>
-                )}
-              </div>
-              <h3 className={`font-semibold text-sm sm:text-base text-violet-50 leading-tight truncate ${dimmed}`}
-                style={{ fontFamily: "'Space Grotesk',sans-serif" }} title={entry.title}>{entry.title}</h3>
-              {nextAiring && (() => {
-                const cd = formatCountdown(nextAiring.airingAt); if (!cd) return null;
-                return (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono text-sky-300 mt-0.5">
+              )}
+            </div>
+
+            {/* Ligne 2 : titre */}
+            <h3 className={`font-semibold text-[15px] text-violet-50 leading-tight truncate pr-14 ${dimmed}`}
+              style={{ fontFamily: "'Space Grotesk',sans-serif" }} title={entry.title}>{entry.title}</h3>
+
+            {/* Ligne 3 : épisodes */}
+            <div className={`flex items-center gap-1.5 min-w-0 text-[11px] ${isAbandoned ? dimmed : ""}`}>
+              <span className="w-4 h-4 rounded-full bg-sky-400/25 flex items-center justify-center flex-shrink-0">
+                <Play size={8} fill="currentColor" strokeWidth={0} className="text-sky-300 ml-px" />
+              </span>
+              <span className="font-semibold text-sky-300 whitespace-nowrap">{epMain}</span>
+              <span className="text-violet-400 truncate">{epSub}{extraTxt}</span>
+              {canFinish && !isAbandoned && (
+                <button onClick={e => { e.stopPropagation(); markDone(entry.id); }}
+                  title="Série principale terminée"
+                  className="ml-auto flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-400/15 text-teal-300 text-[10px] font-medium hover:bg-teal-400/25 active:scale-95 transition-transform motion-reduce:transition-none">
+                  <Check size={11} />Terminer
+                </button>
+              )}
+            </div>
+
+            {/* Ligne 4 : genres + prochaine diffusion */}
+            {(genres.length > 0 || cd) && (
+              <div className={`flex items-center justify-between gap-2 min-w-0 ${dimmed}`}>
+                <div className="flex gap-1 overflow-hidden min-w-0">
+                  {genres.map(g => (
+                    <span key={g} className="px-2 py-px rounded-full bg-violet-500/15 border border-violet-400/20 text-[10px] text-violet-200 whitespace-nowrap">{g}</span>
+                  ))}
+                </div>
+                {cd && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-mono text-sky-300 flex-shrink-0">
                     <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse flex-shrink-0" />
                     {nextAiring.season ? `S${nextAiring.season} · ` : ""}Ép.{nextAiring.episode}
                     <span className="hidden sm:inline">{cd}</span>
                   </span>
-                );
-              })()}
-            </div>
-
-            {entry.genres.length > 0 && (
-              <div className={`flex gap-1 overflow-hidden ${dimmed}`}>
-                {entry.genres.slice(0, 3).map(g =>
-                  <span key={g} className="px-1.5 py-0.5 rounded-full bg-white/5 text-[10px] text-violet-300 whitespace-nowrap">{g}</span>
                 )}
-                {entry.genres.length > 3 &&
-                  <span className="px-1.5 py-0.5 rounded-full bg-white/5 text-[10px] text-violet-500 whitespace-nowrap">+{entry.genres.length - 3}</span>
-                }
               </div>
             )}
 
-            <div className={`flex flex-wrap gap-1.5 ${isAbandoned ? dimmed : ""}`}>
-              {tvSeasons.length > 0 && (
-                <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-violet-300 whitespace-nowrap">
-                  <Tv size={10} className="flex-shrink-0" />
-                  {tvW}{tvT != null ? `/${tvT}` : ""} ép.
-                </span>
-              )}
-              {extraSeasons.length > 0 && (
-                <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-violet-300 whitespace-nowrap">
-                  <Disc2 size={10} className="flex-shrink-0" />
-                  {extW}{extT != null ? `/${extT}` : ""} OVA
-                </span>
-              )}
-              {movieSeasons.length > 0 && (
-                <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-violet-300 whitespace-nowrap">
-                  <Film size={10} className="flex-shrink-0" />
-                  {filmSeen}/{movieSeasons.length} film{movieSeasons.length > 1 ? "s" : ""}
-                </span>
-              )}
-              {(totW > 0 || totT != null) && (
-                <span className="font-mono text-[10px] text-violet-600 px-0.5 self-center">
-                  {totW}{totT != null ? `/${totT}` : ""} au total
-                </span>
-              )}
+            {/* Barre de progression */}
+            <div className={`h-1.5 rounded-full overflow-hidden mt-0.5 ${progressTotal ? "bg-white/10" : "bg-white/[0.04]"} ${isAbandoned ? dimmed : ""}`}>
+              <div className="h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
+                style={{ width: `${pct}%`, background: s.color, boxShadow: pct > 0 ? `0 0 8px ${s.color}70` : undefined }} />
             </div>
-
-            {canFinish && !isAbandoned && (
-              <button onClick={e => { e.stopPropagation(); markDone(entry.id); }}
-                className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg bg-teal-400/15 text-teal-300 hover:bg-teal-400/25 active:scale-95 transition-transform motion-reduce:transition-none">
-                <Check size={13} /> Série principale terminée
-              </button>
-            )}
           </div>
 
-          <div
-            className={`flex flex-col items-center justify-start pt-1 gap-1 pl-2 sm:pl-3 border-l border-white/5 min-w-[44px] sm:min-w-[52px] flex-shrink-0 relative z-10 ${dimmed}`}
-          >
+          {/* Note */}
+          <div className={`absolute top-2.5 right-2.5 z-10 ${dimmed}`}>
             {entry.rating > 0 ? (
-              <div className="flex flex-col items-center gap-1">
-                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-400/10 border border-amber-400/20">
-                  <Star size={11} fill="#fbbf24" strokeWidth={0} className="flex-shrink-0" />
-                  <span className="text-sm sm:text-base font-bold text-amber-300 tabular-nums leading-none"
-                    style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-                    {formatRating(entry.rating)}
-                  </span>
-                </div>
-                {!companionImgSrc && <RatingBadge rating={entry.rating} className="text-xl sm:text-2xl h-8 sm:h-10" />}
-                <p className="font-mono text-[8px] uppercase tracking-widest text-violet-500 hidden sm:block">Note</p>
-              </div>
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/10 border border-amber-400/30">
+                <Star size={11} fill="#fbbf24" strokeWidth={0} className="flex-shrink-0" />
+                <span className="text-sm font-bold text-amber-300 tabular-nums leading-none py-0.5"
+                  style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{formatRating(entry.rating)}</span>
+              </span>
             ) : (
-              <div className="flex flex-col items-center gap-0.5 opacity-40">
-                <Star size={14} className="text-violet-500" />
-                <span className="font-mono text-[9px] text-violet-500">—</span>
-              </div>
+              <span className="flex items-center justify-center w-9 h-6 rounded-full border border-violet-400/25 bg-white/[0.03]">
+                <Star size={11} className="text-violet-400/70" />
+              </span>
             )}
           </div>
-
-          {/* ── Compagnon qui "sort" du coin bas-droit, juste au-dessus de la barre de progression ── */}
-          {companionImgSrc && (
-            <CompanionPeek rating={entry.rating}
-              className="bottom-1.5 right-0 sm:right-1 h-20 sm:h-28 z-[15]" />
-          )}
 
           <AnimatePresence>
             {isAbandoned && (
@@ -460,22 +443,9 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
               </motion.div>
             )}
           </AnimatePresence>
-
-          {/* ── Barre de progression collée au bas de la carte ── */}
-          {progressTotal != null && progressTotal > 0 && (
-            <div className="absolute inset-x-0 bottom-0 h-1 bg-black/25 z-10 pointer-events-none overflow-hidden">
-              <div
-                className="h-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
-                style={{
-                  width: `${Math.min(100, (progressWatched / progressTotal) * 100)}%`,
-                  background: s.color,
-                }}
-              />
-            </div>
-          )}
         </div>
 
-        {/* ── Menu long-press ── */}
+        {/* ── Menu long-press (compact : tient dans la hauteur de la carte) ── */}
         <AnimatePresence>
         {longPressMenu && (
           <motion.div
@@ -483,19 +453,22 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             variants={CARD_OVERLAY_VARIANTS}
             initial="initial" animate="animate" exit="exit"
             transition={CARD_OVERLAY_TRANSITION}
-            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/70 backdrop-blur-xl flex flex-col items-center justify-center gap-1.5 p-3 overflow-y-auto"
+            className="absolute inset-0 z-30 rounded-2xl bg-violet-950/80 backdrop-blur-xl flex flex-col items-center justify-center gap-1.5 px-3 py-2"
             onClick={e => e.stopPropagation()}
           >
-            <p className="font-mono text-xs uppercase tracking-widest text-white/90 mb-1 truncate max-w-full px-2 text-center">
-              {entry.title}
-            </p>
+            <button
+              onClick={(e) => { e.stopPropagation(); haptics.tap(); setLongPressMenu(false); gesturedRef.current = false; }}
+              aria-label="Fermer le menu"
+              className="absolute top-1.5 right-1.5 p-1 rounded-full text-white/60 hover:text-white hover:bg-white/10 active:scale-90 transition-all"
+            ><X size={13} /></button>
+
+            <p className="font-mono text-[10px] uppercase tracking-widest text-white/80 truncate max-w-full px-6 text-center">{entry.title}</p>
 
             <div className="grid grid-cols-4 gap-2 w-full">
-              {/* Actualiser — reste ouvert, résultat inline, auto-fermeture */}
               <button
                 onClick={(e) => { e.stopPropagation(); haptics.tap(); handleRefresh(e); }}
                 disabled={refreshing || !!refreshResult}
-                className={`flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border text-[9px] font-mono text-white leading-tight text-center transition-all active:scale-95 disabled:cursor-default ${
+                className={`flex flex-col items-center justify-center gap-0.5 py-2 rounded-xl border text-[9px] font-mono text-white leading-tight text-center transition-all active:scale-95 disabled:cursor-default ${
                   refreshResult?.status === "new"
                     ? "bg-teal-500/20 border-teal-400/40"
                     : refreshResult?.status === "error"
@@ -505,7 +478,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
                     : "bg-white/15 border-white/25 hover:bg-white/20 disabled:opacity-60"
                 }`}
               >
-                <RefreshCw size={16} className={`flex-shrink-0 transition-colors ${
+                <RefreshCw size={15} className={`flex-shrink-0 transition-colors ${
                   refreshing                        ? "animate-spin text-white" :
                   refreshResult?.status === "new"   ? "text-teal-300"          :
                   refreshResult?.status === "error" ? "text-rose-300"          :
@@ -523,35 +496,28 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
 
               <button
                 onClick={(e) => { e.stopPropagation(); haptics.tap(); setLongPressMenu(false); gesturedRef.current = false; setShowAddToList(true); }}
-                className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 active:scale-95 text-[9px] font-mono text-white leading-tight text-center transition-all"
+                className="flex flex-col items-center justify-center gap-0.5 py-2 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 active:scale-95 text-[9px] font-mono text-white leading-tight text-center transition-all"
               >
-                <ListPlus size={16} className="text-white flex-shrink-0" />
+                <ListPlus size={15} className="text-white flex-shrink-0" />
                 <span>Liste</span>
               </button>
 
               <button
                 onClick={(e) => { e.stopPropagation(); haptics.tap(); setLongPressMenu(false); gesturedRef.current = false; onEdit(entry); }}
-                className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 active:scale-95 text-[9px] font-mono text-white leading-tight text-center transition-all"
+                className="flex flex-col items-center justify-center gap-0.5 py-2 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 active:scale-95 text-[9px] font-mono text-white leading-tight text-center transition-all"
               >
-                <Pencil size={16} className="text-white flex-shrink-0" />
+                <Pencil size={15} className="text-white flex-shrink-0" />
                 <span>Modifier</span>
               </button>
 
               <button
                 onClick={(e) => { e.stopPropagation(); haptics.medium(); setLongPressMenu(false); gesturedRef.current = false; setShowDel(true); }}
-                className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-rose-500/25 border border-rose-400/40 hover:bg-rose-500/35 active:scale-95 text-[9px] font-mono text-rose-100 leading-tight text-center transition-all"
+                className="flex flex-col items-center justify-center gap-0.5 py-2 rounded-xl bg-rose-500/25 border border-rose-400/40 hover:bg-rose-500/35 active:scale-95 text-[9px] font-mono text-rose-100 leading-tight text-center transition-all"
               >
-                <Trash2 size={16} className="text-rose-200 flex-shrink-0" />
+                <Trash2 size={15} className="text-rose-200 flex-shrink-0" />
                 <span>Suppr.</span>
               </button>
             </div>
-
-            <button
-              onClick={(e) => { e.stopPropagation(); haptics.tap(); setLongPressMenu(false); gesturedRef.current = false; }}
-              className="mt-1 text-xs text-white/70 hover:text-white active:scale-95 transition-all font-mono"
-            >
-              Annuler
-            </button>
           </motion.div>
         )}
         </AnimatePresence>

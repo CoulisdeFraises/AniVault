@@ -20,6 +20,7 @@ import { useSync }          from "../hooks/useSync";
 import {
   Film, Tv, ListPlus, X, Heart, Eye, EyeOff,
   ChevronDown, SlidersHorizontal, WifiOff, CalendarDays,
+  LayoutGrid, PlayCircle, CheckCircle2, MonitorPlay, Clapperboard, LibraryBig,
 } from "lucide-react";
 import { HeartIcon }        from "../components/common/icons";
 import { FilterPanel }      from "../components/common/FilterPanel";
@@ -70,6 +71,31 @@ function AddChoiceModal({ onAddTitle, onCreateList, onClose }) {
         </div>
       </div>
     </Modal>
+  );
+}
+
+// ── Puce de filtre rapide (bibliothèque) ─────────────────────────────────────
+function QuickChip({ active, onClick, icon: Icon, disabled, children }) {
+  return (
+    <button onClick={onClick} disabled={disabled}
+      className={`flex-shrink-0 flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-medium border whitespace-nowrap
+        active:scale-95 transition-all motion-reduce:transition-none disabled:opacity-40 ${active
+          ? "bg-amber-400 border-amber-400 text-violet-950 font-semibold shadow-md shadow-amber-500/20"
+          : "bg-violet-900/40 border-white/10 text-violet-200 hover:bg-white/10"}`}>
+      <Icon size={14} className="flex-shrink-0" />{children}
+    </button>
+  );
+}
+
+// ── Sous-titre de groupe : ANIMES · 265 ──────────────────────────────────────
+function GroupLabel({ icon: Icon, label, count }) {
+  return (
+    <div className="flex items-center gap-2 mb-2.5 text-violet-300">
+      <Icon size={16} className="flex-shrink-0" />
+      <p className="text-xs font-semibold uppercase tracking-widest">{label}</p>
+      <span className="text-violet-500">·</span>
+      <span className="text-xs font-semibold">{count}</span>
+    </div>
   );
 }
 
@@ -394,43 +420,50 @@ export function Home() {
               </>
             )}
 
-            {/* ── Bibliothèque : filtres rapides ── */}
-            <div ref={libraryRef} className="scroll-mt-4 flex flex-wrap items-center gap-2 mb-2">
-              <button onClick={() => { haptics.tap(); setShowFavoritesOnly(v => !v); }}
-                className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-mono border transition-all active:scale-95 ${showFavoritesOnly
-                  ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
-                  : "bg-white/5 border-white/10 text-violet-400 hover:bg-pink-500/10 hover:text-pink-400"}`}>
-                <Heart size={12} fill={showFavoritesOnly ? "currentColor" : "none"} />Favoris
-              </button>
-              <button onClick={() => { haptics.tap(); setShowCalendarOnly(v => !v); }} disabled={airingIds.size === 0}
-                className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-mono border transition-all active:scale-95 disabled:opacity-40 ${showCalendarOnly
-                  ? "bg-teal-500/20 border-teal-500/40 text-teal-300"
-                  : "bg-white/5 border-white/10 text-violet-400 hover:bg-teal-500/10 hover:text-teal-400"}`}>
-                <CalendarDays size={12} />Cette semaine
-              </button>
-              {hasLibraryFilters && (
-                <button onClick={() => { setSelectedStatuses([]); setShowFavoritesOnly(false); setShowCalendarOnly(false); }}
-                  className="flex items-center gap-1 h-8 px-2.5 text-[11px] font-mono text-violet-300 hover:text-white">
-                  <X size={11} />Effacer
-                </button>
-              )}
-            </div>
           </div>
 
-           {/* ── Repli bibliothèque — visible seulement quand il y a des résultats ── */}
-          {!loading && sorted.length > 0 && (
-            <button
-              onClick={() => { haptics.tap(); setMainListCollapsed(v => !v); }}
-              className="w-full flex items-center justify-between px-3 py-2 mb-2 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] text-violet-500 hover:text-violet-300 transition-all active:scale-[0.99] motion-reduce:transition-none"
-            >
-              <span className="font-mono text-[10px] uppercase tracking-widest">
-                Bibliothèque · {sorted.length} titre{sorted.length !== 1 ? "s" : ""}
-              </span>
-              <ChevronDown
-                size={13}
-                className={`transition-transform duration-300 motion-reduce:transition-none ${mainListCollapsed ? "rotate-180" : ""}`}
-              />
-            </button>
+          {/* ── En-tête bibliothèque + filtres rapides ── */}
+          {!loading && (
+            <div ref={libraryRef} className="scroll-mt-4 mb-3">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-baseline gap-2 min-w-0">
+                  <LibraryBig size={20} className="text-violet-200 self-center flex-shrink-0" />
+                  <h2 className="text-xl font-bold text-white truncate" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>Bibliothèque</h2>
+                  <span className="text-xs text-violet-300 flex-shrink-0">· {sorted.length} titre{sorted.length !== 1 ? "s" : ""}</span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {sorted.length > 0 && (
+                    <button onClick={() => { haptics.tap(); setMainListCollapsed(v => !v); }}
+                      aria-label={mainListCollapsed ? "Déplier la bibliothèque" : "Replier la bibliothèque"}
+                      className="h-9 w-9 flex items-center justify-center rounded-xl bg-violet-900/40 border border-white/10 text-violet-300 hover:bg-white/10 active:scale-95 transition-all">
+                      <ChevronDown size={16} className={`transition-transform duration-300 motion-reduce:transition-none ${mainListCollapsed ? "rotate-180" : ""}`} />
+                    </button>
+                  )}
+                  <button onClick={() => { haptics.tap(); setShowFilterPanel(true); }} aria-label="Filtres et tri"
+                    className="relative h-9 w-9 flex items-center justify-center rounded-xl bg-violet-900/40 border border-white/10 text-violet-200 hover:bg-white/10 active:scale-95 transition-all">
+                    <SlidersHorizontal size={16} />
+                    {activeFilterCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 rounded-full bg-amber-400 text-violet-950 text-[9px] font-bold flex items-center justify-center">{activeFilterCount}</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-2 overflow-x-auto scrollbar-none -mx-4 px-4">
+                <QuickChip icon={LayoutGrid} active={!hasLibraryFilters}
+                  onClick={() => { haptics.tap(); setSelectedStatuses([]); setShowFavoritesOnly(false); setShowCalendarOnly(false); }}>Tout</QuickChip>
+                <QuickChip icon={PlayCircle} active={selectedStatuses.includes("en-cours")}
+                  onClick={() => { haptics.tap(); toggleStatus("en-cours"); }}>En cours</QuickChip>
+                <QuickChip icon={Eye} active={selectedStatuses.includes("a-voir")}
+                  onClick={() => { haptics.tap(); toggleStatus("a-voir"); }}>À voir</QuickChip>
+                <QuickChip icon={CheckCircle2} active={selectedStatuses.includes("termine")}
+                  onClick={() => { haptics.tap(); toggleStatus("termine"); }}>Terminés</QuickChip>
+                <QuickChip icon={Heart} active={showFavoritesOnly}
+                  onClick={() => { haptics.tap(); setShowFavoritesOnly(v => !v); }}>Favoris</QuickChip>
+                <QuickChip icon={CalendarDays} active={showCalendarOnly} disabled={airingIds.size === 0}
+                  onClick={() => { haptics.tap(); setShowCalendarOnly(v => !v); }}>Cette semaine</QuickChip>
+              </div>
+            </div>
           )}
 
           {/* ── Contenu principal ── */}
@@ -456,40 +489,34 @@ export function Home() {
 
           ) : !mainListCollapsed && (
             typeFilter === "all" ? (
-              <div key={gridKey} className="space-y-8 animate-fadeIn">
+              <div key={gridKey} className="space-y-5 animate-fadeIn">
                 {filteredAnime.length > 0 && (
                   <section>
-                    <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
-                      Animes · {filteredAnime.length}
-                    </p>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <GroupLabel icon={MonitorPlay} label="ANIMES" count={filteredAnime.length} />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
                       {filteredAnime.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />)}
                     </div>
                   </section>
                 )}
                 {filteredSerie.length > 0 && (
                   <section>
-                    <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
-                      Séries · {filteredSerie.length}
-                    </p>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <GroupLabel icon={Tv} label="SÉRIES" count={filteredSerie.length} />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
                       {filteredSerie.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />)}
                     </div>
                   </section>
                 )}
                 {filteredFilm.length > 0 && (
                   <section>
-                    <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-3">
-                      Films · {filteredFilm.length}
-                    </p>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <GroupLabel icon={Clapperboard} label="FILMS" count={filteredFilm.length} />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
                       {filteredFilm.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />)}
                     </div>
                   </section>
                 )}
               </div>
             ) : (
-              <div key={gridKey} className="grid grid-cols-1 lg:grid-cols-2 gap-3 animate-fadeIn">
+              <div key={gridKey} className="grid grid-cols-1 lg:grid-cols-2 gap-2.5 animate-fadeIn">
                 {sorted.map((e, i) => <Card key={e.id} entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />)}
               </div>
             )
@@ -554,7 +581,7 @@ export function Home() {
                       </button>
                     </div>
                   </div>
-                  <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-2.5">
                     {sortedHiddenEntries.map((e, i) => (
                       <div key={e.id} className={`transition-all duration-500 ${cachetteRevealed ? "" : "blur-sm hover:blur-none"}`}>
                         <Card entry={e} onEdit={openEditForm} index={i} isAiring={isAiringThisWeek(e)} />
