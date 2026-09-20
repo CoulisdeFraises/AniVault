@@ -591,23 +591,25 @@ export function Details() {
 
         {/* ── Header ── */}
         <div className="relative px-4 sm:px-6 pb-4 border-b border-white/5 flex-shrink-0">
-          {/* ── Décor de fond — halos flous façon maquette ── */}
-          <div className="absolute inset-x-0 top-0 h-48 overflow-hidden rounded-t-3xl sm:rounded-t-2xl pointer-events-none -z-10">
-            <div className="absolute -top-16 -right-14 w-56 h-56 rounded-full bg-fuchsia-500/20 blur-3xl" />
-            <div className="absolute -top-10 left-1/3 w-40 h-40 rounded-full bg-violet-400/10 blur-3xl" />
-            <div className="absolute top-4 -left-10 w-32 h-32 rounded-full bg-indigo-400/10 blur-2xl" />
+          {/* ── Décor de fond — bulles dégradées éparpillées, légèrement floues ── */}
+          <div className="absolute inset-x-0 top-0 h-40 overflow-hidden rounded-t-3xl sm:rounded-t-2xl pointer-events-none -z-10">
+            <div className="absolute -top-6 right-6 w-20 h-20 rounded-full bg-gradient-to-br from-fuchsia-400/30 to-violet-600/10 blur-xl" />
+            <div className="absolute top-8 right-24 sm:right-32 w-12 h-12 rounded-full bg-gradient-to-br from-amber-300/20 to-pink-500/10 blur-lg" />
+            <div className="absolute -top-4 left-1/3 w-16 h-16 rounded-full bg-gradient-to-br from-indigo-400/25 to-violet-500/5 blur-xl" />
+            <div className="absolute top-14 left-6 sm:left-10 w-10 h-10 rounded-full bg-gradient-to-br from-violet-300/20 to-fuchsia-400/5 blur-lg" />
+            <div className="absolute top-2 left-1/2 w-24 h-24 rounded-full bg-gradient-to-br from-fuchsia-500/15 to-transparent blur-2xl" />
           </div>
 
           <div className="flex gap-3 sm:gap-4">
             {displayImage
               ? <img src={displayImage} alt="" loading="lazy"
-                  className="w-20 h-28 sm:w-28 sm:h-40 object-cover rounded-2xl flex-shrink-0 shadow-lg shadow-black/40" />
+                  className="w-28 h-40 sm:w-40 sm:h-56 object-cover rounded-2xl flex-shrink-0 shadow-lg shadow-black/40" />
               : showFallback
-                ? <div className="relative w-20 h-28 sm:w-28 sm:h-40 rounded-2xl overflow-hidden flex-shrink-0 shadow-lg shadow-black/40">
+                ? <div className="relative w-28 h-40 sm:w-40 sm:h-56 rounded-2xl overflow-hidden flex-shrink-0 shadow-lg shadow-black/40">
                     <img src={fallbackImage} alt="" loading="lazy" className="w-full h-full object-cover brightness-[0.25]" />
                     <span className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-white/50">?</span>
                   </div>
-                : <div className="w-20 h-28 sm:w-28 sm:h-40 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+                : <div className="w-28 h-40 sm:w-40 sm:h-56 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
                     {entry.category === "movie" ? <Clapperboard size={26} className="text-violet-600" /> : entry.type === "anime" ? <Film size={26} className="text-violet-600" /> : <Tv size={26} className="text-violet-600" />}
                   </div>}
 
@@ -634,23 +636,24 @@ export function Details() {
                   )}
                 </div>
               )}
+
+              {/* ── Résumé — à côté de l'affiche, pas en dessous ── */}
+              {entry.description && (
+                <div className="mt-2">
+                  <p className={`text-[12px] sm:text-[13px] text-violet-300/85 leading-relaxed ${descExpanded ? "" : "line-clamp-3 sm:line-clamp-4"}`}>
+                    {entry.description}
+                  </p>
+                  <button onClick={() => setDescExpanded(v => !v)}
+                    className="mt-1 inline-flex items-center gap-0.5 text-[12px] font-medium text-violet-400 hover:text-violet-200 transition-colors">
+                    {descExpanded ? "Lire moins" : "Lire plus"}
+                    <ChevronDown size={13} className={`transition-transform ${descExpanded ? "rotate-180" : ""}`} />
+                  </button>
+                </div>
+              )}
+
+              {entry.notes && <p className="text-[11px] text-violet-300/80 italic mt-2 line-clamp-2">{entry.notes}</p>}
             </div>
           </div>
-
-          {entry.description && (
-            <div className="mt-3">
-              <p className={`text-[13px] text-violet-300/85 leading-relaxed ${descExpanded ? "" : "line-clamp-3"}`}>
-                {entry.description}
-              </p>
-              <button onClick={() => setDescExpanded(v => !v)}
-                className="mt-1 inline-flex items-center gap-0.5 text-[12px] font-medium text-violet-400 hover:text-violet-200 transition-colors">
-                {descExpanded ? "Lire moins" : "Lire plus"}
-                <ChevronDown size={13} className={`transition-transform ${descExpanded ? "rotate-180" : ""}`} />
-              </button>
-            </div>
-          )}
-
-          {entry.notes && <p className="text-[11px] text-violet-300/80 italic mt-2 line-clamp-2">{entry.notes}</p>}
 
           {/* ── Barre note + statut ── */}
           {/* Volontairement moins large que le bloc en-tête : laisse la place,
