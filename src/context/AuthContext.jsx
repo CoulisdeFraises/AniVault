@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { supabase }     from "../lib/supabase";
 import { initProfile, fetchMyProfile } from "../services/community";
 
@@ -128,11 +128,20 @@ export function AuthProvider({ children }) {
     user?.email?.split("@")[0] ||
     null;
 
+  // PERF : sans useMemo, cet objet est une nouvelle référence à CHAQUE rendu
+  // de AuthProvider — ce qui force TOUS les consommateurs de useAuth() dans
+  // toute l'app (Card, BottomNav, layers...) à re-render, même quand rien de
+  // ce qu'ils lisent n'a changé. Comme AuthProvider est monté tout en haut de
+  // l'arbre, c'est la ré-création de valeur de contexte la plus coûteuse de
+  // toute l'app.
+  const value = useMemo(() => ({
+    user, profile, userProfile, loading, authOffline,
+    loginWithEmail, signUpWithEmail, loginWithGoogle, logout, refreshProfile,
+  }), [user, profile, userProfile, loading, authOffline,
+       loginWithEmail, signUpWithEmail, loginWithGoogle, logout, refreshProfile]);
+
   return (
-    <AuthContext.Provider value={{
-      user, profile, userProfile, loading, authOffline,
-      loginWithEmail, signUpWithEmail, loginWithGoogle, logout, refreshProfile,
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pickCompanionLine } from "../utils/companionLines";
 
 // ── CompanionContext ─────────────────────────────────────────────────────
@@ -68,8 +68,15 @@ export function CompanionProvider({ children }) {
     setQueue(rest);
   }, [current, queue]);
 
+  // PERF : évite de recréer l'objet de contexte à chaque rendu — voir la note
+  // équivalente dans AuthContext.jsx.
+  const value = useMemo(
+    () => ({ current, triggerCompanion, dismissCompanion }),
+    [current, triggerCompanion, dismissCompanion]
+  );
+
   return (
-    <CompanionContext.Provider value={{ current, triggerCompanion, dismissCompanion }}>
+    <CompanionContext.Provider value={value}>
       {children}
     </CompanionContext.Provider>
   );

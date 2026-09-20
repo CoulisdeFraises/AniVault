@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
 
@@ -193,15 +193,23 @@ export function ListsProvider({ children }) {
     else addEntryToList(HIDDEN_LIST_ID, entry);
   }, [isInHiddenList, addEntryToList, removeEntryFromList]);
 
+  // PERF : chaque <Card> lit isInFavorites via useLists() — mêmes raisons que
+  // LibraryContext.jsx, voir la note là-bas.
+  const value = useMemo(() => ({
+    lists, loading,
+    createList, deleteList, renameList, togglePublic,
+    addEntryToList, removeEntryFromList, removeEntryEverywhere,
+    isInList, isInFavorites, isInHiddenList,
+    toggleFavorite, toggleHidden,
+    FAVORITES_ID, HIDDEN_LIST_ID,
+  }), [lists, loading,
+       createList, deleteList, renameList, togglePublic,
+       addEntryToList, removeEntryFromList, removeEntryEverywhere,
+       isInList, isInFavorites, isInHiddenList,
+       toggleFavorite, toggleHidden]);
+
   return (
-    <ListsContext.Provider value={{
-      lists, loading,
-      createList, deleteList, renameList, togglePublic,
-      addEntryToList, removeEntryFromList, removeEntryEverywhere,
-      isInList, isInFavorites, isInHiddenList,
-      toggleFavorite, toggleHidden,
-      FAVORITES_ID, HIDDEN_LIST_ID,
-    }}>
+    <ListsContext.Provider value={value}>
       {children}
     </ListsContext.Provider>
   );

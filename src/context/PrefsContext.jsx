@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useMemo } from "react";
 
 const PrefsContext = createContext(null);
 
@@ -12,8 +12,12 @@ export function PrefsProvider({ children }) {
     localStorage.setItem("pref_culture_mode", String(value));
   }, []);
 
+  // PERF : évite de recréer l'objet de contexte à chaque rendu — voir la note
+  // équivalente dans AuthContext.jsx.
+  const value = useMemo(() => ({ cultureMode, setCultureMode }), [cultureMode, setCultureMode]);
+
   return (
-    <PrefsContext.Provider value={{ cultureMode, setCultureMode }}>
+    <PrefsContext.Provider value={value}>
       {children}
     </PrefsContext.Provider>
   );
