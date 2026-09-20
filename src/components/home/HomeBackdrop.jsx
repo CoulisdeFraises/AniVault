@@ -14,7 +14,7 @@ export function HomeBackdrop() {
       <svg viewBox="0 0 390 430" preserveAspectRatio="xMidYMin slice" className="w-full h-full">
         <defs>
           <linearGradient id="hb-sky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#3b1a78" /><stop offset="0.6" stopColor="#2a1259" /><stop offset="1" stopColor="#2e1065" />
+            <stop offset="0" stopColor="#331569" /><stop offset="0.6" stopColor="#26104f" /><stop offset="1" stopColor="#220c4c" />
           </linearGradient>
           <radialGradient id="hb-moon" cx="0.5" cy="0.5" r="0.5">
             <stop offset="0" stopColor="#fbbf24" stopOpacity="0.55" /><stop offset="1" stopColor="#fbbf24" stopOpacity="0" />

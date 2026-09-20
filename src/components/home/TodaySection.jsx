@@ -75,7 +75,7 @@ export function TodaySection({ items, nextAiringByEntry }) {
   return (
     <section className="mb-4 animate-fadeIn">
       <SectionTitle
-        icon={<span className="w-7 h-7 rounded-lg border border-amber-400/60 flex items-center justify-center text-amber-400"><CalendarClock size={15} /></span>}
+        icon={<span className="w-6 h-6 rounded-md border border-amber-400/60 flex items-center justify-center text-amber-400"><CalendarClock size={13} /></span>}
         title="Aujourd'hui"
         actionLabel={items.length ? `${items.length} épisode${items.length > 1 ? "s" : ""}` : "Agenda"}
         onAction={() => navigate("/calendar")} />

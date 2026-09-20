@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { X, Heart } from "lucide-react";
 import { Modal } from "../Modal/Modal";
 import { STATUS, FILTER_STATUS_ORDER } from "../../utils/status";
 
@@ -30,7 +30,7 @@ const SORT_OPTIONS = [
 
 /**
  * FilterPanel — regroupe en un seul endroit les filtres cumulatifs
- * (statut, "cette semaine") et le tri (exclusif) de la bibliothèque.
+ * (statut, favoris) et le tri (exclusif) de la bibliothèque.
  *
  * La logique reste inchangée : les statuts se cumulent entre eux (OR),
  * "cette semaine" s'applique en ET par-dessus, et le tri est un choix
@@ -38,6 +38,7 @@ const SORT_OPTIONS = [
  */
 export function FilterPanel({
   selectedStatuses, onToggleStatus, onClearStatuses,
+  showFavoritesOnly, onToggleFavorites,
   sortBy, onSortChange,
   onClose,
 }) {
@@ -72,6 +73,17 @@ export function FilterPanel({
                   {STATUS[k].label}
                 </Chip>
               ))}
+            </div>
+          </div>
+
+          {/* ── Affichage ── */}
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500 mb-2.5">Afficher</p>
+            <div className="flex flex-wrap gap-1.5">
+              <Chip active={showFavoritesOnly} onClick={onToggleFavorites} colorClass="bg-pink-400/90 border-pink-400 text-violet-950">
+                <Heart size={12} fill={showFavoritesOnly ? "currentColor" : "none"} className="flex-shrink-0" />
+                Favoris
+              </Chip>
             </div>
           </div>
 

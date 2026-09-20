@@ -20,7 +20,7 @@ import { useSync }          from "../hooks/useSync";
 import {
   Film, Tv, ListPlus, X, Heart, Eye, EyeOff,
   ChevronDown, SlidersHorizontal, WifiOff, CalendarDays,
-  LayoutGrid, PlayCircle, CheckCircle2, MonitorPlay, Clapperboard, LibraryBig,
+  LayoutGrid, PlayCircle, MonitorPlay, Clapperboard, LibraryBig,
 } from "lucide-react";
 import { HeartIcon }        from "../components/common/icons";
 import { FilterPanel }      from "../components/common/FilterPanel";
@@ -78,11 +78,11 @@ function AddChoiceModal({ onAddTitle, onCreateList, onClose }) {
 function QuickChip({ active, onClick, icon: Icon, disabled, children }) {
   return (
     <button onClick={onClick} disabled={disabled}
-      className={`flex-shrink-0 flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-medium border whitespace-nowrap
+      className={`flex-shrink-0 flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] font-medium border whitespace-nowrap
         active:scale-95 transition-all motion-reduce:transition-none disabled:opacity-40 ${active
           ? "bg-amber-400 border-amber-400 text-violet-950 font-semibold shadow-md shadow-amber-500/20"
           : "bg-violet-900/40 border-white/10 text-violet-200 hover:bg-white/10"}`}>
-      <Icon size={14} className="flex-shrink-0" />{children}
+      <Icon size={12} className="flex-shrink-0" />{children}
     </button>
   );
 }
@@ -90,11 +90,11 @@ function QuickChip({ active, onClick, icon: Icon, disabled, children }) {
 // ── Sous-titre de groupe : ANIMES · 265 ──────────────────────────────────────
 function GroupLabel({ icon: Icon, label, count }) {
   return (
-    <div className="flex items-center gap-2 mb-2.5 text-violet-300">
-      <Icon size={16} className="flex-shrink-0" />
-      <p className="text-xs font-semibold uppercase tracking-widest">{label}</p>
+    <div className="flex items-center gap-2 mb-2 text-violet-300">
+      <Icon size={14} className="flex-shrink-0" />
+      <p className="text-[11px] font-semibold uppercase tracking-widest">{label}</p>
       <span className="text-violet-500">·</span>
-      <span className="text-xs font-semibold">{count}</span>
+      <span className="text-[11px] font-semibold">{count}</span>
     </div>
   );
 }
@@ -360,7 +360,7 @@ export function Home() {
 
   const isSearchActive = searchQuery.trim().length > 0;
   const gridKey = `${typeFilter}-${selectedStatuses.join(",")}-${searchQuery}-${showFavoritesOnly}-${showCalendarOnly}-${sortBy}`;
-  const activeFilterCount = selectedStatuses.length + (sortBy !== "date" ? 1 : 0);
+  const activeFilterCount = selectedStatuses.length + (showFavoritesOnly ? 1 : 0) + (sortBy !== "date" ? 1 : 0);
   const libraryRef = useRef(null);
   const seeAllInProgress = () => {
     haptics.tap();
@@ -425,23 +425,23 @@ export function Home() {
           {/* ── En-tête bibliothèque + filtres rapides ── */}
           {!loading && (
             <div ref={libraryRef} className="scroll-mt-4 mb-3">
-              <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center justify-between gap-2 mb-2">
                 <div className="flex items-baseline gap-2 min-w-0">
-                  <LibraryBig size={20} className="text-violet-200 self-center flex-shrink-0" />
-                  <h2 className="text-xl font-bold text-white truncate" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>Bibliothèque</h2>
-                  <span className="text-xs text-violet-300 flex-shrink-0">· {sorted.length} titre{sorted.length !== 1 ? "s" : ""}</span>
+                  <LibraryBig size={16} className="text-violet-200 self-center flex-shrink-0" />
+                  <h2 className="text-base font-bold text-white truncate" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>Bibliothèque</h2>
+                  <span className="text-[11px] text-violet-300 flex-shrink-0">· {sorted.length} titre{sorted.length !== 1 ? "s" : ""}</span>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   {sorted.length > 0 && (
                     <button onClick={() => { haptics.tap(); setMainListCollapsed(v => !v); }}
                       aria-label={mainListCollapsed ? "Déplier la bibliothèque" : "Replier la bibliothèque"}
-                      className="h-9 w-9 flex items-center justify-center rounded-xl bg-violet-900/40 border border-white/10 text-violet-300 hover:bg-white/10 active:scale-95 transition-all">
-                      <ChevronDown size={16} className={`transition-transform duration-300 motion-reduce:transition-none ${mainListCollapsed ? "rotate-180" : ""}`} />
+                      className="h-8 w-8 flex items-center justify-center rounded-xl bg-violet-900/40 border border-white/10 text-violet-300 hover:bg-white/10 active:scale-95 transition-all">
+                      <ChevronDown size={15} className={`transition-transform duration-300 motion-reduce:transition-none ${mainListCollapsed ? "rotate-180" : ""}`} />
                     </button>
                   )}
                   <button onClick={() => { haptics.tap(); setShowFilterPanel(true); }} aria-label="Filtres et tri"
-                    className="relative h-9 w-9 flex items-center justify-center rounded-xl bg-violet-900/40 border border-white/10 text-violet-200 hover:bg-white/10 active:scale-95 transition-all">
-                    <SlidersHorizontal size={16} />
+                    className="relative h-8 w-8 flex items-center justify-center rounded-xl bg-violet-900/40 border border-white/10 text-violet-200 hover:bg-white/10 active:scale-95 transition-all">
+                    <SlidersHorizontal size={15} />
                     {activeFilterCount > 0 && (
                       <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 rounded-full bg-amber-400 text-violet-950 text-[9px] font-bold flex items-center justify-center">{activeFilterCount}</span>
                     )}
@@ -456,10 +456,6 @@ export function Home() {
                   onClick={() => { haptics.tap(); toggleStatus("en-cours"); }}>En cours</QuickChip>
                 <QuickChip icon={Eye} active={selectedStatuses.includes("a-voir")}
                   onClick={() => { haptics.tap(); toggleStatus("a-voir"); }}>À voir</QuickChip>
-                <QuickChip icon={CheckCircle2} active={selectedStatuses.includes("termine")}
-                  onClick={() => { haptics.tap(); toggleStatus("termine"); }}>Terminés</QuickChip>
-                <QuickChip icon={Heart} active={showFavoritesOnly}
-                  onClick={() => { haptics.tap(); setShowFavoritesOnly(v => !v); }}>Favoris</QuickChip>
                 <QuickChip icon={CalendarDays} active={showCalendarOnly} disabled={airingIds.size === 0}
                   onClick={() => { haptics.tap(); setShowCalendarOnly(v => !v); }}>Cette semaine</QuickChip>
               </div>
@@ -606,6 +602,7 @@ export function Home() {
           <FilterPanel
             key="filter-panel"
             selectedStatuses={selectedStatuses} onToggleStatus={toggleStatus}
+            showFavoritesOnly={showFavoritesOnly} onToggleFavorites={() => { haptics.tap(); setShowFavoritesOnly(v => !v); }}
             onClearStatuses={() => setSelectedStatuses([])}
             sortBy={sortBy} onSortChange={setSortBy}
             onClose={() => setShowFilterPanel(false)}

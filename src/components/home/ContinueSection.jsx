@@ -43,7 +43,7 @@ export function ContinueSection({ entries, onSeeAll }) {
   return (
     <section className="mb-4 animate-fadeIn">
       <SectionTitle
-        icon={<span className="w-7 h-7 rounded-full bg-pink-400 flex items-center justify-center text-violet-950"><Play size={13} fill="currentColor" /></span>}
+        icon={<span className="w-6 h-6 rounded-full bg-pink-400 flex items-center justify-center text-violet-950"><Play size={11} fill="currentColor" /></span>}
         title="Continuer de regarder" actionLabel="Tout voir" onAction={onSeeAll} />
 
       <div className="flex gap-3">
