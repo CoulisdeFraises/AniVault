@@ -25,7 +25,7 @@ export function HomeHeader({ syncing, syncProgress, onSyncClick }) {
             className="h-full w-full rounded-full object-cover" />
         </button>
         <h1 className="text-[1.65rem] font-bold italic tracking-tight leading-none truncate"
-          style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+          style={{ fontFamily: "'Space Grotesk',sans-serif", textShadow: "0 1px 10px rgba(20,8,50,0.85)" }}>
           <span className="text-white">ANI</span><span className="text-amber-400">VAULT</span>
         </h1>
       </div>

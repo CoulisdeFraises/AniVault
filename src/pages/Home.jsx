@@ -381,7 +381,7 @@ export function Home() {
        */}
       <HomeBackdrop />
       <PullToRefresh onRefresh={() => syncAll(true)}>
-        <div className="relative flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 pb-nav">
+        <div className="relative flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 pb-4">
           <HomeHeader syncing={syncing} syncProgress={progress} onSyncClick={() => syncAll(true)} />
 
           {offline && (
