@@ -23,6 +23,7 @@ const CompanionContext = createContext(null);
 const PRIORITY = {
   achievement:   1,
   finished:      2,
+  caughtUp:      2,
   streakRecord:  3,
   streakLost:    4,
   streakDanger:  5,

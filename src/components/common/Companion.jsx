@@ -40,6 +40,7 @@ const MOOD_BAND = {
   streakRecord: 5,
   comeback:     4,
   finished:     4,
+  caughtUp:     3,
   newEntry:     3,
   idle:         3,
   streakDanger: 1,

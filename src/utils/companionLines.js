@@ -26,6 +26,15 @@ export const COMPANION_LINES = {
     "{title} bouclé. Tu veux enchaîner sur autre chose ?",
     "Voilà, {title} finit ! C'est dans la boîte !",
   ],
+  // Titre encore en diffusion dont on vient de rattraper tous les épisodes
+  // sortis (≠ "finished" : la suite arrive, il faut juste attendre).
+  caughtUp: [
+    "{title} : tu es à jour ! Plus qu'à attendre l'épisode {episode}.",
+    "À jour sur {title}. Aucun spoiler à craindre, profites-en !",
+    "Rattrapé ! {title} n'a plus une once d'avance sur toi.",
+    "{title}, à jour. Rendez-vous à la prochaine diffusion !",
+    "Tu as rattrapé {title}. L'épisode {episode} se fait désirer, hein ?",
+  ],
   streakRecord: [
     "{streak} jours d'affilée — nouveau record ! Impressionnant.",
     "Tu viens de battre ton record : {streak} jours de suite.",
@@ -77,6 +86,13 @@ const CHLO_LINES = {
     "Aaah, {title} plié. Bon, next épisode... euh, next série, je veux dire.",
     "{title}, dans la boîte. Moi je retourne dormir, bon courage pour la suite.",
     "Terminé {title} ? Émotionnellement dévasté(e) ou juste vide comme d'hab ?",
+  ],
+  caughtUp: [
+    "À jour sur {title}. Tu peux enfin arrêter de fuir les spoilers, bravo.",
+    "{title} rattrapé. Maintenant tu attends comme tout le monde. Bienvenue au club de la frustration.",
+    "Plus rien à voir sur {title} avant l'épisode {episode}. Parfait, ça laisse le temps d'une sieste.",
+    "Tu es à jour sur {title}. Première fois que t'es dans les temps pour quelque chose, non ?",
+    "{title} : à jour. Je te connais, tu seras là à la seconde où l'épisode {episode} sort.",
   ],
   streakRecord: [
     "{streak} jours d'affilée. C'est fort mais je fais mieux de mon côté.",

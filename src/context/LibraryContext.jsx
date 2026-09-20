@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
-import { seasonTotals, autoStatus, computeOverallRating } from "../utils/status";
+import { seasonTotals, autoStatus, computeOverallRating, isCaughtUp } from "../utils/status";
+import { fetchNextAiring } from "../api";
 import { normalizeSeriesTitle } from "../utils/titles";
 import { getStaleCached, setCached, TTL } from "../lib/cache";
 import { useCompanion } from "./CompanionContext";
@@ -64,6 +65,11 @@ function sanitizeEntry(e) {
   };
 }
 
+/** Promise.race avec un délai : évite qu'une API lente retarde la réaction. */
+function withTimeout(promise, ms) {
+  return Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve(null), ms))]);
+}
+
 function shouldAutoStatus() {
   return localStorage.getItem("pref_autoStatus") !== "false";
 }
@@ -91,6 +97,33 @@ function autoBackup(entries) {
 export function LibraryProvider({ children }) {
   const { user } = useAuth();
   const { triggerCompanion } = useCompanion();
+
+  // Réaction du compagnon après une progression d'épisodes. Distingue :
+  //  - "finished"  : titre réellement terminé (plus aucune diffusion annoncée) ;
+  //  - "caughtUp"  : titre encore en diffusion dont on a vu tous les épisodes
+  //                  sortis (le statut stocké peut passer à "termine" tant que
+  //                  le total connu est atteint — Card le rétablit ensuite en
+  //                  "en-cours" — mais ce n'est PAS une fin).
+  // La prochaine diffusion vient du cache de fetchNextAiring (déjà rempli par
+  // Card) ; en cas d'échec/lenteur on retombe sur le comportement historique.
+  const reactToProgress = useCallback(async (before, after) => {
+    if (after.status === "a-voir" || after.status === "abandonne") return;
+    const reachedEnd = after.status === "termine" && before.status !== "termine";
+    const canCheck = (after.source === "anilist" && after.anilistIds?.length) || (after.source === "tvmaze" && after.tvmazeId);
+
+    let airing = null;
+    if (canCheck) {
+      try { airing = await withTimeout(fetchNextAiring(after), 2500); } catch (_) {}
+    }
+    const stillAiring = !!airing?.airingAt;
+    const vars = { title: after.title, episode: airing?.episode ?? "" };
+
+    if (reachedEnd) {
+      triggerCompanion(stillAiring ? "caughtUp" : "finished", vars);
+    } else if (stillAiring && !isCaughtUp(before, airing) && isCaughtUp(after, airing)) {
+      triggerCompanion("caughtUp", vars);
+    }
+  }, [triggerCompanion]);
   const [entries, setEntriesState] = useState([]);
   const [loading, setLoading]      = useState(true);
   const [saveError, setSaveError]  = useState(false);
@@ -215,6 +248,7 @@ export function LibraryProvider({ children }) {
 
   const incrementEpisode = useCallback((id, seasonIndex) => {
     const now = Date.now(); const auto = shouldAutoStatus();
+    let progress = null;
     persist(entriesRef.current.map((e) => {
       if (e.id !== id) return e;
       const seasons = e.seasons.map((s, i) => {
@@ -225,12 +259,12 @@ export function LibraryProvider({ children }) {
       const history = [...(e.watchHistory || []),
         { seasonIndex, episode: seasons[seasonIndex].watchedEpisodes, watchedAt: now }];
       const newStatus = auto ? autoStatus(e, seasons) : e.status;
-      if (newStatus === "termine" && e.status !== "termine") {
-        triggerCompanion("finished", { title: e.title });
-      }
-      return { ...e, seasons, status: newStatus, watchHistory: history, updatedAt: now };
+      const updated = { ...e, seasons, status: newStatus, watchHistory: history, updatedAt: now };
+      progress = { before: e, after: updated };
+      return updated;
     }));
-  }, [user, triggerCompanion]);
+    if (progress) reactToProgress(progress.before, progress.after);
+  }, [user, reactToProgress]);
 
   const decrementEpisode = useCallback((id, seasonIndex) => {
     const now = Date.now(); const auto = shouldAutoStatus();
@@ -244,6 +278,7 @@ export function LibraryProvider({ children }) {
 
   const setEpisodeCount = useCallback((id, seasonIndex, value) => {
     const now = Date.now(); const auto = shouldAutoStatus();
+    let progress = null;
     persist(entriesRef.current.map((e) => {
       if (e.id !== id) return e;
       const old = e.seasons[seasonIndex]?.watchedEpisodes || 0;
@@ -259,15 +294,15 @@ export function LibraryProvider({ children }) {
             ({ seasonIndex, episode: old + i + 1, watchedAt: now + i }))
         : [];
       const newStatus = auto ? autoStatus(e, seasons) : e.status;
-      if (newStatus === "termine" && e.status !== "termine") {
-        triggerCompanion("finished", { title: e.title });
-      }
-      return { ...e, seasons,
+      const updated = { ...e, seasons,
         status: newStatus,
         watchHistory: [...(e.watchHistory || []), ...hist],
         updatedAt: now };
+      if (nw > old) progress = { before: e, after: updated };
+      return updated;
     }));
-  }, [user, triggerCompanion]);
+    if (progress) reactToProgress(progress.before, progress.after);
+  }, [user, reactToProgress]);
 
   const markDone = useCallback((id) => {
     const entry = entriesRef.current.find((e) => e.id === id);
