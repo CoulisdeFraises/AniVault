@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { CalendarClock, Clock, Tv, Film } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { LazyImage } from "../common/LazyImage";
@@ -35,7 +36,7 @@ function TodayCard({ item, nextAiring, wide, onOpen }) {
 
   return (
     <button onClick={() => onOpen(entry)}
-      className={`relative overflow-hidden rounded-2xl border border-white/15 text-left active:scale-[0.98] transition-transform group flex-shrink-0 h-[128px] ${wide ? "w-[58%]" : "w-[38%]"} min-w-[150px]`}>
+      className={`relative overflow-hidden rounded-2xl border border-white/15 text-left active:scale-[0.98] transition-transform group w-full h-[128px]`}>
       {cover
         ? <LazyImage src={cover} alt={entry.title} className="absolute inset-0 w-full h-full [&_img]:object-[center_22%] group-hover:scale-105 transition-transform duration-300" />
         : <div className="absolute inset-0 flex items-center justify-center bg-violet-900"><Fallback size={28} className="text-violet-600" /></div>}
@@ -67,6 +68,76 @@ function TodayCard({ item, nextAiring, wide, onOpen }) {
   );
 }
 
+const CARD_W   = "min(68vw, 300px)";
+const MIN_SCALE = 0.86;   // taille de la carte "loin" du centre
+const MIN_ALPHA = 0.6;
+
+/**
+ * Carrousel : la carte au centre est pleine taille, les voisines rétrécissent
+ * et s'estompent selon leur distance au centre (mise à jour directe du DOM à
+ * chaque frame de scroll, sans re-render React). Désactivé si l'utilisateur
+ * préfère réduire les animations.
+ */
+function TodayCarousel({ items, nextAiringByEntry, onOpen }) {
+  const scrollerRef = useRef(null);
+  const cardRefs    = useRef([]);
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    let raf = 0;
+
+    const update = () => {
+      raf = 0;
+      const center = el.scrollLeft + el.clientWidth / 2;
+      let best = 0, bestD = Infinity;
+      cardRefs.current.forEach((card, i) => {
+        if (!card) return;
+        const d = Math.abs(card.offsetLeft + card.offsetWidth / 2 - center);
+        if (d < bestD) { bestD = d; best = i; }
+        if (reduce) return;
+        const t = Math.min(1, d / (card.offsetWidth * 0.9));
+        card.style.transform = `scale(${1 - (1 - MIN_SCALE) * t})`;
+        card.style.opacity   = String(1 - (1 - MIN_ALPHA) * t);
+      });
+      setActive((prev) => (prev === best ? prev : best));
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+
+    update();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [items.length]);
+
+  return (
+    <>
+      <div ref={scrollerRef}
+        className="flex gap-3 overflow-x-auto scrollbar-none -mx-4 snap-x snap-mandatory py-1"
+        style={{ paddingInline: `calc((100% - ${CARD_W}) / 2)`, scrollbarWidth: "none" }}>
+        {items.map((it, i) => (
+          <div key={`${it.entry.id}-${it.episode}`} ref={(n) => (cardRefs.current[i] = n)}
+            className="flex-shrink-0 snap-center will-change-transform" style={{ width: CARD_W }}>
+            <TodayCard item={it} nextAiring={nextAiringByEntry.get(it.entry.id)} wide onOpen={onOpen} />
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-center gap-1.5 mt-1.5" aria-hidden="true">
+        {items.map((it, i) => (
+          <span key={`${it.entry.id}-${it.episode}`}
+            className={`h-1.5 rounded-full transition-all duration-300 motion-reduce:transition-none ${i === active ? "w-4 bg-amber-400" : "w-1.5 bg-white/25"}`} />
+        ))}
+      </div>
+    </>
+  );
+}
+
 export function TodaySection({ items, nextAiringByEntry }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -85,13 +156,9 @@ export function TodaySection({ items, nextAiringByEntry }) {
           <p className="text-[11px] text-violet-400 mt-1">Repose-toi, ou rattrape ton retard ✨</p>
         </div>
       ) : (
-        <div className="flex gap-3 overflow-x-auto scrollbar-none -mx-4 px-4 snap-x">
-          {items.map((it, i) => (
-            <div key={`${it.entry.id}-${it.episode}`} className="contents">
-              <TodayCard item={it} nextAiring={nextAiringByEntry.get(it.entry.id)} wide={items.length === 1 || i === 0} onOpen={open} />
-            </div>
-          ))}
-        </div>
+        items.length === 1
+          ? <TodayCard item={items[0]} nextAiring={nextAiringByEntry.get(items[0].entry.id)} wide onOpen={open} />
+          : <TodayCarousel items={items} nextAiringByEntry={nextAiringByEntry} onOpen={open} />
       )}
     </section>
   );
