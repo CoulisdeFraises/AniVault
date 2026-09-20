@@ -538,7 +538,7 @@ export function Details() {
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="bg-violet-900 border border-white/10 flex flex-col w-full
+        className="bg-violet-950 border border-white/10 flex flex-col w-full
           rounded-t-3xl max-h-[92dvh]
           sm:rounded-2xl sm:max-w-2xl sm:max-h-[92vh]
           animate-slideUp sm:animate-none"
@@ -591,6 +591,13 @@ export function Details() {
 
         {/* ── Header ── */}
         <div className="relative px-4 sm:px-6 pb-4 border-b border-white/5 flex-shrink-0">
+          {/* ── Décor de fond — halos flous façon maquette ── */}
+          <div className="absolute inset-x-0 top-0 h-48 overflow-hidden rounded-t-3xl sm:rounded-t-2xl pointer-events-none -z-10">
+            <div className="absolute -top-16 -right-14 w-56 h-56 rounded-full bg-fuchsia-500/20 blur-3xl" />
+            <div className="absolute -top-10 left-1/3 w-40 h-40 rounded-full bg-violet-400/10 blur-3xl" />
+            <div className="absolute top-4 -left-10 w-32 h-32 rounded-full bg-indigo-400/10 blur-2xl" />
+          </div>
+
           <div className="flex gap-3 sm:gap-4">
             {displayImage
               ? <img src={displayImage} alt="" loading="lazy"
@@ -646,7 +653,10 @@ export function Details() {
           {entry.notes && <p className="text-[11px] text-violet-300/80 italic mt-2 line-clamp-2">{entry.notes}</p>}
 
           {/* ── Barre note + statut ── */}
-          <div className="relative mt-4 flex items-center gap-3 rounded-2xl bg-white/5 border border-white/10 px-4 py-3">
+          {/* Volontairement moins large que le bloc en-tête : laisse la place,
+              à droite, au compagnon (voir CompanionPeek juste en dessous),
+              affiché à peu près au même niveau plutôt que tout en bas. */}
+          <div className="relative mt-4 flex items-center gap-3 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 w-[68%] sm:w-[62%]">
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <Star size={18} fill="#fbbf24" strokeWidth={0} className="flex-shrink-0" />
               <span className="text-2xl font-bold text-violet-50" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
@@ -660,16 +670,17 @@ export function Details() {
               <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />{s.label}
             </span>
           </div>
-          <p className="font-mono text-[10px] text-violet-500 mt-1.5 px-0.5">
+          <p className="font-mono text-[10px] text-violet-500 mt-1.5 px-0.5 w-[68%] sm:w-[62%]">
             {entry.rating > 0 ? "Moyenne des saisons notées — note-les ci-dessous" : "Aucune saison notée pour l'instant"}
           </p>
 
-          {/* ── Compagnon qui "sort" du coin bas-droit de tout le bloc en-tête,
-               façon visual novel (voir CompanionPeek) — même ancrage que dans
-               l'ancienne maquette, juste réappliqué au nouveau bloc en-tête. ── */}
+          {/* ── Compagnon qui "sort" du coin droit du bloc en-tête, façon
+               visual novel (voir CompanionPeek) — aligné à peu près au niveau
+               de la barre note + statut ci-dessus (plus étroite exprès pour
+               lui laisser la place), plutôt que tout en bas du bloc. ── */}
           {companionImgSrc && (
             <CompanionPeek rating={entry.rating}
-              className="-bottom-2 -right-1 sm:-right-2 h-24 sm:h-32 z-10" />
+              className="bottom-2 right-0 sm:right-1 h-28 sm:h-36 z-10" />
           )}
         </div>
 
@@ -738,7 +749,7 @@ export function Details() {
                           onIncrement={curTV ? () => { haptics.tap(); incrementEpisode(entry.id, curTV.globalIndex); } : undefined}
                           canMarkAll={!!curTV && curTV.totalEpisodes != null && curTV.watchedEpisodes < curTV.totalEpisodes}
                           onMarkAll={handleMarkAllWatched}
-                          markAllLabel={hasNextTV ? "Tout → Suiv." : "Tout"}
+                          markAllLabel="Tout"
                           entryId={entry.id} globalIndex={curTV?.globalIndex} setEpisodeCount={setEpisodeCount}
                           topRight={canFinish && (
                             <button onClick={() => markDone(entry.id)}
@@ -915,7 +926,7 @@ export function Details() {
                         onIncrement={curTV ? () => { haptics.tap(); incrementEpisode(entry.id, curTV.globalIndex); } : undefined}
                         canMarkAll={!!curTV && curTV.totalEpisodes != null && curTV.watchedEpisodes < curTV.totalEpisodes}
                         onMarkAll={handleMarkAllWatched}
-                        markAllLabel={hasNextTV ? "Tout → Suiv." : "Tout"}
+                        markAllLabel="Tout"
                         entryId={entry.id} globalIndex={curTV?.globalIndex} setEpisodeCount={setEpisodeCount}
                         topRight={canFinish && (
                           <button onClick={() => markDone(entry.id)}
