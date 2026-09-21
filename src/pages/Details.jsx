@@ -489,7 +489,7 @@ export function Details() {
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="bg-violet-900 border border-white/10 flex flex-col w-full
+        className="bg-violet-950 border border-white/10 flex flex-col w-full
           rounded-t-3xl max-h-[92dvh]
           sm:rounded-2xl sm:max-w-2xl sm:max-h-[92vh]
           animate-slideUp sm:animate-none"
@@ -506,104 +506,122 @@ export function Details() {
         </div>
 
         {/* ── Header ── */}
-        <div className="relative flex gap-3 sm:gap-4 p-4 sm:p-6 border-b border-white/5 flex-shrink-0 overflow-hidden">
-          {displayImage
-            ? <img src={displayImage} alt="" loading="lazy"
-                className="w-16 h-24 sm:w-24 sm:h-36 object-cover rounded-xl flex-shrink-0" />
-            : showFallback
-              ? <div className="relative w-16 h-24 sm:w-24 sm:h-36 rounded-xl overflow-hidden flex-shrink-0">
-                  <img src={fallbackImage} alt="" loading="lazy" className="w-full h-full object-cover brightness-[0.25]" />
-                  <span className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-white/50">?</span>
-                </div>
-              : null}
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2 mb-1.5">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-violet-300">
-                    {entry.category === "movie" ? <Clapperboard size={10} /> : entry.type === "anime" ? <Film size={10} /> : <Tv size={10} />}
-                    {entry.category === "movie" ? "Film" : entry.type === "anime" ? "Anime" : "Série"}
-                  </span>
-                  <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest ${s.text}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />{s.label}
-                  </span>
-                </div>
-                <h2 className="text-base sm:text-xl font-bold text-violet-50 leading-tight line-clamp-2"
-                  style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{entry.title}</h2>
-              </div>
-
-              {/* ── Boutons header ── */}
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <button onClick={() => { haptics.light(); toggleFavorite(entry); }}
-                  aria-label={isInFavorites(entry.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
-                  className={`p-1.5 rounded-lg transition-colors ${isInFavorites(entry.id) ? "text-pink-400 hover:bg-pink-500/10" : "text-violet-300 hover:bg-white/10 hover:text-pink-300"}`}>
-                  <Heart size={14} fill={isInFavorites(entry.id) ? "currentColor" : "none"} />
-                </button>
-                <button onClick={() => setAddToListOpen(true)} aria-label="Ajouter à une liste"
-                  className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-amber-300 transition-colors">
-                  <ListPlus size={14} />
-                </button>
-                {/* ── Actualiser la carte (nouvelles saisons / OVA / Films) ── */}
-                {(entry.source === "anilist" || entry.source === "tvmaze") && (
-                  <button
-                    onClick={handleRefreshCard}
-                    disabled={refreshingCard}
-                    aria-label="Actualiser — chercher de nouveaux contenus"
-                    title="Chercher de nouvelles saisons, OVA ou films"
-                    className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-teal-300 transition-colors disabled:opacity-40"
-                  >
-                    <RefreshCw size={14} className={refreshingCard ? "animate-spin" : ""} />
-                  </button>
-                )}
-                <button onClick={() => setEditing(true)}
-                  className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-violet-50">
-                  <Pencil size={14} />
-                </button>
-                <button onClick={closeDetails}
-                  className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10">
-                  <X size={14} />
-                </button>
-              </div>
-            </div>
-
-            {entry.genres.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-2">
-                {entry.genres.slice(0, 4).map(g => (
-                  <span key={g} className="px-1.5 py-0.5 rounded-full bg-white/5 text-[10px] text-violet-300">{g}</span>
-                ))}
-                {entry.genres.length > 4 && (
-                  <span className="px-1.5 py-0.5 rounded-full bg-white/5 text-[10px] text-violet-500">+{entry.genres.length - 4}</span>
-                )}
-              </div>
-            )}
-
-            {entry.description && (
-              <div className="mb-2 max-h-14 sm:max-h-20 overflow-y-auto border-l-2 border-violet-600 pl-2 pr-1">
-                <p className="text-[11px] text-violet-300/75 leading-relaxed italic">{entry.description}</p>
-              </div>
-            )}
-
-            <div className="mb-1">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-xl sm:text-3xl font-bold text-violet-50"
-                  style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-                  {formatRating(entry.rating) || "—"}
-                </span>
-                {entry.rating > 0 && <Star size={18} fill="#fbbf24" strokeWidth={0} />}
-                {entry.rating > 0 && !companionImgSrc && <RatingBadge rating={entry.rating} className="text-xl sm:text-3xl h-12 sm:h-16" />}
-              </div>
-              <p className="font-mono text-[10px] text-violet-500">
-                {entry.rating > 0 ? "Moyenne des saisons notées — note-les ci-dessous" : "Aucune saison notée pour l'instant"}
-              </p>
-            </div>
-            {entry.notes && <p className="text-[11px] text-violet-300/80 italic mt-1 line-clamp-2">{entry.notes}</p>}
+        <div className="relative p-4 sm:p-6 border-b border-white/5 flex-shrink-0">
+          {/* ── Décor de fond — bulles dégradées éparpillées, légèrement floues ── */}
+          <div className="absolute inset-x-0 top-0 h-40 overflow-hidden rounded-t-3xl sm:rounded-t-2xl pointer-events-none -z-10">
+            <div className="absolute -top-6 right-6 w-20 h-20 rounded-full bg-gradient-to-br from-fuchsia-400/30 to-violet-600/10 blur-xl" />
+            <div className="absolute top-8 right-24 sm:right-32 w-12 h-12 rounded-full bg-gradient-to-br from-amber-300/20 to-pink-500/10 blur-lg" />
+            <div className="absolute -top-4 left-1/3 w-16 h-16 rounded-full bg-gradient-to-br from-indigo-400/25 to-violet-500/5 blur-xl" />
+            <div className="absolute top-14 left-6 sm:left-10 w-10 h-10 rounded-full bg-gradient-to-br from-violet-300/20 to-fuchsia-400/5 blur-lg" />
+            <div className="absolute top-2 left-1/2 w-24 h-24 rounded-full bg-gradient-to-br from-fuchsia-500/15 to-transparent blur-2xl" />
           </div>
 
-          {/* ── Compagnon qui "sort" du bas du header, collé au séparateur des saisons ── */}
+          <div className="flex gap-3 sm:gap-4">
+            {displayImage
+              ? <img src={displayImage} alt="" loading="lazy"
+                  className="w-28 h-40 sm:w-40 sm:h-56 object-cover rounded-2xl flex-shrink-0 shadow-lg shadow-black/40" />
+              : showFallback
+                ? <div className="relative w-28 h-40 sm:w-40 sm:h-56 rounded-2xl overflow-hidden flex-shrink-0 shadow-lg shadow-black/40">
+                    <img src={fallbackImage} alt="" loading="lazy" className="w-full h-full object-cover brightness-[0.25]" />
+                    <span className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-white/50">?</span>
+                  </div>
+                : null}
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest text-violet-300">
+                      {entry.category === "movie" ? <Clapperboard size={10} /> : entry.type === "anime" ? <Film size={10} /> : <Tv size={10} />}
+                      {entry.category === "movie" ? "Film" : entry.type === "anime" ? "Anime" : "Série"}
+                    </span>
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-widest ${s.text}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />{s.label}
+                    </span>
+                  </div>
+                  <h2 className="text-base sm:text-xl font-bold text-violet-50 leading-tight"
+                    style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{entry.title}</h2>
+                </div>
+
+                {/* ── Boutons header ── */}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button onClick={() => { haptics.light(); toggleFavorite(entry); }}
+                    aria-label={isInFavorites(entry.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
+                    className={`p-1.5 rounded-lg transition-colors ${isInFavorites(entry.id) ? "text-pink-400 hover:bg-pink-500/10" : "text-violet-300 hover:bg-white/10 hover:text-pink-300"}`}>
+                    <Heart size={14} fill={isInFavorites(entry.id) ? "currentColor" : "none"} />
+                  </button>
+                  <button onClick={() => setAddToListOpen(true)} aria-label="Ajouter à une liste"
+                    className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-amber-300 transition-colors">
+                    <ListPlus size={14} />
+                  </button>
+                  {/* ── Actualiser la carte (nouvelles saisons / OVA / Films) ── */}
+                  {(entry.source === "anilist" || entry.source === "tvmaze") && (
+                    <button
+                      onClick={handleRefreshCard}
+                      disabled={refreshingCard}
+                      aria-label="Actualiser — chercher de nouveaux contenus"
+                      title="Chercher de nouvelles saisons, OVA ou films"
+                      className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-teal-300 transition-colors disabled:opacity-40"
+                    >
+                      <RefreshCw size={14} className={refreshingCard ? "animate-spin" : ""} />
+                    </button>
+                  )}
+                  <button onClick={() => setEditing(true)}
+                    className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10 hover:text-violet-50">
+                    <Pencil size={14} />
+                  </button>
+                  <button onClick={closeDetails}
+                    className="p-1.5 rounded-lg text-violet-300 hover:bg-white/10">
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {entry.genres.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {entry.genres.slice(0, 4).map(g => (
+                    <span key={g} className="px-1.5 py-0.5 rounded-full bg-white/5 text-[10px] text-violet-300">{g}</span>
+                  ))}
+                  {entry.genres.length > 4 && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-white/5 text-[10px] text-violet-500">+{entry.genres.length - 4}</span>
+                  )}
+                </div>
+              )}
+
+              {/* ── Résumé — à côté de l'affiche, pas en dessous ── */}
+              {entry.description && (
+                <div className="mb-2 max-h-20 sm:max-h-28 overflow-y-auto border-l-2 border-violet-600 pl-2 pr-1">
+                  <p className="text-[11px] text-violet-300/75 leading-relaxed italic">{entry.description}</p>
+                </div>
+              )}
+
+              {entry.notes && <p className="text-[11px] text-violet-300/80 italic mt-1 line-clamp-2">{entry.notes}</p>}
+            </div>
+          </div>
+
+          {/* ── Barre note + statut ── */}
+          {/* Volontairement moins large que le bloc en-tête : laisse la place,
+              à droite, au compagnon (voir CompanionPeek juste en dessous),
+              affiché à peu près au même niveau plutôt que tout en bas. */}
+          <div className="relative mt-3 flex items-center gap-1.5 mb-1 w-[68%] sm:w-[62%]">
+            <span className="text-xl sm:text-3xl font-bold text-violet-50"
+              style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+              {formatRating(entry.rating) || "—"}
+            </span>
+            {entry.rating > 0 && <Star size={18} fill="#fbbf24" strokeWidth={0} />}
+            {entry.rating > 0 && !companionImgSrc && <RatingBadge rating={entry.rating} className="text-xl sm:text-3xl h-12 sm:h-16" />}
+          </div>
+          <p className="font-mono text-[10px] text-violet-500 w-[68%] sm:w-[62%]">
+            {entry.rating > 0 ? "Moyenne des saisons notées — note-les ci-dessous" : "Aucune saison notée pour l'instant"}
+          </p>
+
+          {/* ── Compagnon qui "sort" du coin droit du bloc en-tête, façon
+               visual novel (voir CompanionPeek) — aligné à peu près au niveau
+               de la barre note + statut ci-dessus (plus étroite exprès pour
+               lui laisser la place), plutôt que tout en bas du bloc. ── */}
           {companionImgSrc && (
             <CompanionPeek rating={entry.rating}
-              className="-bottom-1 -right-1 sm:-right-2 h-24 sm:h-32 z-10" />
+              className="bottom-2 right-0 sm:right-1 h-28 sm:h-36 z-10" />
           )}
         </div>
 
@@ -692,7 +710,7 @@ export function Details() {
                           {curTV.totalEpisodes != null && curTV.watchedEpisodes < curTV.totalEpisodes && (
                             <button onClick={handleMarkAllWatched}
                               className="font-mono text-xs px-3 py-1.5 rounded-lg bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform flex items-center gap-1">
-                              <CheckCheck size={12} />{hasNextTV ? "Tout → Suiv." : "Tout"}
+                              <CheckCheck size={12} />Tout
                             </button>
                           )}
                         </div>
@@ -889,7 +907,7 @@ export function Details() {
                         {curTV.totalEpisodes != null && curTV.watchedEpisodes < curTV.totalEpisodes && (
                           <button onClick={handleMarkAllWatched}
                             className="font-mono text-xs px-3 py-1.5 rounded-lg bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform flex items-center gap-1">
-                            <CheckCheck size={12} />{hasNextTV ? "Tout → Suiv." : "Tout"}
+                            <CheckCheck size={12} />Tout
                           </button>
                         )}
                       </div>
