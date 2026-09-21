@@ -101,16 +101,24 @@ export function DayCarousel({ days, activeIndex, onActiveChange, renderDay }) {
     };
   }, [onActiveChange, days.length]);
 
+  // Espaceurs (et non padding) de part et d'autre : le padding de fin d'un
+  // conteneur flex scrollable est ignoré par certains navigateurs (Safari), ce
+  // qui empêchait le premier/dernier jour de se centrer et faisait "coller
+  // entre deux jours". Largeur = (largeur visible − panneau) / 2 − gap.
+  const spacer = { flex: `0 0 calc((100% - ${PANEL_W}) / 2 - 0.5rem)` };
+
   return (
     <div ref={scrollerRef}
       className="relative flex gap-2 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scrollbar-none -mx-3 py-1 items-start"
-      style={{ paddingInline: `calc((100% - ${PANEL_W}) / 2)`, scrollbarWidth: "none" }}>
+      style={{ scrollbarWidth: "none" }}>
+      <div aria-hidden="true" style={spacer} />
       {days.map((day, i) => (
         <div key={i} ref={(n) => (panelRefs.current[i] = n)}
-          className="flex-shrink-0 snap-center will-change-transform" style={{ width: PANEL_W }}>
+          className="flex-shrink-0 snap-center snap-always will-change-transform" style={{ width: PANEL_W }}>
           {renderDay(day, i)}
         </div>
       ))}
+      <div aria-hidden="true" style={spacer} />
     </div>
   );
 }

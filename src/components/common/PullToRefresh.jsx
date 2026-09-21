@@ -45,6 +45,7 @@ export function PullToRefresh({ onRefresh, children, className = "" }) {
 
   // Refs mutables — accessibles dans les handlers sans stale closure
   const startYRef      = useRef(null);
+  const startXRef      = useRef(0);
   const phaseRef       = useRef("idle");
   const onRefreshRef   = useRef(onRefresh);
   const scrollElRef    = useRef(null); // conteneur scrollable sous le doigt, s'il y en a un
@@ -70,12 +71,23 @@ export function PullToRefresh({ onRefresh, children, className = "" }) {
       const scrollTop = getRelevantScrollTop(scrollEl);
       if (scrollTop > 4) return;
       startYRef.current = e.touches[0].clientY;
+      startXRef.current = e.touches[0].clientX;
     }
 
     function handleTouchMove(e) {
       if (document.body.style.overflow === "hidden") { startYRef.current = null; return; }
       if (startYRef.current === null || phaseRef.current === "refreshing") return;
       const delta = e.touches[0].clientY - startYRef.current;
+      const dx    = Math.abs(e.touches[0].clientX - startXRef.current);
+
+      // Petite zone morte : tant que l'intention du geste n'est pas claire,
+      // on ne touche à rien (appeler preventDefault dès le premier pixel
+      // annulait les swipes horizontaux — ex. le carrousel des jours, qui
+      // s'arrêtait "entre deux jours" sans jamais s'aligner).
+      if (phaseRef.current === "idle" && Math.abs(delta) < 8 && dx < 8) return;
+      // Geste plutôt horizontal → ce n'est pas un pull-to-refresh : on laisse
+      // le scroll natif (et le scroll-snap) faire leur travail.
+      if (phaseRef.current === "idle" && dx >= Math.abs(delta)) { startYRef.current = null; return; }
       if (delta <= 0) { startYRef.current = null; return; }
 
       // Bloque le scroll natif ET le pull-to-refresh du navigateur/PWA
