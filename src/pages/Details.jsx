@@ -603,15 +603,21 @@ export function Details() {
           {/* Volontairement moins large que le bloc en-tête : laisse la place,
               à droite, au compagnon (voir CompanionPeek juste en dessous),
               affiché à peu près au même niveau plutôt que tout en bas. */}
-          <div className="relative mt-3 flex items-center gap-1.5 mb-1 w-[68%] sm:w-[62%]">
-            <span className="text-xl sm:text-3xl font-bold text-violet-50"
-              style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-              {formatRating(entry.rating) || "—"}
+          <div className="relative mt-3 flex items-center gap-3 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 w-[68%] sm:w-[62%]">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <Star size={18} fill="#fbbf24" strokeWidth={0} className="flex-shrink-0" />
+              <span className="text-2xl font-bold text-violet-50" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+                {formatRating(entry.rating) || "—"}
+              </span>
+              <span className="text-sm text-violet-500">/10</span>
+              {entry.rating > 0 && !companionImgSrc && <RatingBadge rating={entry.rating} className="text-lg h-8 ml-1" />}
+            </div>
+            <div className="w-px h-6 bg-white/10 flex-shrink-0" />
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 text-xs font-medium flex-shrink-0 ${s.text}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />{s.label}
             </span>
-            {entry.rating > 0 && <Star size={18} fill="#fbbf24" strokeWidth={0} />}
-            {entry.rating > 0 && !companionImgSrc && <RatingBadge rating={entry.rating} className="text-xl sm:text-3xl h-12 sm:h-16" />}
           </div>
-          <p className="font-mono text-[10px] text-violet-500 w-[68%] sm:w-[62%]">
+          <p className="font-mono text-[10px] text-violet-500 mt-1.5 px-0.5 w-[68%] sm:w-[62%]">
             {entry.rating > 0 ? "Moyenne des saisons notées — note-les ci-dessous" : "Aucune saison notée pour l'instant"}
           </p>
 
