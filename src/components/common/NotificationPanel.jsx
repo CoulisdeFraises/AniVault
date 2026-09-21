@@ -257,7 +257,7 @@ export function NotificationPanel() {
         onClick={open ? closePanel : openPanel}
         aria-label="Notifications"
         aria-expanded={open}
-        className="relative h-9 w-9 flex items-center justify-center rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
+        className="relative h-9 w-9 flex items-center justify-center rounded-xl bg-violet-900/50 backdrop-blur-md border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none"
       >
         <Bell size={15} className="text-violet-400" />
         {unreadCount > 0 && (

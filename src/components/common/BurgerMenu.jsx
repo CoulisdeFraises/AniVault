@@ -116,7 +116,7 @@ export function BurgerMenu() {
 
   return (
     <>
-      <div className="flex items-center rounded-xl bg-violet-900/40 border border-white/10 overflow-hidden flex-shrink-0">
+      <div className="flex items-center rounded-xl bg-violet-900/50 backdrop-blur-md border border-white/10 overflow-hidden flex-shrink-0">
         <button
           ref={buttonRef}
           onClick={menuOpen ? closeMenu : openMenu}

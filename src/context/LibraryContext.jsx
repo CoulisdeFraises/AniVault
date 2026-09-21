@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
 import { seasonTotals, autoStatus, computeOverallRating, isCaughtUp } from "../utils/status";
@@ -357,26 +357,13 @@ export function LibraryProvider({ children }) {
     }));
   }, [user]);
 
-  // PERF : c'est LE contexte le plus consommé de l'app — chaque <Card> (donc
-  // potentiellement des dizaines à l'écran) appelle useLibrary() directement.
-  // Sans useMemo, un simple re-render du provider (ex. un état local sans
-  // rapport) recréait cet objet et forçait TOUTES les cartes à re-render,
-  // même celles dont l'entrée n'avait pas bougé. Toutes les fonctions du
-  // tableau de dépendances sont déjà des useCallback stables ci-dessus, donc
-  // en pratique ce memo ne change que lorsque `entries`/`loading`/`saveError`/
-  // `offline` changent réellement.
-  const value = useMemo(() => ({
-    entries, setEntries, loading, saveError, offline,
-    findDuplicate, saveEntry, deleteEntry,
-    incrementEpisode, decrementEpisode, setEpisodeCount,
-    markDone, updateRating, updateSeasonRating, updateSeasonTotal, addSeason, deleteSeason,
-  }), [entries, setEntries, loading, saveError, offline,
-       findDuplicate, saveEntry, deleteEntry,
-       incrementEpisode, decrementEpisode, setEpisodeCount,
-       markDone, updateRating, updateSeasonRating, updateSeasonTotal, addSeason, deleteSeason]);
-
   return (
-    <LibraryContext.Provider value={value}>
+    <LibraryContext.Provider value={{
+      entries, setEntries, loading, saveError, offline,
+      findDuplicate, saveEntry, deleteEntry,
+      incrementEpisode, decrementEpisode, setEpisodeCount,
+      markDone, updateRating, updateSeasonRating, updateSeasonTotal, addSeason, deleteSeason,
+    }}>
       {children}
     </LibraryContext.Provider>
   );

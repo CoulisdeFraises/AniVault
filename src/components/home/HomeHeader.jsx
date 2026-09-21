@@ -34,7 +34,7 @@ export function HomeHeader({ syncing, syncProgress, onSyncClick }) {
         <button onClick={onSyncClick} disabled={syncing}
           title={syncing ? `Sync… ${syncProgress.current}/${syncProgress.total}` : "Actualiser les données"}
           aria-label="Actualiser les données"
-          className="h-9 w-9 flex items-center justify-center rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-70 active:scale-95 transition-all motion-reduce:transition-none">
+          className="h-9 w-9 flex items-center justify-center rounded-xl bg-violet-900/50 backdrop-blur-md border border-white/10 hover:bg-violet-800/50 disabled:opacity-70 active:scale-95 transition-all motion-reduce:transition-none">
           <RefreshCw size={14} className={`text-violet-300 ${syncing ? "animate-spin motion-reduce:animate-none" : ""}`} />
         </button>
         <NotificationPanel />

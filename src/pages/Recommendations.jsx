@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useLibrary }          from "../context/LibraryContext";
 import { usePrefs }            from "../context/PrefsContext";
 import { TopBar }          from "../components/common/TopBar";
+import { PageBanner }      from "../components/common/PageBanner";
 import { SynopsisModal }       from "../components/common/SynopsisModal";
 import { PullToRefresh }       from "../components/common/PullToRefresh";
 import { HeartIcon }           from "../components/common/icons";
@@ -771,20 +772,21 @@ export function Recommendations() {
   };
 
   return (
-    <div className="h-[100dvh] bg-violet-950 text-violet-50 flex flex-col overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="relative h-[100dvh] bg-violet-950 text-violet-50 flex flex-col overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <PageBanner />
 
       {/* ══ Zone fixe (non scrollable) : en-tête, onglets, genres, surprise, bannières ══ */}
-      <div className="flex-shrink-0 max-w-4xl w-full mx-auto px-4 sm:px-6 pt-safe-8">
+      <div className="relative z-10 flex-shrink-0 max-w-4xl w-full mx-auto px-4 sm:px-6 pt-safe-8">
 
         {/* ── En-tête ── */}
         <div className="flex items-start justify-between gap-3 mb-6">
           <div className="min-w-0">
             <button onClick={() => navigate(-1)}
-              className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 transition-colors mb-2">
+              className="flex items-center gap-1.5 text-sm text-violet-300 hover:text-violet-200 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)] transition-colors mb-2">
               <ChevronLeft size={16} /> Retour
             </button>
-            <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-1">Basé sur tes goûts</p>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+            <p className="font-mono text-[11px] tracking-[0.3em] text-violet-300 uppercase [text-shadow:0_1px_8px_rgba(20,8,50,0.9)] mb-1">Basé sur tes goûts</p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight [text-shadow:0_2px_14px_rgba(20,8,50,0.9)]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
               Recommandations
             </h1>
           </div>
@@ -883,7 +885,7 @@ export function Recommendations() {
           page) — PullToRefresh détecte lui-même ce conteneur interne via son
           overflow-y-auto et y attache le geste, cf. findScrollableAncestor
           dans PullToRefresh.jsx. ══ */}
-      <PullToRefresh onRefresh={handlePullRefresh} className="flex-1 min-h-0 overflow-y-auto">
+      <PullToRefresh onRefresh={handlePullRefresh} className="relative z-10 flex-1 min-h-0 overflow-y-auto">
         <div
           className="max-w-4xl mx-auto px-4 sm:px-6 pb-nav overflow-x-hidden"
           onTouchStart={handleContentTouchStart}

@@ -14,7 +14,7 @@ import { Modal }         from "../components/Modal/Modal";
 import { AnimatePresence } from "motion/react";
 import { PullToRefresh } from "../components/common/PullToRefresh";
 import { CalendarTabs }  from "../components/common/CalendarTabs";
-import { CalendarBackdrop } from "../components/calendar/CalendarBackdrop";
+import { PageBanner }       from "../components/common/PageBanner";
 import { FilterTab }        from "../components/calendar/SegmentedFilter";
 import { WeekStrip }        from "../components/calendar/WeekStrip";
 import { DayCarousel }      from "../components/calendar/DayCarousel";
@@ -421,7 +421,7 @@ export function Calendar() {
 
   return (
     <div className="relative h-[100dvh] flex flex-col overflow-hidden bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <CalendarBackdrop />
+      <PageBanner />
 
       {/* ── Zone fixe : en-tête, onglets, filtres, navigation jours ── */}
       <div className="relative z-10 flex-shrink-0 max-w-5xl w-full mx-auto px-3 sm:px-6 pt-safe-8">
@@ -429,11 +429,11 @@ export function Calendar() {
         {/* ── En-tête ── */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="min-w-0 flex-1">
-            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 active:scale-95 transition-all motion-reduce:transition-none mb-2">
+            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-violet-300 hover:text-violet-200 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)] active:scale-95 transition-all motion-reduce:transition-none mb-2">
               <ChevronLeft size={16} /> Retour
             </button>
-            <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-0.5">{getSeasonLabel()}</p>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Calendrier</h1>
+            <p className="font-mono text-[11px] tracking-[0.3em] text-violet-300 uppercase [text-shadow:0_1px_8px_rgba(20,8,50,0.9)] mb-0.5">{getSeasonLabel()}</p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight [text-shadow:0_2px_14px_rgba(20,8,50,0.9)]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Calendrier</h1>
           </div>
           <TopBar />
         </div>

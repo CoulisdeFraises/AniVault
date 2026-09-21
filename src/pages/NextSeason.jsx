@@ -1,4 +1,5 @@
 // src/pages/NextSeason.jsx
+import { PageBanner } from "../components/common/PageBanner";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Loader2, Plus, Check, RefreshCw, Sparkles } from "lucide-react";
@@ -110,18 +111,19 @@ export function NextSeason() {
   }, [addingIds, saveEntry]);
 
   return (
-    <div className="min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="relative min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <PageBanner />
       <PullToRefresh onRefresh={() => load(true)}>
-        <div className="max-w-5xl mx-auto px-3 sm:px-6 pb-nav pt-safe-8">
+        <div className="relative z-10 max-w-5xl mx-auto px-3 sm:px-6 pb-nav pt-safe-8">
 
           {/* ── En-tête ── */}
           <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
             <div className="min-w-0">
-              <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-200 active:scale-95 transition-all motion-reduce:transition-none mb-2">
+              <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-violet-300 hover:text-violet-200 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)] active:scale-95 transition-all motion-reduce:transition-none mb-2">
                 <ChevronLeft size={16} /> Retour
               </button>
-              <p className="font-mono text-[11px] tracking-[0.3em] text-violet-400 uppercase mb-0.5">À venir</p>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+              <p className="font-mono text-[11px] tracking-[0.3em] text-violet-300 uppercase [text-shadow:0_1px_8px_rgba(20,8,50,0.9)] mb-0.5">À venir</p>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight [text-shadow:0_2px_14px_rgba(20,8,50,0.9)]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
                 Saison prochaine
               </h1>
             </div>

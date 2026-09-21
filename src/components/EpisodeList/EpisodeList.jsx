@@ -1,4 +1,4 @@
-import { Check, ChevronRight } from "lucide-react";
+import { Check } from "lucide-react";
 import { haptics } from "../../utils/haptics";
 
 export function EpisodeList({ episodes, totalEpisodes, watched, statusColor, onSetEpisode, unknownReason }) {
@@ -11,7 +11,7 @@ export function EpisodeList({ episodes, totalEpisodes, watched, statusColor, onS
 
   if (rowCount > 0) {
     return (
-      <ul className="space-y-1.5">
+      <ul className="space-y-1">
         {Array.from({ length: rowCount }, (_, idx) => {
           const ep = episodes[idx];
           const isWatched = idx < watched;
@@ -19,19 +19,18 @@ export function EpisodeList({ episodes, totalEpisodes, watched, statusColor, onS
             <li
               key={idx}
               onClick={() => { if (!onSetEpisode) return; haptics.tap(); onSetEpisode(isWatched ? idx : idx + 1); }}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.09] active:scale-[0.99] transition-all cursor-pointer"
+              className={`flex items-center gap-3 p-2 rounded-lg transition-colors cursor-pointer hover:bg-white/10 ${isWatched ? "bg-white/5" : ""}`}
             >
-              <span className="flex-shrink-0 w-6 h-6 rounded-full border-[1.5px] flex items-center justify-center transition-colors"
-                style={{ borderColor: isWatched ? statusColor : "rgba(255,255,255,0.25)", backgroundColor: isWatched ? `${statusColor}22` : "transparent" }}>
-                {isWatched && <Check size={12} strokeWidth={3} style={{ color: statusColor }} />}
+              <span className="flex-shrink-0 w-5 h-5 rounded-full border flex items-center justify-center transition-colors"
+                style={{ borderColor: isWatched ? statusColor : "rgba(255,255,255,0.45)", backgroundColor: isWatched ? `${statusColor}20` : "transparent" }}>
+                {isWatched && <Check size={10} style={{ color: statusColor }} />}
               </span>
-              <span className="font-mono text-[11px] text-violet-500 flex-shrink-0 w-5">
+              <span className="font-mono text-[11px] text-violet-500 flex-shrink-0">
                 {String(ep?.number ?? idx + 1).padStart(2, "0")}
               </span>
-              <span className={`text-sm truncate flex-1 ${isWatched ? "text-violet-100" : "text-violet-400"}`}>
+              <span className={`text-sm truncate ${isWatched ? "text-violet-100" : "text-violet-300"}`}>
                 {ep?.name || `Épisode ${ep?.number ?? idx + 1}`}
               </span>
-              <ChevronRight size={14} className="flex-shrink-0 text-violet-600/70" />
             </li>
           );
         })}

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate }  from "react-router-dom";
 import { HomeHeader }       from "../components/home/HomeHeader";
-import { HomeBackdrop }     from "../components/home/HomeBackdrop";
+import { PageBanner }       from "../components/common/PageBanner";
 import { WeekSummary }      from "../components/home/WeekSummary";
 import { SearchTabs }       from "../components/home/SearchTabs";
 import { TodaySection }     from "../components/home/TodaySection";
@@ -379,7 +379,7 @@ export function Home() {
        * Le composant utilise des listeners natifs (passive: false sur touchmove)
        * pour fonctionner correctement en mode PWA standalone sur Android/iOS.
        */}
-      <HomeBackdrop />
+      <PageBanner />
       <PullToRefresh onRefresh={() => syncAll(true)}>
         <div className="relative flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 pb-4">
           <HomeHeader syncing={syncing} syncProgress={progress} onSyncClick={() => syncAll(true)} />
