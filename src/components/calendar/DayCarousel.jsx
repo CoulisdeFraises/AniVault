@@ -1,31 +1,43 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 
 // Largeur < 100 % : un petit bout des jours voisins dépasse sur les bords de
-// l'écran (flou + estompé) pour signaler qu'on peut swiper.
-const PANEL_W   = "min(85vw, 440px)";
-const MIN_SCALE = 0.95;
-const MIN_ALPHA = 0.55;
-const MAX_BLUR  = 3;   // px, atteint sur les jours voisins
+// l'écran (flou + estompé, voir .day-panel dans animations.css).
+const PANEL_W      = "min(85vw, 440px)";
+const SETTLE_MS    = 120;  // silence de scroll avant de considérer le carrousel "posé"
+const AFTER_TOUCH  = 220;  // délai laissé à l'inertie/au snap natif après le lâcher du doigt
 
 /**
- * Carrousel des jours (mobile) : un vrai scroll horizontal avec accroche
- * (scroll-snap), où le jour actif est centré et les jours voisins dépassent
- * de chaque côté (petit aperçu flou), légèrement réduits et estompés. Le doigt suit
- * réellement le contenu, contrairement à l'ancien "swipe puis animation".
+ * Carrousel des jours (mobile) : scroll horizontal natif avec accroche
+ * (scroll-snap). Le jour centré est net, les voisins sont floutés/estompés.
  *
- * Contrôlé de l'extérieur : `activeIndex` / `onActiveChange`. Un changement
- * d'index venu d'ailleurs (bandeau des jours) fait défiler le carrousel ; un
- * swipe de l'utilisateur remonte l'index via `onActiveChange`.
+ * Choix de conception (après un bug de carrousel "coincé entre deux jours") :
+ *  - AUCUNE écriture de style à chaque frame de scroll : l'état net/flou est un
+ *    simple attribut `data-active` posé sur le panneau centré, le rendu étant
+ *    fait en CSS (transition) ;
+ *  - AUCUN re-render React pendant le geste : l'index actif n'est remonté au
+ *    parent (`onActiveChange`) qu'une fois le carrousel posé ;
+ *  - filet de sécurité : si, une fois le scroll terminé et le doigt levé, le
+ *    carrousel n'est pas aligné sur un jour (snap natif raté), on le recentre
+ *    nous-mêmes.
+ *
+ * Contrôlé de l'extérieur : un `activeIndex` modifié ailleurs (bandeau des
+ * jours) fait défiler le carrousel ; on ne réagit pas aux changements que
+ * l'on a soi-même provoqués.
  */
 export function DayCarousel({ days, activeIndex, onActiveChange, renderDay }) {
-  const scrollerRef = useRef(null);
-  const panelRefs   = useRef([]);
-  const activeRef   = useRef(activeIndex);
-  const programmatic = useRef(false);
-  const timerRef    = useRef(0);
-  const mountedRef  = useRef(false);
+  const scrollerRef  = useRef(null);
+  const panelRefs    = useRef([]);
+  const knownRef     = useRef(activeIndex);  // dernier index connu du parent
+  const visualRef    = useRef(activeIndex);  // panneau actuellement mis en avant
+  const touchingRef  = useRef(false);
+  const timerRef     = useRef(0);
+  const onChangeRef  = useRef(onActiveChange);
+  onChangeRef.current = onActiveChange;
 
-  activeRef.current = activeIndex;
+  const targetFor = (i) => {
+    const el = scrollerRef.current, p = panelRefs.current[i];
+    return el && p ? p.offsetLeft + p.offsetWidth / 2 - el.clientWidth / 2 : 0;
+  };
 
   const nearestIndex = () => {
     const el = scrollerRef.current;
@@ -40,71 +52,74 @@ export function DayCarousel({ days, activeIndex, onActiveChange, renderDay }) {
     return best;
   };
 
-  const scrollToIndex = (i, behavior) => {
-    const el = scrollerRef.current, p = panelRefs.current[i];
-    if (!el || !p) return;
-    const left = p.offsetLeft + p.offsetWidth / 2 - el.clientWidth / 2;
-    programmatic.current = true;
-    clearTimeout(timerRef.current);
-    el.scrollTo({ left, behavior });
-    timerRef.current = setTimeout(() => { programmatic.current = false; }, behavior === "auto" ? 50 : 600);
+  const markActive = (i) => {
+    visualRef.current = i;
+    panelRefs.current.forEach((p, k) => { if (p) p.dataset.active = String(k === i); });
   };
 
   // Position initiale, sans animation ni flash.
-  useLayoutEffect(() => { scrollToIndex(activeIndex, "auto"); mountedRef.current = true; }, []); // eslint-disable-line
+  useLayoutEffect(() => {
+    const el = scrollerRef.current;
+    if (el) el.scrollTo({ left: targetFor(activeIndex), behavior: "auto" });
+    knownRef.current = activeIndex;
+    markActive(activeIndex);
+  }, []); // eslint-disable-line
 
-  // Changement d'index externe (bandeau des jours…) → on fait défiler.
+  // Changement d'index venu de l'extérieur (bandeau des jours…) → on défile.
   useEffect(() => {
-    if (!mountedRef.current) return;
-    if (nearestIndex() === activeIndex) return; // déjà là (swipe de l'utilisateur)
-    scrollToIndex(activeIndex, "smooth");
+    if (activeIndex === knownRef.current) return; // c'est nous qui l'avons remonté
+    knownRef.current = activeIndex;
+    markActive(activeIndex);
+    scrollerRef.current?.scrollTo({ left: targetFor(activeIndex), behavior: "smooth" });
   }, [activeIndex]); // eslint-disable-line
 
-  // Mise à l'échelle / opacité selon la distance au centre + remontée de l'index.
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    let raf = 0;
 
-    const update = () => {
-      raf = 0;
-      const center = el.scrollLeft + el.clientWidth / 2;
-      let best = 0, bestD = Infinity;
-      panelRefs.current.forEach((p, i) => {
-        if (!p) return;
-        const d = Math.abs(p.offsetLeft + p.offsetWidth / 2 - center);
-        if (d < bestD) { bestD = d; best = i; }
-        if (reduce) return;
-        const t = Math.min(1, d / (p.offsetWidth * 0.9));
-        p.style.transform = `scale(${1 - (1 - MIN_SCALE) * t})`;
-        p.style.opacity   = String(1 - (1 - MIN_ALPHA) * t);
-        p.style.filter    = t > 0.03 ? `blur(${(MAX_BLUR * t).toFixed(2)}px)` : "none";
-      });
-      if (!programmatic.current && best !== activeRef.current) {
-        onActiveChange(best);
+    const settle = () => {
+      if (touchingRef.current) return;
+      const i = nearestIndex();
+      const target = targetFor(i);
+      // Snap natif raté (carrousel entre deux jours, doigt levé) : on recentre.
+      if (Math.abs(el.scrollLeft - target) > 2) {
+        markActive(i);
+        el.scrollTo({ left: target, behavior: "smooth" });
+        return; // les événements de scroll relanceront settle() une fois posé
       }
+      markActive(i);
+      if (i !== knownRef.current) { knownRef.current = i; onChangeRef.current(i); }
     };
-    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
-    const onEnd    = () => { programmatic.current = false; };
 
-    update();
+    const onScroll = () => {
+      const i = nearestIndex();
+      if (i !== visualRef.current) markActive(i); // ne touche au DOM que si ça change
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(settle, SETTLE_MS);
+    };
+    const onTouchStart = () => { touchingRef.current = true; clearTimeout(timerRef.current); };
+    const onTouchEnd   = () => {
+      touchingRef.current = false;
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(settle, AFTER_TOUCH);
+    };
+
     el.addEventListener("scroll", onScroll, { passive: true });
-    el.addEventListener("scrollend", onEnd);
-    window.addEventListener("resize", onScroll);
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
+    el.addEventListener("touchcancel", onTouchEnd, { passive: true });
     return () => {
       el.removeEventListener("scroll", onScroll);
-      el.removeEventListener("scrollend", onEnd);
-      window.removeEventListener("resize", onScroll);
-      if (raf) cancelAnimationFrame(raf);
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
       clearTimeout(timerRef.current);
     };
-  }, [onActiveChange, days.length]);
+  }, [days.length]); // eslint-disable-line
 
   // Espaceurs (et non padding) de part et d'autre : le padding de fin d'un
-  // conteneur flex scrollable est ignoré par certains navigateurs (Safari), ce
-  // qui empêchait le premier/dernier jour de se centrer et faisait "coller
-  // entre deux jours". Largeur = (largeur visible − panneau) / 2 − gap.
+  // conteneur flex scrollable est ignoré par certains navigateurs (Safari).
+  // Largeur = (largeur visible − panneau) / 2 − gap.
   const spacer = { flex: `0 0 calc((100% - ${PANEL_W}) / 2 - 0.5rem)` };
 
   return (
@@ -114,7 +129,7 @@ export function DayCarousel({ days, activeIndex, onActiveChange, renderDay }) {
       <div aria-hidden="true" style={spacer} />
       {days.map((day, i) => (
         <div key={i} ref={(n) => (panelRefs.current[i] = n)}
-          className="flex-shrink-0 snap-center snap-always will-change-transform" style={{ width: PANEL_W }}>
+          className="day-panel flex-shrink-0 snap-center" style={{ width: PANEL_W }}>
           {renderDay(day, i)}
         </div>
       ))}
