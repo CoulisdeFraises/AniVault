@@ -603,17 +603,17 @@ export function Details() {
           {/* Volontairement moins large que le bloc en-tête : laisse la place,
               à droite, au compagnon (voir CompanionPeek juste en dessous),
               affiché à peu près au même niveau plutôt que tout en bas. */}
-          <div className="relative mt-3 flex items-center gap-3 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 w-[68%] sm:w-[62%]">
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <Star size={18} fill="#fbbf24" strokeWidth={0} className="flex-shrink-0" />
-              <span className="text-2xl font-bold text-violet-50" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+          <div className="relative mt-3 inline-flex items-center gap-2.5 rounded-full bg-white/5 border border-white/10 pl-3 pr-3.5 py-2 w-fit max-w-[68%] sm:max-w-[62%]">
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <Star size={15} fill="#fbbf24" strokeWidth={0} className="flex-shrink-0" />
+              <span className="text-lg font-bold text-violet-50" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
                 {formatRating(entry.rating) || "—"}
               </span>
-              <span className="text-sm text-violet-500">/10</span>
-              {entry.rating > 0 && !companionImgSrc && <RatingBadge rating={entry.rating} className="text-lg h-8 ml-1" />}
+              <span className="text-[11px] text-violet-500">/10</span>
+              {entry.rating > 0 && !companionImgSrc && <RatingBadge rating={entry.rating} className="text-base h-6 ml-0.5" />}
             </div>
-            <div className="w-px h-6 bg-white/10 flex-shrink-0" />
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 text-xs font-medium flex-shrink-0 ${s.text}`}>
+            <div className="w-px h-4 bg-white/10 flex-shrink-0" />
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/5 text-[11px] font-medium flex-shrink-0 ${s.text}`}>
               <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />{s.label}
             </span>
           </div>
@@ -666,7 +666,8 @@ export function Details() {
             <div className="p-3 sm:p-4 space-y-2">
 
               {tvSeasons.length > 0 && (
-                <div className="rounded-xl bg-white/[0.03] border border-white/5 overflow-hidden">
+                <>
+                <div className="rounded-2xl bg-white/[0.03] border border-white/5 overflow-hidden">
                   <div className="px-3 sm:px-4">
                     <AccordionHeader icon={<Tv size={15} />} label="Série principale" count={tvSeasons.length}
                       summary={`${tvW}${tvT != null ? `/${tvT}` : ""} ép.`}
@@ -706,16 +707,16 @@ export function Details() {
                         </div>
                       </div>
                       {curTV && (
-                        <div className="flex gap-1.5 sm:gap-2 mb-3 flex-wrap">
+                        <div className="flex gap-1.5 sm:gap-2 mb-1 flex-wrap">
                           <button onClick={() => { haptics.tap(); decrementEpisode(entry.id, curTV.globalIndex); }}
-                            className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">-1 ép.</button>
+                            className="font-mono text-xs px-3 py-1.5 rounded-full bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">-1 ép.</button>
                           {(curTV.totalEpisodes == null || curTV.watchedEpisodes < curTV.totalEpisodes) && (
                             <button onClick={() => { haptics.tap(); incrementEpisode(entry.id, curTV.globalIndex); }}
-                              className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">+1 ép.</button>
+                              className="font-mono text-xs px-3 py-1.5 rounded-full bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">+1 ép.</button>
                           )}
                           {curTV.totalEpisodes != null && curTV.watchedEpisodes < curTV.totalEpisodes && (
                             <button onClick={handleMarkAllWatched}
-                              className="font-mono text-xs px-3 py-1.5 rounded-lg bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform flex items-center gap-1">
+                              className="font-mono text-xs px-3 py-1.5 rounded-full bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform flex items-center gap-1">
                               <CheckCheck size={12} />Tout
                             </button>
                           )}
@@ -725,15 +726,23 @@ export function Details() {
                         <EpisodeSlider watched={curTV.watchedEpisodes} total={curTV.totalEpisodes}
                           entryId={entry.id} globalIndex={curTV.globalIndex} setEpisodeCount={setEpisodeCount} />
                       )}
-                      {loadingEps
-                        ? <div className="flex items-center gap-2 text-violet-400 text-sm py-4"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
-                        : <EpisodeList episodes={curEps} totalEpisodes={curTV?.totalEpisodes} watched={watched}
-                        unknownReason={curEpsReason}
-                            statusColor={s.color} onSetEpisode={v => curTV && setEpisodeCount(entry.id, curTV.globalIndex, v)} />}
                     </div>
                   )}
                 </div>
+
+                {/* ── Encart séparé — liste des épisodes à cocher ── */}
+                {open.tv && (
+                  <div className="rounded-2xl bg-white/[0.03] border border-white/5 overflow-hidden px-3 sm:px-4 py-3">
+                    {loadingEps
+                      ? <div className="flex items-center gap-2 text-violet-400 text-sm py-4"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
+                      : <EpisodeList episodes={curEps} totalEpisodes={curTV?.totalEpisodes} watched={watched}
+                      unknownReason={curEpsReason}
+                          statusColor={s.color} onSetEpisode={v => curTV && setEpisodeCount(entry.id, curTV.globalIndex, v)} />}
+                  </div>
+                )}
+                </>
               )}
+
 
               {extraSeasons.length > 0 && (
                 <div className="rounded-xl bg-white/[0.03] border border-white/5 overflow-hidden">
@@ -864,7 +873,7 @@ export function Details() {
                 </div>
               )}
 
-              <div className="mx-3 sm:mx-4 mt-3 rounded-xl bg-white/[0.03] border border-white/5 overflow-hidden">
+              <div className="mx-3 sm:mx-4 mt-3 rounded-2xl bg-white/[0.03] border border-white/5 overflow-hidden">
                 <button type="button" onClick={() => setOpenEpisodes(v => !v)}
                   className="flex items-center justify-between w-full px-3 sm:px-4 py-3 text-left group select-none border-b border-white/5">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -903,16 +912,16 @@ export function Details() {
                       </div>
                     )}
                     {curTV && (
-                      <div className="flex gap-1.5 sm:gap-2 mb-3 flex-wrap">
+                      <div className="flex gap-1.5 sm:gap-2 mb-1 flex-wrap">
                         <button onClick={() => { haptics.tap(); decrementEpisode(entry.id, curTV.globalIndex); }}
-                          className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">-1 ép.</button>
+                          className="font-mono text-xs px-3 py-1.5 rounded-full bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">-1 ép.</button>
                         {(curTV.totalEpisodes == null || curTV.watchedEpisodes < curTV.totalEpisodes) && (
                           <button onClick={() => { haptics.tap(); incrementEpisode(entry.id, curTV.globalIndex); }}
-                            className="font-mono text-xs px-3 py-1.5 rounded-lg bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">+1 ép.</button>
+                            className="font-mono text-xs px-3 py-1.5 rounded-full bg-white/10 text-violet-200 hover:bg-white/20 active:scale-95 transition-transform">+1 ép.</button>
                         )}
                         {curTV.totalEpisodes != null && curTV.watchedEpisodes < curTV.totalEpisodes && (
                           <button onClick={handleMarkAllWatched}
-                            className="font-mono text-xs px-3 py-1.5 rounded-lg bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform flex items-center gap-1">
+                            className="font-mono text-xs px-3 py-1.5 rounded-full bg-teal-500/15 text-teal-300 hover:bg-teal-500/30 active:scale-95 transition-transform flex items-center gap-1">
                             <CheckCheck size={12} />Tout
                           </button>
                         )}
@@ -922,15 +931,21 @@ export function Details() {
                       <EpisodeSlider watched={curTV.watchedEpisodes} total={curTV.totalEpisodes}
                         entryId={entry.id} globalIndex={curTV.globalIndex} setEpisodeCount={setEpisodeCount} />
                     )}
-                    {loadingEps
-                      ? <div className="flex items-center gap-2 text-violet-400 text-sm py-6"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
-                      : <EpisodeList episodes={curEps} totalEpisodes={curTV?.totalEpisodes} watched={watched}
-                        unknownReason={curEpsReason}
-                          statusColor={s.color} onSetEpisode={v => curTV && setEpisodeCount(entry.id, curTV.globalIndex, v)} />
-                    }
                   </div>
                 )}
               </div>
+
+              {/* ── Encart séparé — liste des épisodes à cocher ── */}
+              {openEpisodes && (
+                <div className="mx-3 sm:mx-4 mt-2 rounded-2xl bg-white/[0.03] border border-white/5 overflow-hidden px-3 sm:px-4 py-3">
+                  {loadingEps
+                    ? <div className="flex items-center gap-2 text-violet-400 text-sm py-6"><Loader2 size={14} className="animate-spin" /> Chargement…</div>
+                    : <EpisodeList episodes={curEps} totalEpisodes={curTV?.totalEpisodes} watched={watched}
+                      unknownReason={curEpsReason}
+                        statusColor={s.color} onSetEpisode={v => curTV && setEpisodeCount(entry.id, curTV.globalIndex, v)} />
+                  }
+                </div>
+              )}
               <div className="pb-4" />
             </>
           )}
