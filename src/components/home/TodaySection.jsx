@@ -119,7 +119,7 @@ function TodayCarousel({ items, nextAiringByEntry, onOpen }) {
   return (
     <>
       <div ref={scrollerRef}
-        className="flex gap-3 overflow-x-auto scrollbar-none -mx-4 snap-x snap-mandatory py-1"
+        className="relative flex gap-3 overflow-x-auto scrollbar-none -mx-4 snap-x snap-mandatory py-1"
         style={{ paddingInline: `calc((100% - ${CARD_W}) / 2)`, scrollbarWidth: "none" }}>
         {items.map((it, i) => (
           <div key={`${it.entry.id}-${it.episode}`} ref={(n) => (cardRefs.current[i] = n)}

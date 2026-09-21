@@ -7,9 +7,13 @@ import { useLibrary }    from "../context/LibraryContext";
 import { importResult }  from "../api";
 import { TopBar }        from "../components/common/TopBar";
 import { Modal }         from "../components/Modal/Modal";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
 import { PullToRefresh } from "../components/common/PullToRefresh";
 import { CalendarTabs }  from "../components/common/CalendarTabs";
+import { CalendarBackdrop } from "../components/calendar/CalendarBackdrop";
+import { FilterTab }        from "../components/calendar/SegmentedFilter";
+import { WeekStrip }        from "../components/calendar/WeekStrip";
+import { DayCarousel }      from "../components/calendar/DayCarousel";
 import { useWeekNavigation, DAY_NAMES } from "../hooks/useWeekNavigation";
 import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
 
@@ -170,34 +174,13 @@ function EpisodeCard({ group, onClick, isInLibrary, onAdd, isAdding }) {
   );
 }
 
-// Onglet segmenté (Tout / Ma liste)
-function FilterTab({ active, onClick, children }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`relative flex-1 min-w-0 px-2 py-1.5 rounded-full text-xs font-medium transition-colors active:scale-95 motion-reduce:transition-none whitespace-nowrap ${
-        active ? "text-violet-950" : "text-violet-300 hover:bg-white/10"
-      }`}
-    >
-      {active && (
-        <motion.span
-          layoutId="calendar-series-content-filter-pill"
-          className="absolute inset-0 bg-amber-400 rounded-full"
-          transition={{ type: "spring", stiffness: 500, damping: 35 }}
-        />
-      )}
-      <span className="relative z-10">{children}</span>
-    </button>
-  );
-}
-
 // ── Page principale ───────────────────────────────────────────────────────────
 export function CalendarSeries() {
   const navigate = useNavigate();
   const { entries: libraryEntries, saveEntry } = useLibrary();
   const {
     VISIBLE_DAYS, dayOffset, gridKey, slideClass,
-    canPrevDay, canNextDay, handlePrevDay, handleNextDay, jumpToDay,
+    canPrevDay, canNextDay, handlePrevDay, handleNextDay, jumpToDay, setDay,
     gridPointerHandlers,
   } = useWeekNavigation();
 
@@ -276,7 +259,6 @@ export function CalendarSeries() {
 
   const visibleDays     = byDay.slice(dayOffset, dayOffset + VISIBLE_DAYS);
   const todayDateString = useMemo(() => new Date().toDateString(), []);
-  const totalVisible    = visibleDays.reduce((sum, d) => sum + d.entries.reduce((s, g) => s + g.episodes.length, 0), 0);
 
   const weekLabel = useMemo(() => {
     const end = new Date(weekMonday);
@@ -301,11 +283,60 @@ export function CalendarSeries() {
     }
   }, [addingIds, saveEntry]);
 
+  // Un jour (carte avec en-tête + épisodes) — partagé entre le carrousel mobile
+  // et la grille desktop.
+  const renderDay = ({ date, entries: dayEntries }, globalIdx) => {
+    const isToday = date.toDateString() === todayDateString;
+    return (
+        <div
+          key={globalIdx}
+          className={`rounded-2xl border overflow-hidden flex flex-col ${
+            isToday ? "border-amber-400/40 bg-amber-400/5" : "border-white/5 bg-violet-900/20"
+          }`}
+        >
+          <div className={`px-3 sm:px-4 py-3 border-b ${isToday ? "border-amber-400/20" : "border-white/5"}`}>
+            <div className="flex items-center justify-between">
+              <p className={`font-mono text-xs uppercase tracking-widest font-semibold ${isToday ? "text-amber-400" : "text-violet-300"}`}>
+                {DAY_NAMES[globalIdx]}
+              </p>
+              {isToday && (
+                <span className="font-mono text-[8px] bg-amber-400 text-violet-950 px-1.5 py-0.5 rounded-full font-bold animate-glowPulse motion-reduce:animate-none">
+                  Aujourd'hui
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-violet-500 mt-0.5">
+              {date.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}
+            </p>
+          </div>
+
+          <div className="p-2.5 sm:p-3 flex-1 space-y-2">
+            {dayEntries.length === 0 ? (
+              <p className="text-[11px] text-violet-600 font-mono text-center py-8">Aucun épisode</p>
+            ) : (
+              dayEntries.map((group) => (
+                <EpisodeCard
+                  key={group.tvmazeId}
+                  group={group}
+                  onClick={() => setSelectedItem(group)}
+                  isInLibrary={libraryTvmazeIds.has(String(group.tvmazeId))}
+                  onAdd={() => handleAddToLibrary(group)}
+                  isAdding={addingIds.has(group.tvmazeId)}
+                />
+              ))
+            )}
+          </div>
+        </div>
+
+    );
+  };
+
   return (
-    <div className="h-[100dvh] flex flex-col overflow-hidden bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="relative h-[100dvh] flex flex-col overflow-hidden bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <CalendarBackdrop />
 
       {/* ── Zone fixe : en-tête, onglets, filtres, navigation jours ── */}
-      <div className="flex-shrink-0 max-w-5xl w-full mx-auto px-3 sm:px-6 pt-safe-8">
+      <div className="relative z-10 flex-shrink-0 max-w-5xl w-full mx-auto px-3 sm:px-6 pt-safe-8">
 
         {/* ── En-tête ── */}
         <div className="flex items-start justify-between gap-3 mb-4">
@@ -326,8 +357,8 @@ export function CalendarSeries() {
         {/* ── Filtre Tout / Ma liste ── */}
         <div className="flex justify-center mb-3">
           <div className="inline-flex w-full max-w-xs items-center gap-1 rounded-full bg-white/5 border border-white/10 p-1">
-            <FilterTab active={contentFilter === "all"}  onClick={() => setContentFilter("all")}>Tout</FilterTab>
-            <FilterTab active={contentFilter === "mine"} onClick={() => setContentFilter("mine")}>Ma liste</FilterTab>
+            <FilterTab layoutId="calendar-series-content-filter-pill" active={contentFilter === "all"}  onClick={() => setContentFilter("all")}>Tout</FilterTab>
+            <FilterTab layoutId="calendar-series-content-filter-pill" active={contentFilter === "mine"} onClick={() => setContentFilter("mine")}>Ma liste</FilterTab>
           </div>
         </div>
 
@@ -335,44 +366,31 @@ export function CalendarSeries() {
           <p className="text-center font-mono text-[11px] text-amber-400/90 mb-3 px-4">{error}</p>
         )}
 
-        {/* ── Navigation jours ── */}
+        {/* ── Bandeau des jours : sélection directe, date et nombre d'épisodes ── */}
         {!loading && (
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-stretch gap-1.5 mb-3">
             <button
               onClick={handlePrevDay}
               disabled={!canPrevDay}
-              className="flex items-center gap-1 px-3 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 text-sm text-violet-300 transition-all motion-reduce:transition-none"
+              aria-label="Jour précédent"
+              className="hidden sm:flex items-center px-2.5 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 text-violet-300 transition-all motion-reduce:transition-none"
             >
               <ChevronLeft size={15} />
-              <span className="hidden sm:inline text-xs">Préc.</span>
             </button>
-
-            <div className="flex flex-col items-center gap-0.5">
-              <p className="font-mono text-[11px] text-violet-500">
-                {totalVisible} épisode{totalVisible !== 1 ? "s" : ""}
-              </p>
-              <div className="flex gap-1 items-center">
-                {Array.from({ length: 7 }, (_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => jumpToDay(i)}
-                    aria-label={DAY_NAMES[i]}
-                    className={`rounded-full transition-all motion-reduce:transition-none ${
-                      i >= dayOffset && i < dayOffset + VISIBLE_DAYS
-                        ? "w-3 h-1.5 bg-amber-400"
-                        : "w-1.5 h-1.5 bg-white/20 hover:bg-white/40"
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-
+            <WeekStrip
+              days={byDay}
+              dayOffset={dayOffset}
+              visibleCount={VISIBLE_DAYS}
+              todayDateString={todayDateString}
+              onSelect={jumpToDay}
+              layoutId="calendar-series-week-strip-pill"
+            />
             <button
               onClick={handleNextDay}
               disabled={!canNextDay}
-              className="flex items-center gap-1 px-3 py-2 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 text-sm text-violet-300 transition-all motion-reduce:transition-none"
+              aria-label="Jour suivant"
+              className="hidden sm:flex items-center px-2.5 rounded-xl bg-violet-900/40 border border-white/10 hover:bg-violet-800/50 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 text-violet-300 transition-all motion-reduce:transition-none"
             >
-              <span className="hidden sm:inline text-xs">Suiv.</span>
               <ChevronRight size={15} />
             </button>
           </div>
@@ -381,7 +399,7 @@ export function CalendarSeries() {
 
       {/* ── Zone scrollable : seule cette zone défile, contenue entre l'en-tête
           et le bottom nav (pb-nav) — plus de scroll de toute la page. ── */}
-      <PullToRefresh onRefresh={() => load(true)} className="flex-1 min-h-0 flex flex-col">
+      <PullToRefresh onRefresh={() => load(true)} className="relative z-10 flex-1 min-h-0 flex flex-col">
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-auto max-w-5xl w-full mx-auto px-3 sm:px-6 pb-nav">
 
           {loading ? (
@@ -391,61 +409,20 @@ export function CalendarSeries() {
             </div>
           ) : (
             /* ── Grille jours ── */
-            <div
-              key={gridKey}
-              {...gridPointerHandlers}
-              style={{ touchAction: "pan-y" }}
-              className={`grid gap-3 motion-reduce:animate-none ${slideClass} ${
-                VISIBLE_DAYS === 1 ? "grid-cols-1" : "grid-cols-3"
-              }`}
-            >
-              {visibleDays.map(({ date, entries: dayEntries }, i) => {
-                const isToday   = date.toDateString() === todayDateString;
-                const globalIdx = dayOffset + i;
-
-                return (
-                  <div
-                    key={globalIdx}
-                    className={`rounded-2xl border overflow-hidden flex flex-col ${
-                      isToday ? "border-amber-400/40 bg-amber-400/5" : "border-white/5 bg-violet-900/20"
-                    }`}
-                  >
-                    <div className={`px-3 sm:px-4 py-3 border-b ${isToday ? "border-amber-400/20" : "border-white/5"}`}>
-                      <div className="flex items-center justify-between">
-                        <p className={`font-mono text-xs uppercase tracking-widest font-semibold ${isToday ? "text-amber-400" : "text-violet-300"}`}>
-                          {DAY_NAMES[globalIdx]}
-                        </p>
-                        {isToday && (
-                          <span className="font-mono text-[8px] bg-amber-400 text-violet-950 px-1.5 py-0.5 rounded-full font-bold animate-glowPulse motion-reduce:animate-none">
-                            Aujourd'hui
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-violet-500 mt-0.5">
-                        {date.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}
-                      </p>
-                    </div>
-
-                    <div className="p-2.5 sm:p-3 flex-1 space-y-2">
-                      {dayEntries.length === 0 ? (
-                        <p className="text-[11px] text-violet-600 font-mono text-center py-8">Aucun épisode</p>
-                      ) : (
-                        dayEntries.map((group) => (
-                          <EpisodeCard
-                            key={group.tvmazeId}
-                            group={group}
-                            onClick={() => setSelectedItem(group)}
-                            isInLibrary={libraryTvmazeIds.has(String(group.tvmazeId))}
-                            onAdd={() => handleAddToLibrary(group)}
-                            isAdding={addingIds.has(group.tvmazeId)}
-                          />
-                        ))
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            VISIBLE_DAYS === 1 ? (
+              /* ── Mobile : carrousel de jours (scroll horizontal avec aperçu) ── */
+              <DayCarousel days={byDay} activeIndex={dayOffset} onActiveChange={setDay} renderDay={renderDay} />
+            ) : (
+              /* ── Desktop : grille de 3 jours, swipe à la souris/au doigt ── */
+              <div
+                key={gridKey}
+                {...gridPointerHandlers}
+                style={{ touchAction: "pan-y" }}
+                className={`grid gap-3 motion-reduce:animate-none ${slideClass} grid-cols-3`}
+              >
+                {visibleDays.map((d, i) => renderDay(d, dayOffset + i))}
+              </div>
+            )
           )}
         </div>
       </PullToRefresh>

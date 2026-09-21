@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 // ── Navigation semaine partagée ──────────────────────────────────────────────
 // Factorisé depuis l'ancien Calendar.jsx (onglet Animes) pour être réutilisé
@@ -55,6 +55,12 @@ export function useWeekNavigation() {
     setDayOffset(newOffset);
   }
 
+  // Change de jour sans animation de glissement ni remontage de la grille
+  // (utilisé par le carrousel mobile, qui gère lui-même le défilement).
+  const setDay = useCallback((i) => {
+    setDayOffset(Math.max(0, Math.min(7 - VISIBLE_DAYS, i)));
+  }, [VISIBLE_DAYS]);
+
   function handleGridPointerDown(e) {
     if (e.button > 0) return;
     swipePtr.current = { id: e.pointerId, startX: e.clientX, startY: e.clientY, axis: null };
@@ -84,7 +90,7 @@ export function useWeekNavigation() {
 
   return {
     VISIBLE_DAYS, dayOffset, gridKey, slideClass,
-    canPrevDay, canNextDay, handlePrevDay, handleNextDay, jumpToDay,
+    canPrevDay, canNextDay, handlePrevDay, handleNextDay, jumpToDay, setDay,
     gridPointerHandlers: {
       onPointerDown: handleGridPointerDown,
       onPointerMove: handleGridPointerMove,

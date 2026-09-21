@@ -10,6 +10,7 @@ import {
 } from "../api/tmdb";
 import { TopBar }         from "../components/common/TopBar";
 import { PullToRefresh }  from "../components/common/PullToRefresh";
+import { CalendarBackdrop } from "../components/calendar/CalendarBackdrop";
 import { CalendarTabs }   from "../components/common/CalendarTabs";
 import { SynopsisModal }  from "../components/common/SynopsisModal";
 import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
@@ -159,10 +160,11 @@ export function CalendarFilms() {
   }, [addingIds, saveEntry]);
 
   return (
-    <div className="h-[100dvh] flex flex-col overflow-hidden bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="relative h-[100dvh] flex flex-col overflow-hidden bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <CalendarBackdrop />
 
       {/* ── Zone fixe : en-tête, onglets, sélecteur de mois ── */}
-      <div className="flex-shrink-0 max-w-5xl w-full mx-auto px-3 sm:px-6 pt-safe-8">
+      <div className="relative z-10 flex-shrink-0 max-w-5xl w-full mx-auto px-3 sm:px-6 pt-safe-8">
 
         {/* ── En-tête ── */}
         <div className="flex items-start justify-between gap-3 mb-4">
@@ -213,7 +215,7 @@ export function CalendarFilms() {
 
       {/* ── Zone scrollable : seule cette zone défile, contenue entre l'en-tête
           et le bottom nav (pb-nav) — plus de scroll de toute la page. ── */}
-      <PullToRefresh onRefresh={() => load(true)} className="flex-1 min-h-0 flex flex-col">
+      <PullToRefresh onRefresh={() => load(true)} className="relative z-10 flex-1 min-h-0 flex flex-col">
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-auto max-w-5xl w-full mx-auto px-3 sm:px-6 pb-nav">
 
           {!hasTMDB() ? (
