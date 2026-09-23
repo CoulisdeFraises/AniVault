@@ -118,15 +118,32 @@ function TodayCarousel({ items, nextAiringByEntry, onOpen }) {
 
   return (
     <>
-      <div ref={scrollerRef}
-        className="relative flex gap-3 overflow-x-auto scrollbar-none -mx-4 snap-x snap-mandatory py-1"
-        style={{ paddingInline: `calc((100% - ${CARD_W}) / 2)`, scrollbarWidth: "none" }}>
-        {items.map((it, i) => (
-          <div key={`${it.entry.id}-${it.episode}`} ref={(n) => (cardRefs.current[i] = n)}
-            className="flex-shrink-0 snap-center will-change-transform" style={{ width: CARD_W }}>
-            <TodayCard item={it} nextAiring={nextAiringByEntry.get(it.entry.id)} wide onOpen={onOpen} />
-          </div>
-        ))}
+      <div className="relative -mx-4">
+        <div ref={scrollerRef}
+          className="relative flex gap-3 overflow-x-auto scrollbar-none snap-x snap-mandatory py-1"
+          style={{ paddingInline: `calc((100% - ${CARD_W}) / 2)`, scrollbarWidth: "none" }}>
+          {items.map((it, i) => (
+            <div key={`${it.entry.id}-${it.episode}`} ref={(n) => (cardRefs.current[i] = n)}
+              className="flex-shrink-0 snap-center will-change-transform" style={{ width: CARD_W }}>
+              <TodayCard item={it} nextAiring={nextAiringByEntry.get(it.entry.id)} wide onOpen={onOpen} />
+            </div>
+          ))}
+        </div>
+        {/* Voile flouté sur les bords pour suggérer la continuité du scroll */}
+        <div
+          className="pointer-events-none absolute inset-y-1 left-0 w-10 sm:w-16 z-10 backdrop-blur-md"
+          style={{
+            WebkitMaskImage: "linear-gradient(to right, black 0%, transparent 100%)",
+            maskImage: "linear-gradient(to right, black 0%, transparent 100%)",
+          }}
+        />
+        <div
+          className="pointer-events-none absolute inset-y-1 right-0 w-10 sm:w-16 z-10 backdrop-blur-md"
+          style={{
+            WebkitMaskImage: "linear-gradient(to left, black 0%, transparent 100%)",
+            maskImage: "linear-gradient(to left, black 0%, transparent 100%)",
+          }}
+        />
       </div>
       <div className="flex justify-center gap-1.5 mt-1.5" aria-hidden="true">
         {items.map((it, i) => (

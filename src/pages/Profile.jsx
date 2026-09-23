@@ -16,7 +16,6 @@ import { useAchievements } from "../hooks/useAchievements";
 import { ACHIEVEMENT_CATEGORIES } from "../utils/achievements";
 import { updateProfileMeta, changeUsername, uploadAvatarPhoto, removeAvatarPhoto } from "../services/community";
 import { useLists, fetchUserFavorites } from "../context/ListsContext";
-import { COMPANIONS } from "../utils/companions";
 import { calcWatchTime } from "../utils/watchTime";
 
 const AVATAR_COLORS = [
@@ -547,15 +546,25 @@ export function Profile() {
           {/* Stats */}
           <div className="grid grid-cols-4 gap-2 mt-5">
             {[
-              { icon: <Film size={15} />,      value: entries.length,                            label: "Titres"   },
-              { icon: <PlayCircle size={15} />, value: episodesWatched,                           label: "Épisodes" },
-              { icon: <Clock size={15} />,     value: watchTime,                                  label: "Temps"    },
-              { icon: <Trophy size={15} />,    value: `${unlockedCount}/${allAchievements.length}`, label: "Succès" },
-            ].map(({ icon, value, label }) => (
-              <div key={label} className="rounded-xl bg-white/5 border border-white/5 py-3 px-1 text-center">
-                <div className="flex justify-center mb-1 text-amber-400/90">{icon}</div>
-                <p className="font-mono text-[13px] sm:text-sm font-bold text-violet-50 tabular-nums leading-tight">{value}</p>
-                <p className="font-mono text-[8px] sm:text-[9px] uppercase tracking-wider text-violet-500 mt-0.5">{label}</p>
+              { icon: Film,       value: entries.length,                              label: "Titres",   color: "#8b5cf6" },
+              { icon: PlayCircle, value: episodesWatched,                             label: "Épisodes", color: "#0ea5e9" },
+              { icon: Clock,      value: watchTime,                                    label: "Temps",    color: "#10b981" },
+              { icon: Trophy,     value: `${unlockedCount}/${allAchievements.length}`, label: "Succès",   color: "#f59e0b" },
+            ].map(({ icon: Icon, value, label, color }) => (
+              <div
+                key={label}
+                className="relative rounded-2xl border border-white/5 py-3.5 px-1 text-center overflow-hidden animate-fadeInUp"
+                style={{ background: `linear-gradient(160deg, ${color}26, ${color}08 70%)` }}
+              >
+                <div
+                  className="absolute -top-4 -right-4 w-12 h-12 rounded-full blur-xl opacity-50 pointer-events-none"
+                  style={{ backgroundColor: color }}
+                />
+                <div className="relative flex justify-center mb-1.5" style={{ color }}>
+                  <Icon size={16} />
+                </div>
+                <p className="relative font-mono text-[13px] sm:text-base font-bold text-violet-50 tabular-nums leading-tight">{value}</p>
+                <p className="relative font-mono text-[8px] sm:text-[9px] uppercase tracking-wider text-violet-400/90 mt-0.5">{label}</p>
               </div>
             ))}
           </div>
@@ -573,37 +582,6 @@ export function Profile() {
                   <button key={c} onClick={() => setColor(c)} aria-label={`Couleur ${c}`}
                     className="w-7 h-7 rounded-full hover:scale-110 transition-transform motion-reduce:transition-none"
                     style={{ backgroundColor: c, outline: color === c ? "3px solid white" : "none", outlineOffset: "2px" }} />
-                ))}
-              </div>
-            </div>
-
-            <div className="text-center w-full">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400 mb-2">
-                Compagnon <span className="text-violet-600 normal-case tracking-normal">— change les émojis de note</span>
-              </p>
-              <div className="flex gap-2 justify-center flex-wrap">
-                {COMPANIONS.filter((c) => c.id !== "default").map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setCompanion(c.id)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-left transition-all active:scale-95 motion-reduce:transition-none ${
-                      companion === c.id
-                        ? "bg-white/10 border-white/25"
-                        : "bg-white/[0.03] border-white/5 hover:bg-white/5"
-                    }`}
-                  >
-                    <span className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold text-white overflow-hidden"
-                      style={{ backgroundColor: c.swatch }}>
-                      {c.imageFolder
-                        ? <img src={`${c.imageFolder}/rating-2.png`} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
-                        : c.name[0]}
-                    </span>
-                    <span className="min-w-0">
-                      <p className="text-xs font-semibold text-violet-100">{c.name}</p>
-                      <p className="text-[10px] text-violet-500 truncate max-w-[140px]">{c.description}</p>
-                    </span>
-                    {companion === c.id && <Check size={14} className="text-emerald-400 flex-shrink-0 ml-1" />}
-                  </button>
                 ))}
               </div>
             </div>
@@ -695,19 +673,23 @@ export function Profile() {
               <p className="text-[11px] text-violet-600 mt-1">Utilise le ♡ dans les détails d'une série pour l'ajouter ici.</p>
             </div>
           ) : (
-            <div className="p-4">
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+            <div className="py-4">
+              <div
+                className="flex gap-2.5 overflow-x-auto scrollbar-none px-4 snap-x snap-mandatory"
+                style={{ scrollbarWidth: "none" }}
+              >
                 {favoritesList.entries.map(item => {
                   const CategoryIcon = item.category === "movie" ? Clapperboard : item.type === "anime" ? Film : Tv;
                   return (
-                  <div key={item.entryId} className="relative rounded-xl overflow-hidden bg-violet-950 aspect-[2/3]">
+                  <div key={item.entryId}
+                    className="relative flex-shrink-0 snap-start rounded-xl overflow-hidden bg-violet-950 w-[76px] sm:w-[92px] aspect-[2/3]">
                     {item.coverImage
                       ? <img src={item.coverImage} alt="" className="w-full h-full object-cover" />
                       : <div className="w-full h-full bg-violet-900 flex items-center justify-center">
                           <CategoryIcon size={16} className="text-violet-600" />
                         </div>
                     }
-                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-1">
+                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/85 to-transparent p-1.5 pt-5">
                       <p className="font-mono text-[8px] text-white leading-tight line-clamp-2">{item.title}</p>
                     </div>
                   </div>
