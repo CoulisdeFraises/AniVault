@@ -2,7 +2,7 @@ import { memo, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Pencil, Trash2, Film, Tv, Check, Star, Play, X,
-  RotateCcw, Heart, RefreshCw, ListPlus, Clapperboard,
+  RotateCcw, Heart, RefreshCw, ListPlus, Clapperboard, Languages,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useLists }         from "../../context/ListsContext";
@@ -12,6 +12,7 @@ import { useLibrary }       from "../../context/LibraryContext";
 import { fetchNextAiring, refreshEntryCard } from "../../api";
 import { getShowProgress }  from "../../context/PrefsContext";
 import { AddToListModal }   from "../common/AddToListModal";
+import { TitlePickerModal } from "./TitlePickerModal";
 import { getFormatGroup }   from "../../utils/format";
 import { haptics }          from "../../utils/haptics";
 import {
@@ -48,6 +49,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   // ── State UI ──────────────────────────────────────────────────────────────
   const [showDel,            setShowDel]            = useState(false);
   const [showAddToList,      setShowAddToList]      = useState(false);
+  const [showTitlePicker,    setShowTitlePicker]    = useState(false);
   const [longPressMenu,      setLongPressMenu]      = useState(false);
   const [refreshing,         setRefreshing]         = useState(false);
   const [refreshResult,      setRefreshResult]      = useState(null);
@@ -464,7 +466,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
 
             <p className="font-mono text-[10px] uppercase tracking-widest text-white/80 truncate max-w-full px-6 text-center">{entry.title}</p>
 
-            <div className="grid grid-cols-4 gap-2 w-full">
+            <div className="grid grid-cols-5 gap-1.5 w-full">
               <button
                 onClick={(e) => { e.stopPropagation(); haptics.tap(); handleRefresh(e); }}
                 disabled={refreshing || !!refreshResult}
@@ -500,6 +502,14 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
               >
                 <ListPlus size={15} className="text-white flex-shrink-0" />
                 <span>Liste</span>
+              </button>
+
+              <button
+                onClick={(e) => { e.stopPropagation(); haptics.tap(); setLongPressMenu(false); gesturedRef.current = false; setShowTitlePicker(true); }}
+                className="flex flex-col items-center justify-center gap-0.5 py-2 rounded-xl bg-white/15 border border-white/25 hover:bg-white/20 active:scale-95 text-[9px] font-mono text-white leading-tight text-center transition-all"
+              >
+                <Languages size={15} className="text-white flex-shrink-0" />
+                <span>Titre</span>
               </button>
 
               <button
@@ -539,6 +549,9 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
         )}
         {showAddToList && (
           <AddToListModal key="add-to-list" entry={entry} onClose={() => setShowAddToList(false)} />
+        )}
+        {showTitlePicker && (
+          <TitlePickerModal key="title-picker" entry={entry} onClose={() => setShowTitlePicker(false)} />
         )}
       </AnimatePresence>
     </>

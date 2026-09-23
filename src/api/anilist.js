@@ -345,6 +345,38 @@ export async function fetchAniListDescription(anilistId) {
   } catch { return null; }
 }
 
+/**
+ * fetchAniListTitles — liste des noms alternatifs d'un titre (romaji, anglais,
+ * natif + synonymes), pour permettre à l'utilisateur de changer le titre
+ * affiché quand l'import a retenu un nom peu lisible (ex: romaji/kanji au
+ * lieu du titre français ou anglais connu).
+ *
+ * Requête directe à l'API AniList publique (pas de dépendance au proxy
+ * media.js, dont le passthrough des champs n'est pas garanti ici).
+ */
+export async function fetchAniListTitles(anilistId) {
+  const query = `query ($id: Int) { Media(id: $id) { title { romaji english native } synonyms } }`;
+  const json = await anilistQuery(query, { id: Number(anilistId) });
+  const m = json.data?.Media;
+  if (!m) return [];
+
+  const raw = [
+    { label: "Romaji",  value: m.title?.romaji  || null },
+    { label: "Anglais", value: m.title?.english || null },
+    { label: "Natif",   value: m.title?.native  || null },
+    ...(m.synonyms || []).map((s) => ({ label: "Alternatif", value: s })),
+  ].filter((t) => t.value);
+
+  // Dédoublonnage par valeur (insensible à la casse)
+  const seen = new Set();
+  return raw.filter((t) => {
+    const k = t.value.trim().toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
 export async function fetchNextAiringAniList(anilistId) {
   try {
     const m = await getMediaDetails("anilist", anilistId);
