@@ -16,6 +16,7 @@ import { useAchievements } from "../hooks/useAchievements";
 import { ACHIEVEMENT_CATEGORIES } from "../utils/achievements";
 import { updateProfileMeta, changeUsername, uploadAvatarPhoto, removeAvatarPhoto } from "../services/community";
 import { useLists, fetchUserFavorites } from "../context/ListsContext";
+import { COMPANIONS } from "../utils/companions";
 import { calcWatchTime } from "../utils/watchTime";
 
 const AVATAR_COLORS = [
@@ -408,6 +409,17 @@ export function Profile() {
     setUploadingPhoto(false);
   }
 
+  async function handleCompanionChange(id) {
+    if (id === companion) return;
+    setCompanion(id);
+    try {
+      await updateProfileMeta(user.id, { companion: id });
+      await refreshProfile();
+    } catch {
+      // pas bloquant — le compagnon reste tel quel visuellement si la sauvegarde échoue
+    }
+  }
+
   async function handleSaveProfile() {
     if (!username.trim()) return;
     setSavingProfile(true);
@@ -567,6 +579,38 @@ export function Profile() {
                 <p className="relative font-mono text-[8px] sm:text-[9px] uppercase tracking-wider text-violet-400/90 mt-0.5">{label}</p>
               </div>
             ))}
+          </div>
+
+          {/* Compagnon — juste sous les stats, toujours visible */}
+          <div className="mt-4">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400 mb-2">
+              Compagnon <span className="text-violet-600 normal-case tracking-normal">— change les émojis de note</span>
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              {COMPANIONS.filter((c) => c.id !== "default").map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => handleCompanionChange(c.id)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-left transition-all active:scale-95 motion-reduce:transition-none ${
+                    companion === c.id
+                      ? "bg-white/10 border-white/25"
+                      : "bg-white/[0.03] border-white/5 hover:bg-white/5"
+                  }`}
+                >
+                  <span className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold text-white overflow-hidden"
+                    style={{ backgroundColor: c.swatch }}>
+                    {c.imageFolder
+                      ? <img src={`${c.imageFolder}/rating-2.png`} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+                      : c.name[0]}
+                  </span>
+                  <span className="min-w-0">
+                    <p className="text-xs font-semibold text-violet-100">{c.name}</p>
+                    <p className="text-[10px] text-violet-500 truncate max-w-[140px]">{c.description}</p>
+                  </span>
+                  {companion === c.id && <Check size={14} className="text-emerald-400 flex-shrink-0 ml-1" />}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
