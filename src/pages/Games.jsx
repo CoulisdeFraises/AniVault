@@ -33,7 +33,7 @@ function GameCard({ icon, title, desc, tag, onClick, disabled }) {
 
 export function Games() {
   const navigate = useNavigate();
-  const { coins, collectionList } = useWaifinity();
+  const { coins, collectionList } = useWaifinity({ withPool: false }); // aperçu seulement : inutile de charger le bassin
 
   return (
     <div className="relative min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter',sans-serif" }}>
@@ -57,7 +57,7 @@ export function Games() {
           <GameCard
             icon={<Sparkles size={22} />}
             title="Waifinity"
-            desc="Ouvre des boosters de personnages et bâtis ta collection."
+            desc="Ouvre des boosters de personnages, du Common au Secret, et bâtis ta collection."
             onClick={() => { haptics.tap(); navigate("/games/waifinity"); }}
             tag={
               <div className="flex items-center gap-3 text-[11px] text-violet-300">

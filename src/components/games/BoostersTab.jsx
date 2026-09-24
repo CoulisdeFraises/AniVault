@@ -1,13 +1,10 @@
 import { useMemo } from "react";
-import { Sparkles, Clock, RefreshCw, AlertTriangle } from "lucide-react";
+import { Sparkles, Clock, RefreshCw, AlertTriangle, Coins } from "lucide-react";
 import {
-  RARITY, RARITY_ORDER, PACK_WEIGHTS, GENDER_PREFS, GENDER_PREF_LABEL,
+  RARITY, RARITY_ORDER, PACK_WEIGHTS, FREE_COOLDOWN_HOURS, SHOP_GENDER_COST,
   countByTier, formatCountdown, formatPercent,
 } from "../../utils/waifinity";
-import { PillTabs } from "./PillTabs";
 import { haptics } from "../../utils/haptics";
-
-const GENDER_TABS = GENDER_PREFS.map((key) => ({ key, label: GENDER_PREF_LABEL[key] }));
 
 function SectionLabel({ children, right }) {
   return (
@@ -18,14 +15,14 @@ function SectionLabel({ children, right }) {
   );
 }
 
-/** Onglet « Boosters » : booster gratuit, préférence de tirage et tableau des chances. */
-export function BoostersTab({ game }) {
+/** Onglet « Boosters » : booster gratuit (toutes les 3 h) et tableau des chances. */
+export function BoostersTab({ game, onGoShop }) {
   const {
-    pool, activePool, poolMeta, poolLoading, poolError, reloadPool,
-    canOpenFree, cooldownMs, openFreeBooster, genderPref, setGenderPref,
+    pool, poolMeta, poolLoading, poolError, reloadPool,
+    canOpenFree, cooldownMs, openFreeBooster,
   } = game;
 
-  const tierCounts = useMemo(() => countByTier(activePool), [activePool]);
+  const tierCounts = useMemo(() => countByTier(pool), [pool]);
 
   if (poolLoading && !pool.length) {
     return (
@@ -61,22 +58,14 @@ export function BoostersTab({ game }) {
           </div>
           <div className="min-w-0">
             <p className="text-lg font-bold text-white" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>Booster gratuit</p>
-            <p className="text-xs text-violet-300 mt-0.5">10 personnages à révéler, choisis-en un à adopter. Un booster gratuit toutes les heures.</p>
+            <p className="text-xs text-violet-300 mt-0.5">10 personnages à révéler, choisis-en un à adopter. Un booster gratuit toutes les {FREE_COOLDOWN_HOURS} heures.</p>
           </div>
-        </div>
-
-        <div className="mt-5 flex flex-col items-center gap-2">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">Tirer parmi</p>
-          <PillTabs tabs={GENDER_TABS} value={genderPref} onChange={(k) => { haptics.tap(); setGenderPref(k); }} layoutId="waifinity-gender-pref" />
-          <p className="text-[11px] text-violet-400">
-            {activePool.length} personnage{activePool.length > 1 ? "s" : ""} dans le tirage
-          </p>
         </div>
 
         <button
           onClick={() => { haptics.success(); openFreeBooster(); }}
           disabled={!canOpenFree}
-          className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-400 text-violet-950 font-semibold disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
+          className="mt-5 w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-400 text-violet-950 font-semibold disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
         >
           {canOpenFree
             ? <><Sparkles size={16} />Ouvrir le booster</>
@@ -84,6 +73,14 @@ export function BoostersTab({ game }) {
               ? <><Clock size={16} />Disponible dans {formatCountdown(cooldownMs)}</>
               : <>Aucun personnage disponible</>}
         </button>
+
+        {onGoShop && (
+          <button onClick={() => { haptics.tap(); onGoShop(); }}
+            className="mt-3 w-full flex items-center justify-center gap-1.5 text-[11px] text-violet-300 hover:text-amber-300 active:scale-[0.98] transition-colors motion-reduce:transition-none">
+            Envie d'un booster Waifus ou Husbandos ? Boutique ·
+            <Coins size={11} className="text-amber-400" />{SHOP_GENDER_COST} Anigold
+          </button>
+        )}
       </div>
 
       {/* ── Chances de tirage ── */}

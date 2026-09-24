@@ -37,7 +37,7 @@ export function PickResultModal({ result, onClose }) {
 
         {isDuplicate ? (
           <div className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-amber-400/10 border border-amber-400/30 text-amber-300 text-sm font-semibold mb-4">
-            <Coins size={16} />Déjà dans ta collection · +{coinsGained} Waifu Coins
+            <Coins size={16} />Déjà dans ta collection · +{coinsGained} Anigold
           </div>
         ) : (
           <div className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-teal-400/10 border border-teal-400/30 text-teal-300 text-sm font-semibold mb-4">

@@ -3,7 +3,10 @@ import { Sparkles, Heart } from "lucide-react";
 import { BoosterCard } from "./BoosterCard";
 import { haptics } from "../../utils/haptics";
 
-const SOURCE_LABEL = { free: "Booster gratuit", chance: "Booster Chance+", targeted: "Booster ciblé" };
+const SOURCE_LABEL = {
+  free: "Booster gratuit", chance: "Booster Chance+", targeted: "Booster ciblé",
+  waifu: "Booster Waifus", husbando: "Booster Husbandos",
+};
 
 /**
  * Ouverture d'un booster de 10 : chaque carte se révèle au tap, puis un tap

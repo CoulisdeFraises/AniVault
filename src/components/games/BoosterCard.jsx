@@ -6,6 +6,11 @@ import { GenderBadge } from "./GenderBadge";
 import { haptics } from "../../utils/haptics";
 
 /**
+ * Le retour visuel du tap (scale) est posé sur le <button> et NON sur les
+ * faces : `active:scale-95` y écraserait leur `transform` (dont le
+ * rotateY(180deg) de la face révélée) et la carte disparaîtrait tant que le
+ * doigt reste dessus (backface-visibility: hidden).
+ *
  * Carte d'un booster : face cachée (mystère, tap pour révéler) puis face
  * révélée (personnage + rareté). Une fois révélée, un nouveau tap la
  * sélectionne comme choix final (mise en avant par un anneau + coche).
@@ -27,7 +32,7 @@ export function BoosterCard({ card, revealed, selected, onReveal, onSelect }) {
   return (
     <button
       onClick={handleClick}
-      className="relative aspect-[3/4] w-full [perspective:800px] group"
+      className="relative aspect-[3/4] w-full [perspective:800px] active:scale-95 transition-transform motion-reduce:transition-none"
       aria-label={revealed ? `${card.name} — ${r.label}${selected ? " — sélectionnée" : ""}` : "Révéler cette carte"}
     >
       <div
@@ -36,8 +41,7 @@ export function BoosterCard({ card, revealed, selected, onReveal, onSelect }) {
       >
         {/* ── Face cachée ── */}
         <div className="absolute inset-0 [backface-visibility:hidden] rounded-xl overflow-hidden
-          bg-gradient-to-br from-violet-800 to-violet-950 border border-white/15 flex items-center justify-center
-          active:scale-95 transition-transform motion-reduce:transition-none">
+          bg-gradient-to-br from-violet-800 to-violet-950 border border-white/15 flex items-center justify-center">
           <div className="absolute inset-0 opacity-20"
             style={{ backgroundImage: "radial-gradient(circle at 30% 20%, white, transparent 40%)" }} />
           <Sparkles size={22} className="text-violet-300/70" />
@@ -46,7 +50,7 @@ export function BoosterCard({ card, revealed, selected, onReveal, onSelect }) {
         {/* ── Face révélée ── */}
         <div
           className={`absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] rounded-xl overflow-hidden
-            border-2 ${r.border} bg-violet-950 flex flex-col active:scale-95 transition-transform motion-reduce:transition-none
+            border-2 ${r.border} bg-violet-950 flex flex-col
             ${selected ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-violet-950" : ""}`}
           style={{ boxShadow: revealed ? `0 0 ${r.shine ? 22 : 16}px -2px ${r.glow}` : undefined }}
         >

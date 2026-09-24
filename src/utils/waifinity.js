@@ -76,10 +76,13 @@ export const PACK_WEIGHTS = {
   chance: { common: 0.250, uncommon: 0.330, rare: 0.250, epic: 0.130, legendary: 0.035, secret: 0.005 },
 };
 
-export const BOOSTER_SIZE      = 10;
-export const FREE_COOLDOWN_MS  = 60 * 60 * 1000; // 1 booster gratuit par heure
-export const SHOP_CHANCE_COST  = 150;
-export const SHOP_TARGET_COST  = 250;
+// Monnaie du jeu : l'Anigold (clé `coins` dans la sauvegarde, inchangée).
+export const BOOSTER_SIZE         = 10;
+export const FREE_COOLDOWN_HOURS  = 3;
+export const FREE_COOLDOWN_MS     = FREE_COOLDOWN_HOURS * 60 * 60 * 1000; // 1 booster gratuit toutes les 3 h
+export const SHOP_CHANCE_COST     = 150;
+export const SHOP_TARGET_COST     = 250;
+export const SHOP_GENDER_COST     = 100; // booster réservé aux waifus OU aux husbandos (chances du booster gratuit)
 
 // ── Genre ────────────────────────────────────────────────────────────────────
 
@@ -93,9 +96,12 @@ export function normalizeGender(raw) {
   return "other";
 }
 
-// Préférence de tirage (boosters) — "other"/inconnu ne sont tirés qu'en mode "all".
-export const GENDER_PREFS = ["all", "female", "male"];
-export const GENDER_PREF_LABEL = { all: "Tous", female: "Waifus", male: "Husbandos" };
+// Boosters réservés à un genre (payants, voir la boutique). Les personnages
+// « autres » / de genre inconnu ne sortent que des boosters non filtrés.
+export const GENDER_BOOSTERS = {
+  female: { label: "Waifus",    source: "waifu" },
+  male:   { label: "Husbandos", source: "husbando" },
+};
 
 // Filtre de la collection.
 export const GENDER_FILTER_LABEL = { all: "Tous", female: "♀ Waifus", male: "♂ Husbandos", other: "Autres" };
@@ -106,8 +112,8 @@ export function matchesGender(card, filter) {
   return card.gender === filter;
 }
 
-export function filterPoolByGender(pool, pref) {
-  return pref === "all" ? pool : pool.filter((c) => c.gender === pref);
+export function filterPoolByGender(pool, gender) {
+  return gender === "all" ? pool : pool.filter((c) => c.gender === gender);
 }
 
 // ── Tirage ───────────────────────────────────────────────────────────────────
@@ -168,15 +174,15 @@ export function defaultState() {
   return {
     coins:              0,
     lastFreeOpenedAt:   0,       // 0 = jamais ouvert → booster dispo immédiatement
-    genderPref:         "all",   // "all" | "female" | "male" — filtre les boosters
     collection:         {},      // { [characterId]: { id, count, tier, gender, name, image, series, firstObtainedAt } }
-    pendingPack:        null,    // { source: "free"|"chance"|"targeted", cards: [...10], openedAt }
+    pendingPack:        null,    // { source: "free"|"chance"|"targeted"|"waifu"|"husbando", cards: [...10], openedAt }
     stats:              { opened: 0, obtained: 0, duplicates: 0 },
   };
 }
 
-// Anciennes sauvegardes : paliers en français (commune/epique/legendaire).
-function migrateState(s) {
+// Anciennes sauvegardes : paliers en français (commune/epique/legendaire) et
+// ancienne préférence de genre gratuite (`genderPref`, supprimée).
+function migrateState({ genderPref: _legacyGenderPref, ...s }) {
   const collection = {};
   for (const [id, e] of Object.entries(s.collection || {})) {
     collection[id] = { ...e, tier: normalizeTier(e.tier) };
@@ -184,12 +190,7 @@ function migrateState(s) {
   const pendingPack = s.pendingPack
     ? { ...s.pendingPack, cards: (s.pendingPack.cards || []).map((c) => ({ ...c, tier: normalizeTier(c.tier) })) }
     : null;
-  return {
-    ...s,
-    collection,
-    pendingPack,
-    genderPref: GENDER_PREFS.includes(s.genderPref) ? s.genderPref : "all",
-  };
+  return { ...s, collection, pendingPack };
 }
 
 export function loadState(uid) {
@@ -219,10 +220,13 @@ export function msUntilFreeBooster(lastFreeOpenedAt) {
   return Math.max(0, lastFreeOpenedAt + FREE_COOLDOWN_MS - Date.now());
 }
 
+/** "2:59:59" (h:mm:ss) — le cooldown dure plusieurs heures. */
 export function formatCountdown(ms) {
   const total = Math.ceil(ms / 1000);
-  const m = Math.floor(total / 60), s = total % 60;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 /** "0,1 %" / "55 %" — pourcentage lisible d'une probabilité 0-1. */

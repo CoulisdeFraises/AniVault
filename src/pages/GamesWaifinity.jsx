@@ -65,7 +65,7 @@ export function GamesWaifinity() {
 
         {/* ── Stats — toujours visibles ── */}
         <div className="grid grid-cols-3 gap-2.5 mb-5">
-          <StatTile icon={<Coins size={11} className="text-amber-400" />} label="Waifu Coins" value={game.coins} accent="text-amber-300" />
+          <StatTile icon={<Coins size={11} className="text-amber-400" />} label="Anigold" value={game.coins} accent="text-amber-300" />
           <StatTile icon={<Library size={11} />} label="Collection" value={game.collectionList.length}
             sub={game.pool.length ? `/ ${game.pool.length}` : undefined} />
           <StatTile icon={<PackageOpen size={11} />} label="Boosters" value={game.stats.opened} />
@@ -81,13 +81,13 @@ export function GamesWaifinity() {
           <PackOpening pack={game.pendingPack} onConfirm={handleConfirmPick} />
         ) : (
           <>
-            {tab === "boosters"   && <BoostersTab game={game} />}
+            {tab === "boosters"   && <BoostersTab game={game} onGoShop={() => setTab("shop")} />}
             {tab === "collection" && <CollectionGrid collectionList={game.collectionList} pool={game.pool} />}
             {tab === "shop" && (
               <ShopPanel
-                activePool={game.activePool} genderPref={game.genderPref} pendingPack={game.pendingPack}
-                canAffordChance={game.canAffordChance} canAffordTarget={game.canAffordTarget}
-                onBuyChance={game.openChanceBooster} onBuyTargeted={game.openTargetedBooster}
+                pool={game.pool} pendingPack={game.pendingPack}
+                canAffordChance={game.canAffordChance} canAffordTarget={game.canAffordTarget} canAffordGender={game.canAffordGender}
+                onBuyChance={game.openChanceBooster} onBuyTargeted={game.openTargetedBooster} onBuyGender={game.openGenderBooster}
               />
             )}
           </>

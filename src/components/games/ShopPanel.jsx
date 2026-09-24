@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { Sparkles, Target, Coins, ChevronDown } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Sparkles, Target, Users, Coins, ChevronDown } from "lucide-react";
 import {
-  SHOP_CHANCE_COST, SHOP_TARGET_COST, PACK_WEIGHTS, GENDER_PREF_LABEL, topSeries,
+  SHOP_CHANCE_COST, SHOP_TARGET_COST, SHOP_GENDER_COST, PACK_WEIGHTS, GENDER_BOOSTERS,
+  filterPoolByGender, topSeries,
 } from "../../utils/waifinity";
 import { haptics } from "../../utils/haptics";
 
@@ -25,28 +26,30 @@ function ShopCard({ icon, title, desc, cost, canAfford, disabled, onBuy, hideBuy
             disabled={disabled || !canAfford}
             className="mt-3 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-amber-400 text-violet-950 text-sm font-semibold disabled:opacity-35 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
           >
-            <Coins size={14} />{cost} Waifu Coins
+            <Coins size={14} />{cost} Anigold
           </button>
-          {!canAfford && <p className="text-[10px] text-rose-300 text-center mt-1.5">Pas assez de pièces</p>}
+          {!canAfford && <p className="text-[10px] text-rose-300 text-center mt-1.5">Pas assez d'Anigold</p>}
         </>
       )}
     </div>
   );
 }
 
-export function ShopPanel({ activePool, genderPref, pendingPack, canAffordChance, canAffordTarget, onBuyChance, onBuyTargeted }) {
+export function ShopPanel({
+  pool, pendingPack, canAffordChance, canAffordTarget, canAffordGender,
+  onBuyChance, onBuyTargeted, onBuyGender,
+}) {
   const [seriesOpen, setSeriesOpen] = useState(false);
-  const series = topSeries(activePool);
+  const series = useMemo(() => topSeries(pool), [pool]);
+  const genderCounts = useMemo(
+    () => Object.fromEntries(Object.keys(GENDER_BOOSTERS).map((g) => [g, filterPoolByGender(pool, g).length])),
+    [pool]
+  );
   const busy = !!pendingPack;
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500">Boosters</p>
-        {genderPref !== "all" && (
-          <p className="text-[11px] text-violet-400">Tirage : {GENDER_PREF_LABEL[genderPref]} <span className="text-violet-500">(modifiable dans Boosters)</span></p>
-        )}
-      </div>
+      <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500">Boosters</p>
 
       <ShopCard
         icon={<Sparkles size={18} />}
@@ -54,14 +57,34 @@ export function ShopPanel({ activePool, genderPref, pendingPack, canAffordChance
         desc={`10 cartes avec de bien meilleures chances : environ ×${mult("legendary")} de Legendary et ×${mult("secret")} de Secret par rapport au booster gratuit.`}
         cost={SHOP_CHANCE_COST}
         canAfford={canAffordChance}
-        disabled={busy || !activePool.length}
+        disabled={busy || !pool.length}
         onBuy={() => { haptics.success(); onBuyChance(); }}
       />
 
       <ShopCard
+        icon={<Users size={18} />}
+        title="Booster Waifus ou Husbandos"
+        desc="10 cartes uniquement ♀ (waifus) ou uniquement ♂ (husbandos), avec les chances du booster gratuit."
+        hideBuyButton
+      >
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {Object.entries(GENDER_BOOSTERS).map(([gender, cfg]) => (
+            <button key={gender}
+              onClick={() => { haptics.success(); onBuyGender(gender); }}
+              disabled={busy || !canAffordGender || !genderCounts[gender]}
+              className="flex flex-col items-center gap-0.5 py-2.5 rounded-xl bg-amber-400 text-violet-950 text-sm font-semibold disabled:opacity-35 disabled:cursor-not-allowed active:scale-[0.98] transition-transform motion-reduce:transition-none">
+              <span>{gender === "female" ? "♀" : "♂"} {cfg.label}</span>
+              <span className="flex items-center gap-1 text-[11px] font-medium"><Coins size={11} />{SHOP_GENDER_COST} Anigold</span>
+            </button>
+          ))}
+        </div>
+        {!canAffordGender && <p className="text-[10px] text-rose-300 text-center mt-1.5">Pas assez d'Anigold</p>}
+      </ShopCard>
+
+      <ShopCard
         icon={<Target size={18} />}
         title="Booster ciblé"
-        desc={`10 cartes piochées uniquement dans une série de ton choix, avec les chances du Chance+ · ${SHOP_TARGET_COST} Waifu Coins`}
+        desc={`10 cartes piochées uniquement dans une série de ton choix, avec les chances du Chance+ · ${SHOP_TARGET_COST} Anigold`}
         hideBuyButton
       >
         <button onClick={() => setSeriesOpen((v) => !v)} disabled={busy || !series.length}
@@ -82,7 +105,7 @@ export function ShopPanel({ activePool, genderPref, pendingPack, canAffordChance
             ))}
           </div>
         )}
-        {!canAffordTarget && <p className="text-[10px] text-rose-300 text-center mt-1.5">Pas assez de pièces</p>}
+        {!canAffordTarget && <p className="text-[10px] text-rose-300 text-center mt-1.5">Pas assez d'Anigold</p>}
       </ShopCard>
     </div>
   );

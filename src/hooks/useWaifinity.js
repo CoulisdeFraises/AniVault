@@ -3,7 +3,8 @@ import { useAuth } from "../context/AuthContext";
 import { fetchWaifuPool } from "../api/waifu";
 import {
   loadState, saveState, defaultState, generatePack, coinsForDuplicate,
-  msUntilFreeBooster, filterPoolByGender, PACK_WEIGHTS, SHOP_CHANCE_COST, SHOP_TARGET_COST,
+  msUntilFreeBooster, filterPoolByGender, GENDER_BOOSTERS, PACK_WEIGHTS,
+  SHOP_CHANCE_COST, SHOP_TARGET_COST, SHOP_GENDER_COST,
 } from "../utils/waifinity";
 
 /**
@@ -87,41 +88,52 @@ export function useWaifinity({ withPool = true } = {}) {
     });
   }, [pool, state.collection, persist]);
 
-  // ── Préférence de tirage : tous / waifus / husbandos ─────────────────────
-  const activePool = useMemo(() => filterPoolByGender(pool, state.genderPref), [pool, state.genderPref]);
-  const setGenderPref = useCallback((genderPref) => persist((prev) => ({ ...prev, genderPref })), [persist]);
-
   const cooldownMs = msUntilFreeBooster(state.lastFreeOpenedAt);
-  const canOpenFree = cooldownMs <= 0 && !state.pendingPack && activePool.length > 0;
+  const canOpenFree = cooldownMs <= 0 && !state.pendingPack && pool.length > 0;
 
-  // ── Ouverture d'un booster gratuit (1/heure) ─────────────────────────────
+  // ── Ouverture d'un booster gratuit (1 toutes les 3 h, tout le bassin) ────
   const openFreeBooster = useCallback(() => {
     if (!canOpenFree) return;
-    const cards = generatePack(activePool, PACK_WEIGHTS.free);
+    const cards = generatePack(pool, PACK_WEIGHTS.free);
     persist((prev) => ({
       ...prev,
       lastFreeOpenedAt: Date.now(),
       pendingPack: { source: "free", cards, openedAt: Date.now() },
       stats: { ...prev.stats, opened: prev.stats.opened + 1 },
     }));
-  }, [canOpenFree, activePool, persist]);
+  }, [canOpenFree, pool, persist]);
 
   // ── Boutique : booster "Chance+" (meilleures probabilités, tout le bassin) ──
   const openChanceBooster = useCallback(() => {
-    if (state.pendingPack || activePool.length === 0 || state.coins < SHOP_CHANCE_COST) return;
-    const cards = generatePack(activePool, PACK_WEIGHTS.chance);
+    if (state.pendingPack || pool.length === 0 || state.coins < SHOP_CHANCE_COST) return;
+    const cards = generatePack(pool, PACK_WEIGHTS.chance);
     persist((prev) => ({
       ...prev,
       coins: prev.coins - SHOP_CHANCE_COST,
       pendingPack: { source: "chance", cards, openedAt: Date.now() },
       stats: { ...prev.stats, opened: prev.stats.opened + 1 },
     }));
-  }, [state.pendingPack, state.coins, activePool, persist]);
+  }, [state.pendingPack, state.coins, pool, persist]);
+
+  // ── Boutique : booster réservé aux waifus OU aux husbandos (chances du gratuit) ──
+  const openGenderBooster = useCallback((gender) => {
+    const cfg = GENDER_BOOSTERS[gender];
+    if (!cfg || state.pendingPack || state.coins < SHOP_GENDER_COST) return;
+    const filtered = filterPoolByGender(pool, gender);
+    if (!filtered.length) return;
+    const cards = generatePack(filtered, PACK_WEIGHTS.free);
+    persist((prev) => ({
+      ...prev,
+      coins: prev.coins - SHOP_GENDER_COST,
+      pendingPack: { source: cfg.source, cards, openedAt: Date.now() },
+      stats: { ...prev.stats, opened: prev.stats.opened + 1 },
+    }));
+  }, [state.pendingPack, state.coins, pool, persist]);
 
   // ── Boutique : booster ciblé sur une série (mêmes probabilités que "Chance+") ──
   const openTargetedBooster = useCallback((seriesId) => {
     if (state.pendingPack || state.coins < SHOP_TARGET_COST) return;
-    const filtered = activePool.filter((c) => c.seriesId === seriesId);
+    const filtered = pool.filter((c) => c.seriesId === seriesId);
     if (!filtered.length) return;
     const cards = generatePack(filtered, PACK_WEIGHTS.chance);
     persist((prev) => ({
@@ -130,7 +142,7 @@ export function useWaifinity({ withPool = true } = {}) {
       pendingPack: { source: "targeted", cards, openedAt: Date.now() },
       stats: { ...prev.stats, opened: prev.stats.opened + 1 },
     }));
-  }, [state.pendingPack, state.coins, activePool, persist]);
+  }, [state.pendingPack, state.coins, pool, persist]);
 
   // ── Choix d'une carte parmi les 10 révélées → collection ou pièces ───────
   const pickCard = useCallback((packSlot) => {
@@ -188,11 +200,11 @@ export function useWaifinity({ withPool = true } = {}) {
     collection: state.collection,
     collectionList,
     pendingPack: state.pendingPack,
-    pool, activePool, poolMeta, poolLoading, poolError, reloadPool: () => loadPool(true),
-    genderPref: state.genderPref, setGenderPref,
+    pool, poolMeta, poolLoading, poolError, reloadPool: () => loadPool(true),
     canOpenFree, cooldownMs, now,
-    openFreeBooster, openChanceBooster, openTargetedBooster, pickCard,
+    openFreeBooster, openChanceBooster, openTargetedBooster, openGenderBooster, pickCard,
     canAffordChance:  state.coins >= SHOP_CHANCE_COST,
     canAffordTarget:  state.coins >= SHOP_TARGET_COST,
+    canAffordGender:  state.coins >= SHOP_GENDER_COST,
   };
 }

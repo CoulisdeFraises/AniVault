@@ -88,6 +88,8 @@ Commite ensuite le fichier généré. Sans snapshot, le jeu bascule sur un bassi
 
 Les probabilités de tirage (`PACK_WEIGHTS`) sont indépendantes de ces parts.
 
+**Boosters & Anigold** (la monnaie du jeu) : 1 booster gratuit toutes les 3 h (`FREE_COOLDOWN_HOURS`) ; en boutique, Chance+ (150), ciblé par série (250) et booster **Waifus** ou **Husbandos** (100, chances du gratuit). Les prix sont des constantes dans `src/utils/waifinity.js`.
+
 ---
 
 ## 📦 Build & Déploiement
