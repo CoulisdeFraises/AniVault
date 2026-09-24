@@ -1,7 +1,8 @@
-import { RARITY } from "../../utils/waifinity";
+import { RARITY, normalizeTier } from "../../utils/waifinity";
 
+/** Pastille de rareté (dégradé de la couleur du palier). */
 export function RarityBadge({ tier, size = "sm" }) {
-  const r = RARITY[tier] || RARITY.commune;
+  const r = RARITY[normalizeTier(tier)];
   const cls = size === "sm"
     ? "text-[8.5px] px-1.5 py-0.5"
     : "text-[10px] px-2 py-0.5";

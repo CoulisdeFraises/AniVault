@@ -26,7 +26,9 @@ export function PackOpening({ pack, onConfirm }) {
   return (
     <div className="pb-28">
       <div className="flex items-center justify-between mb-3">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-violet-400">{SOURCE_LABEL[pack.source] || "Booster"}</p>
+        <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500">
+          {SOURCE_LABEL[pack.source] || "Booster"} · {revealed.size}/{pack.cards.length}
+        </p>
         {!allRevealed && (
           <button onClick={revealAll} className="flex items-center gap-1.5 text-xs text-amber-300 hover:text-amber-200 active:scale-95">
             <Sparkles size={13} />Tout révéler
@@ -56,7 +58,7 @@ export function PackOpening({ pack, onConfirm }) {
       {/* Barre de confirmation, sticky au-dessus de la BottomNav */}
       {selectedCard && (
         <div className="fixed inset-x-0 bottom-0 z-30 pb-nav animate-fadeIn">
-          <div className="max-w-3xl mx-auto px-4 pb-3">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-3">
             <div className="flex items-center gap-3 rounded-2xl bg-violet-900/95 backdrop-blur-xl border border-white/10 shadow-2xl p-3">
               <div className="w-11 h-14 rounded-lg overflow-hidden bg-violet-950 flex-shrink-0">
                 {selectedCard.image && <img src={selectedCard.image} alt="" className="w-full h-full object-cover" />}

@@ -1,15 +1,23 @@
+import { useEffect } from "react";
 import { Sparkles, Check } from "lucide-react";
-import { RARITY } from "../../utils/waifinity";
+import { RARITY, normalizeTier } from "../../utils/waifinity";
 import { RarityBadge } from "./RarityBadge";
+import { GenderBadge } from "./GenderBadge";
 import { haptics } from "../../utils/haptics";
 
 /**
  * Carte d'un booster : face cachée (mystère, tap pour révéler) puis face
  * révélée (personnage + rareté). Une fois révélée, un nouveau tap la
  * sélectionne comme choix final (mise en avant par un anneau + coche).
+ * Les cartes Legendary et Secret ont un reflet animé et une petite vibration
+ * à la révélation.
  */
 export function BoosterCard({ card, revealed, selected, onReveal, onSelect }) {
-  const r = RARITY[card.tier] || RARITY.commune;
+  const r = RARITY[normalizeTier(card.tier)];
+
+  useEffect(() => {
+    if (revealed && r.shine) haptics.success();
+  }, [revealed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleClick() {
     if (!revealed) { haptics.light(); onReveal(); return; }
@@ -40,13 +48,14 @@ export function BoosterCard({ card, revealed, selected, onReveal, onSelect }) {
           className={`absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] rounded-xl overflow-hidden
             border-2 ${r.border} bg-violet-950 flex flex-col active:scale-95 transition-transform motion-reduce:transition-none
             ${selected ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-violet-950" : ""}`}
-          style={{ boxShadow: revealed ? `0 0 16px -2px ${r.glow}` : undefined }}
+          style={{ boxShadow: revealed ? `0 0 ${r.shine ? 22 : 16}px -2px ${r.glow}` : undefined }}
         >
           <div className="relative flex-1 min-h-0 bg-violet-900">
             {card.image
               ? <img src={card.image} alt="" loading="lazy" className="w-full h-full object-cover" />
               : <div className="w-full h-full flex items-center justify-center text-violet-600 text-2xl">?</div>}
             <div className="absolute top-1 left-1"><RarityBadge tier={card.tier} /></div>
+            {r.shine && revealed && <div className="card-shine" />}
             {selected && (
               <div className="absolute inset-0 bg-amber-400/15 flex items-center justify-center">
                 <span className="w-7 h-7 rounded-full bg-amber-400 text-violet-950 flex items-center justify-center shadow-lg">
@@ -55,9 +64,12 @@ export function BoosterCard({ card, revealed, selected, onReveal, onSelect }) {
               </div>
             )}
           </div>
-          <div className="px-1.5 py-1 bg-black/40">
-            <p className="text-[10px] font-semibold text-white leading-tight truncate">{card.name}</p>
-            <p className="text-[8.5px] text-violet-300 truncate">{card.series}</p>
+          <div className="px-2 py-1.5 bg-black/50 text-left">
+            <div className="flex items-center gap-1">
+              <p className="text-[11px] font-semibold text-white leading-tight truncate flex-1">{card.name}</p>
+              <GenderBadge gender={card.gender} />
+            </div>
+            <p className="text-[9.5px] text-violet-300 truncate">{card.series}</p>
           </div>
         </div>
       </div>

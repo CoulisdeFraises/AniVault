@@ -63,6 +63,33 @@ Les résumés essaient d'abord **TMDB** (en français) avant de retomber sur Ani
 
 ---
 
+## 🎴 Waifinity — bassin de personnages
+
+Le mini-jeu **Waifinity** tire ses personnages d'**AniList** (image, favoris, **genre**, série principale).
+Pour un gros bassin sans dépendre du débit d'AniList (~30 requêtes/min), l'app charge d'abord un **snapshot statique** `public/data/waifinity-pool.json`, à générer une fois :
+
+```bash
+npm run pool                    # 3 000 personnages (~2 min)
+npm run pool -- --count 5000    # bassin plus grand
+```
+
+Commite ensuite le fichier généré. Sans snapshot, le jeu bascule sur un bassin réduit (400 personnages) récupéré en direct.
+
+**Raretés** — calculées par rang de favoris dans le bassin (`src/utils/waifinity.js`) :
+
+| Palier | Personnages | Part du bassin |
+|---|---|---|
+| ⚪ Common | secondaires | 50 % |
+| 🟢 Uncommon | connus | 25 % |
+| 🔵 Rare | populaires | 15 % |
+| 🟣 Epic | très populaires | 6,5 % |
+| 🟡 Legendary | iconiques | 3 % |
+| 🔴 Secret | extrêmement rares | 0,5 % |
+
+Les probabilités de tirage (`PACK_WEIGHTS`) sont indépendantes de ces parts.
+
+---
+
 ## 📦 Build & Déploiement
 
 ```bash
@@ -96,6 +123,7 @@ Les données sont sauvegardées dans le **`localStorage`** du navigateur — ell
 | [AniList GraphQL](https://docs.anilist.co/) | Recherche & infos animes | ❌ Non |
 | [TVmaze](https://www.tvmaze.com/api) | Recherche & infos séries | ❌ Non |
 | [TMDB](https://www.themoviedb.org/documentation/api) | Résumés en français | ✅ Optionnelle |
+| AniList (personnages) | Bassin du jeu Waifinity (genre, favoris) | ❌ Non |
 
 ---
 
