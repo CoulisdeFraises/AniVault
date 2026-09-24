@@ -137,7 +137,7 @@ function sortEntries(entries, sortBy) {
 export function Home() {
   const { entries, loading, saveError, offline } = useLibrary();
   const { lists }  = useLists();
-  const { syncAll, syncing, progress } = useSync();
+  const { syncAll } = useSync();
   const navigate   = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -382,7 +382,7 @@ export function Home() {
       <PageBanner />
       <PullToRefresh onRefresh={() => syncAll(true)}>
         <div className="relative flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 pb-4">
-          <HomeHeader syncing={syncing} syncProgress={progress} onSyncClick={() => syncAll(true)} />
+          <HomeHeader />
 
           {offline && (
             <div className="relative mb-4 flex items-center gap-2 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30

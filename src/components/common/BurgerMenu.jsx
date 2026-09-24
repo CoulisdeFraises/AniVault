@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Menu, Settings, LogOut, Clock, Database } from "lucide-react";
+import { Menu, Settings, LogOut, Clock, Database, RefreshCw } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useSync } from "../../hooks/useSync";
 import { ExportImportModal } from "./ExportImportModal";
 import { Avatar } from "./Avatar";
 
 export function BurgerMenu() {
   const { user, profile, userProfile, logout } = useAuth();
+  const { syncAll, syncing, progress } = useSync();
   const navigate    = useNavigate();
   const location    = useLocation();
   const buttonRef   = useRef(null);
@@ -89,6 +91,18 @@ export function BurgerMenu() {
           </button>
         ))}
       </nav>
+
+      {/* Synchronisation manuelle */}
+      <div className="border-t border-white/5 py-1">
+        <button
+          onClick={() => syncAll(true)}
+          disabled={syncing}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-violet-200 hover:bg-white/10 active:bg-white/20 transition-colors motion-reduce:transition-none disabled:opacity-60"
+        >
+          <RefreshCw size={15} className={`flex-shrink-0 text-violet-400 ${syncing ? "animate-spin motion-reduce:animate-none" : ""}`} />
+          {syncing ? `Synchronisation… ${progress.current}/${progress.total}` : "Synchroniser"}
+        </button>
+      </div>
 
       {/* Export / Import */}
       <div className="border-t border-white/5 py-1">

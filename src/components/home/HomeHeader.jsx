@@ -1,9 +1,14 @@
 import { useState, useRef, useEffect } from "react";
-import { RefreshCw } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Gamepad2 } from "lucide-react";
 import { NotificationPanel } from "../common/NotificationPanel";
-import { BurgerMenu }        from "../common/BurgerMenu";
+import { BurgerMenu } from "../common/BurgerMenu";
+import { haptics } from "../../utils/haptics";
 
-export function HomeHeader({ syncing, syncProgress, onSyncClick }) {
+// Le bouton de synchronisation manuelle a été déplacé dans le menu ☰
+// (BurgerMenu) pour libérer cet emplacement au profit de l'accès aux jeux.
+export function HomeHeader() {
+  const navigate = useNavigate();
   const [logoPlaying, setLogoPlaying] = useState(false);
   const timerRef = useRef(null);
 
@@ -31,11 +36,10 @@ export function HomeHeader({ syncing, syncProgress, onSyncClick }) {
       </div>
 
       <div className="flex items-center gap-1.5 flex-shrink-0">
-        <button onClick={onSyncClick} disabled={syncing}
-          title={syncing ? `Sync… ${syncProgress.current}/${syncProgress.total}` : "Actualiser les données"}
-          aria-label="Actualiser les données"
-          className="h-9 w-9 flex items-center justify-center rounded-xl bg-violet-900/50 backdrop-blur-md border border-white/10 hover:bg-violet-800/50 disabled:opacity-70 active:scale-95 transition-all motion-reduce:transition-none">
-          <RefreshCw size={14} className={`text-violet-300 ${syncing ? "animate-spin motion-reduce:animate-none" : ""}`} />
+        <button onClick={() => { haptics.tap(); navigate("/games"); }}
+          title="Jeux" aria-label="Jeux"
+          className="h-9 w-9 flex items-center justify-center rounded-xl bg-violet-900/50 backdrop-blur-md border border-white/10 hover:bg-violet-800/50 active:scale-95 transition-all motion-reduce:transition-none">
+          <Gamepad2 size={15} className="text-violet-300" />
         </button>
         <NotificationPanel />
         <BurgerMenu />

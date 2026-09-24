@@ -40,6 +40,8 @@ const Recommendations = lazy(() => import("./pages/Recommendations").then(m => (
 const Community       = lazy(() => import("./pages/Community")      .then(m => ({ default: m.Community })));
 const Lists           = lazy(() => import("./pages/Lists")          .then(m => ({ default: m.Lists })));
 const SearchPage      = lazy(() => import("./pages/Search")         .then(m => ({ default: m.SearchPage })));
+const Games           = lazy(() => import("./pages/Games")          .then(m => ({ default: m.Games })));
+const GamesWaifinity  = lazy(() => import("./pages/GamesWaifinity") .then(m => ({ default: m.GamesWaifinity })));
 
 // ── Loaders ───────────────────────────────────────────────────────────────────
 
@@ -258,6 +260,10 @@ const AppRoutes = () => {
               element={<ProtectedRoute><PageTransition><Settings /></PageTransition></ProtectedRoute>} />
             <Route path="/search"
               element={<ProtectedRoute><PageTransition><SearchPage /></PageTransition></ProtectedRoute>} />
+            <Route path="/games"
+              element={<ProtectedRoute><PageTransition><Games /></PageTransition></ProtectedRoute>} />
+            <Route path="/games/waifinity"
+              element={<ProtectedRoute><PageTransition><GamesWaifinity /></PageTransition></ProtectedRoute>} />
             <Route path="*"
               element={<Navigate to="/" replace />} />
           </Routes>
