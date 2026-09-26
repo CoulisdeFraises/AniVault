@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Sparkles, Check } from "lucide-react";
+import { Sparkles, Check, Copy } from "lucide-react";
 import { RARITY, normalizeTier } from "../../utils/waifinity";
 import { RarityBadge } from "./RarityBadge";
 import { GenderBadge } from "./GenderBadge";
@@ -15,9 +15,13 @@ import { haptics } from "../../utils/haptics";
  * révélée (personnage + rareté). Une fois révélée, un nouveau tap la
  * sélectionne comme choix final (mise en avant par un anneau + coche).
  * Les cartes Legendary et Secret ont un reflet animé et une petite vibration
- * à la révélation.
+ * à la révélation. Un halo pulsant derrière la carte (intensité/vitesse
+ * selon la rareté — voir RARITY dans utils/waifinity.js) attire l'œil sur
+ * les tirages les plus rares. `isDuplicate` affiche un petit badge si ce
+ * personnage est déjà dans la collection (ou apparaît une 2e fois dans ce
+ * même booster) — calculé par le parent (PackOpening).
  */
-export function BoosterCard({ card, revealed, selected, onReveal, onSelect }) {
+export function BoosterCard({ card, revealed, selected, isDuplicate, onReveal, onSelect }) {
   const r = RARITY[normalizeTier(card.tier)];
 
   useEffect(() => {
@@ -33,8 +37,20 @@ export function BoosterCard({ card, revealed, selected, onReveal, onSelect }) {
     <button
       onClick={handleClick}
       className="relative aspect-[3/4] w-full [perspective:800px] active:scale-95 transition-transform motion-reduce:transition-none"
-      aria-label={revealed ? `${card.name} — ${r.label}${selected ? " — sélectionnée" : ""}` : "Révéler cette carte"}
+      aria-label={revealed ? `${card.name} — ${r.label}${selected ? " — sélectionnée" : ""}${isDuplicate ? " — déjà possédé" : ""}` : "Révéler cette carte"}
     >
+      {revealed && (
+        <div
+          className="card-aura absolute -inset-2 sm:-inset-2.5 rounded-2xl -z-10 pointer-events-none"
+          style={{
+            background: `radial-gradient(circle, ${r.glow} 0%, transparent 72%)`,
+            filter: "blur(10px)",
+            animationDuration: `${r.auraDuration}s`,
+            "--aura-peak": r.auraPeak,
+          }}
+          aria-hidden="true"
+        />
+      )}
       <div
         className="relative w-full h-full transition-transform duration-500 motion-reduce:transition-none [transform-style:preserve-3d]"
         style={{ transform: revealed ? "rotateY(180deg)" : "rotateY(0deg)" }}
@@ -59,6 +75,15 @@ export function BoosterCard({ card, revealed, selected, onReveal, onSelect }) {
               ? <img src={card.image} alt="" loading="lazy" className="w-full h-full object-cover" />
               : <div className="w-full h-full flex items-center justify-center text-violet-600 text-2xl">?</div>}
             <div className="absolute top-1 left-1"><RarityBadge tier={card.tier} /></div>
+            {isDuplicate && (
+              <div
+                className="absolute top-1 right-1 flex items-center justify-center w-5 h-5 rounded-full bg-black/65 border border-white/25 text-violet-100"
+                title="Déjà dans ta collection"
+                aria-hidden="true"
+              >
+                <Copy size={10.5} strokeWidth={2.5} />
+              </div>
+            )}
             {r.shine && revealed && <div className="card-shine" />}
             {selected && (
               <div className="absolute inset-0 bg-amber-400/15 flex items-center justify-center">

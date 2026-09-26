@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "pool": "node scripts/build-waifu-pool.mjs"
+    "pool": "node scripts/sync-waifu-pool.mjs"
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { motion } from "motion/react";
 import { Sparkles, Heart } from "lucide-react";
 import { BoosterCard } from "./BoosterCard";
 import { haptics } from "../../utils/haptics";
@@ -8,15 +9,42 @@ const SOURCE_LABEL = {
   waifu: "Booster Waifus", husbando: "Booster Husbandos",
 };
 
+const INTRO_DURATION_MS = 1100;
+
 /**
- * Ouverture d'un booster de 10 : chaque carte se révèle au tap, puis un tap
- * sur une carte révélée la sélectionne comme choix final. Les 9 autres sont
- * perdues à la confirmation — donc pas de confirmation "en un clic" pour
+ * Ouverture d'un booster de 10 : un court suspense animé (le booster qui
+ * "charge") précède la révélation, puis chaque carte se révèle au tap, et un
+ * tap sur une carte révélée la sélectionne comme choix final. Les 9 autres
+ * sont perdues à la confirmation — donc pas de confirmation "en un clic" pour
  * limiter les erreurs de manipulation.
+ *
+ * `collection` (état persistant du joueur) sert à repérer les doublons parmi
+ * les cartes de CE booster : un personnage déjà possédé, ou qui apparaît
+ * deux fois dans le même tirage, reçoit un petit badge sur sa carte révélée.
  */
-export function PackOpening({ pack, onConfirm }) {
+export function PackOpening({ pack, onConfirm, collection = {} }) {
+  const [intro, setIntro] = useState(true);
   const [revealed, setRevealed] = useState(() => new Set());
   const [selected, setSelected] = useState(null);
+
+  // Court suspense avant de révéler la grille — tap pour passer directement.
+  useEffect(() => {
+    const t = setTimeout(() => setIntro(false), INTRO_DURATION_MS);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Doublon = déjà dans la collection avant ce booster, OU 2e apparition du
+  // même personnage dans ce même tirage (generatePack peut, rarement, tirer
+  // deux fois le même id si un palier est très restreint).
+  const dupSlots = useMemo(() => {
+    const seen = new Set();
+    const dup = new Set();
+    for (const c of pack.cards) {
+      if (collection[c.id] || seen.has(c.id)) dup.add(c.packSlot);
+      seen.add(c.id);
+    }
+    return dup;
+  }, [pack, collection]);
 
   const allRevealed = revealed.size === pack.cards.length;
   const selectedCard = pack.cards.find((c) => c.packSlot === selected) || null;
@@ -24,6 +52,37 @@ export function PackOpening({ pack, onConfirm }) {
   function revealAll() {
     haptics.tap();
     setRevealed(new Set(pack.cards.map((c) => c.packSlot)));
+  }
+
+  if (intro) {
+    return (
+      <button
+        onClick={() => setIntro(false)}
+        aria-label="Ouverture du booster — toucher pour passer"
+        className="w-full flex flex-col items-center justify-center gap-5 py-24 text-violet-200"
+      >
+        <motion.div
+          initial={{ scale: 0.5, opacity: 0, rotate: -10 }}
+          animate={{ scale: [0.5, 1.12, 0.95, 1.05, 1], opacity: 1, rotate: [-10, 6, -3, 0] }}
+          transition={{ duration: 0.85, ease: "easeOut" }}
+          className="relative w-24 h-28"
+        >
+          <motion.span
+            className="absolute inset-0 rounded-2xl"
+            style={{ boxShadow: "0 0 0px 0px rgba(251,191,36,0.6)" }}
+            animate={{ boxShadow: ["0 0 10px 2px rgba(251,191,36,0.35)", "0 0 42px 10px rgba(251,191,36,0.65)", "0 0 10px 2px rgba(251,191,36,0.35)"] }}
+            transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <span className="absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-400/30 to-fuchsia-500/30 border border-amber-300/50" />
+          <span className="absolute inset-0 flex items-center justify-center">
+            <Sparkles size={34} className="text-amber-200" />
+          </span>
+        </motion.div>
+        <p className="font-mono text-[11px] uppercase tracking-widest text-violet-300 animate-pulse motion-reduce:animate-none">
+          Ouverture du booster…
+        </p>
+      </button>
+    );
   }
 
   return (
@@ -52,6 +111,7 @@ export function PackOpening({ pack, onConfirm }) {
             card={card}
             revealed={revealed.has(card.packSlot)}
             selected={selected === card.packSlot}
+            isDuplicate={dupSlots.has(card.packSlot)}
             onReveal={() => setRevealed((s) => new Set(s).add(card.packSlot))}
             onSelect={() => setSelected((cur) => (cur === card.packSlot ? null : card.packSlot))}
           />

@@ -1,38 +1,38 @@
-// ── Waifinity : bassin de personnages (source : AniList) ────────────────────
+// ── Waifinity : bassin de personnages (classement MyAnimeList + genre AniList) ──
 //
-// AniList (GraphQL, public, CORS ouvert — déjà intégré à l'app) expose pour
-// chaque personnage : image, nom, nombre de favoris ET genre (`gender`).
-// Jikan (MyAnimeList) n'a pas de champ de genre pour les personnages, d'où le
-// choix d'AniList comme source unique.
+// Le bassin (top ~3000, classement réel https://myanimelist.net/character.php)
+// est constitué et tenu à jour côté serveur par scripts/sync-waifu-pool.mjs,
+// qui écrit dans la table Supabase `waifinity_characters`. Le genre de chaque
+// personnage (utilisé par les boosters Waifu/Husbando) vient d'AniList, croisé
+// par nom lors de la synchro — Jikan (MyAnimeList) n'expose pas ce champ. Voir
+// l'en-tête de ce script pour le détail de la logique de correspondance.
 //
 // Deux sources, dans cet ordre :
 //
-//  1. SNAPSHOT STATIQUE  /data/waifinity-pool.json  (public/data/)
-//     Généré une fois par `npm run pool` (scripts/build-waifu-pool.mjs) :
-//     plusieurs milliers de personnages, sans limite de débit côté visiteur
-//     (AniList plafonne à ~30 requêtes/min : impossible de construire un gros
-//     bassin en direct à chaque première visite). Servi comme un fichier
-//     statique, il est mis en cache par le navigateur et le Service Worker.
+//  1. SUPABASE (table waifinity_characters, lecture publique en RLS)
+//     Source de vérité : gérée uniquement par nous, indépendante des quotas
+//     AniList/Jikan côté visiteur. Mise à jour en relançant `npm run pool`.
 //
 //  2. REPLI EN DIRECT (AniList, LIVE_PAGES × 50 personnages)
-//     Utilisé si le snapshot est absent ou illisible, pour que le jeu reste
-//     jouable. Mis en cache 24 h.
+//     Utilisé si Supabase est injoignable ou vide, pour que le jeu reste
+//     jouable en dégradé. Mis en cache 24 h. Base AniList (pas MAL) : la
+//     rareté et le classement seront donc temporairement différents tant que
+//     ce repli est actif.
 //
 // La rareté de chaque personnage (voir utils/waifinity.js) est calculée par
 // rang de favoris au sein du bassin chargé.
-//
-// Les personnages dont la série principale est classée « adulte » par AniList
-// sont exclus du bassin (dans le snapshot comme en direct).
 
+import { supabase } from "../lib/supabase";
 import { anilistQuery } from "./anilist";
 import { getCached, setCached, removeCached, TTL } from "../lib/cache";
 import { computeTiers, normalizeGender } from "../utils/waifinity";
 
-const SNAPSHOT_URL   = "/data/waifinity-pool.json";
-const LIVE_CACHE_KEY = "waifinity_pool_live_v2";
-const LIVE_PAGES     = 8;   // 8 × 50 = 400 personnages max en repli
-const PER_PAGE       = 50;
-const MIN_SNAPSHOT   = 100; // en dessous, on considère le fichier invalide
+const TABLE           = "waifinity_characters";
+const SUPABASE_PAGE   = 1000; // limite par requête côté PostgREST (voir range())
+const LIVE_CACHE_KEY  = "waifinity_pool_live_v2";
+const LIVE_PAGES      = 8;   // 8 × 50 = 400 personnages max en repli
+const PER_PAGE        = 50;
+const MIN_POOL        = 100; // en dessous, on considère la source invalide
 
 const CHAR_QUERY = `
   query ($page: Int, $perPage: Int) {
@@ -71,31 +71,38 @@ function mapCharacter(c) {
   };
 }
 
-/** Entrée du snapshot (déjà filtrée par le script) → entrée du bassin. */
-function mapSnapshotEntry(e) {
-  if (e?.id == null || !e.name || !e.image) return null;
+/** Ligne Supabase (table waifinity_characters) → entrée du bassin. */
+function mapRow(row) {
+  if (row?.mal_id == null || !row.name || !row.image) return null;
   return {
-    id:         e.id,
-    name:       e.name,
-    image:      e.image,
-    gender:     normalizeGender(e.gender),
-    favourites: e.favourites || 0,
-    seriesId:   e.seriesId ?? null,
-    series:     e.series || "Série inconnue",
+    id:         row.mal_id,
+    name:       row.name,
+    image:      row.image,
+    gender:     normalizeGender(row.gender),
+    favourites: row.favourites || 0,
+    seriesId:   row.anime_mal_id ?? null,
+    series:     row.series || "Série inconnue",
   };
 }
 
-async function fetchSnapshot(force) {
-  const res = await fetch(SNAPSHOT_URL, force ? { cache: "reload" } : undefined);
-  if (!res.ok) throw new Error(`Snapshot indisponible (${res.status})`);
-  // Si le fichier n'existe pas, le fallback SPA (/* → index.html) répond en
-  // 200 avec du HTML : res.json() lève alors, et on passe au repli en direct.
-  const json = await res.json();
-  const list = Array.isArray(json) ? json : json?.characters;
-  if (!Array.isArray(list) || list.length < MIN_SNAPSHOT) throw new Error("Snapshot invalide");
+async function fetchSupabasePool() {
+  const rows = [];
+  // La table peut dépasser la limite par requête de PostgREST : on pagine.
+  for (let from = 0; ; from += SUPABASE_PAGE) {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("mal_id, name, image, gender, favourites, anime_mal_id, series, updated_at")
+      .order("favourites", { ascending: false })
+      .range(from, from + SUPABASE_PAGE - 1);
+    if (error) throw new Error(error.message);
+    if (!data?.length) break;
+    rows.push(...data);
+    if (data.length < SUPABASE_PAGE) break;
+  }
+  if (rows.length < MIN_POOL) throw new Error("Bassin Supabase vide ou trop petit");
   return {
-    list: list.map(mapSnapshotEntry).filter(Boolean),
-    meta: { source: "snapshot", generatedAt: json?.generatedAt || null },
+    list: rows.map(mapRow).filter(Boolean),
+    meta: { source: "supabase", generatedAt: rows[0]?.updated_at || null },
   };
 }
 
@@ -130,7 +137,7 @@ let inflight = null;
 
 /**
  * fetchWaifuPool — renvoie { pool, meta } : le bassin de personnages (rareté
- * déjà calculée) et sa provenance ({ source: "snapshot" | "live", generatedAt }).
+ * déjà calculée) et sa provenance ({ source: "supabase" | "live", generatedAt }).
  * `force` ignore les caches (bouton « Actualiser le bassin »).
  */
 export function fetchWaifuPool({ force = false } = {}) {
@@ -141,7 +148,7 @@ export function fetchWaifuPool({ force = false } = {}) {
 
   inflight = (async () => {
     let result;
-    try { result = await fetchSnapshot(force); }
+    try { result = await fetchSupabasePool(); }
     catch { result = await fetchLive(force); }
 
     const sorted = result.list.sort((a, b) => b.favourites - a.favourites);

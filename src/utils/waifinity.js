@@ -12,16 +12,25 @@
 // synchronise donc pas encore entre appareils.
 
 // ── Raretés ──────────────────────────────────────────────────────────────────
+//
+// coinValue (doublon → coins) : revalorisé pour Common/Uncommon/Rare/Epic une
+// fois le vrai bassin de 3000 personnages en place. La fréquence d'un doublon
+// dépend du nombre de personnages UNIQUES du palier (1500 Common, 90
+// Legendary, 15 Secret…), pas de son poids de tirage : avec 1500 Common
+// uniques, un doublon Common devient rare malgré un tirage fréquent — d'où
+// une valeur relevée pour ne pas assécher les coins en début de partie.
+// Legendary/Secret restent inchangés : leur petit nombre d'uniques (90/15)
+// suffit déjà à faire arriver les doublons à un rythme raisonnable.
 
 export const RARITY_ORDER = ["common", "uncommon", "rare", "epic", "legendary", "secret"];
 
 export const RARITY = {
-  common:    { label: "Common",    emoji: "⚪", desc: "Personnages secondaires",      coinValue: 5,   shine: false, grad: "from-slate-400 to-slate-500",     text: "text-slate-200",   border: "border-slate-300/50",  glow: "rgba(203,213,225,0.30)" },
-  uncommon:  { label: "Uncommon",  emoji: "🟢", desc: "Personnages connus",           coinValue: 10,  shine: false, grad: "from-emerald-400 to-green-600",   text: "text-emerald-300", border: "border-emerald-400/60", glow: "rgba(52,211,153,0.40)" },
-  rare:      { label: "Rare",      emoji: "🔵", desc: "Personnages populaires",       coinValue: 20,  shine: false, grad: "from-sky-400 to-blue-600",        text: "text-sky-300",     border: "border-sky-400/60",     glow: "rgba(56,189,248,0.45)" },
-  epic:      { label: "Epic",      emoji: "🟣", desc: "Personnages très populaires",  coinValue: 50,  shine: false, grad: "from-fuchsia-400 to-purple-600",  text: "text-fuchsia-300", border: "border-fuchsia-400/60", glow: "rgba(217,70,239,0.50)" },
-  legendary: { label: "Legendary", emoji: "🟡", desc: "Personnages iconiques",        coinValue: 150, shine: true,  grad: "from-amber-300 to-orange-500",    text: "text-amber-300",   border: "border-amber-400/70",   glow: "rgba(251,191,36,0.60)" },
-  secret:    { label: "Secret",    emoji: "🔴", desc: "Extrêmement rares",            coinValue: 500, shine: true,  grad: "from-rose-500 to-red-700",        text: "text-rose-300",    border: "border-rose-500/80",    glow: "rgba(244,63,94,0.70)" },
+  common:    { label: "Common",    emoji: "⚪", desc: "Personnages secondaires",      coinValue: 15,  shine: false, grad: "from-slate-400 to-slate-500",     text: "text-slate-200",   border: "border-slate-300/50",  glow: "rgba(203,213,225,0.30)", auraDuration: 3.4, auraPeak: 0.20 },
+  uncommon:  { label: "Uncommon",  emoji: "🟢", desc: "Personnages connus",           coinValue: 25,  shine: false, grad: "from-emerald-400 to-green-600",   text: "text-emerald-300", border: "border-emerald-400/60", glow: "rgba(52,211,153,0.40)",  auraDuration: 3.1, auraPeak: 0.26 },
+  rare:      { label: "Rare",      emoji: "🔵", desc: "Personnages populaires",       coinValue: 40,  shine: false, grad: "from-sky-400 to-blue-600",        text: "text-sky-300",     border: "border-sky-400/60",     glow: "rgba(56,189,248,0.45)",  auraDuration: 2.7, auraPeak: 0.34 },
+  epic:      { label: "Epic",      emoji: "🟣", desc: "Personnages très populaires",  coinValue: 75,  shine: false, grad: "from-fuchsia-400 to-purple-600",  text: "text-fuchsia-300", border: "border-fuchsia-400/60", glow: "rgba(217,70,239,0.50)",  auraDuration: 2.3, auraPeak: 0.44 },
+  legendary: { label: "Legendary", emoji: "🟡", desc: "Personnages iconiques",        coinValue: 150, shine: true,  grad: "from-amber-300 to-orange-500",    text: "text-amber-300",   border: "border-amber-400/70",   glow: "rgba(251,191,36,0.60)",  auraDuration: 1.8, auraPeak: 0.60 },
+  secret:    { label: "Secret",    emoji: "🔴", desc: "Extrêmement rares",            coinValue: 500, shine: true,  grad: "from-rose-500 to-red-700",        text: "text-rose-300",    border: "border-rose-500/80",    glow: "rgba(244,63,94,0.70)",   auraDuration: 1.3, auraPeak: 0.78 },
 };
 
 // Anciennes clés (v1 du jeu, 4 paliers en français) — pour migrer les sauvegardes.

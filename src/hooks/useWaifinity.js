@@ -32,7 +32,7 @@ export function useWaifinity({ withPool = true } = {}) {
   // ── Chargement de la sauvegarde locale (par compte) ──────────────────────
   useEffect(() => { setState(loadState(uid)); }, [uid]);
 
-  // ── Chargement du bassin de personnages (snapshot AniList, sinon repli direct) ──
+  // ── Chargement du bassin de personnages (Supabase, sinon repli AniList en direct) ──
   const loadPool = useCallback(async (force = false) => {
     setPoolLoading(true);
     setPoolError(null);
@@ -42,7 +42,7 @@ export function useWaifinity({ withPool = true } = {}) {
       setPoolMeta(meta);
       if (!p.length) setPoolError("Le bassin de personnages est vide pour le moment.");
     } catch (e) {
-      setPoolError(e?.message || "Impossible de charger les personnages depuis AniList.");
+      setPoolError(e?.message || "Impossible de charger les personnages pour le moment.");
     } finally {
       setPoolLoading(false);
     }

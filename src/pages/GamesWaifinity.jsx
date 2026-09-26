@@ -78,7 +78,7 @@ export function GamesWaifinity() {
 
         {/* Un booster en cours d'ouverture prend le pas sur les onglets */}
         {game.pendingPack ? (
-          <PackOpening pack={game.pendingPack} onConfirm={handleConfirmPick} />
+          <PackOpening pack={game.pendingPack} collection={game.collection} onConfirm={handleConfirmPick} />
         ) : (
           <>
             {tab === "boosters"   && <BoostersTab game={game} onGoShop={() => setTab("shop")} />}
