@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "motion/react";
-import { ChevronLeft, Sparkles, LayoutGrid, Store, Coins, Library, PackageOpen } from "lucide-react";
+import { ChevronLeft, Sparkles, LayoutGrid, Store, Coins, Library, PackageOpen, Users } from "lucide-react";
 import { TopBar } from "../components/common/TopBar";
 import { PageBanner } from "../components/common/PageBanner";
 import { useWaifinity } from "../hooks/useWaifinity";
@@ -11,11 +11,13 @@ import { CharacterSheetModal } from "../components/games/CharacterSheetModal";
 import { CollectionGrid } from "../components/games/CollectionGrid";
 import { ShopPanel } from "../components/games/ShopPanel";
 import { BoostersTab } from "../components/games/BoostersTab";
+import { SocialTab } from "../components/games/SocialTab";
 import { PillTabs } from "../components/games/PillTabs";
 
 const TABS = [
   { key: "boosters",   label: "Boosters",   icon: Sparkles },
   { key: "collection", label: "Collection", icon: LayoutGrid },
+  { key: "social",     label: "Social",     icon: Users },
   { key: "shop",       label: "Boutique",   icon: Store },
 ];
 
@@ -88,6 +90,7 @@ export function GamesWaifinity() {
           <>
             {tab === "boosters"   && <BoostersTab game={game} onGoShop={() => setTab("shop")} />}
             {tab === "collection" && <CollectionGrid collectionList={game.collectionList} pool={game.pool} collection={game.collection} onOpenSheet={setSheetId} />}
+            {tab === "social" && <SocialTab game={game} />}
             {tab === "shop" && (
               <ShopPanel
                 pool={game.pool} pendingPack={game.pendingPack}

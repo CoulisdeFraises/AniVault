@@ -78,6 +78,17 @@ export function countByTier(list) {
 }
 
 /**
+ * Score du classement entre amis (voir SocialTab) : pondère les personnages
+ * DISTINCTS possédés par palier — les doublons ne gonflent pas le score,
+ * pour que ce soit la diversité de la collection qui compte, pas le farm.
+ * Prend un résultat de countByTier(), pas une liste brute.
+ */
+export const SCORE_WEIGHT = { common: 1, uncommon: 2, rare: 4, epic: 8, legendary: 20, secret: 50 };
+export function collectionScore(tierCounts) {
+  return RARITY_ORDER.reduce((sum, t) => sum + (tierCounts[t] || 0) * SCORE_WEIGHT[t], 0);
+}
+
+/**
  * Clé de regroupement par série : l'id MAL de la série si on l'a (fiable),
  * sinon son nom (repli si la série n'a pas pu être déterminée lors de la
  * synchro — voir scripts/sync-waifu-pool.mjs). Partagée par groupPoolBySeries

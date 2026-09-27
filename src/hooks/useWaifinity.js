@@ -6,6 +6,9 @@ import {
   msUntilFreeBooster, filterPoolByGender, GENDER_BOOSTERS, PACK_WEIGHTS,
   SHOP_CHANCE_COST, SHOP_TARGET_COST, SHOP_GENDER_COST, seriesKeyOf, seriesCompletionBonus, wishCost,
 } from "../utils/waifinity";
+import {
+  syncWaifinityItem, fetchMyTrades, acceptTradeServer, markTradeApplied, closeTrade, proposeTrade as proposeTradeService,
+} from "../services/waifinitySocial";
 
 /**
  * useWaifinity — état complet du mini-jeu (bassin de personnages, pièces,
@@ -226,13 +229,97 @@ export function useWaifinity({ withPool = true } = {}) {
         },
       };
     });
+
+    // Miroir public (classement + doublons visibles par les amis) — best
+    // effort, ne bloque jamais le jeu si Supabase est indisponible.
+    syncWaifinityItem(uid, {
+      id: card.id, name: card.name, image: card.image, series: card.series,
+      tier: card.tier, gender: card.gender ?? null, count: (owned?.count || 0) + 1,
+    });
+
     return result;
-  }, [persist, pool]);
+  }, [persist, pool, uid]);
 
   const collectionList = useMemo(
     () => Object.values(state.collection).sort((a, b) => b.firstObtainedAt - a.firstObtainedAt),
     [state.collection]
   );
+
+  // ── Échanges avec des amis ─────────────────────────────────────────────────
+  const [trades, setTrades] = useState([]);
+
+  const refreshTrades = useCallback(async () => {
+    if (!uid) { setTrades([]); return []; }
+    const rows = await fetchMyTrades(uid);
+    setTrades(rows);
+    return rows;
+  }, [uid]);
+
+  /**
+   * Répercute dans l'état LOCAL chaque échange accepté dont mon côté n'est
+   * pas encore marqué comme appliqué (`from_applied`/`to_applied` côté
+   * serveur) — couvre le cas où l'autre joueur a accepté pendant que j'étais
+   * hors-jeu. Jamais deux fois pour le même échange, grâce à ce flag.
+   */
+  const applyResolvedTrades = useCallback(async () => {
+    if (!uid) return;
+    const rows = await fetchMyTrades(uid);
+    setTrades(rows);
+
+    for (const t of rows) {
+      if (t.status !== "accepted") continue;
+      const isFrom = t.from_user === uid;
+      if (isFrom ? t.from_applied : t.to_applied) continue;
+
+      const lostId = isFrom ? t.offer_character_id : t.request_character_id;
+      const gained = isFrom
+        ? { id: t.request_character_id, name: t.request_name, image: t.request_image, tier: t.request_tier, series: t.request_series, gender: t.request_gender }
+        : { id: t.offer_character_id,   name: t.offer_name,   image: t.offer_image,   tier: t.offer_tier,   series: t.offer_series,   gender: t.offer_gender };
+
+      persist((prev) => {
+        const nextCollection = { ...prev.collection };
+        const existingLost = nextCollection[lostId];
+        if (existingLost) {
+          if (existingLost.count <= 1) delete nextCollection[lostId];
+          else nextCollection[lostId] = { ...existingLost, count: existingLost.count - 1 };
+        }
+        const existingGained = nextCollection[gained.id];
+        nextCollection[gained.id] = existingGained
+          ? { ...existingGained, count: existingGained.count + 1 }
+          : {
+              id: gained.id, name: gained.name, image: gained.image, series: gained.series,
+              tier: gained.tier, gender: gained.gender ?? null, count: 1, firstObtainedAt: Date.now(),
+            };
+        return { ...prev, collection: nextCollection };
+      });
+
+      await markTradeApplied(t.id, isFrom ? "from_applied" : "to_applied");
+    }
+  }, [uid, persist]);
+
+  // Une fois au montage (et à chaque reconnexion) — capte les échanges
+  // résolus pendant que le joueur n'était pas sur l'onglet Social.
+  useEffect(() => { applyResolvedTrades(); }, [applyResolvedTrades]);
+
+  const proposeTrade = useCallback(async (toUser, offer, request) => {
+    await proposeTradeService({ fromUser: uid, toUser, offer, request });
+    await refreshTrades();
+  }, [uid, refreshTrades]);
+
+  const acceptTrade = useCallback(async (trade) => {
+    await acceptTradeServer(trade.id);
+    await applyResolvedTrades();
+  }, [applyResolvedTrades]);
+
+  const declineTrade = useCallback(async (tradeId) => {
+    await closeTrade(tradeId, "declined");
+    await refreshTrades();
+  }, [refreshTrades]);
+
+  const cancelTrade = useCallback(async (tradeId) => {
+    await closeTrade(tradeId, "cancelled");
+    await refreshTrades();
+  }, [refreshTrades]);
 
   return {
     coins: state.coins,
@@ -248,5 +335,6 @@ export function useWaifinity({ withPool = true } = {}) {
     canAffordTarget:  state.coins >= SHOP_TARGET_COST,
     canAffordGender:  state.coins >= SHOP_GENDER_COST,
     canAffordWish:    (tier) => state.coins >= wishCost(tier),
+    trades, refreshTrades, proposeTrade, acceptTrade, declineTrade, cancelTrade,
   };
 }
