@@ -6,7 +6,7 @@ import { haptics } from "../../utils/haptics";
 
 const SOURCE_LABEL = {
   free: "Booster gratuit", chance: "Booster Chance+", targeted: "Booster ciblé",
-  waifu: "Booster Waifus", husbando: "Booster Husbandos",
+  waifu: "Booster Waifus", husbando: "Booster Husbandos", wish: "Booster Vœu",
 };
 
 const INTRO_DURATION_MS = 1100;

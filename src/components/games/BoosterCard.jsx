@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Sparkles, Check, Copy } from "lucide-react";
+import { Sparkles, Check, Copy, Star } from "lucide-react";
 import { RARITY, normalizeTier } from "../../utils/waifinity";
 import { RarityBadge } from "./RarityBadge";
 import { GenderBadge } from "./GenderBadge";
@@ -37,7 +37,7 @@ export function BoosterCard({ card, revealed, selected, isDuplicate, onReveal, o
     <button
       onClick={handleClick}
       className="relative aspect-[3/4] w-full [perspective:800px] active:scale-95 transition-transform motion-reduce:transition-none"
-      aria-label={revealed ? `${card.name} — ${r.label}${selected ? " — sélectionnée" : ""}${isDuplicate ? " — déjà possédé" : ""}` : "Révéler cette carte"}
+      aria-label={revealed ? `${card.name} — ${r.label}${selected ? " — sélectionnée" : ""}${isDuplicate ? " — déjà possédé" : ""}${card.wish ? " — ton vœu" : ""}` : "Révéler cette carte"}
     >
       {revealed && (
         <div
@@ -82,6 +82,15 @@ export function BoosterCard({ card, revealed, selected, isDuplicate, onReveal, o
                 aria-hidden="true"
               >
                 <Copy size={10.5} strokeWidth={2.5} />
+              </div>
+            )}
+            {card.wish && (
+              <div
+                className="absolute bottom-1 right-1 flex items-center justify-center w-5 h-5 rounded-full bg-amber-400 text-violet-950 shadow-md"
+                title="Ton vœu"
+                aria-hidden="true"
+              >
+                <Star size={10.5} strokeWidth={2.5} fill="currentColor" />
               </div>
             )}
             {r.shine && revealed && <div className="card-shine" />}

@@ -4,7 +4,7 @@ import { fetchWaifuPool } from "../api/waifu";
 import {
   loadState, saveState, defaultState, generatePack, coinsForDuplicate,
   msUntilFreeBooster, filterPoolByGender, GENDER_BOOSTERS, PACK_WEIGHTS,
-  SHOP_CHANCE_COST, SHOP_TARGET_COST, SHOP_GENDER_COST,
+  SHOP_CHANCE_COST, SHOP_TARGET_COST, SHOP_GENDER_COST, seriesKeyOf, seriesCompletionBonus, wishCost,
 } from "../utils/waifinity";
 
 /**
@@ -144,6 +144,21 @@ export function useWaifinity({ withPool = true } = {}) {
     }));
   }, [state.pendingPack, state.coins, pool, persist]);
 
+  // ── Vœu : garantit UN personnage précis dans les 10 cartes du prochain booster ──
+  // Coût scalé par palier (voir WISH_COST) — bien plus cher qu'un booster
+  // ciblé, puisque bien plus fort (résultat garanti, pas juste la série).
+  const openWishBooster = useCallback((character) => {
+    const cost = wishCost(character?.tier);
+    if (!character || state.pendingPack || state.coins < cost) return;
+    const cards = generatePack(pool, PACK_WEIGHTS.chance, undefined, character);
+    persist((prev) => ({
+      ...prev,
+      coins: prev.coins - cost,
+      pendingPack: { source: "wish", cards, openedAt: Date.now() },
+      stats: { ...prev.stats, opened: prev.stats.opened + 1 },
+    }));
+  }, [state.pendingPack, state.coins, pool, persist]);
+
   // ── Choix d'une carte parmi les 10 révélées → collection ou pièces ───────
   const pickCard = useCallback((packSlot) => {
     const pack = stateRef.current.pendingPack;
@@ -155,20 +170,44 @@ export function useWaifinity({ withPool = true } = {}) {
     // l'exécution peut être différée par React) ; l'updater refait le même
     // calcul sur l'état le plus récent pour la sauvegarde.
     const owned = stateRef.current.collection[card.id];
-    const result = {
-      card,
-      isDuplicate: !!owned,
-      coinsGained: owned ? coinsForDuplicate(card.tier) : 0,
-    };
+    const isDuplicate = !!owned;
+    const coinsGained = isDuplicate ? coinsForDuplicate(card.tier) : 0;
+
+    // Un personnage inédit peut compléter sa série — jamais récompensé deux
+    // fois pour la même série, quel que soit le nombre de fois où on repasse
+    // par ici (voir prev.completedSeries dans l'updater ci-dessous).
+    let seriesBonus = null;
+    if (!isDuplicate) {
+      const key = seriesKeyOf(card);
+      if (!stateRef.current.completedSeries[key]) {
+        const seriesChars = pool.filter((c) => seriesKeyOf(c) === key);
+        const stillMissing = seriesChars.some((c) => c.id !== card.id && !stateRef.current.collection[c.id]);
+        if (seriesChars.length > 0 && !stillMissing) {
+          seriesBonus = { key, series: card.series, coins: seriesCompletionBonus(seriesChars.length) };
+        }
+      }
+    }
+
+    const result = { card, isDuplicate, coinsGained, seriesBonus };
 
     persist((prev) => {
       const existing = prev.collection[card.id];
-      const isDuplicate = !!existing;
-      const gain = isDuplicate ? coinsForDuplicate(card.tier) : 0;
+      const dup = !!existing;
+      const gain = dup ? coinsForDuplicate(card.tier) : 0;
+
+      let bonusCoins = 0;
+      let completedSeries = prev.completedSeries;
+      if (seriesBonus && !prev.completedSeries[seriesBonus.key]) {
+        bonusCoins = seriesBonus.coins;
+        completedSeries = {
+          ...prev.completedSeries,
+          [seriesBonus.key]: { series: seriesBonus.series, coins: seriesBonus.coins, completedAt: Date.now() },
+        };
+      }
 
       return {
         ...prev,
-        coins: prev.coins + gain,
+        coins: prev.coins + gain + bonusCoins,
         pendingPack: null,
         collection: {
           ...prev.collection,
@@ -179,15 +218,16 @@ export function useWaifinity({ withPool = true } = {}) {
                 tier: card.tier, gender: card.gender ?? null, count: 1, firstObtainedAt: Date.now(),
               },
         },
+        completedSeries,
         stats: {
           ...prev.stats,
-          obtained:   prev.stats.obtained + (isDuplicate ? 0 : 1),
-          duplicates: prev.stats.duplicates + (isDuplicate ? 1 : 0),
+          obtained:   prev.stats.obtained + (dup ? 0 : 1),
+          duplicates: prev.stats.duplicates + (dup ? 1 : 0),
         },
       };
     });
     return result;
-  }, [persist]);
+  }, [persist, pool]);
 
   const collectionList = useMemo(
     () => Object.values(state.collection).sort((a, b) => b.firstObtainedAt - a.firstObtainedAt),
@@ -198,13 +238,15 @@ export function useWaifinity({ withPool = true } = {}) {
     coins: state.coins,
     stats: state.stats,
     collection: state.collection,
+    completedSeries: state.completedSeries,
     collectionList,
     pendingPack: state.pendingPack,
     pool, poolMeta, poolLoading, poolError, reloadPool: () => loadPool(true),
     canOpenFree, cooldownMs, now,
-    openFreeBooster, openChanceBooster, openTargetedBooster, openGenderBooster, pickCard,
+    openFreeBooster, openChanceBooster, openTargetedBooster, openGenderBooster, openWishBooster, pickCard,
     canAffordChance:  state.coins >= SHOP_CHANCE_COST,
     canAffordTarget:  state.coins >= SHOP_TARGET_COST,
     canAffordGender:  state.coins >= SHOP_GENDER_COST,
+    canAffordWish:    (tier) => state.coins >= wishCost(tier),
   };
 }

@@ -7,6 +7,7 @@ import { PageBanner } from "../components/common/PageBanner";
 import { useWaifinity } from "../hooks/useWaifinity";
 import { PackOpening } from "../components/games/PackOpening";
 import { PickResultModal } from "../components/games/PickResultModal";
+import { CharacterSheetModal } from "../components/games/CharacterSheetModal";
 import { CollectionGrid } from "../components/games/CollectionGrid";
 import { ShopPanel } from "../components/games/ShopPanel";
 import { BoostersTab } from "../components/games/BoostersTab";
@@ -36,6 +37,10 @@ export function GamesWaifinity() {
   const game = useWaifinity();
   const [tab, setTab] = useState("boosters");
   const [result, setResult] = useState(null);
+  const [sheetId, setSheetId] = useState(null);
+
+  const sheetEntry = sheetId != null ? game.collection[sheetId] : null;
+  const sheetCharacter = sheetId != null ? (game.pool.find((c) => c.id === sheetId) || sheetEntry || null) : null;
 
   function handleConfirmPick(slot) {
     const r = game.pickCard(slot);
@@ -82,7 +87,7 @@ export function GamesWaifinity() {
         ) : (
           <>
             {tab === "boosters"   && <BoostersTab game={game} onGoShop={() => setTab("shop")} />}
-            {tab === "collection" && <CollectionGrid collectionList={game.collectionList} pool={game.pool} />}
+            {tab === "collection" && <CollectionGrid collectionList={game.collectionList} pool={game.pool} collection={game.collection} onOpenSheet={setSheetId} />}
             {tab === "shop" && (
               <ShopPanel
                 pool={game.pool} pendingPack={game.pendingPack}
@@ -96,6 +101,22 @@ export function GamesWaifinity() {
 
       <AnimatePresence>
         {result && <PickResultModal key="pick-result" result={result} onClose={() => setResult(null)} />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {sheetCharacter && (
+          <CharacterSheetModal
+            key="character-sheet"
+            character={sheetCharacter}
+            entry={sheetEntry}
+            canAffordTarget={game.canAffordTarget}
+            canAffordWish={game.canAffordWish}
+            busy={!!game.pendingPack}
+            onBuyTargeted={game.openTargetedBooster}
+            onBuyWish={game.openWishBooster}
+            onClose={() => setSheetId(null)}
+          />
+        )}
       </AnimatePresence>
     </div>
   );

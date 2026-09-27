@@ -77,6 +77,37 @@ export function countByTier(list) {
   return counts;
 }
 
+/**
+ * Clé de regroupement par série : l'id MAL de la série si on l'a (fiable),
+ * sinon son nom (repli si la série n'a pas pu être déterminée lors de la
+ * synchro — voir scripts/sync-waifu-pool.mjs). Partagée par groupPoolBySeries
+ * et par la détection de complétion de série (useWaifinity.pickCard) pour
+ * qu'elles s'accordent toujours sur ce qui constitue "la même série".
+ */
+export function seriesKeyOf(c) {
+  return c.seriesId != null ? `id:${c.seriesId}` : `name:${(c.series || "").toLowerCase()}`;
+}
+
+/**
+ * Regroupe le bassin par série (anime). Dans chaque groupe, les personnages
+ * sont triés du plus rare au plus courant. Sert à l'onglet "Explorer"
+ * (silhouettes des non-obtenus) et au bonus de complétion par série.
+ */
+export function groupPoolBySeries(pool) {
+  const order = Object.fromEntries(RARITY_ORDER.map((t, i) => [t, i]));
+  const map = new Map();
+  for (const c of pool) {
+    const key = seriesKeyOf(c);
+    if (!map.has(key)) map.set(key, { key, seriesId: c.seriesId ?? null, series: c.series || "Série inconnue", characters: [] });
+    map.get(key).characters.push(c);
+  }
+  for (const g of map.values()) {
+    g.characters.sort((a, b) =>
+      order[normalizeTier(b.tier)] - order[normalizeTier(a.tier)] || b.favourites - a.favourites);
+  }
+  return [...map.values()];
+}
+
 // ── Probabilités de tirage ───────────────────────────────────────────────────
 // PAR CARTE, indépendantes de la composition du bassin (chaque ligne = 1).
 // C'est ce qui rend un booster "plus chanceux" qu'un autre.
@@ -92,6 +123,17 @@ export const FREE_COOLDOWN_MS     = FREE_COOLDOWN_HOURS * 60 * 60 * 1000; // 1 b
 export const SHOP_CHANCE_COST     = 150;
 export const SHOP_TARGET_COST     = 250;
 export const SHOP_GENDER_COST     = 100; // booster réservé aux waifus OU aux husbandos (chances du booster gratuit)
+
+// Vœu : garantit un personnage PRÉCIS (pas juste une série) dans le prochain
+// booster de 10 — bien plus fort qu'un booster ciblé, donc bien plus cher,
+// et scalé par palier puisque garantir un Secret vaut nettement plus qu'un
+// Common. Gros sink de coins pour la fin de partie.
+export const WISH_COST = {
+  common: 80, uncommon: 120, rare: 200, epic: 350, legendary: 700, secret: 1500,
+};
+export function wishCost(tier) {
+  return WISH_COST[normalizeTier(tier)];
+}
 
 // ── Genre ────────────────────────────────────────────────────────────────────
 
@@ -157,22 +199,44 @@ function nearestTier(byTier, tier) {
  * `weights`. Un même personnage n'apparaît qu'une fois par booster tant que
  * le palier tiré contient d'autres candidats.
  */
-export function generatePack(pool, weights, count = BOOSTER_SIZE) {
+function shuffled(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/**
+ * `forcedCard` (booster vœu) : garanti dans les `count` cartes, à une
+ * position mélangée parmi les autres (pas toujours en premier, sinon il se
+ * repère trop vite au tirage). Le reste du booster est tiré normalement,
+ * sans jamais retirer une 2e fois ce personnage par hasard.
+ */
+export function generatePack(pool, weights, count = BOOSTER_SIZE, forcedCard = null) {
   if (!pool.length) return [];
   const byTier = Object.fromEntries(RARITY_ORDER.map((t) => [t, pool.filter((c) => c.tier === t)]));
 
   const used = new Set();
-  const pack = [];
-  for (let i = 0; i < count; i++) {
+  const cards = [];
+
+  if (forcedCard) {
+    used.add(forcedCard.id);
+    cards.push({ ...forcedCard, tier: normalizeTier(forcedCard.tier), wish: true });
+  }
+
+  while (cards.length < count) {
     let tier = pickTier(weights);
     if (!byTier[tier].length) tier = nearestTier(byTier, tier);
 
     const candidates = byTier[tier].filter((c) => !used.has(c.id));
     const card = pickRandom(candidates.length ? candidates : byTier[tier]);
     used.add(card.id);
-    pack.push({ ...card, tier, packSlot: i });
+    cards.push({ ...card, tier });
   }
-  return pack;
+
+  return shuffled(cards).map((c, i) => ({ ...c, packSlot: i }));
 }
 
 // ── Sauvegarde locale ────────────────────────────────────────────────────────
@@ -186,6 +250,7 @@ export function defaultState() {
     collection:         {},      // { [characterId]: { id, count, tier, gender, name, image, series, firstObtainedAt } }
     pendingPack:        null,    // { source: "free"|"chance"|"targeted"|"waifu"|"husbando", cards: [...10], openedAt }
     stats:              { opened: 0, obtained: 0, duplicates: 0 },
+    completedSeries:    {},      // { [seriesKey]: { series, coins, completedAt } } — bonus déjà versé, une seule fois par série
   };
 }
 
@@ -221,6 +286,16 @@ export function saveState(uid, state) {
 
 export function coinsForDuplicate(tier) {
   return RARITY[normalizeTier(tier)].coinValue;
+}
+
+/**
+ * Bonus (en une fois) pour avoir obtenu TOUS les personnages d'une série du
+ * bassin. Une base fixe + un montant par personnage : une petite série (3-4
+ * persos) donne un bonus modeste, une grosse franchise (40+ persos) donne un
+ * gain comparable à un doublon Secret — proportionné à l'effort demandé.
+ */
+export function seriesCompletionBonus(characterCount) {
+  return Math.round(50 + characterCount * 15);
 }
 
 /** Millisecondes avant le prochain booster gratuit (0 = disponible maintenant). */

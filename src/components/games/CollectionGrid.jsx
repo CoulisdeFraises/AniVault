@@ -6,6 +6,12 @@ import {
 import { RarityBadge } from "./RarityBadge";
 import { GenderBadge } from "./GenderBadge";
 import { PillTabs } from "./PillTabs";
+import { SeriesExplorer } from "./SeriesExplorer";
+
+const VIEWS = [
+  { key: "mine",     label: "Ma collection" },
+  { key: "explorer", label: "Explorer" },
+];
 
 const SORTS = [
   { key: "recent", label: "Récents" },
@@ -14,10 +20,11 @@ const SORTS = [
 ];
 const GENDER_TABS = Object.entries(GENDER_FILTER_LABEL).map(([key, label]) => ({ key, label }));
 
-function CollectionCard({ c }) {
+function CollectionCard({ c, onOpen }) {
   const r = RARITY[normalizeTier(c.tier)];
   return (
-    <div className={`relative rounded-xl overflow-hidden border-2 ${r.border} bg-violet-950`}
+    <button onClick={() => onOpen(c.id)}
+      className={`relative rounded-xl overflow-hidden border-2 ${r.border} bg-violet-950 text-left active:scale-95 transition-transform motion-reduce:transition-none`}
       style={r.shine ? { boxShadow: `0 0 14px -3px ${r.glow}` } : undefined}>
       <div className="relative aspect-[3/4] bg-violet-900">
         {c.image
@@ -36,11 +43,12 @@ function CollectionCard({ c }) {
         </div>
         <p className="text-[9.5px] text-violet-300 truncate">{c.series}</p>
       </div>
-    </div>
+    </button>
   );
 }
 
-export function CollectionGrid({ collectionList, pool }) {
+export function CollectionGrid({ collectionList, pool, collection = {}, onOpenSheet }) {
+  const [view, setView]                 = useState("mine");
   const [tierFilter, setTierFilter]     = useState("all");
   const [genderFilter, setGenderFilter] = useState("all");
   const [sort, setSort]                 = useState("recent");
@@ -65,12 +73,30 @@ export function CollectionGrid({ collectionList, pool }) {
     return list;
   }, [collectionList, tierFilter, genderFilter, sort, query]);
 
+  const viewToggle = (
+    <div className="max-w-full overflow-x-auto scrollbar-none">
+      <PillTabs tabs={VIEWS} value={view} onChange={setView} layoutId="waifinity-collection-view" size="sm" />
+    </div>
+  );
+
+  if (view === "explorer") {
+    return (
+      <div className="space-y-4">
+        {viewToggle}
+        <SeriesExplorer pool={pool} collection={collection} onOpenSheet={onOpenSheet} />
+      </div>
+    );
+  }
+
   if (!collectionList.length) {
     return (
-      <div className="rounded-2xl border border-dashed border-white/15 bg-violet-900/20 py-10 text-center">
-        <HeartCrack size={26} className="mx-auto text-violet-500 mb-2" />
-        <p className="text-sm text-violet-200">Ta collection est vide pour le moment</p>
-        <p className="text-[11px] text-violet-400 mt-1">Ouvre un booster pour adopter ton premier personnage !</p>
+      <div className="space-y-4">
+        {viewToggle}
+        <div className="rounded-2xl border border-dashed border-white/15 bg-violet-900/20 py-10 text-center">
+          <HeartCrack size={26} className="mx-auto text-violet-500 mb-2" />
+          <p className="text-sm text-violet-200">Ta collection est vide pour le moment</p>
+          <p className="text-[11px] text-violet-400 mt-1">Ouvre un booster pour adopter ton premier personnage !</p>
+        </div>
       </div>
     );
   }
@@ -80,6 +106,8 @@ export function CollectionGrid({ collectionList, pool }) {
 
   return (
     <div className="space-y-4">
+      {viewToggle}
+
       {/* Progression globale */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
@@ -143,7 +171,7 @@ export function CollectionGrid({ collectionList, pool }) {
 
       {filtered.length ? (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2.5">
-          {filtered.map((c) => <CollectionCard key={c.id} c={c} />)}
+          {filtered.map((c) => <CollectionCard key={c.id} c={c} onOpen={onOpenSheet} />)}
         </div>
       ) : (
         <div className="rounded-2xl border border-dashed border-white/15 bg-violet-900/20 py-8 text-center">

@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { Coins, PartyPopper, Heart } from "lucide-react";
+import { Coins, PartyPopper, Heart, Trophy } from "lucide-react";
 import { Modal } from "../Modal/Modal";
 import { Confetti } from "../common/Confetti";
 import { RARITY, normalizeTier } from "../../utils/waifinity";
@@ -8,22 +8,23 @@ import { GenderBadge } from "./GenderBadge";
 
 /**
  * Écran d'adoption : la carte "pop" à l'ouverture (animate-popIn) plutôt que
- * de simplement apparaître avec le panneau de la modale. Pour un NOUVEAU
- * personnage Legendary/Secret (pas un doublon), une petite pluie de
- * confettis souligne le moment — posée via un portail direct sur <body> pour
- * rester en plein écran malgré le `transform` du panneau de la Modal (qui,
- * sinon, la recadrerait à la taille de la carte).
+ * de simplement apparaître avec le panneau de la modale. Une pluie de
+ * confettis souligne un NOUVEAU personnage Legendary/Secret (pas un doublon),
+ * ou une série tout juste complétée (result.seriesBonus, voir pickCard dans
+ * useWaifinity) — posée via un portail direct sur <body> pour rester en plein
+ * écran malgré le `transform` du panneau de la Modal (qui, sinon, la
+ * recadrerait à la taille de la carte).
  */
 export function PickResultModal({ result, onClose }) {
-  const { card, isDuplicate, coinsGained } = result;
+  const { card, isDuplicate, coinsGained, seriesBonus } = result;
   const r = RARITY[normalizeTier(card.tier)];
   const isTopTier = card.tier === "legendary" || card.tier === "secret";
-  const showConfetti = !isDuplicate && isTopTier;
+  const showConfetti = (!isDuplicate && isTopTier) || !!seriesBonus;
 
   return (
     <>
       {showConfetti && createPortal(
-        <Confetti active intensity={card.tier === "secret" ? "series" : "season"} />,
+        <Confetti active intensity={seriesBonus || card.tier === "secret" ? "series" : "season"} />,
         document.body
       )}
       <Modal onClose={onClose} maxWidth="max-w-xs" zIndex="z-50">
@@ -67,6 +68,16 @@ export function PickResultModal({ result, onClose }) {
               style={{ animationDelay: "0.12s" }}
             >
               <PartyPopper size={16} />Nouveau personnage adopté !
+            </div>
+          )}
+
+          {seriesBonus && (
+            <div
+              className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-gradient-to-r from-amber-400/15 to-fuchsia-500/15 border border-amber-400/40 text-amber-200 text-sm font-semibold mb-4 animate-popIn"
+              style={{ animationDelay: "0.22s" }}
+            >
+              <Trophy size={16} className="flex-shrink-0" />
+              <span>Série « {seriesBonus.series} » complétée · +{seriesBonus.coins} Anigold</span>
             </div>
           )}
 
