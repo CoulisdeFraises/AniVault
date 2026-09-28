@@ -10,6 +10,8 @@ const SOURCE_LABEL = {
 };
 
 const INTRO_DURATION_MS = 1100;
+const BURST_DELAY_MS = 620; // déclenche l'explosion peu avant la fin du suspense
+const BURST_COUNT = 8;
 
 /**
  * Ouverture d'un booster de 10 : un court suspense animé (le booster qui
@@ -24,12 +26,19 @@ const INTRO_DURATION_MS = 1100;
  */
 export function PackOpening({ pack, onConfirm, collection = {} }) {
   const [intro, setIntro] = useState(true);
+  const [burst, setBurst] = useState(false);
   const [revealed, setRevealed] = useState(() => new Set());
   const [selected, setSelected] = useState(null);
 
   // Court suspense avant de révéler la grille — tap pour passer directement.
   useEffect(() => {
     const t = setTimeout(() => setIntro(false), INTRO_DURATION_MS);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Petite explosion de sparkles juste avant la fin du suspense.
+  useEffect(() => {
+    const t = setTimeout(() => setBurst(true), BURST_DELAY_MS);
     return () => clearTimeout(t);
   }, []);
 
@@ -77,6 +86,15 @@ export function PackOpening({ pack, onConfirm, collection = {} }) {
           <span className="absolute inset-0 flex items-center justify-center">
             <Sparkles size={34} className="text-amber-200" />
           </span>
+          {burst && Array.from({ length: BURST_COUNT }).map((_, i) => (
+            <Sparkles
+              key={i}
+              size={12 + (i % 3) * 4}
+              className="sparkle-burst text-amber-200"
+              style={{ "--angle": `${(360 / BURST_COUNT) * i}deg`, "--dist": `${56 + (i % 2) * 18}px`, animationDelay: `${(i % 4) * 15}ms` }}
+              aria-hidden="true"
+            />
+          ))}
         </motion.div>
         <p className="font-mono text-[11px] uppercase tracking-widest text-violet-300 animate-pulse motion-reduce:animate-none">
           Ouverture du booster…

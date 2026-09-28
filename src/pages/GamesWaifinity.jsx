@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "motion/react";
-import { ChevronLeft, Sparkles, LayoutGrid, Store, Coins, Library, PackageOpen, Users } from "lucide-react";
+import { ChevronLeft, Sparkles, LayoutGrid, Store, Coins, Library, PackageOpen, Users, AlertTriangle } from "lucide-react";
 import { TopBar } from "../components/common/TopBar";
 import { PageBanner } from "../components/common/PageBanner";
 import { useWaifinity } from "../hooks/useWaifinity";
@@ -77,6 +77,13 @@ export function GamesWaifinity() {
             sub={game.pool.length ? `/ ${game.pool.length}` : undefined} />
           <StatTile icon={<PackageOpen size={11} />} label="Boosters" value={game.stats.opened} />
         </div>
+
+        {game.saveIssue && (
+          <div className="flex items-center gap-2 mb-4 px-3 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs">
+            <AlertTriangle size={14} className="flex-shrink-0" />
+            Dernière sauvegarde impossible (stockage plein) — ta dernière action risque de ne pas être conservée. Libère de l'espace de stockage sur cet appareil puis réessaie.
+          </div>
+        )}
 
         {/* ── Onglets ── */}
         <div className="flex justify-center mb-6">

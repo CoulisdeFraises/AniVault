@@ -33,7 +33,9 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
         >
           {owned ? (
             <>
-              <img src={character.image} alt="" className="w-full h-full object-cover" />
+              {character.image
+                ? <img src={character.image} alt="" className="w-full h-full object-cover" />
+                : <div className="w-full h-full bg-violet-900/40 flex items-center justify-center text-violet-600 text-2xl">?</div>}
               {r.shine && <div className="card-shine" />}
               {count > 1 && (
                 <span className="absolute top-1.5 right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-black/70 text-white text-[11px] font-mono font-bold flex items-center justify-center">

@@ -258,7 +258,7 @@ export function defaultState() {
   return {
     coins:              0,
     lastFreeOpenedAt:   0,       // 0 = jamais ouvert → booster dispo immédiatement
-    collection:         {},      // { [characterId]: { id, count, tier, gender, name, image, series, firstObtainedAt } }
+    collection:         {},      // { [characterId]: { id, count, tier, gender, name, series, firstObtainedAt } } — pas d'image ici, voir collectionList dans useWaifinity
     pendingPack:        null,    // { source: "free"|"chance"|"targeted"|"waifu"|"husbando", cards: [...10], openedAt }
     stats:              { opened: 0, obtained: 0, duplicates: 0 },
     completedSeries:    {},      // { [seriesKey]: { series, coins, completedAt } } — bonus déjà versé, une seule fois par série
@@ -289,10 +289,12 @@ export function loadState(uid) {
   }
 }
 
+/** true si la sauvegarde a réussi — false = stockage plein/indisponible, la
+ *  progression de cette action n'a PAS été conservée (voir useWaifinity.persist). */
 export function saveState(uid, state) {
-  if (!uid) return;
-  try { localStorage.setItem(STORAGE_KEY(uid), JSON.stringify(state)); }
-  catch { /* localStorage plein ou indisponible — on ignore, cohérent avec le reste de l'app */ }
+  if (!uid) return false;
+  try { localStorage.setItem(STORAGE_KEY(uid), JSON.stringify(state)); return true; }
+  catch { return false; }
 }
 
 export function coinsForDuplicate(tier) {

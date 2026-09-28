@@ -60,10 +60,15 @@ export function useWaifinity({ withPool = true } = {}) {
     return () => clearInterval(id);
   }, [state.lastFreeOpenedAt]);
 
+  const [saveIssue, setSaveIssue] = useState(false);
+
   const persist = useCallback((updater) => {
     setState((prev) => {
       const next = typeof updater === "function" ? updater(prev) : updater;
-      if (next !== prev) saveState(uid, next);
+      if (next !== prev) {
+        const ok = saveState(uid, next);
+        setSaveIssue(!ok);
+      }
       return next;
     });
   }, [uid]);
@@ -217,7 +222,7 @@ export function useWaifinity({ withPool = true } = {}) {
           [card.id]: existing
             ? { ...existing, count: existing.count + 1 }
             : {
-                id: card.id, name: card.name, image: card.image, series: card.series,
+                id: card.id, name: card.name, series: card.series,
                 tier: card.tier, gender: card.gender ?? null, count: 1, firstObtainedAt: Date.now(),
               },
         },
@@ -240,9 +245,19 @@ export function useWaifinity({ withPool = true } = {}) {
     return result;
   }, [persist, pool, uid]);
 
+  // Le bassin fournit l'image (et les infos à jour) — on ne la stocke plus en
+  // local (voir pickCard) pour ne pas saturer le quota localStorage une fois
+  // la collection grande. Sans le bassin (chargement en cours, ou personnage
+  // qui en est sorti depuis), on retombe sur ce qu'on a stocké (sans image).
+  const poolById = useMemo(() => new Map(pool.map((c) => [c.id, c])), [pool]);
   const collectionList = useMemo(
-    () => Object.values(state.collection).sort((a, b) => b.firstObtainedAt - a.firstObtainedAt),
-    [state.collection]
+    () => Object.values(state.collection)
+      .map((e) => {
+        const p = poolById.get(e.id);
+        return p ? { ...e, name: p.name, image: p.image, series: p.series, tier: p.tier, gender: p.gender ?? null } : e;
+      })
+      .sort((a, b) => b.firstObtainedAt - a.firstObtainedAt),
+    [state.collection, poolById]
   );
 
   // ── Échanges avec des amis ─────────────────────────────────────────────────
@@ -287,7 +302,7 @@ export function useWaifinity({ withPool = true } = {}) {
         nextCollection[gained.id] = existingGained
           ? { ...existingGained, count: existingGained.count + 1 }
           : {
-              id: gained.id, name: gained.name, image: gained.image, series: gained.series,
+              id: gained.id, name: gained.name, series: gained.series,
               tier: gained.tier, gender: gained.gender ?? null, count: 1, firstObtainedAt: Date.now(),
             };
         return { ...prev, collection: nextCollection };
@@ -336,5 +351,6 @@ export function useWaifinity({ withPool = true } = {}) {
     canAffordGender:  state.coins >= SHOP_GENDER_COST,
     canAffordWish:    (tier) => state.coins >= wishCost(tier),
     trades, refreshTrades, proposeTrade, acceptTrade, declineTrade, cancelTrade,
+    saveIssue,
   };
 }

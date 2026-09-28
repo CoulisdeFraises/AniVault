@@ -201,3 +201,22 @@
 @media (prefers-reduced-motion: reduce) {
   .card-aura { animation: none; opacity: var(--aura-peak, 0.3); transform: none; }
 }
+
+/* ── Explosion de sparkles en fin d'ouverture de booster (Waifinity) ────────
+   Chaque particule part du centre et file vers l'extérieur selon --angle
+   (posé en inline style), sur une distance --dist. */
+@keyframes sparkleBurst {
+  0%   { transform: translate(-50%, -50%) rotate(var(--angle)) translateX(0) scale(0.3); opacity: 1; }
+  60%  { opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(var(--angle)) translateX(var(--dist)) scale(1); opacity: 0; }
+}
+.sparkle-burst {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  pointer-events: none;
+  animation: sparkleBurst 0.6s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sparkle-burst { display: none; }
+}
