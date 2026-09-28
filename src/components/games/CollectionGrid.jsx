@@ -74,7 +74,7 @@ export function CollectionGrid({ collectionList, pool, collection = {}, onOpenSh
   }, [collectionList, tierFilter, genderFilter, sort, query]);
 
   const viewToggle = (
-    <div className="max-w-full overflow-x-auto scrollbar-none">
+    <div className="flex justify-center">
       <PillTabs tabs={VIEWS} value={view} onChange={setView} layoutId="waifinity-collection-view" size="sm" />
     </div>
   );

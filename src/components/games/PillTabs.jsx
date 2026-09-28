@@ -8,15 +8,15 @@ import { motion } from "motion/react";
 export function PillTabs({ tabs, value, onChange, layoutId, disabled = false, size = "md", className = "" }) {
   const sm = size === "sm";
   return (
-    <div className={`inline-flex rounded-full bg-white/5 border border-white/10 p-0.5 ${className}`}>
+    <div className={`inline-flex max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden rounded-full bg-white/5 border border-white/10 p-0.5 ${className}`}>
       {tabs.map(({ key, label, icon: Icon }) => (
         <button
           key={key}
           onClick={() => onChange(key)}
           disabled={disabled}
-          className={`relative flex items-center justify-center gap-1.5 rounded-full font-medium whitespace-nowrap transition-colors duration-200
+          className={`relative flex flex-shrink-0 items-center justify-center gap-1.5 rounded-full font-medium whitespace-nowrap transition-colors duration-200
             active:scale-95 motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed ${
-            sm ? "px-3 py-1 text-[11px]" : "px-5 py-1.5 text-xs"} ${
+            sm ? "px-3 py-1 text-[11px]" : "px-3 sm:px-5 py-1.5 text-[11px] sm:text-xs"} ${
             value === key ? "text-violet-950 font-semibold" : "text-violet-300 hover:text-violet-100"}`}
         >
           {value === key && (

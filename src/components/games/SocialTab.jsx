@@ -246,7 +246,9 @@ export function SocialTab({ game }) {
 
   return (
     <div className="space-y-4">
-      <PillTabs tabs={SOCIAL_VIEWS} value={view} onChange={setView} layoutId="waifinity-social-view" size="sm" />
+      <div className="flex justify-center">
+        <PillTabs tabs={SOCIAL_VIEWS} value={view} onChange={setView} layoutId="waifinity-social-view" size="sm" />
+      </div>
 
       {error && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs">
@@ -281,7 +283,7 @@ export function SocialTab({ game }) {
           <div className="space-y-3">
             <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">Nouvel échange</p>
 
-            <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
+            <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1 max-w-full">
               {friends.map((f) => (
                 <button key={f.user_id} onClick={() => { setSelectedFriendId(f.user_id); setMyPick(null); }}
                   className={`flex flex-col items-center gap-1 flex-shrink-0 px-1 py-1.5 rounded-xl ${selectedFriendId === f.user_id ? "bg-amber-400/15 border border-amber-400/40" : "border border-transparent"}`}>
@@ -340,8 +342,8 @@ export function SocialTab({ game }) {
           <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-3">
             <button onClick={handlePropose} disabled={proposing}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-amber-400 text-violet-950 font-semibold shadow-2xl active:scale-[0.98] disabled:opacity-50 transition-transform">
-              <ArrowLeftRight size={16} />
-              {proposing ? "Envoi…" : `Proposer : ${myPick.name} contre ${theirPick.name}`}
+              <ArrowLeftRight size={16} className="flex-shrink-0" />
+              <span className="truncate">{proposing ? "Envoi…" : `Proposer : ${myPick.name} contre ${theirPick.name}`}</span>
             </button>
           </div>
         </div>
