@@ -77,15 +77,26 @@ export function PackOpening({ pack, onConfirm, collection = {} }) {
           className="relative w-24 h-28"
         >
           <motion.span
-            className="absolute inset-0 rounded-2xl"
+            className="absolute inset-0 rounded-b-2xl"
             style={{ boxShadow: "0 0 0px 0px rgba(251,191,36,0.6)" }}
             animate={{ boxShadow: ["0 0 10px 2px rgba(251,191,36,0.35)", "0 0 42px 10px rgba(251,191,36,0.65)", "0 0 10px 2px rgba(251,191,36,0.35)"] }}
             transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
           />
-          <span className="absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-400/30 to-fuchsia-500/30 border border-amber-300/50" />
-          <span className="absolute inset-0 flex items-center justify-center">
+          {/* Pochette de booster : bord haut déchiré + ligne de scellé façon papier alu */}
+          <span
+            className="absolute inset-0 rounded-b-2xl bg-gradient-to-br from-amber-400/30 to-fuchsia-500/30 border border-amber-300/50"
+            style={{ clipPath: "polygon(0% 9%,9% 1%,18% 9%,27% 1%,36% 9%,45% 1%,54% 9%,63% 1%,72% 9%,81% 1%,90% 9%,100% 1%,100% 100%,0% 100%)" }}
+          />
+          <span className="absolute left-[12%] right-[12%] top-[42%] h-[2.5px] bg-gradient-to-r from-transparent via-white/70 to-transparent" />
+          <span className="absolute inset-0 flex items-center justify-center pt-2">
             <Sparkles size={34} className="text-amber-200" />
           </span>
+          {burst && (
+            <span
+              className="tear-beam absolute left-1/2 bottom-full w-2 h-14 bg-gradient-to-t from-amber-200/90 via-amber-100/40 to-transparent blur-[1px]"
+              aria-hidden="true"
+            />
+          )}
           {burst && Array.from({ length: BURST_COUNT }).map((_, i) => (
             <Sparkles
               key={i}

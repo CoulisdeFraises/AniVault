@@ -24,13 +24,16 @@
 
 export const RARITY_ORDER = ["common", "uncommon", "rare", "epic", "legendary", "secret"];
 
+// tint : dégradé de fond de carte · ornate : cadre ("none" | "double" bordure |
+// "corners" = double bordure + coins ornés) · accent : couleur de ces ornements ·
+// flashPeak : intensité du flash plein écran à la révélation (0 = aucun).
 export const RARITY = {
-  common:    { label: "Common",    emoji: "⚪", desc: "Personnages secondaires",      coinValue: 15,  shine: false, grad: "from-slate-400 to-slate-500",     text: "text-slate-200",   border: "border-slate-300/50",  glow: "rgba(203,213,225,0.30)", auraDuration: 3.4, auraPeak: 0.20 },
-  uncommon:  { label: "Uncommon",  emoji: "🟢", desc: "Personnages connus",           coinValue: 25,  shine: false, grad: "from-emerald-400 to-green-600",   text: "text-emerald-300", border: "border-emerald-400/60", glow: "rgba(52,211,153,0.40)",  auraDuration: 3.1, auraPeak: 0.26 },
-  rare:      { label: "Rare",      emoji: "🔵", desc: "Personnages populaires",       coinValue: 40,  shine: false, grad: "from-sky-400 to-blue-600",        text: "text-sky-300",     border: "border-sky-400/60",     glow: "rgba(56,189,248,0.45)",  auraDuration: 2.7, auraPeak: 0.34 },
-  epic:      { label: "Epic",      emoji: "🟣", desc: "Personnages très populaires",  coinValue: 75,  shine: false, grad: "from-fuchsia-400 to-purple-600",  text: "text-fuchsia-300", border: "border-fuchsia-400/60", glow: "rgba(217,70,239,0.50)",  auraDuration: 2.3, auraPeak: 0.44 },
-  legendary: { label: "Legendary", emoji: "🟡", desc: "Personnages iconiques",        coinValue: 150, shine: true,  grad: "from-amber-300 to-orange-500",    text: "text-amber-300",   border: "border-amber-400/70",   glow: "rgba(251,191,36,0.60)",  auraDuration: 1.8, auraPeak: 0.60 },
-  secret:    { label: "Secret",    emoji: "🔴", desc: "Extrêmement rares",            coinValue: 500, shine: true,  grad: "from-rose-500 to-red-700",        text: "text-rose-300",    border: "border-rose-500/80",    glow: "rgba(244,63,94,0.70)",   auraDuration: 1.3, auraPeak: 0.78 },
+  common:    { label: "Common",    emoji: "⚪", desc: "Personnages secondaires",      coinValue: 15,  shine: false, grad: "from-slate-400 to-slate-500",     text: "text-slate-200",   border: "border-slate-300/50",  glow: "rgba(203,213,225,0.30)", auraDuration: 3.4, auraPeak: 0.20, tint: "from-slate-500/25 to-violet-950", ornate: "none", accent: "border-slate-300", flashPeak: 0 },
+  uncommon:  { label: "Uncommon",  emoji: "🟢", desc: "Personnages connus",           coinValue: 25,  shine: false, grad: "from-emerald-400 to-green-600",   text: "text-emerald-300", border: "border-emerald-400/60", glow: "rgba(52,211,153,0.40)",  auraDuration: 3.1, auraPeak: 0.26, tint: "from-emerald-500/25 to-violet-950", ornate: "none", accent: "border-emerald-300", flashPeak: 0 },
+  rare:      { label: "Rare",      emoji: "🔵", desc: "Personnages populaires",       coinValue: 40,  shine: false, grad: "from-sky-400 to-blue-600",        text: "text-sky-300",     border: "border-sky-400/60",     glow: "rgba(56,189,248,0.45)",  auraDuration: 2.7, auraPeak: 0.34, tint: "from-sky-500/30 to-violet-950", ornate: "none", accent: "border-sky-300", flashPeak: 0 },
+  epic:      { label: "Epic",      emoji: "🟣", desc: "Personnages très populaires",  coinValue: 75,  shine: false, grad: "from-fuchsia-400 to-purple-600",  text: "text-fuchsia-300", border: "border-fuchsia-400/60", glow: "rgba(217,70,239,0.50)",  auraDuration: 2.3, auraPeak: 0.44, tint: "from-fuchsia-500/35 to-violet-950", ornate: "double", accent: "border-fuchsia-300", flashPeak: 0.22 },
+  legendary: { label: "Legendary", emoji: "🟡", desc: "Personnages iconiques",        coinValue: 150, shine: true,  grad: "from-amber-300 to-orange-500",    text: "text-amber-300",   border: "border-amber-400/70",   glow: "rgba(251,191,36,0.60)",  auraDuration: 1.8, auraPeak: 0.60, tint: "from-amber-400/40 to-violet-950", ornate: "corners", accent: "border-amber-300", flashPeak: 0.38 },
+  secret:    { label: "Secret",    emoji: "🔴", desc: "Extrêmement rares",            coinValue: 500, shine: true,  grad: "from-rose-500 to-red-700",        text: "text-rose-300",    border: "border-rose-500/80",    glow: "rgba(244,63,94,0.70)",   auraDuration: 1.3, auraPeak: 0.78, tint: "from-rose-500/45 to-violet-950", ornate: "corners", accent: "border-rose-300", flashPeak: 0.55 },
 };
 
 // Anciennes clés (v1 du jeu, 4 paliers en français) — pour migrer les sauvegardes.
@@ -261,6 +264,7 @@ export function defaultState() {
     collection:         {},      // { [characterId]: { id, count, tier, gender, name, series, firstObtainedAt } } — pas d'image ici, voir collectionList dans useWaifinity
     pendingPack:        null,    // { source: "free"|"chance"|"targeted"|"waifu"|"husbando", cards: [...10], openedAt }
     stats:              { opened: 0, obtained: 0, duplicates: 0 },
+    favorites:          [],      // ids épinglés en tête de collection (MAX_FAVORITES max)
     completedSeries:    {},      // { [seriesKey]: { series, coins, completedAt } } — bonus déjà versé, une seule fois par série
   };
 }
@@ -295,6 +299,14 @@ export function saveState(uid, state) {
   if (!uid) return false;
   try { localStorage.setItem(STORAGE_KEY(uid), JSON.stringify(state)); return true; }
   catch { return false; }
+}
+
+export const MAX_FAVORITES = 3;
+export const NEW_BADGE_MS  = 24 * 60 * 60 * 1000;
+
+/** Personnage adopté depuis moins de 24 h → petit badge « NEW » sur sa carte. */
+export function isRecentlyObtained(entry) {
+  return !!entry?.firstObtainedAt && Date.now() - entry.firstObtainedAt < NEW_BADGE_MS;
 }
 
 export function coinsForDuplicate(tier) {

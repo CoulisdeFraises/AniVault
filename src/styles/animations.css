@@ -220,3 +220,32 @@
 @media (prefers-reduced-motion: reduce) {
   .sparkle-burst { display: none; }
 }
+
+/* ── Flash plein écran à la révélation d'une carte rare (Waifinity) ───────── */
+@keyframes screenFlash {
+  0%   { opacity: 0; }
+  25%  { opacity: var(--flash-peak, 0.3); }
+  100% { opacity: 0; }
+}
+.screen-flash { animation: screenFlash 0.6s ease-out both; }
+
+/* ── Rayons tournants derrière une carte Legendary/Secret adoptée ─────────── */
+@keyframes raysSpin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+.rays { animation: raysSpin 16s linear infinite; }
+
+/* ── Faisceau de lumière à l'ouverture du booster ─────────────────────────── */
+@keyframes tearBeam {
+  0%   { opacity: 0; transform: translateX(-50%) scaleY(0.2); }
+  35%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) scaleY(1.6); }
+}
+.tear-beam { animation: tearBeam 0.7s ease-out both; transform-origin: bottom center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .screen-flash { display: none; }
+  .rays { animation: none; }
+  .tear-beam { display: none; }
+}

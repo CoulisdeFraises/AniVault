@@ -5,6 +5,7 @@ import { ChevronLeft, Sparkles, LayoutGrid, Store, Coins, Library, PackageOpen, 
 import { TopBar } from "../components/common/TopBar";
 import { PageBanner } from "../components/common/PageBanner";
 import { useWaifinity } from "../hooks/useWaifinity";
+import { MAX_FAVORITES } from "../utils/waifinity";
 import { PackOpening } from "../components/games/PackOpening";
 import { PickResultModal } from "../components/games/PickResultModal";
 import { CharacterSheetModal } from "../components/games/CharacterSheetModal";
@@ -96,7 +97,7 @@ export function GamesWaifinity() {
         ) : (
           <>
             {tab === "boosters"   && <BoostersTab game={game} onGoShop={() => setTab("shop")} />}
-            {tab === "collection" && <CollectionGrid collectionList={game.collectionList} pool={game.pool} collection={game.collection} onOpenSheet={setSheetId} />}
+            {tab === "collection" && <CollectionGrid collectionList={game.collectionList} pool={game.pool} collection={game.collection} favorites={game.favorites} onOpenSheet={setSheetId} />}
             {tab === "social" && <SocialTab game={game} />}
             {tab === "shop" && (
               <ShopPanel
@@ -122,8 +123,11 @@ export function GamesWaifinity() {
             canAffordTarget={game.canAffordTarget}
             canAffordWish={game.canAffordWish}
             busy={!!game.pendingPack}
+            isFavorite={sheetId != null && game.favorites.includes(sheetId)}
+            favoritesFull={game.favorites.length >= MAX_FAVORITES}
             onBuyTargeted={game.openTargetedBooster}
             onBuyWish={game.openWishBooster}
+            onToggleFavorite={game.toggleFavorite}
             onClose={() => setSheetId(null)}
           />
         )}

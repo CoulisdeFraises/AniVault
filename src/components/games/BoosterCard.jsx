@@ -1,8 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Sparkles, Check, Copy, Star } from "lucide-react";
 import { RARITY, normalizeTier } from "../../utils/waifinity";
 import { RarityBadge } from "./RarityBadge";
 import { GenderBadge } from "./GenderBadge";
+import { CardFrame } from "./CardFrame";
+import { ScreenFlash } from "./ScreenFlash";
 import { haptics } from "../../utils/haptics";
 
 /**
@@ -23,13 +25,21 @@ import { haptics } from "../../utils/haptics";
  */
 export function BoosterCard({ card, revealed, selected, isDuplicate, onReveal, onSelect }) {
   const r = RARITY[normalizeTier(card.tier)];
+  const [flash, setFlash] = useState(false);
 
   useEffect(() => {
     if (revealed && r.shine) haptics.success();
   }, [revealed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleClick() {
-    if (!revealed) { haptics.light(); onReveal(); return; }
+    if (!revealed) {
+      haptics.light();
+      // Flash plein écran à la couleur du palier (Epic et au-dessus) — joué en
+      // plein retournement de la carte. Pas de flash sur « Tout révéler » (voir PackOpening).
+      if (r.flashPeak) setFlash(true);
+      onReveal();
+      return;
+    }
     haptics.tap(); onSelect();
   }
 
@@ -64,13 +74,13 @@ export function BoosterCard({ card, revealed, selected, isDuplicate, onReveal, o
         </div>
 
         {/* ── Face révélée ── */}
-        <div
-          className={`absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] rounded-xl overflow-hidden
-            border-2 ${r.border} bg-violet-950 flex flex-col
+        <CardFrame
+          tier={card.tier}
+          className={`absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] flex flex-col
             ${selected ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-violet-950" : ""}`}
           style={{ boxShadow: revealed ? `0 0 ${r.shine ? 22 : 16}px -2px ${r.glow}` : undefined }}
         >
-          <div className="relative flex-1 min-h-0 bg-violet-900">
+          <div className="relative flex-1 min-h-0 bg-violet-900/60">
             {card.image
               ? <img src={card.image} alt="" loading="lazy" className="w-full h-full object-cover" />
               : <div className="w-full h-full flex items-center justify-center text-violet-600 text-2xl">?</div>}
@@ -102,15 +112,16 @@ export function BoosterCard({ card, revealed, selected, isDuplicate, onReveal, o
               </div>
             )}
           </div>
-          <div className="px-2 py-1.5 bg-black/50 text-left">
+          <div className="px-2 py-1.5 bg-black/30 text-left">
             <div className="flex items-center gap-1">
               <p className="text-[11px] font-semibold text-white leading-tight truncate flex-1">{card.name}</p>
               <GenderBadge gender={card.gender} />
             </div>
             <p className="text-[9.5px] text-violet-300 truncate">{card.series}</p>
           </div>
-        </div>
+        </CardFrame>
       </div>
+      {flash && <ScreenFlash tier={card.tier} onDone={() => setFlash(false)} />}
     </button>
   );
 }

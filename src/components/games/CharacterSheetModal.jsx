@@ -1,8 +1,10 @@
-import { Calendar, Target, Star, Coins, HelpCircle } from "lucide-react";
+import { Calendar, Target, Star, Coins, HelpCircle, Heart } from "lucide-react";
 import { Modal } from "../Modal/Modal";
-import { RARITY, normalizeTier, SHOP_TARGET_COST, wishCost } from "../../utils/waifinity";
+import { RARITY, normalizeTier, SHOP_TARGET_COST, wishCost, isRecentlyObtained, MAX_FAVORITES } from "../../utils/waifinity";
 import { RarityBadge } from "./RarityBadge";
 import { GenderBadge } from "./GenderBadge";
+import { CardFrame } from "./CardFrame";
+import { TiltCard } from "./TiltCard";
 import { haptics } from "../../utils/haptics";
 
 /**
@@ -19,7 +21,7 @@ import { haptics } from "../../utils/haptics";
  * booster ciblé sur sa série (moins cher, pas garanti) — mêmes actions que
  * dans la Boutique, juste accessibles sans changer d'onglet.
  */
-export function CharacterSheetModal({ character, entry, canAffordTarget, canAffordWish, busy, onBuyTargeted, onBuyWish, onClose }) {
+export function CharacterSheetModal({ character, entry, canAffordTarget, canAffordWish, busy, isFavorite, favoritesFull, onBuyTargeted, onBuyWish, onToggleFavorite, onClose }) {
   if (!character) return null;
   const owned = !!entry;
   const r = RARITY[normalizeTier(character.tier)];
@@ -28,29 +30,46 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
   return (
     <Modal onClose={onClose} maxWidth="max-w-sm" zIndex="z-50">
       <div className="p-5">
-        <div
-          className={`relative w-40 h-56 mx-auto rounded-2xl overflow-hidden border-2 ${r.border} mb-4`}
-          style={owned ? { boxShadow: `0 0 26px -4px ${r.glow}` } : undefined}
-        >
-          {owned ? (
-            <>
-              {character.image
-                ? <img src={character.image} alt="" className="w-full h-full object-cover" />
-                : <div className="w-full h-full bg-violet-900/40 flex items-center justify-center text-violet-600 text-2xl">?</div>}
-              {r.shine && <div className="card-shine" />}
-              {count > 1 && (
-                <span className="absolute top-1.5 right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-black/70 text-white text-[11px] font-mono font-bold flex items-center justify-center">
-                  ×{count}
-                </span>
-              )}
-            </>
-          ) : (
-            <div className="w-full h-full bg-violet-900/40 flex items-center justify-center">
-              <HelpCircle size={40} className="text-violet-700" />
-            </div>
-          )}
-          <div className="absolute top-1.5 left-1.5"><RarityBadge tier={character.tier} size="md" /></div>
-        </div>
+        <TiltCard className="w-40 mx-auto mb-4">
+          <CardFrame tier={character.tier} className="relative w-40 h-56"
+            style={owned ? { boxShadow: `0 0 26px -4px ${r.glow}` } : undefined}>
+            {owned ? (
+              <>
+                {character.image
+                  ? <img src={character.image} alt="" className="w-full h-full object-cover" />
+                  : <div className="w-full h-full bg-violet-900/40 flex items-center justify-center text-violet-600 text-2xl">?</div>}
+                {r.shine && <div className="card-shine" />}
+                {count > 1 && (
+                  <span className="absolute top-1.5 right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-black/70 text-white text-[11px] font-mono font-bold flex items-center justify-center">
+                    ×{count}
+                  </span>
+                )}
+                {isRecentlyObtained(entry) && (
+                  <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-full bg-amber-400 text-violet-950 text-[9px] font-mono font-bold tracking-wide shadow">NEW</span>
+                )}
+              </>
+            ) : (
+              <div className="w-full h-full bg-violet-900/40 flex items-center justify-center">
+                <HelpCircle size={40} className="text-violet-700" />
+              </div>
+            )}
+            <div className="absolute top-1.5 left-1.5"><RarityBadge tier={character.tier} size="md" /></div>
+          </CardFrame>
+        </TiltCard>
+
+        {owned && onToggleFavorite && (
+          <div className="flex justify-center -mt-1 mb-2">
+            <button
+              onClick={() => { haptics.tap(); onToggleFavorite(character.id); }}
+              disabled={!isFavorite && favoritesFull}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold border active:scale-95 transition-colors motion-reduce:transition-none disabled:opacity-35 disabled:cursor-not-allowed
+                ${isFavorite ? "bg-pink-400/15 border-pink-400/40 text-pink-300" : "bg-white/5 border-white/10 text-violet-300"}`}
+            >
+              <Heart size={12} fill={isFavorite ? "currentColor" : "none"} />
+              {isFavorite ? "Dans mes favoris" : favoritesFull ? `Favoris complets (${MAX_FAVORITES})` : "Ajouter aux favoris"}
+            </button>
+          </div>
+        )}
 
         <div className="text-center">
           <p className={`text-[11px] mb-1 ${r.text}`}>{r.emoji} {r.desc}</p>

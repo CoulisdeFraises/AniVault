@@ -4,7 +4,7 @@ import { fetchWaifuPool } from "../api/waifu";
 import {
   loadState, saveState, defaultState, generatePack, coinsForDuplicate,
   msUntilFreeBooster, filterPoolByGender, GENDER_BOOSTERS, PACK_WEIGHTS,
-  SHOP_CHANCE_COST, SHOP_TARGET_COST, SHOP_GENDER_COST, seriesKeyOf, seriesCompletionBonus, wishCost,
+  SHOP_CHANCE_COST, SHOP_TARGET_COST, SHOP_GENDER_COST, seriesKeyOf, seriesCompletionBonus, wishCost, MAX_FAVORITES,
 } from "../utils/waifinity";
 import {
   syncWaifinityItem, fetchMyTrades, acceptTradeServer, markTradeApplied, closeTrade, proposeTrade as proposeTradeService,
@@ -254,7 +254,7 @@ export function useWaifinity({ withPool = true } = {}) {
     () => Object.values(state.collection)
       .map((e) => {
         const p = poolById.get(e.id);
-        return p ? { ...e, name: p.name, image: p.image, series: p.series, tier: p.tier, gender: p.gender ?? null, about: p.about ?? null } : e;
+        return p ? { ...e, name: p.name, image: p.image, series: p.series, tier: p.tier, gender: p.gender ?? null, about: p.about ?? null, seriesId: p.seriesId ?? null } : e;
       })
       .sort((a, b) => b.firstObtainedAt - a.firstObtainedAt),
     [state.collection, poolById]
@@ -336,6 +336,16 @@ export function useWaifinity({ withPool = true } = {}) {
     await refreshTrades();
   }, [refreshTrades]);
 
+  // ── Favoris : jusqu'à MAX_FAVORITES personnages épinglés en tête de collection ──
+  const toggleFavorite = useCallback((id) => {
+    persist((prev) => {
+      const cur = prev.favorites || [];
+      if (cur.includes(id)) return { ...prev, favorites: cur.filter((x) => x !== id) };
+      if (cur.length >= MAX_FAVORITES || !prev.collection[id]) return prev;
+      return { ...prev, favorites: [...cur, id] };
+    });
+  }, [persist]);
+
   return {
     coins: state.coins,
     stats: state.stats,
@@ -352,5 +362,6 @@ export function useWaifinity({ withPool = true } = {}) {
     canAffordWish:    (tier) => state.coins >= wishCost(tier),
     trades, refreshTrades, proposeTrade, acceptTrade, declineTrade, cancelTrade,
     saveIssue,
+    favorites: state.favorites || [], toggleFavorite,
   };
 }
