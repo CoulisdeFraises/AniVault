@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { Coins, PartyPopper, Heart, Trophy } from "lucide-react";
+import { Coins, PartyPopper, Trophy, Star } from "lucide-react";
 import { Modal } from "../Modal/Modal";
 import { Confetti } from "../common/Confetti";
 import { RARITY, normalizeTier } from "../../utils/waifinity";
@@ -47,13 +47,7 @@ export function PickResultModal({ result, onClose }) {
             <GenderBadge gender={card.gender} />
           </div>
           <p className="text-xs text-violet-400">{card.series}</p>
-          {card.favourites > 0 && (
-            <p className="flex items-center justify-center gap-1 text-[11px] text-violet-400 mt-1 mb-4">
-              <Heart size={10} className="text-pink-400" fill="currentColor" />
-              {card.favourites.toLocaleString("fr-FR")} favoris sur MyAnimeList
-            </p>
-          )}
-          {!(card.favourites > 0) && <div className="mb-4" />}
+          <div className="mb-4" />
 
           {isDuplicate ? (
             <div
@@ -67,7 +61,9 @@ export function PickResultModal({ result, onClose }) {
               className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-teal-400/10 border border-teal-400/30 text-teal-300 text-sm font-semibold mb-4 animate-popIn"
               style={{ animationDelay: "0.12s" }}
             >
-              <PartyPopper size={16} />Nouveau personnage adopté !
+              {card.wish
+                ? <><Star size={16} fill="currentColor" />Vœu exaucé !</>
+                : <><PartyPopper size={16} />Nouveau personnage adopté !</>}
             </div>
           )}
 

@@ -82,6 +82,7 @@ function mapRow(row) {
     favourites: row.favourites || 0,
     seriesId:   row.anime_mal_id ?? null,
     series:     row.series || "Série inconnue",
+    about:      row.about || null,
   };
 }
 
@@ -91,7 +92,7 @@ async function fetchSupabasePool() {
   for (let from = 0; ; from += SUPABASE_PAGE) {
     const { data, error } = await supabase
       .from(TABLE)
-      .select("mal_id, name, image, gender, favourites, anime_mal_id, series, updated_at")
+      .select("mal_id, name, image, gender, favourites, anime_mal_id, series, about, updated_at")
       .order("favourites", { ascending: false })
       .range(from, from + SUPABASE_PAGE - 1);
     if (error) throw new Error(error.message);

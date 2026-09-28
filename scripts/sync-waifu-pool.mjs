@@ -336,17 +336,48 @@ async function fetchMalTop(count) {
   return final;
 }
 
-/** Série principale d'un personnage MAL, via /characters/{id}/full. */
+/**
+ * Description courte d'un personnage à partir du champ "about" de MAL : on
+ * retire la fiche technique de tête (Age: 17, Height: …), les mentions de
+ * source/auteur, puis on tronque proprement (~280 caractères, à la fin d'une
+ * phrase si possible). null si rien d'exploitable. Note : ce sont les textes
+ * de MAL, en anglais, et ils peuvent contenir des spoilers.
+ */
+function cleanAbout(raw) {
+  if (!raw) return null;
+  let t = String(raw).replace(/\r/g, "")
+    .replace(/\(Source:[^)]*\)/gi, "")
+    .replace(/\[Written by[^\]]*\]/gi, "");
+  const kept = [];
+  let inHeader = true;
+  for (const line of t.split("\n").map((l) => l.trim())) {
+    if (!line) continue;
+    if (inHeader && line.length < 80 && /^[A-Za-z][A-Za-z ./'-]{0,24}:\s*\S/.test(line)) continue;
+    inHeader = false;
+    kept.push(line);
+  }
+  t = kept.join(" ").replace(/\s+/g, " ").trim();
+  if (t.length < 20 || /no biography|no description/i.test(t)) return null;
+  if (t.length <= 280) return t;
+  const cut = t.slice(0, 280);
+  const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "));
+  return end > 120 ? cut.slice(0, end + 1) : cut.replace(/\s+\S*$/, "") + "…";
+}
+
+/** Série principale + description d'un personnage MAL, via /characters/{id}/full. */
 async function fetchMalAnime(malId) {
   const json = await fetchTenraiJson(`${TENRAI_BASE}/characters/${malId}/full`, `Tenrai (perso ${malId})`);
   const anime = json?.data?.anime || [];
   const main = anime.find((a) => a.role === "Main") || anime[0] || null;
-  return main?.anime ? { animeMalId: main.anime.mal_id, series: main.anime.title } : { animeMalId: null, series: null };
+  const about = cleanAbout(json?.data?.about);
+  return main?.anime
+    ? { animeMalId: main.anime.mal_id, series: main.anime.title, about }
+    : { animeMalId: null, series: null, about };
 }
 
 const ANIME_CACHE = "mal-anime.json";
 
-/** Enrichit malList avec animeMalId/series, en reprenant les persos déjà faits. */
+/** Enrichit malList avec animeMalId/series/about, en reprenant les persos déjà faits. */
 async function enrichWithAnime(malList) {
   const cached = FRESH ? {} : (readCache(ANIME_CACHE) || {});
   const done = Object.keys(cached).length;
@@ -355,20 +386,23 @@ async function enrichWithAnime(malList) {
   let sinceFlush = 0;
   for (let i = 0; i < malList.length; i++) {
     const c = malList[i];
-    if (cached[c.malId]) {
+    if (cached[c.malId] && "about" in cached[c.malId]) {
       c.animeMalId = cached[c.malId].animeMalId;
       c.series = cached[c.malId].series;
+      c.about = cached[c.malId].about;
       continue;
     }
     try {
-      const { animeMalId, series } = await fetchMalAnime(c.malId);
+      const { animeMalId, series, about } = await fetchMalAnime(c.malId);
       c.animeMalId = animeMalId;
       c.series = series;
+      c.about = about;
     } catch {
       c.animeMalId = null;
       c.series = null;
+      c.about = null;
     }
-    cached[c.malId] = { animeMalId: c.animeMalId, series: c.series };
+    cached[c.malId] = { animeMalId: c.animeMalId, series: c.series, about: c.about };
     sinceFlush++;
     if (sinceFlush >= 20) { writeCache(ANIME_CACHE, cached); sinceFlush = 0; }
     if (i % 25 === 0) process.stdout.write(`\r  ${i}/${malList.length}`);
@@ -402,6 +436,7 @@ function buildRows(malList, dict) {
         rank:         i + 1,
         anime_mal_id: c.animeMalId ?? null,
         series:       c.series ?? null,
+        about:        c.about ?? null,
         updated_at:   new Date().toISOString(),
       };
     })

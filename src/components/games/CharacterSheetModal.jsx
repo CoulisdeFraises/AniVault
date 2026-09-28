@@ -1,4 +1,4 @@
-import { Heart, ExternalLink, Calendar, Target, Star, Coins, HelpCircle } from "lucide-react";
+import { Calendar, Target, Star, Coins, HelpCircle } from "lucide-react";
 import { Modal } from "../Modal/Modal";
 import { RARITY, normalizeTier, SHOP_TARGET_COST, wishCost } from "../../utils/waifinity";
 import { RarityBadge } from "./RarityBadge";
@@ -6,7 +6,8 @@ import { GenderBadge } from "./GenderBadge";
 import { haptics } from "../../utils/haptics";
 
 /**
- * Fiche personnage : ouverte au tap d'une carte depuis "Ma collection" ou
+ * Fiche personnage (description courte tirée de MyAnimeList, voir
+ * scripts/sync-waifu-pool.mjs) : ouverte au tap d'une carte depuis "Ma collection" ou
  * l'onglet Explorer (voir CollectionGrid / SeriesExplorer). `character` vient
  * du bassin (image, favoris, série, rareté…), `entry` de la collection du
  * joueur (compteur, date d'obtention) — absent si le personnage n'est pas
@@ -63,11 +64,10 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
         </div>
 
         {owned ? (
-          <div className="mt-4 space-y-2">
-            {character.favourites > 0 && (
-              <p className="flex items-center justify-center gap-1.5 text-xs text-violet-300">
-                <Heart size={12} className="text-pink-400" fill="currentColor" />
-                {character.favourites.toLocaleString("fr-FR")} favoris sur MyAnimeList
+          <div className="mt-4 space-y-3">
+            {character.about && (
+              <p className="max-h-32 overflow-y-auto text-[12.5px] leading-relaxed text-violet-200 text-left rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2.5">
+                {character.about}
               </p>
             )}
             {entry?.firstObtainedAt && (
@@ -76,14 +76,6 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
                 Adopté le {new Date(entry.firstObtainedAt).toLocaleDateString("fr-FR")}
               </p>
             )}
-            <a
-              href={`https://myanimelist.net/character/${character.id}`}
-              target="_blank" rel="noopener noreferrer"
-              onClick={() => haptics.tap()}
-              className="flex items-center justify-center gap-1.5 text-xs text-amber-300 hover:text-amber-200 mt-1"
-            >
-              Voir sur MyAnimeList <ExternalLink size={11} />
-            </a>
           </div>
         ) : (
           <div className="mt-4 space-y-3">

@@ -254,7 +254,7 @@ export function useWaifinity({ withPool = true } = {}) {
     () => Object.values(state.collection)
       .map((e) => {
         const p = poolById.get(e.id);
-        return p ? { ...e, name: p.name, image: p.image, series: p.series, tier: p.tier, gender: p.gender ?? null } : e;
+        return p ? { ...e, name: p.name, image: p.image, series: p.series, tier: p.tier, gender: p.gender ?? null, about: p.about ?? null } : e;
       })
       .sort((a, b) => b.firstObtainedAt - a.firstObtainedAt),
     [state.collection, poolById]
