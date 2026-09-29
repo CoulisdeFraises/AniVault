@@ -79,10 +79,16 @@ export function GamesWaifinity() {
           <StatTile icon={<PackageOpen size={11} />} label="Boosters" value={game.stats.opened} />
         </div>
 
-        {game.saveIssue && (
+        {game.saveIssue && game.syncIssue && (
           <div className="flex items-center gap-2 mb-4 px-3 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs">
             <AlertTriangle size={14} className="flex-shrink-0" />
-            Dernière sauvegarde impossible (stockage plein) — ta dernière action risque de ne pas être conservée. Libère de l'espace de stockage sur cet appareil puis réessaie.
+            Sauvegarde locale ET synchronisation en ligne impossibles (stockage plein + pas de connexion) — ta dernière action risque de ne pas être conservée. Vérifie ta connexion et libère de l'espace de stockage sur cet appareil.
+          </div>
+        )}
+        {game.saveIssue && !game.syncIssue && (
+          <div className="flex items-center gap-2 mb-4 px-3 py-2.5 rounded-xl bg-amber-400/10 border border-amber-400/30 text-amber-200 text-xs">
+            <AlertTriangle size={14} className="flex-shrink-0" />
+            Stockage local plein sur cet appareil — ta collection reste correctement sauvegardée en ligne et sera réparée automatiquement à la prochaine ouverture. Tu peux libérer de l'espace pour que ça cesse de s'afficher.
           </div>
         )}
 

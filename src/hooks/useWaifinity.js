@@ -8,6 +8,7 @@ import {
 } from "../utils/waifinity";
 import {
   syncWaifinityItem, fetchMyTrades, acceptTradeServer, markTradeApplied, closeTrade, proposeTrade as proposeTradeService,
+  fetchMyWaifinityCollection,
 } from "../services/waifinitySocial";
 
 /**
@@ -60,7 +61,8 @@ export function useWaifinity({ withPool = true } = {}) {
     return () => clearInterval(id);
   }, [state.lastFreeOpenedAt]);
 
-  const [saveIssue, setSaveIssue] = useState(false);
+  const [saveIssue, setSaveIssue] = useState(false); // échec d'écriture LOCALE (quota…)
+  const [syncIssue, setSyncIssue] = useState(false);  // échec de la synchro SERVEUR (réseau…)
 
   const persist = useCallback((updater) => {
     setState((prev) => {
@@ -95,6 +97,40 @@ export function useWaifinity({ withPool = true } = {}) {
       return changed ? { ...prev, collection } : prev;
     });
   }, [pool, state.collection, persist]);
+
+  // ── Réconciliation avec le miroir Supabase (filet de sécurité) ───────────
+  // waifinity_collection_items est poussé à chaque pioche (pickCard). S'il a
+  // un compteur plus élevé qu'en local pour un personnage — typiquement parce
+  // que la sauvegarde localStorage a échoué (stockage plein) — on répare le
+  // local avec le serveur. À l'inverse, si le local est en avance (la synchro
+  // serveur a échoué, faute de réseau), on répare le serveur avec le local.
+  // Une fois par connexion : suffisant pour rattraper une désynchronisation
+  // sans multiplier les allers-retours réseau à chaque montage.
+  const reconciledRef = useRef(null);
+  useEffect(() => {
+    if (!uid || reconciledRef.current === uid) return;
+    reconciledRef.current = uid;
+    (async () => {
+      const server = await fetchMyWaifinityCollection(uid);
+      const local = stateRef.current.collection;
+      const merged = { ...local };
+      const toPushUp = [];
+      let repaired = false;
+
+      for (const id of new Set([...Object.keys(local), ...Object.keys(server)])) {
+        const lCount = local[id]?.count || 0;
+        const sCount = server[id]?.count || 0;
+        if (sCount > lCount) { merged[id] = server[id]; repaired = true; }
+        else if (lCount > sCount) { toPushUp.push(local[id]); }
+      }
+
+      if (repaired) {
+        console.warn("Waifinity : collection locale réparée depuis le miroir Supabase (désynchronisation détectée).");
+        persist((prev) => ({ ...prev, collection: merged }));
+      }
+      for (const item of toPushUp) await syncWaifinityItem(uid, item);
+    })();
+  }, [uid, persist]);
 
   const cooldownMs = msUntilFreeBooster(state.lastFreeOpenedAt);
   const canOpenFree = cooldownMs <= 0 && !state.pendingPack && pool.length > 0;
@@ -235,12 +271,13 @@ export function useWaifinity({ withPool = true } = {}) {
       };
     });
 
-    // Miroir public (classement + doublons visibles par les amis) — best
-    // effort, ne bloque jamais le jeu si Supabase est indisponible.
+    // Miroir public (classement, doublons visibles par les amis, ET filet de
+    // sécurité si la sauvegarde locale échoue — voir reconciliation ci-dessous).
+    // Best effort : ne bloque jamais le jeu si Supabase est indisponible.
     syncWaifinityItem(uid, {
       id: card.id, name: card.name, image: card.image, series: card.series,
       tier: card.tier, gender: card.gender ?? null, count: (owned?.count || 0) + 1,
-    });
+    }).then((ok) => setSyncIssue(!ok));
 
     return result;
   }, [persist, pool, uid]);
@@ -361,7 +398,7 @@ export function useWaifinity({ withPool = true } = {}) {
     canAffordGender:  state.coins >= SHOP_GENDER_COST,
     canAffordWish:    (tier) => state.coins >= wishCost(tier),
     trades, refreshTrades, proposeTrade, acceptTrade, declineTrade, cancelTrade,
-    saveIssue,
+    saveIssue, syncIssue,
     favorites: state.favorites || [], toggleFavorite,
   };
 }

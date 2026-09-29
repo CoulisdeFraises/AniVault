@@ -1,3 +1,5 @@
+import { purgeStaleCaches } from "../lib/cache.js";
+
 // ── Waifinity : règles du jeu ────────────────────────────────────────────────
 //
 // Rareté : 6 paliers, calculés par RANG de popularité (favoris AniList) au
@@ -294,11 +296,23 @@ export function loadState(uid) {
 }
 
 /** true si la sauvegarde a réussi — false = stockage plein/indisponible, la
- *  progression de cette action n'a PAS été conservée (voir useWaifinity.persist). */
+ *  progression de cette action n'a PAS été conservée (voir useWaifinity.persist,
+ *  qui répare via le miroir Supabase dans ce cas). */
 export function saveState(uid, state) {
   if (!uid) return false;
-  try { localStorage.setItem(STORAGE_KEY(uid), JSON.stringify(state)); return true; }
-  catch { return false; }
+  const payload = JSON.stringify(state);
+  try { localStorage.setItem(STORAGE_KEY(uid), payload); return true; }
+  catch {
+    // Le quota localStorage est partagé par toute l'app : souvent ce n'est
+    // pas Waifinity qui est volumineux, mais d'autres caches (recos,
+    // calendrier…) jamais nettoyés (voir lib/cache.js, déjà utilisé pour ce
+    // même repli côté setCached). On purge, puis on retente une fois.
+    try {
+      purgeStaleCaches();
+      localStorage.setItem(STORAGE_KEY(uid), payload);
+      return true;
+    } catch { return false; }
+  }
 }
 
 export const MAX_FAVORITES = 3;

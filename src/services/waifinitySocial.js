@@ -7,9 +7,16 @@ import { supabase } from "../lib/supabase";
 // pour le classement entre amis et l'écran d'échange. Voir
 // supabase/waifinity_social.sql pour le schéma et les policies RLS.
 
-/** Pousse UN personnage (nouvellement obtenu, ou dont le compteur a changé). */
+/**
+ * Pousse UN personnage (nouvellement obtenu, ou dont le compteur a changé).
+ * Ne pas envoyer `first_obtained_at` ici : PostgREST ne met à jour QUE les
+ * colonnes présentes dans le payload sur un conflit, donc l'omettre revient à
+ * ne jamais l'écraser après l'INSERT initial (où sa valeur par défaut
+ * s'applique). Renvoie true/false — voir useWaifinity : ce miroir sert de
+ * filet de sécurité si la sauvegarde locale échoue (quota localStorage).
+ */
 export async function syncWaifinityItem(userId, item) {
-  if (!userId || !item) return;
+  if (!userId || !item) return false;
   const { error } = await supabase.from("waifinity_collection_items").upsert({
     user_id:      userId,
     character_id: item.id,
@@ -21,7 +28,31 @@ export async function syncWaifinityItem(userId, item) {
     gender:       item.gender ?? null,
     updated_at:   new Date().toISOString(),
   });
-  if (error) console.error("Sync Waifinity (item) :", error.message);
+  if (error) { console.error("Sync Waifinity (item) :", error.message); return false; }
+  return true;
+}
+
+/**
+ * Toute MA collection, telle que connue de Supabase — utilisée au chargement
+ * pour réparer l'état local si une sauvegarde localStorage a échoué (voir
+ * useWaifinity : le local et ce miroir se réconcilient dans les deux sens).
+ */
+export async function fetchMyWaifinityCollection(userId) {
+  if (!userId) return {};
+  const { data, error } = await supabase
+    .from("waifinity_collection_items")
+    .select("character_id, count, tier, name, series, gender, first_obtained_at")
+    .eq("user_id", userId);
+  if (error) { console.error("Fetch ma collection Waifinity :", error.message); return {}; }
+  const byId = {};
+  for (const row of data || []) {
+    byId[row.character_id] = {
+      id: row.character_id, count: row.count, tier: row.tier, name: row.name,
+      series: row.series, gender: row.gender,
+      firstObtainedAt: row.first_obtained_at ? new Date(row.first_obtained_at).getTime() : Date.now(),
+    };
+  }
+  return byId;
 }
 
 /** Items d'un seul utilisateur (écran d'échange : doublons d'un ami donné). */
