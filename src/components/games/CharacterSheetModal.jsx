@@ -30,32 +30,50 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
   return (
     <Modal onClose={onClose} maxWidth="max-w-sm" zIndex="z-50">
       <div className="p-5">
-        <TiltCard className="w-40 mx-auto mb-4">
-          <CardFrame tier={character.tier} className="relative w-40 h-56"
-            style={owned ? { boxShadow: `0 0 26px -4px ${r.glow}` } : undefined}>
+        {/* Vraie carte façon TCG : image en plein cadre, infos en surimpression
+            (plus de fond violet visible), inclinaison qui suit le doigt/la
+            souris tant qu'on maintient dessus. */}
+        <TiltCard className="w-full max-w-[240px] mx-auto mb-1" holo={owned && r.shine}>
+          <CardFrame tier={character.tier} className="relative w-full aspect-[5/7]"
+            style={owned ? { boxShadow: `0 0 32px -4px ${r.glow}` } : undefined}>
             {owned ? (
               <>
                 {character.image
-                  ? <img src={character.image} alt="" className="w-full h-full object-cover" />
-                  : <div className="w-full h-full bg-violet-900/40 flex items-center justify-center text-violet-600 text-2xl">?</div>}
+                  ? <img src={character.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  : <div className="absolute inset-0 flex items-center justify-center text-violet-600 text-3xl">?</div>}
                 {r.shine && <div className="card-shine" />}
-                {count > 1 && (
-                  <span className="absolute top-1.5 right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-black/70 text-white text-[11px] font-mono font-bold flex items-center justify-center">
-                    ×{count}
-                  </span>
-                )}
-                {isRecentlyObtained(entry) && (
-                  <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-full bg-amber-400 text-violet-950 text-[9px] font-mono font-bold tracking-wide shadow">NEW</span>
-                )}
+
+                {/* Plaque de nom façon carte, en surimpression sur l'image */}
+                <div className="absolute inset-x-0 bottom-0 px-3 pt-8 pb-2.5 bg-gradient-to-t from-black/90 via-black/55 to-transparent">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-[15px] font-bold text-white leading-tight truncate flex-1" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+                      {character.name}
+                    </p>
+                    <GenderBadge gender={character.gender} />
+                  </div>
+                  <p className="text-[11px] text-violet-200/90 truncate">{character.series}</p>
+                </div>
+
+                <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+                  {count > 1 && (
+                    <span className="min-w-[24px] h-[24px] px-1.5 rounded-full bg-black/70 border border-white/20 text-white text-[12px] font-mono font-bold flex items-center justify-center">
+                      ×{count}
+                    </span>
+                  )}
+                  {isRecentlyObtained(entry) && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-amber-400 text-violet-950 text-[9px] font-mono font-bold tracking-wide shadow">NEW</span>
+                  )}
+                </div>
               </>
             ) : (
-              <div className="w-full h-full bg-violet-900/40 flex items-center justify-center">
-                <HelpCircle size={40} className="text-violet-700" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <HelpCircle size={48} className="text-violet-700" />
               </div>
             )}
-            <div className="absolute top-1.5 left-1.5"><RarityBadge tier={character.tier} size="md" /></div>
+            <div className="absolute top-2 left-2"><RarityBadge tier={character.tier} size="md" /></div>
           </CardFrame>
         </TiltCard>
+        {!owned && <p className="text-xs text-violet-400 text-center mb-1">{character.series}</p>}
 
         {owned && onToggleFavorite && (
           <div className="flex justify-center -mt-1 mb-2">
@@ -71,16 +89,7 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
           </div>
         )}
 
-        <div className="text-center">
-          <p className={`text-[11px] mb-1 ${r.text}`}>{r.emoji} {r.desc}</p>
-          <div className="flex items-center justify-center gap-1.5">
-            <p className="text-lg font-bold text-white" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-              {owned ? character.name : "???"}
-            </p>
-            {owned && <GenderBadge gender={character.gender} />}
-          </div>
-          <p className="text-xs text-violet-400 mt-0.5">{character.series}</p>
-        </div>
+        <p className={`text-[11px] text-center mb-3 ${r.text}`}>{r.emoji} {r.desc}</p>
 
         {owned ? (
           <div className="mt-4 space-y-3">

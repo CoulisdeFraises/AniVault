@@ -1,13 +1,17 @@
 import { useRef } from "react";
 
 /**
- * Effet de profondeur : la carte s'incline légèrement vers le doigt / le
- * pointeur, avec un reflet qui suit. Désactivé si l'utilisateur préfère moins
- * de mouvement. `className` doit porter l'arrondi de la carte (ex : rounded-2xl).
+ * Effet de profondeur : la carte s'incline vers le doigt / le pointeur, avec
+ * un reflet qui suit — reste incliné tant qu'on maintient le doigt/le clic
+ * dessus (Pointer Events : couvre souris ET tactile). Désactivé si
+ * l'utilisateur préfère moins de mouvement. `className` doit porter l'arrondi
+ * de la carte (ex : rounded-2xl). `holo` ajoute un reflet arc-en-ciel façon
+ * carte à effet (réservé aux raretés qui ont déjà un reflet, RARITY.shine).
  */
-export function TiltCard({ children, className = "", max = 12 }) {
+export function TiltCard({ children, className = "", max = 14, holo = false }) {
   const ref = useRef(null);
   const glareRef = useRef(null);
+  const holoRef = useRef(null);
 
   function reduced() {
     return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -24,11 +28,16 @@ export function TiltCard({ children, className = "", max = 12 }) {
       glareRef.current.style.background = `radial-gradient(circle at ${x * 100}% ${y * 100}%, rgba(255,255,255,0.30), transparent 55%)`;
       glareRef.current.style.opacity = "1";
     }
+    if (holo && holoRef.current) {
+      holoRef.current.style.backgroundPosition = `${x * 100}% ${y * 100}%`;
+      holoRef.current.style.opacity = "0.55";
+    }
   }
 
   function reset() {
     if (ref.current) ref.current.style.transform = "";
     if (glareRef.current) glareRef.current.style.opacity = "0";
+    if (holoRef.current) holoRef.current.style.opacity = "0";
   }
 
   return (
@@ -43,6 +52,15 @@ export function TiltCard({ children, className = "", max = 12 }) {
       {children}
       <div ref={glareRef} aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 transition-opacity duration-200 motion-reduce:transition-none" />
+      {holo && (
+        <div ref={holoRef} aria-hidden="true"
+          className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 mix-blend-color-dodge transition-opacity duration-200 motion-reduce:transition-none"
+          style={{
+            backgroundImage: "linear-gradient(115deg, transparent 22%, #ff9a9a 32%, #ffe28a 38%, #9affb0 44%, #8fd8ff 50%, #c79aff 56%, transparent 68%)",
+            backgroundSize: "260% 260%",
+          }}
+        />
+      )}
     </div>
   );
 }

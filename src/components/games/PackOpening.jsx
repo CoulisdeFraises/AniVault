@@ -71,29 +71,45 @@ export function PackOpening({ pack, onConfirm, collection = {} }) {
         className="w-full flex flex-col items-center justify-center gap-5 py-24 text-violet-200"
       >
         <motion.div
-          initial={{ scale: 0.5, opacity: 0, rotate: -10 }}
-          animate={{ scale: [0.5, 1.12, 0.95, 1.05, 1], opacity: 1, rotate: [-10, 6, -3, 0] }}
+          initial={{ scale: 0.5, opacity: 0, rotate: -6 }}
+          animate={{ scale: [0.5, 1.1, 0.96, 1.04, 1], opacity: 1, rotate: [-6, 3, -1.5, 0] }}
           transition={{ duration: 0.85, ease: "easeOut" }}
-          className="relative w-24 h-28"
+          className="relative w-28 h-36"
         >
           <motion.span
-            className="absolute inset-0 rounded-b-2xl"
+            className="absolute inset-0 rounded-2xl"
             style={{ boxShadow: "0 0 0px 0px rgba(251,191,36,0.6)" }}
             animate={{ boxShadow: ["0 0 10px 2px rgba(251,191,36,0.35)", "0 0 42px 10px rgba(251,191,36,0.65)", "0 0 10px 2px rgba(251,191,36,0.35)"] }}
             transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
           />
-          {/* Pochette de booster : bord haut déchiré + ligne de scellé façon papier alu */}
-          <span
-            className="absolute inset-0 rounded-b-2xl bg-gradient-to-br from-amber-400/30 to-fuchsia-500/30 border border-amber-300/50"
-            style={{ clipPath: "polygon(0% 9%,9% 1%,18% 9%,27% 1%,36% 9%,45% 1%,54% 9%,63% 1%,72% 9%,81% 1%,90% 9%,100% 1%,100% 100%,0% 100%)" }}
+
+          {/* Pochette de booster en deux moitiés, séparées par un bord déchiré
+              VERTICAL — au burst, chaque moitié part sur son côté (façon
+              Pokémon TCG Pocket), plutôt qu'un déchirement horizontal. */}
+          <motion.span
+            className="absolute inset-y-0 left-0 w-1/2 rounded-l-2xl bg-gradient-to-br from-amber-400/30 to-fuchsia-500/30 border border-amber-300/50 border-r-0"
+            style={{ clipPath: "polygon(0% 0%,100% 0%,84% 12%,97% 24%,80% 36%,95% 50%,81% 64%,96% 78%,85% 90%,100% 100%,0% 100%)" }}
+            animate={burst ? { x: "-65%", rotate: -16, opacity: 0 } : { x: 0, rotate: 0, opacity: 1 }}
+            transition={{ duration: 0.45, ease: "easeIn" }}
           />
-          <span className="absolute left-[12%] right-[12%] top-[42%] h-[2.5px] bg-gradient-to-r from-transparent via-white/70 to-transparent" />
-          <span className="absolute inset-0 flex items-center justify-center pt-2">
+          <motion.span
+            className="absolute inset-y-0 right-0 w-1/2 rounded-r-2xl bg-gradient-to-bl from-amber-400/30 to-fuchsia-500/30 border border-amber-300/50 border-l-0"
+            style={{ clipPath: "polygon(100% 0%,0% 0%,16% 12%,3% 24%,20% 36%,5% 50%,19% 64%,4% 78%,15% 90%,0% 100%,100% 100%)" }}
+            animate={burst ? { x: "65%", rotate: 16, opacity: 0 } : { x: 0, rotate: 0, opacity: 1 }}
+            transition={{ duration: 0.45, ease: "easeIn" }}
+          />
+          {/* Ligne de scellé façon papier alu, avant l'ouverture */}
+          {!burst && (
+            <span className="absolute left-[10%] right-[10%] top-[42%] h-[2.5px] bg-gradient-to-r from-transparent via-white/70 to-transparent" />
+          )}
+
+          <span className="absolute inset-0 flex items-center justify-center">
             <Sparkles size={34} className="text-amber-200" />
           </span>
+
           {burst && (
             <span
-              className="tear-beam absolute left-1/2 bottom-full w-2 h-14 bg-gradient-to-t from-amber-200/90 via-amber-100/40 to-transparent blur-[1px]"
+              className="tear-beam absolute inset-y-[-15%] left-1/2 w-3 bg-gradient-to-b from-transparent via-amber-100 to-transparent blur-[2px]"
               aria-hidden="true"
             />
           )}

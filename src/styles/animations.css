@@ -236,13 +236,13 @@
 }
 .rays { animation: raysSpin 16s linear infinite; }
 
-/* ── Faisceau de lumière à l'ouverture du booster ─────────────────────────── */
+/* ── Faisceau de lumière à la déchirure verticale du booster ──────────────── */
 @keyframes tearBeam {
-  0%   { opacity: 0; transform: translateX(-50%) scaleY(0.2); }
-  35%  { opacity: 1; }
-  100% { opacity: 0; transform: translateX(-50%) scaleY(1.6); }
+  0%   { opacity: 0; transform: translateX(-50%) scaleX(0.15); }
+  30%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) scaleX(3); }
 }
-.tear-beam { animation: tearBeam 0.7s ease-out both; transform-origin: bottom center; }
+.tear-beam { animation: tearBeam 0.55s ease-out both; transform-origin: center; }
 
 @media (prefers-reduced-motion: reduce) {
   .screen-flash { display: none; }
