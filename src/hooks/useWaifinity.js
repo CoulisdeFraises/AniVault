@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
+import { ensureWaifinityWallet, adjustWaifinityBalance, fetchWaifinityWallet, newWalletOperationKey } from "../services/waifinityWallet";
 import { fetchWaifuPool } from "../api/waifu";
 import {
   loadState, saveState, defaultState, generatePack, coinsForDuplicate,
@@ -30,11 +31,47 @@ export function useWaifinity({ withPool = true } = {}) {
   const [poolLoading, setPoolLoading] = useState(withPool);
   const [poolError, setPoolError]     = useState(null);
   const [now, setNow]           = useState(Date.now()); // tick pour le décompte
+  const [walletBusy, setWalletBusy] = useState(false);
+  const [walletReady, setWalletReady] = useState(!uid);
+  const [walletIssue, setWalletIssue] = useState(null);
+  const walletBusyRef = useRef(false);
   const stateRef = useRef(state);
   stateRef.current = state;
 
   // ── Chargement de la sauvegarde locale (par compte) ──────────────────────
-  useEffect(() => { setState(loadState(uid)); }, [uid]);
+  useEffect(() => {
+    const local = loadState(uid);
+    setState(local);
+    setWalletIssue(null);
+    setWalletReady(!uid);
+    if (!uid) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        // Premier passage : si aucun wallet n'existe encore, le solde local
+        // historique est utilisé pour migrer le compte. Ensuite, Supabase
+        // devient la seule source de vérité du solde.
+        const wallet = await ensureWaifinityWallet(uid, local.coins);
+        if (cancelled || !wallet) return;
+        const balance = Number(wallet.balance) || 0;
+        setWalletReady(true);
+        setState((prev) => {
+          const next = { ...prev, coins: balance };
+          saveState(uid, next);
+          return next;
+        });
+      } catch (e) {
+        if (!cancelled) {
+          setWalletReady(false);
+          console.error("Waifinity wallet :", e);
+          setWalletIssue(e?.message || "Impossible de synchroniser les AniGold.");
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [uid]);
 
   // ── Chargement du bassin de personnages (Supabase, sinon repli AniList en direct) ──
   const loadPool = useCallback(async (force = false) => {
@@ -142,96 +179,175 @@ export function useWaifinity({ withPool = true } = {}) {
     persist((prev) => ({
       ...prev,
       lastFreeOpenedAt: Date.now(),
-      pendingPack: { source: "free", cards, openedAt: Date.now() },
+      pendingPack: { source: "free", cards, openedAt: Date.now(), claimId: newWalletOperationKey("claim") },
       stats: { ...prev.stats, opened: prev.stats.opened + 1 },
     }));
   }, [canOpenFree, pool, persist]);
 
   // ── Boutique : booster "Chance+" (meilleures probabilités, tout le bassin) ──
-  const openChanceBooster = useCallback(() => {
-    if (state.pendingPack || pool.length === 0 || state.coins < SHOP_CHANCE_COST) return;
-    const cards = generatePack(pool, PACK_WEIGHTS.chance);
-    persist((prev) => ({
-      ...prev,
-      coins: prev.coins - SHOP_CHANCE_COST,
-      pendingPack: { source: "chance", cards, openedAt: Date.now() },
-      stats: { ...prev.stats, opened: prev.stats.opened + 1 },
-    }));
-  }, [state.pendingPack, state.coins, pool, persist]);
+  const openChanceBooster = useCallback(async () => {
+    if (!walletReady || walletBusyRef.current || state.pendingPack || pool.length === 0 || state.coins < SHOP_CHANCE_COST) return;
+    walletBusyRef.current = true;
+    setWalletBusy(true);
+    setWalletIssue(null);
+    try {
+      const wallet = await adjustWaifinityBalance(uid, -SHOP_CHANCE_COST, "booster_chance", newWalletOperationKey("purchase"));
+      const cards = generatePack(pool, PACK_WEIGHTS.chance);
+      const openedAt = Date.now();
+      persist((prev) => ({
+        ...prev,
+        coins: Number(wallet.balance),
+        pendingPack: { source: "chance", cards, openedAt, claimId: newWalletOperationKey("claim"), purchaseBalance: Number(wallet.balance) },
+        stats: { ...prev.stats, opened: prev.stats.opened + 1 },
+      }));
+    } catch (e) {
+      console.error("Waifinity achat Chance+ :", e);
+      setWalletIssue(e?.message || "Achat impossible pour le moment.");
+    } finally {
+      walletBusyRef.current = false;
+      setWalletBusy(false);
+    }
+  }, [uid, walletReady, state.pendingPack, state.coins, pool, persist]);
 
   // ── Boutique : booster réservé aux waifus OU aux husbandos (chances du gratuit) ──
-  const openGenderBooster = useCallback((gender) => {
+  const openGenderBooster = useCallback(async (gender) => {
     const cfg = GENDER_BOOSTERS[gender];
-    if (!cfg || state.pendingPack || state.coins < SHOP_GENDER_COST) return;
+    if (!cfg || !walletReady || walletBusyRef.current || state.pendingPack || state.coins < SHOP_GENDER_COST) return;
     const filtered = filterPoolByGender(pool, gender);
     if (!filtered.length) return;
-    const cards = generatePack(filtered, PACK_WEIGHTS.free);
-    persist((prev) => ({
-      ...prev,
-      coins: prev.coins - SHOP_GENDER_COST,
-      pendingPack: { source: cfg.source, cards, openedAt: Date.now() },
-      stats: { ...prev.stats, opened: prev.stats.opened + 1 },
-    }));
-  }, [state.pendingPack, state.coins, pool, persist]);
+    walletBusyRef.current = true;
+    setWalletBusy(true);
+    setWalletIssue(null);
+    try {
+      const wallet = await adjustWaifinityBalance(uid, -SHOP_GENDER_COST, `booster_${cfg.source}`, newWalletOperationKey("purchase"));
+      const cards = generatePack(filtered, PACK_WEIGHTS.free);
+      const openedAt = Date.now();
+      persist((prev) => ({
+        ...prev,
+        coins: Number(wallet.balance),
+        pendingPack: { source: cfg.source, cards, openedAt, claimId: newWalletOperationKey("claim"), purchaseBalance: Number(wallet.balance) },
+        stats: { ...prev.stats, opened: prev.stats.opened + 1 },
+      }));
+    } catch (e) {
+      console.error("Waifinity achat genre :", e);
+      setWalletIssue(e?.message || "Achat impossible pour le moment.");
+    } finally {
+      walletBusyRef.current = false;
+      setWalletBusy(false);
+    }
+  }, [uid, walletReady, state.pendingPack, state.coins, pool, persist]);
 
   // ── Boutique : booster ciblé sur une série (mêmes probabilités que "Chance+") ──
-  const openTargetedBooster = useCallback((seriesId) => {
-    if (state.pendingPack || state.coins < SHOP_TARGET_COST) return;
+  const openTargetedBooster = useCallback(async (seriesId) => {
+    if (!walletReady || walletBusyRef.current || state.pendingPack || state.coins < SHOP_TARGET_COST) return;
     const filtered = pool.filter((c) => c.seriesId === seriesId);
     if (!filtered.length) return;
-    const cards = generatePack(filtered, PACK_WEIGHTS.chance);
-    persist((prev) => ({
-      ...prev,
-      coins: prev.coins - SHOP_TARGET_COST,
-      pendingPack: { source: "targeted", cards, openedAt: Date.now() },
-      stats: { ...prev.stats, opened: prev.stats.opened + 1 },
-    }));
-  }, [state.pendingPack, state.coins, pool, persist]);
+    walletBusyRef.current = true;
+    setWalletBusy(true);
+    setWalletIssue(null);
+    try {
+      const wallet = await adjustWaifinityBalance(uid, -SHOP_TARGET_COST, "booster_targeted", newWalletOperationKey("purchase"));
+      const cards = generatePack(filtered, PACK_WEIGHTS.chance);
+      const openedAt = Date.now();
+      persist((prev) => ({
+        ...prev,
+        coins: Number(wallet.balance),
+        pendingPack: { source: "targeted", cards, openedAt, claimId: newWalletOperationKey("claim"), purchaseBalance: Number(wallet.balance) },
+        stats: { ...prev.stats, opened: prev.stats.opened + 1 },
+      }));
+    } catch (e) {
+      console.error("Waifinity achat ciblé :", e);
+      setWalletIssue(e?.message || "Achat impossible pour le moment.");
+    } finally {
+      walletBusyRef.current = false;
+      setWalletBusy(false);
+    }
+  }, [uid, walletReady, state.pendingPack, state.coins, pool, persist]);
 
   // ── Vœu : garantit UN personnage précis dans les 10 cartes du prochain booster ──
   // Coût scalé par palier (voir WISH_COST) — bien plus cher qu'un booster
   // ciblé, puisque bien plus fort (résultat garanti, pas juste la série).
-  const openWishBooster = useCallback((character) => {
+  const openWishBooster = useCallback(async (character) => {
     const cost = wishCost(character?.tier);
-    if (!character || state.pendingPack || state.coins < cost) return;
-    const cards = generatePack(pool, PACK_WEIGHTS.chance, undefined, character);
-    persist((prev) => ({
-      ...prev,
-      coins: prev.coins - cost,
-      pendingPack: { source: "wish", cards, openedAt: Date.now() },
-      stats: { ...prev.stats, opened: prev.stats.opened + 1 },
-    }));
-  }, [state.pendingPack, state.coins, pool, persist]);
+    if (!character || !walletReady || walletBusyRef.current || state.pendingPack || state.coins < cost) return;
+    walletBusyRef.current = true;
+    setWalletBusy(true);
+    setWalletIssue(null);
+    try {
+      const wallet = await adjustWaifinityBalance(uid, -cost, `booster_wish_${character.id}`, newWalletOperationKey("purchase"));
+      const cards = generatePack(pool, PACK_WEIGHTS.chance, undefined, character);
+      const openedAt = Date.now();
+      persist((prev) => ({
+        ...prev,
+        coins: Number(wallet.balance),
+        pendingPack: { source: "wish", cards, openedAt, claimId: newWalletOperationKey("claim"), purchaseBalance: Number(wallet.balance) },
+        stats: { ...prev.stats, opened: prev.stats.opened + 1 },
+      }));
+    } catch (e) {
+      console.error("Waifinity vœu :", e);
+      setWalletIssue(e?.message || "Achat impossible pour le moment.");
+    } finally {
+      walletBusyRef.current = false;
+      setWalletBusy(false);
+    }
+  }, [uid, walletReady, state.pendingPack, state.coins, pool, persist]);
 
   // ── Récupération du booster : les 10 cartes vont directement en collection ──
   // Plus de choix : chaque carte est ajoutée ; un doublon (déjà possédé, ou
   // apparu deux fois dans le même booster) donne des pièces à la place, et
   // chaque série complétée verse son bonus — une seule fois (voir
   // claimPackCards dans utils/waifinity.js).
-  const claimPack = useCallback(() => {
+  const claimPack = useCallback(async () => {
     const pack = stateRef.current.pendingPack;
-    if (!pack) return null;
+    if (!pack || walletBusyRef.current) return null;
 
-    // Résultat calculé à partir de l'état courant (et non dans l'updater, dont
-    // l'exécution peut être différée par React) ; l'updater refait le même
-    // calcul sur l'état le plus récent pour la sauvegarde.
-    const { results } = claimPackCards(stateRef.current, pack.cards, pool);
-    persist((prev) => claimPackCards(prev, pack.cards, pool).state);
+    const { state: calculatedState, results } = claimPackCards(stateRef.current, pack.cards, pool);
+    const coinDelta = calculatedState.coins - stateRef.current.coins;
 
-    // Miroir public (classement, doublons visibles par les amis, ET filet de
-    // sécurité si la sauvegarde locale échoue — voir reconciliation ci-dessous).
-    // Un seul envoi par personnage, avec son compteur final. Best effort : ne
-    // bloque jamais le jeu si Supabase est indisponible.
-    const finalByCharacter = new Map();
-    for (const r of results) finalByCharacter.set(r.card.id, r);
-    Promise.all([...finalByCharacter.values()].map(({ card, count }) =>
-      syncWaifinityItem(uid, {
-        id: card.id, name: card.name, image: card.image, series: card.series,
-        tier: card.tier, gender: card.gender ?? null, count,
-      })
-    )).then((oks) => setSyncIssue(oks.some((ok) => !ok)));
+    walletBusyRef.current = true;
+    setWalletBusy(true);
+    setWalletIssue(null);
 
-    return results;
+    try {
+      let serverBalance = stateRef.current.coins;
+      if (coinDelta !== 0) {
+        const wallet = await adjustWaifinityBalance(
+          uid,
+          coinDelta,
+          "pack_rewards",
+          pack.claimId || newWalletOperationKey("claim")
+        );
+        serverBalance = Number(wallet.balance);
+      } else {
+        const wallet = await fetchWaifinityWallet(uid);
+        if (wallet) serverBalance = Number(wallet.balance) || 0;
+      }
+
+      persist((prev) => {
+        const next = claimPackCards(prev, pack.cards, pool).state;
+        return { ...next, coins: serverBalance };
+      });
+
+      // Miroir public : un seul envoi par personnage, best effort.
+      const finalByCharacter = new Map();
+      for (const r of results) finalByCharacter.set(r.card.id, r);
+      const oks = await Promise.all([...finalByCharacter.values()].map(({ card, count }) =>
+        syncWaifinityItem(uid, {
+          id: card.id, name: card.name, image: card.image, series: card.series,
+          tier: card.tier, gender: card.gender ?? null, count,
+        })
+      ));
+      setSyncIssue(oks.some((ok) => !ok));
+
+      return results;
+    } catch (e) {
+      console.error("Waifinity récompense AniGold :", e);
+      setWalletIssue(e?.message || "Impossible de valider la récompense AniGold. Le booster reste disponible.");
+      return null;
+    } finally {
+      walletBusyRef.current = false;
+      setWalletBusy(false);
+    }
   }, [persist, pool, uid]);
 
   // Le bassin fournit l'image (et les infos à jour) — on ne la stocke plus en
@@ -350,7 +466,7 @@ export function useWaifinity({ withPool = true } = {}) {
     canAffordGender:  state.coins >= SHOP_GENDER_COST,
     canAffordWish:    (tier) => state.coins >= wishCost(tier),
     trades, refreshTrades, proposeTrade, acceptTrade, declineTrade, cancelTrade,
-    saveIssue, syncIssue,
+    saveIssue, syncIssue, walletIssue, walletBusy, walletReady,
     favorites: state.favorites || [], toggleFavorite,
   };
 }

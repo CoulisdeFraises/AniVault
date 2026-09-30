@@ -132,7 +132,7 @@ export const PACK_WEIGHTS = {
   chance: { common: 0.250, uncommon: 0.330, rare: 0.250, epic: 0.130, legendary: 0.035, secret: 0.005 },
 };
 
-// Monnaie du jeu : l'Anigold (clé `coins` dans la sauvegarde, inchangée).
+// Monnaie du jeu : l'Anigold. `coins` reste une copie locale/cache ; la source de vérité est le wallet Supabase.
 export const BOOSTER_SIZE         = 10;
 export const FREE_COOLDOWN_HOURS  = 3;
 export const FREE_COOLDOWN_MS     = FREE_COOLDOWN_HOURS * 60 * 60 * 1000; // 1 booster gratuit toutes les 3 h
@@ -264,7 +264,7 @@ export function defaultState() {
     coins:              0,
     lastFreeOpenedAt:   0,       // 0 = jamais ouvert → booster dispo immédiatement
     collection:         {},      // { [characterId]: { id, count, tier, gender, name, series, firstObtainedAt } } — pas d'image ici, voir collectionList dans useWaifinity
-    pendingPack:        null,    // { source: "free"|"chance"|"targeted"|"waifu"|"husbando"|"wish", cards: [...10], openedAt } — les 10 cartes vont en collection au clic (claimPackCards)
+    pendingPack:        null,    // { source, cards: [...10], openedAt, claimId } — claimId rend la récompense AniGold idempotente côté Supabase
     stats:              { opened: 0, obtained: 0, duplicates: 0 },
     favorites:          [],      // ids épinglés en tête de collection (MAX_FAVORITES max)
     completedSeries:    {},      // { [seriesKey]: { series, coins, completedAt } } — bonus déjà versé, une seule fois par série
