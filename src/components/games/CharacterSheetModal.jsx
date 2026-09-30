@@ -77,7 +77,7 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
 
                 {/* Plaque de description, en bas de la carte */}
                 {character.about && (
-                  <div className="absolute inset-x-0 bottom-0 px-3.5 pt-10 pb-3 bg-gradient-to-t from-black/92 via-black/60 to-transparent">
+                  <div className="absolute inset-x-0 bottom-0 px-3.5 pt-14 pb-3 bg-gradient-to-t from-black/95 via-black/75 via-40% to-transparent">
                     <p className="text-[12.5px] leading-relaxed text-violet-100 max-h-24 overflow-y-auto">
                       {character.about}
                     </p>

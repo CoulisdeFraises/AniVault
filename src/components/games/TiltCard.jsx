@@ -34,20 +34,32 @@ export function TiltCard({ children, className = "", max = 14, holo = false }) {
     }
   }
 
-  function reset() {
+  // Capture le pointeur au toucher : sans ça, un doigt qui dévie légèrement
+  // des bords exacts de la carte (très fréquent en usage réel) fait perdre le
+  // suivi en plein milieu du geste — la carte "décroche" et ne réagit plus
+  // jusqu'au prochain toucher. Inoffensif pour la souris (elle survole déjà
+  // sans avoir besoin d'appuyer).
+  function onDown(e) {
+    ref.current?.setPointerCapture?.(e.pointerId);
+    onMove(e);
+  }
+
+  function reset(e) {
     if (ref.current) ref.current.style.transform = "";
     if (glareRef.current) glareRef.current.style.opacity = "0";
     if (holoRef.current) holoRef.current.style.opacity = "0";
+    if (e?.pointerId != null) ref.current?.releasePointerCapture?.(e.pointerId);
   }
 
   return (
     <div
       ref={ref}
+      onPointerDown={onDown}
       onPointerMove={onMove}
       onPointerLeave={reset}
       onPointerUp={reset}
       onPointerCancel={reset}
-      className={`relative transition-transform duration-150 ease-out motion-reduce:transition-none [touch-action:pan-y] ${className}`}
+      className={`relative transition-transform duration-150 ease-out motion-reduce:transition-none [touch-action:none] ${className}`}
     >
       {children}
       <div ref={glareRef} aria-hidden="true"

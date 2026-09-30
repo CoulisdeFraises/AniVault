@@ -34,13 +34,15 @@ export function PickResultModal({ result, onClose }) {
         <div className="p-5 text-center">
           <div className={`relative mx-auto mb-4 ${isNewTopTier ? "w-36 h-48" : "w-32 h-44"}`}>
             {isNewTopTier && (
-              <svg viewBox="0 0 100 100" aria-hidden="true"
-                className="rays absolute left-1/2 top-1/2 w-[220%] h-[220%] -z-10 opacity-40">
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <rect key={i} x="49" y="0" width="2" height="50" fill={r.glow}
-                    transform={`rotate(${i * 30} 50 50)`} />
-                ))}
-              </svg>
+              <div className="absolute -inset-14 overflow-hidden rounded-full pointer-events-none" aria-hidden="true">
+                <svg viewBox="0 0 100 100"
+                  className="rays absolute left-1/2 top-1/2 w-[150%] h-[150%] opacity-40">
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <rect key={i} x="49" y="0" width="2" height="50" fill={r.glow}
+                      transform={`rotate(${i * 30} 50 50)`} />
+                  ))}
+                </svg>
+              </div>
             )}
             <CardFrame tier={card.tier} className={`relative w-full h-full animate-popIn`}
               style={{ boxShadow: `0 0 26px -4px ${r.glow}` }}>
