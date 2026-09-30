@@ -51,7 +51,7 @@ export function BoostersTab({ game, onGoShop }) {
           </div>
           <div className="min-w-0">
             <p className="text-lg font-bold text-white" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>Booster gratuit</p>
-            <p className="text-xs text-violet-300 mt-0.5">10 personnages à révéler, choisis-en un à adopter. Un booster gratuit toutes les {FREE_COOLDOWN_HOURS} heures.</p>
+            <p className="text-xs text-violet-300 mt-0.5">10 personnages à révéler, tous ajoutés à ta collection (les doublons deviennent de l'Anigold). Un booster gratuit toutes les {FREE_COOLDOWN_HOURS} heures.</p>
           </div>
         </div>
 

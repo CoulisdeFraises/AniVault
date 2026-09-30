@@ -97,7 +97,7 @@ export function collectionScore(tierCounts) {
  * Clé de regroupement par série : l'id MAL de la série si on l'a (fiable),
  * sinon son nom (repli si la série n'a pas pu être déterminée lors de la
  * synchro — voir scripts/sync-waifu-pool.mjs). Partagée par groupPoolBySeries
- * et par la détection de complétion de série (useWaifinity.pickCard) pour
+ * et par la détection de complétion de série (claimPackCards) pour
  * qu'elles s'accordent toujours sur ce qui constitue "la même série".
  */
 export function seriesKeyOf(c) {
@@ -264,7 +264,7 @@ export function defaultState() {
     coins:              0,
     lastFreeOpenedAt:   0,       // 0 = jamais ouvert → booster dispo immédiatement
     collection:         {},      // { [characterId]: { id, count, tier, gender, name, series, firstObtainedAt } } — pas d'image ici, voir collectionList dans useWaifinity
-    pendingPack:        null,    // { source: "free"|"chance"|"targeted"|"waifu"|"husbando", cards: [...10], openedAt }
+    pendingPack:        null,    // { source: "free"|"chance"|"targeted"|"waifu"|"husbando"|"wish", cards: [...10], openedAt } — les 10 cartes vont en collection au clic (claimPackCards)
     stats:              { opened: 0, obtained: 0, duplicates: 0 },
     favorites:          [],      // ids épinglés en tête de collection (MAX_FAVORITES max)
     completedSeries:    {},      // { [seriesKey]: { series, coins, completedAt } } — bonus déjà versé, une seule fois par série
@@ -318,7 +318,7 @@ export function saveState(uid, state) {
 export const MAX_FAVORITES = 3;
 export const NEW_BADGE_MS  = 24 * 60 * 60 * 1000;
 
-/** Personnage adopté depuis moins de 24 h → petit badge « NEW » sur sa carte. */
+/** Personnage obtenu depuis moins de 24 h → petit badge « NEW » sur sa carte. */
 export function isRecentlyObtained(entry) {
   return !!entry?.firstObtainedAt && Date.now() - entry.firstObtainedAt < NEW_BADGE_MS;
 }
@@ -396,4 +396,75 @@ const STAT_GRADES = [
 /** Valeur de stat → { letter, cls } (grade S → F). */
 export function statGrade(value) {
   return STAT_GRADES.find((g) => value >= g.min);
+}
+
+/**
+ * Ajoute TOUTES les cartes d'un booster à la collection (plus d'adoption : les
+ * 10 cartes sont conservées). Fonction pure — renvoie le nouvel état et le
+ * détail par carte pour l'écran de résultat.
+ *
+ * - Nouveau personnage → entrée créée ; doublon (déjà possédé, OU déjà apparu
+ *   plus tôt dans ce même booster) → compteur +1 et pièces (coinsForDuplicate).
+ * - Bonus de complétion de série : évalué carte après carte, donc une série
+ *   complétée par la 7e carte du booster est bien détectée, et jamais versée
+ *   deux fois (state.completedSeries).
+ * - Sans pendingPack, ne fait rien (protège d'un double clic).
+ */
+export function claimPackCards(state, cards, pool) {
+  if (!state.pendingPack) return { state, results: [] };
+
+  const collection = { ...state.collection };
+  const completedSeries = { ...state.completedSeries };
+  let coins = state.coins;
+  let newCount = 0;
+  let dupCount = 0;
+  const now = Date.now();
+  const results = [];
+
+  for (const card of cards) {
+    const existing = collection[card.id];
+    const isDuplicate = !!existing;
+    const coinsGained = isDuplicate ? coinsForDuplicate(card.tier) : 0;
+
+    collection[card.id] = existing
+      ? { ...existing, count: existing.count + 1 }
+      : {
+          id: card.id, name: card.name, series: card.series,
+          tier: card.tier, gender: card.gender ?? null, count: 1, firstObtainedAt: now,
+        };
+    coins += coinsGained;
+    if (isDuplicate) dupCount++; else newCount++;
+
+    let seriesBonus = null;
+    if (!isDuplicate) {
+      const key = seriesKeyOf(card);
+      if (!completedSeries[key]) {
+        const seriesChars = pool.filter((c) => seriesKeyOf(c) === key);
+        const stillMissing = seriesChars.some((c) => !collection[c.id]);
+        if (seriesChars.length > 0 && !stillMissing) {
+          seriesBonus = { key, series: card.series, coins: seriesCompletionBonus(seriesChars.length) };
+          completedSeries[key] = { series: seriesBonus.series, coins: seriesBonus.coins, completedAt: now };
+          coins += seriesBonus.coins;
+        }
+      }
+    }
+
+    results.push({ card, isDuplicate, coinsGained, seriesBonus, count: collection[card.id].count });
+  }
+
+  return {
+    state: {
+      ...state,
+      coins,
+      pendingPack: null,
+      collection,
+      completedSeries,
+      stats: {
+        ...state.stats,
+        obtained:   state.stats.obtained + newCount,
+        duplicates: state.stats.duplicates + dupCount,
+      },
+    },
+    results,
+  };
 }

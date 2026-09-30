@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Sparkles, Check, Copy, Star } from "lucide-react";
+import { Sparkles, Copy, Star } from "lucide-react";
 import { RARITY, normalizeTier } from "../../utils/waifinity";
 import { RarityBadge } from "./RarityBadge";
 import { GenderBadge } from "./GenderBadge";
@@ -14,8 +14,7 @@ import { haptics } from "../../utils/haptics";
  * doigt reste dessus (backface-visibility: hidden).
  *
  * Carte d'un booster : face cachée (mystère, tap pour révéler) puis face
- * révélée (personnage + rareté). Une fois révélée, un nouveau tap la
- * sélectionne comme choix final (mise en avant par un anneau + coche).
+ * révélée (personnage + rareté). Toutes les cartes du booster sont conservées.
  * Les cartes Legendary et Secret ont un reflet animé et une petite vibration
  * à la révélation. Un halo pulsant derrière la carte (intensité/vitesse
  * selon la rareté — voir RARITY dans utils/waifinity.js) attire l'œil sur
@@ -23,7 +22,7 @@ import { haptics } from "../../utils/haptics";
  * personnage est déjà dans la collection (ou apparaît une 2e fois dans ce
  * même booster) — calculé par le parent (PackOpening).
  */
-export function BoosterCard({ card, revealed, selected, isDuplicate, onReveal, onSelect }) {
+export function BoosterCard({ card, revealed, isDuplicate, onReveal }) {
   const r = RARITY[normalizeTier(card.tier)];
   const [flash, setFlash] = useState(false);
 
@@ -32,22 +31,19 @@ export function BoosterCard({ card, revealed, selected, isDuplicate, onReveal, o
   }, [revealed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleClick() {
-    if (!revealed) {
-      haptics.light();
-      // Flash plein écran à la couleur du palier (Epic et au-dessus) — joué en
-      // plein retournement de la carte. Pas de flash sur « Tout révéler » (voir PackOpening).
-      if (r.flashPeak) setFlash(true);
-      onReveal();
-      return;
-    }
-    haptics.tap(); onSelect();
+    if (revealed) return;
+    haptics.light();
+    // Flash plein écran à la couleur du palier (Epic et au-dessus) — joué en
+    // plein retournement de la carte. Pas de flash sur « Tout révéler » (voir PackOpening).
+    if (r.flashPeak) setFlash(true);
+    onReveal();
   }
 
   return (
     <button
       onClick={handleClick}
       className="relative aspect-[3/4] w-full [perspective:800px] active:scale-95 transition-transform motion-reduce:transition-none"
-      aria-label={revealed ? `${card.name} — ${r.label}${selected ? " — sélectionnée" : ""}${isDuplicate ? " — déjà possédé" : ""}${card.wish ? " — ton vœu" : ""}` : "Révéler cette carte"}
+      aria-label={revealed ? `${card.name} — ${r.label}${isDuplicate ? " — déjà possédé" : ""}${card.wish ? " — ton vœu" : ""}` : "Révéler cette carte"}
     >
       {revealed && (
         <div
@@ -77,7 +73,7 @@ export function BoosterCard({ card, revealed, selected, isDuplicate, onReveal, o
         <CardFrame
           tier={card.tier}
           className={`absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] flex flex-col
-            ${selected ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-violet-950" : ""}`}
+`}
           style={{ boxShadow: revealed ? `0 0 ${r.shine ? 22 : 16}px -2px ${r.glow}` : undefined }}
         >
           <div className="relative flex-1 min-h-0 bg-violet-900/60">
@@ -88,7 +84,7 @@ export function BoosterCard({ card, revealed, selected, isDuplicate, onReveal, o
             {isDuplicate && (
               <div
                 className="absolute top-1 right-1 flex items-center justify-center w-5 h-5 rounded-full bg-black/65 border border-white/25 text-violet-100"
-                title="Déjà dans ta collection"
+                title="Déjà dans ta collection — converti en Anigold"
                 aria-hidden="true"
               >
                 <Copy size={10.5} strokeWidth={2.5} />
@@ -104,13 +100,6 @@ export function BoosterCard({ card, revealed, selected, isDuplicate, onReveal, o
               </div>
             )}
             {r.shine && revealed && <div className="card-shine" />}
-            {selected && (
-              <div className="absolute inset-0 bg-amber-400/15 flex items-center justify-center">
-                <span className="w-7 h-7 rounded-full bg-amber-400 text-violet-950 flex items-center justify-center shadow-lg">
-                  <Check size={16} strokeWidth={3} />
-                </span>
-              </div>
-            )}
           </div>
           <div className="px-2 py-1.5 bg-black/30 text-left">
             <div className="flex items-center gap-1">

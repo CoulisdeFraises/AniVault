@@ -7,7 +7,7 @@ import { PageBanner } from "../components/common/PageBanner";
 import { useWaifinity } from "../hooks/useWaifinity";
 import { MAX_FAVORITES } from "../utils/waifinity";
 import { PackOpening } from "../components/games/PackOpening";
-import { PickResultModal } from "../components/games/PickResultModal";
+import { PackResultModal } from "../components/games/PackResultModal";
 import { CharacterSheetModal } from "../components/games/CharacterSheetModal";
 import { CollectionGrid } from "../components/games/CollectionGrid";
 import { ShopPanel } from "../components/games/ShopPanel";
@@ -45,9 +45,9 @@ export function GamesWaifinity() {
   const sheetEntry = sheetId != null ? game.collection[sheetId] : null;
   const sheetCharacter = sheetId != null ? (game.pool.find((c) => c.id === sheetId) || sheetEntry || null) : null;
 
-  function handleConfirmPick(slot) {
-    const r = game.pickCard(slot);
-    if (r) setResult(r);
+  function handleClaimPack() {
+    const r = game.claimPack();
+    if (r?.length) setResult(r);
   }
 
   return (
@@ -99,7 +99,7 @@ export function GamesWaifinity() {
 
         {/* Un booster en cours d'ouverture prend le pas sur les onglets */}
         {game.pendingPack ? (
-          <PackOpening pack={game.pendingPack} collection={game.collection} onConfirm={handleConfirmPick} />
+          <PackOpening pack={game.pendingPack} collection={game.collection} onConfirm={handleClaimPack} />
         ) : (
           <>
             {tab === "boosters"   && <BoostersTab game={game} onGoShop={() => setTab("shop")} />}
@@ -117,7 +117,7 @@ export function GamesWaifinity() {
       </div>
 
       <AnimatePresence>
-        {result && <PickResultModal key="pick-result" result={result} onClose={() => setResult(null)} />}
+        {result && <PackResultModal key="pack-result" results={result} onClose={() => setResult(null)} />}
       </AnimatePresence>
 
       <AnimatePresence>

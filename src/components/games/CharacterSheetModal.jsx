@@ -135,14 +135,14 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
             {entry?.firstObtainedAt && (
               <p className="flex items-center justify-center gap-1.5 text-xs text-violet-400">
                 <Calendar size={12} />
-                Adopté le {new Date(entry.firstObtainedAt).toLocaleDateString("fr-FR")}
+                Obtenu le {new Date(entry.firstObtainedAt).toLocaleDateString("fr-FR")}
               </p>
             )}
           </div>
         ) : (
           <div className="mt-4 space-y-3">
             <p className="text-xs text-violet-400 text-center">
-              Personnage non obtenu — sa fiche complète se débloque une fois adopté.
+              Personnage non obtenu — sa fiche complète se débloque une fois obtenu.
             </p>
 
             {onBuyWish && (() => {

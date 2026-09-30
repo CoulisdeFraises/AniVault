@@ -4,7 +4,7 @@ import { fetchWaifuPool } from "../api/waifu";
 import {
   loadState, saveState, defaultState, generatePack, coinsForDuplicate,
   msUntilFreeBooster, filterPoolByGender, GENDER_BOOSTERS, PACK_WEIGHTS,
-  SHOP_CHANCE_COST, SHOP_TARGET_COST, SHOP_GENDER_COST, seriesKeyOf, seriesCompletionBonus, wishCost, MAX_FAVORITES,
+  SHOP_CHANCE_COST, SHOP_TARGET_COST, SHOP_GENDER_COST, wishCost, MAX_FAVORITES, claimPackCards,
 } from "../utils/waifinity";
 import {
   syncWaifinityItem, fetchMyTrades, acceptTradeServer, markTradeApplied, closeTrade, proposeTrade as proposeTradeService,
@@ -99,7 +99,7 @@ export function useWaifinity({ withPool = true } = {}) {
   }, [pool, state.collection, persist]);
 
   // ── Réconciliation avec le miroir Supabase (filet de sécurité) ───────────
-  // waifinity_collection_items est poussé à chaque pioche (pickCard). S'il a
+  // waifinity_collection_items est poussé à chaque récupération de booster (claimPack). S'il a
   // un compteur plus élevé qu'en local pour un personnage — typiquement parce
   // que la sauvegarde localStorage a échoué (stockage plein) — on répare le
   // local avec le serveur. À l'inverse, si le local est en avance (la synchro
@@ -203,87 +203,39 @@ export function useWaifinity({ withPool = true } = {}) {
     }));
   }, [state.pendingPack, state.coins, pool, persist]);
 
-  // ── Choix d'une carte parmi les 10 révélées → collection ou pièces ───────
-  const pickCard = useCallback((packSlot) => {
+  // ── Récupération du booster : les 10 cartes vont directement en collection ──
+  // Plus de choix : chaque carte est ajoutée ; un doublon (déjà possédé, ou
+  // apparu deux fois dans le même booster) donne des pièces à la place, et
+  // chaque série complétée verse son bonus — une seule fois (voir
+  // claimPackCards dans utils/waifinity.js).
+  const claimPack = useCallback(() => {
     const pack = stateRef.current.pendingPack;
     if (!pack) return null;
-    const card = pack.cards.find((c) => c.packSlot === packSlot);
-    if (!card) return null;
 
     // Résultat calculé à partir de l'état courant (et non dans l'updater, dont
     // l'exécution peut être différée par React) ; l'updater refait le même
     // calcul sur l'état le plus récent pour la sauvegarde.
-    const owned = stateRef.current.collection[card.id];
-    const isDuplicate = !!owned;
-    const coinsGained = isDuplicate ? coinsForDuplicate(card.tier) : 0;
-
-    // Un personnage inédit peut compléter sa série — jamais récompensé deux
-    // fois pour la même série, quel que soit le nombre de fois où on repasse
-    // par ici (voir prev.completedSeries dans l'updater ci-dessous).
-    let seriesBonus = null;
-    if (!isDuplicate) {
-      const key = seriesKeyOf(card);
-      if (!stateRef.current.completedSeries[key]) {
-        const seriesChars = pool.filter((c) => seriesKeyOf(c) === key);
-        const stillMissing = seriesChars.some((c) => c.id !== card.id && !stateRef.current.collection[c.id]);
-        if (seriesChars.length > 0 && !stillMissing) {
-          seriesBonus = { key, series: card.series, coins: seriesCompletionBonus(seriesChars.length) };
-        }
-      }
-    }
-
-    const result = { card, isDuplicate, coinsGained, seriesBonus };
-
-    persist((prev) => {
-      const existing = prev.collection[card.id];
-      const dup = !!existing;
-      const gain = dup ? coinsForDuplicate(card.tier) : 0;
-
-      let bonusCoins = 0;
-      let completedSeries = prev.completedSeries;
-      if (seriesBonus && !prev.completedSeries[seriesBonus.key]) {
-        bonusCoins = seriesBonus.coins;
-        completedSeries = {
-          ...prev.completedSeries,
-          [seriesBonus.key]: { series: seriesBonus.series, coins: seriesBonus.coins, completedAt: Date.now() },
-        };
-      }
-
-      return {
-        ...prev,
-        coins: prev.coins + gain + bonusCoins,
-        pendingPack: null,
-        collection: {
-          ...prev.collection,
-          [card.id]: existing
-            ? { ...existing, count: existing.count + 1 }
-            : {
-                id: card.id, name: card.name, series: card.series,
-                tier: card.tier, gender: card.gender ?? null, count: 1, firstObtainedAt: Date.now(),
-              },
-        },
-        completedSeries,
-        stats: {
-          ...prev.stats,
-          obtained:   prev.stats.obtained + (dup ? 0 : 1),
-          duplicates: prev.stats.duplicates + (dup ? 1 : 0),
-        },
-      };
-    });
+    const { results } = claimPackCards(stateRef.current, pack.cards, pool);
+    persist((prev) => claimPackCards(prev, pack.cards, pool).state);
 
     // Miroir public (classement, doublons visibles par les amis, ET filet de
     // sécurité si la sauvegarde locale échoue — voir reconciliation ci-dessous).
-    // Best effort : ne bloque jamais le jeu si Supabase est indisponible.
-    syncWaifinityItem(uid, {
-      id: card.id, name: card.name, image: card.image, series: card.series,
-      tier: card.tier, gender: card.gender ?? null, count: (owned?.count || 0) + 1,
-    }).then((ok) => setSyncIssue(!ok));
+    // Un seul envoi par personnage, avec son compteur final. Best effort : ne
+    // bloque jamais le jeu si Supabase est indisponible.
+    const finalByCharacter = new Map();
+    for (const r of results) finalByCharacter.set(r.card.id, r);
+    Promise.all([...finalByCharacter.values()].map(({ card, count }) =>
+      syncWaifinityItem(uid, {
+        id: card.id, name: card.name, image: card.image, series: card.series,
+        tier: card.tier, gender: card.gender ?? null, count,
+      })
+    )).then((oks) => setSyncIssue(oks.some((ok) => !ok)));
 
-    return result;
+    return results;
   }, [persist, pool, uid]);
 
   // Le bassin fournit l'image (et les infos à jour) — on ne la stocke plus en
-  // local (voir pickCard) pour ne pas saturer le quota localStorage une fois
+  // local (voir claimPackCards) pour ne pas saturer le quota localStorage une fois
   // la collection grande. Sans le bassin (chargement en cours, ou personnage
   // qui en est sorti depuis), on retombe sur ce qu'on a stocké (sans image).
   const poolById = useMemo(() => new Map(pool.map((c) => [c.id, c])), [pool]);
@@ -392,7 +344,7 @@ export function useWaifinity({ withPool = true } = {}) {
     pendingPack: state.pendingPack,
     pool, poolMeta, poolLoading, poolError, reloadPool: () => loadPool(true),
     canOpenFree, cooldownMs, now,
-    openFreeBooster, openChanceBooster, openTargetedBooster, openGenderBooster, openWishBooster, pickCard,
+    openFreeBooster, openChanceBooster, openTargetedBooster, openGenderBooster, openWishBooster, claimPack,
     canAffordChance:  state.coins >= SHOP_CHANCE_COST,
     canAffordTarget:  state.coins >= SHOP_TARGET_COST,
     canAffordGender:  state.coins >= SHOP_GENDER_COST,

@@ -55,7 +55,7 @@ function CollectionCard({ c, onOpen, isFavorite }) {
   );
 }
 
-/** Anneau de progression globale (SVG, animé au chargement / à chaque adoption). */
+/** Anneau de progression globale (SVG, animé au chargement / à chaque booster). */
 function ProgressRing({ pct }) {
   const R = 34;
   const C = 2 * Math.PI * R;
@@ -154,7 +154,7 @@ export function CollectionGrid({ collectionList, pool, collection = {}, favorite
         <div className="rounded-2xl border border-dashed border-white/15 bg-violet-900/20 py-10 text-center">
           <HeartCrack size={26} className="mx-auto text-violet-500 mb-2" />
           <p className="text-sm text-violet-200">Ta collection est vide pour le moment</p>
-          <p className="text-[11px] text-violet-400 mt-1">Ouvre un booster pour adopter ton premier personnage !</p>
+          <p className="text-[11px] text-violet-400 mt-1">Ouvre un booster pour obtenir tes premiers personnages !</p>
         </div>
       </div>
     );
