@@ -29,7 +29,7 @@
 //     mettre en cache des réponses liées à une session utilisateur)
 // ─────────────────────────────────────────────────────────────────────────
 
-const SW_VERSION = "v9";
+const SW_VERSION = "v10";
 
 const STATIC_CACHE = `anivault-static-${SW_VERSION}`;
 const ASSETS_CACHE = `anivault-assets-${SW_VERSION}`;
