@@ -4,7 +4,7 @@ import {
   RARITY, RARITY_ORDER, GENDER_FILTER_LABEL, matchesGender, countByTier, normalizeTier,
   seriesKeyOf, isRecentlyObtained,
 } from "../../utils/waifinity";
-import { RarityBadge } from "./RarityBadge";
+import { RarityBadge, RarityDot } from "./RarityBadge";
 import { GenderBadge } from "./GenderBadge";
 import { PillTabs } from "./PillTabs";
 import { CardFrame } from "./CardFrame";
@@ -183,7 +183,7 @@ export function CollectionGrid({ collectionList, pool, collection = {}, favorite
           </p>
           <p className="text-[11px] text-violet-300">personnage{collectionList.length > 1 ? "s" : ""}</p>
           {topOwned > 0 && (
-            <p className="mt-1 text-[11px] text-amber-300">🟡 {topOwned} Legendary &amp; Secret</p>
+            <p className="mt-1 flex items-center gap-1.5 text-[11px] text-amber-300"><RarityDot tier="legendary" size={7} />{topOwned} Legendary &amp; Secret</p>
           )}
         </div>
       </div>
@@ -211,7 +211,7 @@ export function CollectionGrid({ collectionList, pool, collection = {}, favorite
               className={`rounded-xl border px-2.5 py-2 text-left active:scale-95 transition-colors motion-reduce:transition-none ${
                 active ? `bg-white/10 ${r.border}` : "bg-violet-900/40 border-white/10 hover:bg-white/5"}`}>
               <div className="flex items-center justify-between">
-                <span className="text-sm leading-none">{r.emoji}</span>
+                <RarityDot tier={t} size={9} />
                 <span className="font-mono text-[10px] text-violet-300">{ownedTotals[t]}{poolTotals[t] ? `/${poolTotals[t]}` : ""}</span>
               </div>
               <p className={`mt-1 text-[11px] font-semibold ${r.text}`}>{r.label}</p>

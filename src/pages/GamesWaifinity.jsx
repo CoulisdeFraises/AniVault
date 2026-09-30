@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "motion/react";
-import { ChevronLeft, Sparkles, LayoutGrid, Store, Coins, Library, PackageOpen, Users, AlertTriangle, RefreshCw } from "lucide-react";
+import { ChevronLeft, Sparkles, LayoutGrid, Store, Coins, Users, AlertTriangle, RefreshCw } from "lucide-react";
 import { TopBar } from "../components/common/TopBar";
 import { PageBanner } from "../components/common/PageBanner";
 import { useWaifinity } from "../hooks/useWaifinity";
@@ -22,15 +22,50 @@ const TABS = [
   { key: "shop",       label: "Boutique",   icon: Store },
 ];
 
-function StatTile({ icon, label, value, sub, accent }) {
+/** Solde, progression de la collection et boosters ouverts — toujours visibles. */
+function Overview({ game }) {
+  const owned = game.collectionList.length;
+  const total = game.pool.length;
+  const pct = total ? Math.min(100, (owned / total) * 100) : 0;
   return (
-    <div className="min-w-0 rounded-2xl bg-violet-900/40 backdrop-blur-md border border-white/10 px-3 sm:px-3.5 py-2.5">
-      <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-violet-400">
-        {icon}<span className="truncate">{label}</span>
+    <section className="mb-5 rounded-3xl bg-gradient-to-br from-violet-800/60 to-violet-900/40 backdrop-blur-md border border-white/10 p-4 sm:p-5">
+      <div className="flex items-end justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-xs text-violet-300">Solde</p>
+          <p className="mt-0.5 flex items-center gap-2 text-3xl font-bold text-amber-300 tabular-nums" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+            <Coins size={24} className="flex-shrink-0" />
+            {game.coins.toLocaleString("fr-FR")}
+            <span className="text-sm font-medium text-amber-200/70">Anigold</span>
+          </p>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <p className="text-xs text-violet-300">Boosters ouverts</p>
+          <p className="mt-0.5 text-lg font-semibold text-white tabular-nums">{game.stats.opened}</p>
+        </div>
       </div>
-      <p className={`mt-1 font-mono text-lg font-bold truncate ${accent || "text-white"}`}>
-        {value}{sub && <span className="ml-1 text-[11px] font-medium text-violet-400">{sub}</span>}
-      </p>
+      <div className="mt-4">
+        <div className="flex items-center justify-between text-xs mb-1.5">
+          <span className="text-violet-300">Collection</span>
+          <span className="text-violet-100 tabular-nums">{owned}{total ? ` / ${total}` : ""}</span>
+        </div>
+        <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+          <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-fuchsia-500 transition-[width] duration-700 motion-reduce:transition-none"
+            style={{ width: `${Math.max(pct, owned ? 2 : 0)}%` }} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const BANNER_TONE = {
+  error: "bg-rose-500/10 border-rose-500/30 text-rose-200",
+  warn:  "bg-amber-400/10 border-amber-400/30 text-amber-200",
+};
+function Banner({ tone = "error", children }) {
+  return (
+    <div role="alert" className={`flex items-start gap-2.5 mb-4 px-3 py-2.5 rounded-xl border text-xs leading-relaxed ${BANNER_TONE[tone]}`}>
+      <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+      <p>{children}</p>
     </div>
   );
 }
@@ -63,10 +98,10 @@ export function GamesWaifinity() {
               className="flex items-center gap-1.5 text-sm text-violet-300 hover:text-violet-100 transition-colors mb-3 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)]">
               <ChevronLeft size={16} /> Jeux
             </button>
-            <p className="font-mono text-[11px] tracking-[0.3em] text-violet-300 uppercase mb-0.5 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)]">Collectionne tes personnages</p>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2 [text-shadow:0_2px_14px_rgba(20,8,50,0.9)]" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
               <Sparkles size={26} className="text-violet-200" /> Waifinity
             </h1>
+            <p className="mt-1 text-sm text-violet-200 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)]">Ouvre des boosters et complète ta collection.</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -83,32 +118,16 @@ export function GamesWaifinity() {
           </div>
         </div>
 
-        {/* ── Stats — toujours visibles ── */}
-        <div className="grid grid-cols-3 gap-2.5 mb-5">
-          <StatTile icon={<Coins size={11} className="text-amber-400" />} label="Anigold" value={game.coins} accent="text-amber-300" />
-          <StatTile icon={<Library size={11} />} label="Collection" value={game.collectionList.length}
-            sub={game.pool.length ? `/ ${game.pool.length}` : undefined} />
-          <StatTile icon={<PackageOpen size={11} />} label="Boosters" value={game.stats.opened} />
-        </div>
+        <Overview game={game} />
 
         {game.saveIssue && game.syncIssue && (
-          <div className="flex items-center gap-2 mb-4 px-3 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs">
-            <AlertTriangle size={14} className="flex-shrink-0" />
-            Sauvegarde locale ET synchronisation en ligne impossibles (stockage plein + pas de connexion) — ta dernière action risque de ne pas être conservée. Vérifie ta connexion et libère de l'espace de stockage sur cet appareil.
-          </div>
+          <Banner>Sauvegarde locale et synchronisation en ligne impossibles (stockage plein et pas de connexion). Ta dernière action risque de ne pas être conservée : vérifie ta connexion et libère de l'espace sur cet appareil.</Banner>
         )}
         {game.walletIssue && (
-          <div className="flex items-center gap-2 mb-4 px-3 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs">
-            <AlertTriangle size={14} className="flex-shrink-0" />
-            Synchronisation des AniGold impossible : {game.walletIssue}
-          </div>
+          <Banner>Synchronisation de l'Anigold impossible : {game.walletIssue}</Banner>
         )}
-
         {game.saveIssue && !game.syncIssue && (
-          <div className="flex items-center gap-2 mb-4 px-3 py-2.5 rounded-xl bg-amber-400/10 border border-amber-400/30 text-amber-200 text-xs">
-            <AlertTriangle size={14} className="flex-shrink-0" />
-            Stockage local plein sur cet appareil — ta collection reste correctement sauvegardée en ligne et sera réparée automatiquement à la prochaine ouverture. Tu peux libérer de l'espace pour que ça cesse de s'afficher.
-          </div>
+          <Banner tone="warn">Stockage local plein sur cet appareil. Ta collection reste sauvegardée en ligne et sera réparée à la prochaine ouverture ; libère de l'espace pour faire disparaître ce message.</Banner>
         )}
 
         {/* ── Onglets ── */}
@@ -126,7 +145,7 @@ export function GamesWaifinity() {
             {tab === "social" && <SocialTab game={game} />}
             {tab === "shop" && (
               <ShopPanel
-                pool={game.pool} pendingPack={game.pendingPack}
+                pool={game.pool} pendingPack={game.pendingPack} coins={game.coins}
                 canAffordChance={game.canAffordChance} canAffordTarget={game.canAffordTarget} canAffordGender={game.canAffordGender}
                 onBuyChance={game.openChanceBooster} onBuyTargeted={game.openTargetedBooster} onBuyGender={game.openGenderBooster}
               />

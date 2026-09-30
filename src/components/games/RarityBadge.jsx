@@ -12,3 +12,19 @@ export function RarityBadge({ tier, size = "sm" }) {
     </span>
   );
 }
+
+const DOT = {
+  common: "bg-slate-300", uncommon: "bg-emerald-400", rare: "bg-sky-400",
+  epic: "bg-fuchsia-400", legendary: "bg-amber-300", secret: "bg-rose-500",
+};
+
+/** Pastille pleine à la couleur du palier — remplace les emojis colorés (rendu identique sur tous les appareils). */
+export function RarityDot({ tier, size = 8, className = "" }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`inline-block flex-shrink-0 rounded-full ${DOT[normalizeTier(tier)]} ${className}`}
+      style={{ width: size, height: size }}
+    />
+  );
+}

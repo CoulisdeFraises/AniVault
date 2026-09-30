@@ -1,7 +1,7 @@
 import { Calendar, Target, Star, Coins, HelpCircle, Heart } from "lucide-react";
 import { Modal } from "../Modal/Modal";
 import { RARITY, normalizeTier, SHOP_TARGET_COST, wishCost, isRecentlyObtained, MAX_FAVORITES, STATS, statGrade } from "../../utils/waifinity";
-import { RarityBadge } from "./RarityBadge";
+import { RarityBadge, RarityDot } from "./RarityBadge";
 import { GenderBadge } from "./GenderBadge";
 import { CardFrame } from "./CardFrame";
 import { TiltCard } from "./TiltCard";
@@ -34,15 +34,19 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
       maxWidth="max-w-md"
       zIndex="z-50"
       backdropClassName="bg-black/55 backdrop-blur-xl"
-      panelClassName="bg-transparent overflow-y-auto flex flex-col items-center"
+      panelClassName="bg-transparent overflow-x-hidden overflow-y-auto flex flex-col items-center"
     >
-      <div className="px-6 py-5 w-full flex flex-col items-center">
+      <div className="px-4 sm:px-6 py-5 w-full flex flex-col items-center">
         {/* Vraie carte façon TCG, quasi plein écran : nom en haut, description
             en bas, toutes deux en surimpression sur l'image (plus de fond
             violet — juste le flou transparent du calque de la modale
             derrière). Inclinaison qui suit le doigt/la souris tant qu'on
             maintient dessus. */}
-        <TiltCard className="w-full max-w-[380px] mb-3" holo={owned && r.shine}>
+        <div className="relative w-full max-w-[340px] sm:max-w-[380px] mx-auto mb-3">
+        {/* Halo : même boîte centrée que la carte, il ne suit donc jamais l'inclinaison */}
+        <div aria-hidden="true" className="pointer-events-none absolute -inset-3 -z-10 rounded-[2rem] blur-2xl opacity-70"
+          style={{ background: `radial-gradient(closest-side, ${owned ? r.glow : "rgba(139,92,246,0.25)"}, transparent 75%)` }} />
+        <TiltCard className="w-full" holo={owned && r.shine}>
           <CardFrame tier={character.tier} className="relative w-full aspect-[5/7]"
             style={{ boxShadow: owned ? `0 0 30px -6px ${r.glow}` : `0 8px 30px -8px rgba(0,0,0,0.6)` }}>
             {owned ? (
@@ -112,6 +116,7 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
             {!owned && <div className="absolute top-2 left-2"><RarityBadge tier={character.tier} size="md" /></div>}
           </CardFrame>
         </TiltCard>
+        </div>
 
         {owned && onToggleFavorite && (
           <div className="flex justify-center mb-2">
@@ -128,7 +133,7 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
         )}
 
         <div className="w-full max-w-[380px]">
-        <p className={`text-[11px] text-center mb-3 ${r.text}`}>{r.emoji} {r.desc}</p>
+        <p className={`flex items-center justify-center gap-1.5 text-[11px] mb-3 ${r.text}`}><RarityDot tier={character.tier} size={7} />{r.desc}</p>
 
         {owned ? (
           <div className="space-y-3">

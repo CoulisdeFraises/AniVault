@@ -15,14 +15,13 @@ import { purgeStaleCaches } from "../lib/cache.js";
 
 // ── Raretés ──────────────────────────────────────────────────────────────────
 //
-// coinValue (doublon → coins) : revalorisé pour Common/Uncommon/Rare/Epic une
-// fois le vrai bassin de 3000 personnages en place. La fréquence d'un doublon
-// dépend du nombre de personnages UNIQUES du palier (1500 Common, 90
-// Legendary, 15 Secret…), pas de son poids de tirage : avec 1500 Common
-// uniques, un doublon Common devient rare malgré un tirage fréquent — d'où
-// une valeur relevée pour ne pas assécher les coins en début de partie.
-// Legendary/Secret restent inchangés : leur petit nombre d'uniques (90/15)
-// suffit déjà à faire arriver les doublons à un rythme raisonnable.
+// coinValue (doublon → Anigold) : volontairement bas. Avant, le recyclage d'un
+// booster Chance+ (300 Anigold) rapportait en moyenne ~395 Anigold une fois la
+// collection avancée : la boutique s'autofinançait et le revenu explosait avec
+// la taille de la collection. Désormais, même à 100 % de collection, un booster
+// gratuit recycle ~60 Anigold et un Chance+ ~110 (pour 300 de coût) : la
+// boutique reste un vrai puits d'Anigold, et le revenu évolue en douceur
+// (voir NEW_CARD_COINS, DAILY_REWARDS et seriesCompletionBonus).
 
 export const RARITY_ORDER = ["common", "uncommon", "rare", "epic", "legendary", "secret"];
 
@@ -30,12 +29,12 @@ export const RARITY_ORDER = ["common", "uncommon", "rare", "epic", "legendary", 
 // "corners" = double bordure + coins ornés) · accent : couleur de ces ornements ·
 // flashPeak : intensité du flash plein écran à la révélation (0 = aucun).
 export const RARITY = {
-  common:    { label: "Common",    emoji: "⚪", desc: "Personnages secondaires",      coinValue: 15,  shine: false, grad: "from-slate-400 to-slate-500",     text: "text-slate-200",   border: "border-slate-300/50",  glow: "rgba(203,213,225,0.30)", auraDuration: 3.4, auraPeak: 0.20, tint: "from-slate-500/25 to-violet-950", ornate: "none", accent: "border-slate-300", flashPeak: 0 },
-  uncommon:  { label: "Uncommon",  emoji: "🟢", desc: "Personnages connus",           coinValue: 25,  shine: false, grad: "from-emerald-400 to-green-600",   text: "text-emerald-300", border: "border-emerald-400/60", glow: "rgba(52,211,153,0.40)",  auraDuration: 3.1, auraPeak: 0.26, tint: "from-emerald-500/25 to-violet-950", ornate: "none", accent: "border-emerald-300", flashPeak: 0 },
-  rare:      { label: "Rare",      emoji: "🔵", desc: "Personnages populaires",       coinValue: 40,  shine: false, grad: "from-sky-400 to-blue-600",        text: "text-sky-300",     border: "border-sky-400/60",     glow: "rgba(56,189,248,0.45)",  auraDuration: 2.7, auraPeak: 0.34, tint: "from-sky-500/30 to-violet-950", ornate: "none", accent: "border-sky-300", flashPeak: 0 },
-  epic:      { label: "Epic",      emoji: "🟣", desc: "Personnages très populaires",  coinValue: 75,  shine: false, grad: "from-fuchsia-400 to-purple-600",  text: "text-fuchsia-300", border: "border-fuchsia-400/60", glow: "rgba(217,70,239,0.50)",  auraDuration: 2.3, auraPeak: 0.44, tint: "from-fuchsia-500/35 to-violet-950", ornate: "double", accent: "border-fuchsia-300", flashPeak: 0.22 },
-  legendary: { label: "Legendary", emoji: "🟡", desc: "Personnages iconiques",        coinValue: 150, shine: true,  grad: "from-amber-300 to-orange-500",    text: "text-amber-300",   border: "border-amber-400/70",   glow: "rgba(251,191,36,0.60)",  auraDuration: 1.8, auraPeak: 0.60, tint: "from-amber-400/40 to-violet-950", ornate: "corners", accent: "border-amber-300", flashPeak: 0.38 },
-  secret:    { label: "Secret",    emoji: "🔴", desc: "Extrêmement rares",            coinValue: 500, shine: true,  grad: "from-rose-500 to-red-700",        text: "text-rose-300",    border: "border-rose-500/80",    glow: "rgba(244,63,94,0.70)",   auraDuration: 1.3, auraPeak: 0.78, tint: "from-rose-500/45 to-violet-950", ornate: "corners", accent: "border-rose-300", flashPeak: 0.55 },
+  common:    { label: "Common",    emoji: "⚪", desc: "Personnages secondaires",      coinValue: 3,  shine: false, grad: "from-slate-400 to-slate-500",     text: "text-slate-200",   border: "border-slate-300/50",  glow: "rgba(203,213,225,0.30)", auraDuration: 3.4, auraPeak: 0.20, tint: "from-slate-500/25 to-violet-950", ornate: "none", accent: "border-slate-300", flashPeak: 0 },
+  uncommon:  { label: "Uncommon",  emoji: "🟢", desc: "Personnages connus",           coinValue: 5,  shine: false, grad: "from-emerald-400 to-green-600",   text: "text-emerald-300", border: "border-emerald-400/60", glow: "rgba(52,211,153,0.40)",  auraDuration: 3.1, auraPeak: 0.26, tint: "from-emerald-500/25 to-violet-950", ornate: "none", accent: "border-emerald-300", flashPeak: 0 },
+  rare:      { label: "Rare",      emoji: "🔵", desc: "Personnages populaires",       coinValue: 10,  shine: false, grad: "from-sky-400 to-blue-600",        text: "text-sky-300",     border: "border-sky-400/60",     glow: "rgba(56,189,248,0.45)",  auraDuration: 2.7, auraPeak: 0.34, tint: "from-sky-500/30 to-violet-950", ornate: "none", accent: "border-sky-300", flashPeak: 0 },
+  epic:      { label: "Epic",      emoji: "🟣", desc: "Personnages très populaires",  coinValue: 25,  shine: false, grad: "from-fuchsia-400 to-purple-600",  text: "text-fuchsia-300", border: "border-fuchsia-400/60", glow: "rgba(217,70,239,0.50)",  auraDuration: 2.3, auraPeak: 0.44, tint: "from-fuchsia-500/35 to-violet-950", ornate: "double", accent: "border-fuchsia-300", flashPeak: 0.22 },
+  legendary: { label: "Legendary", emoji: "🟡", desc: "Personnages iconiques",        coinValue: 60, shine: true,  grad: "from-amber-300 to-orange-500",    text: "text-amber-300",   border: "border-amber-400/70",   glow: "rgba(251,191,36,0.60)",  auraDuration: 1.8, auraPeak: 0.60, tint: "from-amber-400/40 to-violet-950", ornate: "corners", accent: "border-amber-300", flashPeak: 0.38 },
+  secret:    { label: "Secret",    emoji: "🔴", desc: "Extrêmement rares",            coinValue: 200, shine: true,  grad: "from-rose-500 to-red-700",        text: "text-rose-300",    border: "border-rose-500/80",    glow: "rgba(244,63,94,0.70)",   auraDuration: 1.3, auraPeak: 0.78, tint: "from-rose-500/45 to-violet-950", ornate: "corners", accent: "border-rose-300", flashPeak: 0.55 },
 };
 
 // Anciennes clés (v1 du jeu, 4 paliers en français) — pour migrer les sauvegardes.
@@ -268,6 +267,8 @@ export function defaultState() {
     stats:              { opened: 0, obtained: 0, duplicates: 0 },
     favorites:          [],      // ids épinglés en tête de collection (MAX_FAVORITES max)
     completedSeries:    {},      // { [seriesKey]: { series, coins, completedAt } } — bonus déjà versé, une seule fois par série
+    dailyStreak:        0,       // jour (1-7) de la dernière récompense quotidienne récupérée
+    lastDailyKey:       null,    // "AAAA-MM-JJ" (jour local) de cette récupération
   };
 }
 
@@ -315,7 +316,7 @@ export function saveState(uid, state) {
   }
 }
 
-export const MAX_FAVORITES = 5;
+export const MAX_FAVORITES = 3;
 export const NEW_BADGE_MS  = 24 * 60 * 60 * 1000;
 
 /** Personnage obtenu depuis moins de 24 h → petit badge « NEW » sur sa carte. */
@@ -327,14 +328,49 @@ export function coinsForDuplicate(tier) {
   return RARITY[normalizeTier(tier)].coinValue;
 }
 
+// Prime de première obtention : petit revenu « de découverte » qui compense le
+// fait que, en début de partie, presque aucune carte n'est un doublon.
+export const NEW_CARD_COINS = { common: 1, uncommon: 2, rare: 4, epic: 8, legendary: 20, secret: 50 };
+export function coinsForNew(tier) {
+  return NEW_CARD_COINS[normalizeTier(tier)];
+}
+
 /**
  * Bonus (en une fois) pour avoir obtenu TOUS les personnages d'une série du
- * bassin. Une base fixe + un montant par personnage : une petite série (3-4
- * persos) donne un bonus modeste, une grosse franchise (40+ persos) donne un
- * gain comparable à un doublon Secret — proportionné à l'effort demandé.
+ * bassin. Les séries de moins de 3 personnages ne donnent rien (trop faciles
+ * à finir, et elles gonflaient le revenu des débuts) ; au-delà : 40 + 8 par
+ * personnage, plafonné à 400 — une grosse franchise reste bien récompensée
+ * sans valoir plus qu'un vœu sur un Legendary.
  */
+export const SERIES_MIN_SIZE = 3;
+export const SERIES_BONUS_CAP = 400;
 export function seriesCompletionBonus(characterCount) {
-  return Math.round(50 + characterCount * 15);
+  if (characterCount < SERIES_MIN_SIZE) return 0;
+  return Math.min(SERIES_BONUS_CAP, Math.round(40 + characterCount * 8));
+}
+
+// ── Récompense quotidienne ───────────────────────────────────────────────────
+// Série de 7 jours : +10, +10, +15, +15, +20, +25, puis +50 le 7e jour. Une
+// journée manquée remet la série au jour 1. Le jour est celui de l'appareil.
+export const DAILY_REWARDS = [10, 10, 15, 15, 20, 25, 50];
+
+function dayKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** État de la récompense du jour, à partir de l'état sauvegardé. */
+export function dailyStatus(state, now = new Date()) {
+  const todayKey = dayKey(now);
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const streak = state.dailyStreak || 0;
+  const claimed = state.lastDailyKey === todayKey;
+  const continuing = state.lastDailyKey === dayKey(yesterday);
+  const nextStreak = claimed ? streak : (continuing ? (streak % DAILY_REWARDS.length) + 1 : 1);
+  return { todayKey, claimed, streak, nextStreak, reward: DAILY_REWARDS[nextStreak - 1] };
 }
 
 /** Millisecondes avant le prochain booster gratuit (0 = disponible maintenant). */
@@ -403,8 +439,9 @@ export function statGrade(value) {
  * 10 cartes sont conservées). Fonction pure — renvoie le nouvel état et le
  * détail par carte pour l'écran de résultat.
  *
- * - Nouveau personnage → entrée créée ; doublon (déjà possédé, OU déjà apparu
- *   plus tôt dans ce même booster) → compteur +1 et pièces (coinsForDuplicate).
+ * - Nouveau personnage → entrée créée + petite prime (coinsForNew) ; doublon
+ *   (déjà possédé, OU déjà apparu plus tôt dans ce même booster) → compteur
+ *   +1 et Anigold (coinsForDuplicate). `coinsGained` vaut l'un ou l'autre.
  * - Bonus de complétion de série : évalué carte après carte, donc une série
  *   complétée par la 7e carte du booster est bien détectée, et jamais versée
  *   deux fois (state.completedSeries).
@@ -424,7 +461,7 @@ export function claimPackCards(state, cards, pool) {
   for (const card of cards) {
     const existing = collection[card.id];
     const isDuplicate = !!existing;
-    const coinsGained = isDuplicate ? coinsForDuplicate(card.tier) : 0;
+    const coinsGained = isDuplicate ? coinsForDuplicate(card.tier) : coinsForNew(card.tier);
 
     collection[card.id] = existing
       ? { ...existing, count: existing.count + 1 }
@@ -442,9 +479,12 @@ export function claimPackCards(state, cards, pool) {
         const seriesChars = pool.filter((c) => seriesKeyOf(c) === key);
         const stillMissing = seriesChars.some((c) => !collection[c.id]);
         if (seriesChars.length > 0 && !stillMissing) {
-          seriesBonus = { key, series: card.series, coins: seriesCompletionBonus(seriesChars.length) };
-          completedSeries[key] = { series: seriesBonus.series, coins: seriesBonus.coins, completedAt: now };
-          coins += seriesBonus.coins;
+          const bonus = seriesCompletionBonus(seriesChars.length);
+          completedSeries[key] = { series: card.series, coins: bonus, completedAt: now };
+          if (bonus > 0) {
+            seriesBonus = { key, series: card.series, coins: bonus };
+            coins += bonus;
+          }
         }
       }
     }

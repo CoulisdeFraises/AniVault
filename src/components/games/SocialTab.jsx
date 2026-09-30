@@ -122,7 +122,7 @@ function CardPicker({ title, subtitle, items, selected, onSelect, loading, accen
               aria-label="Filtrer par rareté"
             >
               <option value="all">Toutes raretés</option>
-              {RARITY_ORDER.map((key) => <option key={key} value={key}>{RARITY[key].emoji} {RARITY[key].label}</option>)}
+              {RARITY_ORDER.map((key) => <option key={key} value={key}>{RARITY[key].label}</option>)}
             </select>
             <ChevronDown size={12} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-violet-500" />
           </label>

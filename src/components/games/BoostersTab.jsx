@@ -1,19 +1,103 @@
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Sparkles, Clock, RefreshCw, AlertTriangle, Coins, ChevronDown } from "lucide-react";
+import { Sparkles, Clock, RefreshCw, AlertTriangle, Coins, ChevronDown, Check, Gift } from "lucide-react";
 import {
-  RARITY, RARITY_ORDER, PACK_WEIGHTS, FREE_COOLDOWN_HOURS, SHOP_GENDER_COST,
+  RARITY, RARITY_ORDER, PACK_WEIGHTS, FREE_COOLDOWN_HOURS, FREE_COOLDOWN_MS, SHOP_GENDER_COST,
+  DAILY_REWARDS, NEW_CARD_COINS, SERIES_MIN_SIZE, SERIES_BONUS_CAP,
   countByTier, formatCountdown, formatPercent,
 } from "../../utils/waifinity";
+import { RarityDot } from "./RarityBadge";
 import { haptics } from "../../utils/haptics";
 
-/** Onglet « Boosters » : booster gratuit (toutes les 3 h) et volet des chances. */
+const HEADING = { fontFamily: "'Space Grotesk',sans-serif" };
+
+/** Récompense quotidienne : série de 7 jours, le 7e rapporte le plus. */
+function DailyReward({ daily, onClaim, busy, ready }) {
+  const { claimed, streak, nextStreak, reward } = daily;
+  return (
+    <section className="rounded-2xl bg-violet-900/40 border border-white/10 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-white" style={HEADING}>Récompense quotidienne</p>
+          <p className="text-xs text-violet-300 mt-0.5">
+            {claimed ? "C'est noté. Reviens demain pour garder ta série." : `Jour ${nextStreak} sur ${DAILY_REWARDS.length}`}
+          </p>
+        </div>
+        <button
+          onClick={() => { haptics.success(); onClaim(); }}
+          disabled={claimed || busy || !ready}
+          className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold active:scale-[0.97] transition-transform motion-reduce:transition-none disabled:cursor-not-allowed ${
+            claimed ? "bg-white/5 border border-white/10 text-violet-300" : "bg-amber-400 text-violet-950 disabled:opacity-50"}`}
+        >
+          {claimed
+            ? <><Check size={14} />Récupérée</>
+            : <><Gift size={14} />+{reward}</>}
+        </button>
+      </div>
+
+      <ol className="mt-3 grid grid-cols-7 gap-1.5">
+        {DAILY_REWARDS.map((amount, i) => {
+          const day = i + 1;
+          const done = claimed ? day <= streak : day < nextStreak;
+          const current = !claimed && day === nextStreak;
+          return (
+            <li key={day}
+              className={`flex flex-col items-center rounded-lg border py-1.5 ${
+                current ? "border-amber-400/60 bg-amber-400/10"
+                  : done ? "border-white/5 bg-white/[0.04]" : "border-white/10 bg-transparent"}`}>
+              <span className={`text-[10px] ${current ? "text-amber-200" : "text-violet-400"}`}>J{day}</span>
+              <span className={`mt-0.5 text-xs font-semibold tabular-nums ${
+                done ? "text-violet-500" : current ? "text-amber-300" : day === DAILY_REWARDS.length ? "text-amber-200" : "text-violet-100"}`}>
+                {done ? <Check size={13} className="mx-auto" /> : `+${amount}`}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
+/** Volet repliable (chances de tirage, récompenses…). */
+function Disclosure({ title, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="rounded-2xl bg-violet-900/40 border border-white/10 overflow-hidden">
+      <button
+        onClick={() => { haptics.tap(); setOpen((v) => !v); }}
+        className="w-full flex items-center justify-between px-4 py-3 text-left active:scale-[0.99] transition-transform motion-reduce:transition-none"
+        aria-expanded={open}
+      >
+        <span className="text-sm font-medium text-violet-100">{title}</span>
+        <ChevronDown size={15} className={`text-violet-400 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            className="overflow-hidden"
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </section>
+  );
+}
+
+const colHead = "w-14 text-right text-[11px] text-violet-400";
+
+/** Onglet « Boosters » : récompense quotidienne, booster gratuit, chances et gains d'Anigold. */
 export function BoostersTab({ game, onGoShop }) {
   const {
     pool, poolMeta, poolLoading, poolError, reloadPool,
     canOpenFree, cooldownMs, openFreeBooster,
+    daily, claimDaily, walletBusy, walletReady,
   } = game;
-  const [showOdds, setShowOdds] = useState(false);
 
   const tierCounts = useMemo(() => countByTier(pool), [pool]);
 
@@ -36,95 +120,108 @@ export function BoostersTab({ game, onGoShop }) {
   }
 
   const generatedAt = poolMeta?.generatedAt ? new Date(poolMeta.generatedAt).toLocaleDateString("fr-FR") : null;
+  const waiting = !canOpenFree && cooldownMs > 0;
+  const waitPct = waiting ? Math.min(100, Math.max(0, (1 - cooldownMs / FREE_COOLDOWN_MS) * 100)) : 100;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* ── Booster gratuit ── */}
-      <div className="rounded-2xl bg-gradient-to-br from-violet-800/50 to-violet-950/50 border border-white/10 p-5 sm:p-6">
+      <section className="rounded-2xl bg-gradient-to-br from-violet-800/50 to-violet-950/50 border border-white/10 p-4 sm:p-5">
         <div className="flex items-center gap-4">
-          <div className="relative w-16 h-20 flex-shrink-0" aria-hidden="true">
+          <div className="relative w-14 h-[4.5rem] flex-shrink-0" aria-hidden="true">
             <span className="absolute inset-0 rounded-xl bg-violet-800 border border-white/15 -rotate-12 origin-bottom-left" />
             <span className="absolute inset-0 rounded-xl bg-violet-700 border border-white/15 -rotate-[4deg] origin-bottom-left" />
             <span className="absolute inset-0 rounded-xl bg-gradient-to-br from-amber-400/25 to-fuchsia-500/25 border border-amber-400/40 rotate-[5deg] origin-bottom-left flex items-center justify-center">
-              <Sparkles size={22} className="text-amber-300" />
+              <Sparkles size={20} className="text-amber-300" />
             </span>
           </div>
           <div className="min-w-0">
-            <p className="text-lg font-bold text-white" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>Booster gratuit</p>
-            <p className="text-xs text-violet-300 mt-0.5">10 personnages à révéler, tous ajoutés à ta collection (les doublons deviennent de l'Anigold). Un booster gratuit toutes les {FREE_COOLDOWN_HOURS} heures.</p>
+            <p className="text-lg font-bold text-white" style={HEADING}>Booster gratuit</p>
+            <p className="text-xs text-violet-300 mt-0.5">
+              10 personnages, tous ajoutés à ta collection. Un nouveau booster toutes les {FREE_COOLDOWN_HOURS} heures.
+            </p>
           </div>
         </div>
 
         <button
           onClick={() => { haptics.success(); openFreeBooster(); }}
           disabled={!canOpenFree}
-          className="mt-5 w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-400 text-violet-950 font-semibold disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
+          className="relative mt-4 w-full overflow-hidden flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-400 text-violet-950 font-semibold disabled:cursor-not-allowed active:scale-[0.98] transition-transform motion-reduce:transition-none disabled:bg-white/5 disabled:border disabled:border-white/10 disabled:text-violet-200"
         >
-          {canOpenFree
-            ? <><Sparkles size={16} />Ouvrir le booster</>
-            : cooldownMs > 0
-              ? <><Clock size={16} />Disponible dans {formatCountdown(cooldownMs)}</>
-              : <>Aucun personnage disponible</>}
+          {waiting && (
+            <span aria-hidden="true" className="absolute inset-y-0 left-0 bg-white/10 transition-[width] duration-1000 ease-linear motion-reduce:transition-none" style={{ width: `${waitPct}%` }} />
+          )}
+          <span className="relative flex items-center gap-2">
+            {canOpenFree
+              ? <><Sparkles size={16} />Ouvrir le booster</>
+              : waiting
+                ? <><Clock size={16} />Prochain booster dans {formatCountdown(cooldownMs)}</>
+                : "Aucun personnage disponible"}
+          </span>
         </button>
 
         {onGoShop && (
           <button onClick={() => { haptics.tap(); onGoShop(); }}
-            className="mt-3 w-full flex items-center justify-center gap-1.5 text-[11px] text-violet-300 hover:text-amber-300 active:scale-[0.98] transition-colors motion-reduce:transition-none">
-            Envie d'un booster Waifus ou Husbandos ? Boutique ·
-            <Coins size={11} className="text-amber-400" />{SHOP_GENDER_COST} Anigold
+            className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs text-violet-300 hover:text-amber-300 active:scale-[0.98] transition-colors motion-reduce:transition-none">
+            Envie d'aller plus vite ? Voir la boutique · dès
+            <Coins size={11} className="text-amber-400" />{SHOP_GENDER_COST}
           </button>
         )}
-      </div>
+      </section>
 
-      {/* ── Chances de tirage — volet repliable, compact ── */}
-      <div className="rounded-2xl bg-violet-900/40 border border-white/10 overflow-hidden">
-        <button
-          onClick={() => { haptics.tap(); setShowOdds((v) => !v); }}
-          className="w-full flex items-center justify-between px-4 py-3 active:scale-[0.99] transition-transform motion-reduce:transition-none"
-          aria-expanded={showOdds}
-        >
-          <span className="font-mono text-[10px] uppercase tracking-widest text-violet-400">Raretés &amp; chances de tirage</span>
-          <ChevronDown size={15} className={`text-violet-400 transition-transform motion-reduce:transition-none ${showOdds ? "rotate-180" : ""}`} />
-        </button>
+      {/* ── Récompense quotidienne ── */}
+      <DailyReward daily={daily} onClaim={claimDaily} busy={walletBusy} ready={walletReady} />
 
-        <AnimatePresence initial={false}>
-          {showOdds && (
-            <motion.div
-              key="odds"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.22, ease: "easeOut" }}
-              className="overflow-hidden"
-            >
-              <div className="flex items-center gap-3 px-4 pb-1 font-mono text-[9px] uppercase tracking-wide text-violet-500">
-                <span className="flex-1" />
-                <span className="w-12 text-right">Gratuit</span>
-                <span className="w-12 text-right">Chance+</span>
-              </div>
-              <ul className="divide-y divide-white/5 px-4 pb-1.5">
-                {RARITY_ORDER.map((t) => {
-                  const r = RARITY[t];
-                  return (
-                    <li key={t} className="flex items-center gap-2.5 py-1.5">
-                      <span className="text-sm leading-none w-4 text-center" aria-hidden="true">{r.emoji}</span>
-                      <span className={`text-[12px] font-semibold flex-1 truncate ${r.text}`}>
-                        {r.label}{tierCounts[t] ? ` · ${tierCounts[t]}` : ""}
-                      </span>
-                      <span className="w-12 text-right font-mono text-[11px] text-violet-100">{formatPercent(PACK_WEIGHTS.free[t])}</span>
-                      <span className="w-12 text-right font-mono text-[11px] text-violet-100">{formatPercent(PACK_WEIGHTS.chance[t])}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-              <p className="text-[10px] text-violet-500 px-4 pb-3">Chances par carte. La rareté dépend du nombre de favoris du personnage sur MyAnimeList.</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      {/* ── Chances de tirage ── */}
+      <Disclosure title="Chances de tirage">
+        <div className="flex items-center gap-2 px-4 pb-1 text-[11px] text-violet-400">
+          <span className="flex-1">Rareté · personnages dans le bassin</span>
+          <span className={colHead}>Gratuit</span>
+          <span className={colHead}>Chance+</span>
+        </div>
+        <ul className="divide-y divide-white/5 px-4 pb-1.5">
+          {RARITY_ORDER.map((t) => {
+            const r = RARITY[t];
+            return (
+              <li key={t} className="flex items-center gap-2.5 py-1.5">
+                <RarityDot tier={t} size={8} />
+                <span className={`text-[13px] font-semibold flex-1 truncate ${r.text}`}>
+                  {r.label}{tierCounts[t] ? <span className="font-normal text-violet-400"> · {tierCounts[t]}</span> : null}
+                </span>
+                <span className="w-14 text-right font-mono text-xs text-violet-100 tabular-nums">{formatPercent(PACK_WEIGHTS.free[t])}</span>
+                <span className="w-14 text-right font-mono text-xs text-violet-100 tabular-nums">{formatPercent(PACK_WEIGHTS.chance[t])}</span>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="text-xs text-violet-400 px-4 pb-3">Chances par carte. La rareté dépend du nombre de favoris du personnage sur MyAnimeList.</p>
+      </Disclosure>
+
+      {/* ── Gains d'Anigold ── */}
+      <Disclosure title="Comment gagner de l'Anigold">
+        <div className="flex items-center gap-2 px-4 pb-1 text-[11px] text-violet-400">
+          <span className="flex-1">Par carte</span>
+          <span className={colHead}>Nouvelle</span>
+          <span className={colHead}>Doublon</span>
+        </div>
+        <ul className="divide-y divide-white/5 px-4 pb-1.5">
+          {RARITY_ORDER.map((t) => (
+            <li key={t} className="flex items-center gap-2.5 py-1.5">
+              <RarityDot tier={t} size={8} />
+              <span className={`text-[13px] font-semibold flex-1 truncate ${RARITY[t].text}`}>{RARITY[t].label}</span>
+              <span className="w-14 text-right font-mono text-xs text-violet-100 tabular-nums">+{NEW_CARD_COINS[t]}</span>
+              <span className="w-14 text-right font-mono text-xs text-violet-100 tabular-nums">+{RARITY[t].coinValue}</span>
+            </li>
+          ))}
+        </ul>
+        <ul className="px-4 pb-3 pt-1 space-y-1 text-xs text-violet-300">
+          <li>Série complète (à partir de {SERIES_MIN_SIZE} personnages) : 40 + 8 par personnage, jusqu'à {SERIES_BONUS_CAP}.</li>
+          <li>Récompense quotidienne : de {DAILY_REWARDS[0]} à {DAILY_REWARDS[DAILY_REWARDS.length - 1]} sur 7 jours.</li>
+        </ul>
+      </Disclosure>
 
       {/* ── Source du bassin ── */}
-      <div className="flex items-center justify-between gap-3 px-1 text-[11px] text-violet-500">
+      <div className="flex items-center justify-between gap-3 px-1 text-xs text-violet-500">
         <p className="min-w-0">
           Bassin : {pool.length} personnages · MyAnimeList{generatedAt ? ` · ${generatedAt}` : ""}
           {import.meta.env.DEV && poolMeta?.source === "live" && (

@@ -5,7 +5,7 @@ import { fetchWaifuPool } from "../api/waifu";
 import {
   loadState, saveState, defaultState, generatePack, coinsForDuplicate,
   msUntilFreeBooster, filterPoolByGender, GENDER_BOOSTERS, PACK_WEIGHTS,
-  SHOP_CHANCE_COST, SHOP_TARGET_COST, SHOP_GENDER_COST, wishCost, MAX_FAVORITES, claimPackCards,
+  SHOP_CHANCE_COST, SHOP_TARGET_COST, SHOP_GENDER_COST, wishCost, MAX_FAVORITES, claimPackCards, dailyStatus,
 } from "../utils/waifinity";
 import {
   syncWaifinityItem, fetchMyTrades, acceptTradeServer, markTradeApplied, closeTrade, proposeTrade as proposeTradeService,
@@ -275,6 +275,29 @@ export function useWaifinity({ withPool = true } = {}) {
     }
   }, [uid, walletReady, state.pendingPack, state.coins, pool, persist]);
 
+  // ── Récompense quotidienne ────────────────────────────────────────────────
+  // La clé d'idempotence est liée au jour ET au compte : récupérer la même
+  // journée depuis deux appareils ne crédite qu'une fois côté Supabase.
+  const claimDaily = useCallback(async () => {
+    const st = dailyStatus(stateRef.current);
+    if (st.claimed || !uid || !walletReady || walletBusyRef.current) return null;
+    walletBusyRef.current = true;
+    setWalletBusy(true);
+    setWalletIssue(null);
+    try {
+      const wallet = await adjustWaifinityBalance(uid, st.reward, "daily_bonus", `daily:${uid}:${st.todayKey}`);
+      persist((prev) => ({ ...prev, coins: Number(wallet.balance), dailyStreak: st.nextStreak, lastDailyKey: st.todayKey }));
+      return { reward: st.reward, streak: st.nextStreak };
+    } catch (e) {
+      console.error("Waifinity récompense quotidienne :", e);
+      setWalletIssue(e?.message || "Impossible de récupérer la récompense quotidienne.");
+      return null;
+    } finally {
+      walletBusyRef.current = false;
+      setWalletBusy(false);
+    }
+  }, [uid, walletReady, persist]);
+
   // ── Récupération du booster : les 10 cartes vont directement en collection ──
   // Plus de choix : chaque carte est ajoutée ; un doublon (déjà possédé, ou
   // apparu deux fois dans le même booster) donne des pièces à la place, et
@@ -453,6 +476,7 @@ export function useWaifinity({ withPool = true } = {}) {
     pool, poolMeta, poolLoading, poolError, reloadPool: () => loadPool(true),
     canOpenFree, cooldownMs, now,
     openFreeBooster, openChanceBooster, openTargetedBooster, openGenderBooster, openWishBooster, claimPack,
+    daily: dailyStatus(state), claimDaily,
     canAffordChance:  state.coins >= SHOP_CHANCE_COST,
     canAffordTarget:  state.coins >= SHOP_TARGET_COST,
     canAffordGender:  state.coins >= SHOP_GENDER_COST,
