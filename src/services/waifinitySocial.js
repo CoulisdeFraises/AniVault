@@ -17,6 +17,13 @@ import { supabase } from "../lib/supabase";
  */
 export async function syncWaifinityItem(userId, item) {
   if (!userId || !item) return false;
+
+  // Une carte à 0 n'est plus un élément de collection.
+  // On la supprime plutôt que de conserver une ligne fantôme.
+  if (Number(item.count) <= 0) {
+    return deleteWaifinityItem(userId, item.id);
+  }
+
   const { error } = await supabase.from("waifinity_collection_items").upsert({
     user_id:      userId,
     character_id: item.id,

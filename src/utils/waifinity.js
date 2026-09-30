@@ -136,9 +136,9 @@ export const PACK_WEIGHTS = {
 export const BOOSTER_SIZE         = 10;
 export const FREE_COOLDOWN_HOURS  = 3;
 export const FREE_COOLDOWN_MS     = FREE_COOLDOWN_HOURS * 60 * 60 * 1000; // 1 booster gratuit toutes les 3 h
-export const SHOP_CHANCE_COST     = 300;
-export const SHOP_TARGET_COST     = 750;
-export const SHOP_GENDER_COST     = 200; // booster réservé aux waifus OU aux husbandos (chances du booster gratuit)
+export const SHOP_CHANCE_COST     = 1000;
+export const SHOP_TARGET_COST     = 1500;
+export const SHOP_GENDER_COST     = 300; // booster réservé aux waifus OU aux husbandos (chances du booster gratuit)
 
 // Vœu : garantit un personnage PRÉCIS (pas juste une série) dans le prochain
 // booster de 10 — bien plus fort qu'un booster ciblé, donc bien plus cher,
