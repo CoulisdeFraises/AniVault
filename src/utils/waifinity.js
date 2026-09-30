@@ -315,7 +315,7 @@ export function saveState(uid, state) {
   }
 }
 
-export const MAX_FAVORITES = 3;
+export const MAX_FAVORITES = 5;
 export const NEW_BADGE_MS  = 24 * 60 * 60 * 1000;
 
 /** Personnage obtenu depuis moins de 24 h → petit badge « NEW » sur sa carte. */
