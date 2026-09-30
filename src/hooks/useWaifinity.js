@@ -35,6 +35,8 @@ export function useWaifinity({ withPool = true } = {}) {
   const [walletReady, setWalletReady] = useState(!uid);
   const [walletIssue, setWalletIssue] = useState(null);
   const walletBusyRef = useRef(false);
+  const refreshBusyRef = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -356,6 +358,41 @@ export function useWaifinity({ withPool = true } = {}) {
     return rows;
   }, [uid]);
 
+  // Rafraîchissement manuel complet de Waifinity : Supabase est la source
+  // de vérité pour la collection et le wallet. Le bassin est rechargé en
+  // forçant son cache, puis les données sociales sont actualisées.
+  const refreshWaifinity = useCallback(async () => {
+    if (!uid || refreshBusyRef.current) return;
+    refreshBusyRef.current = true;
+    setRefreshing(true);
+    try {
+      const [collection, wallet, rows] = await Promise.all([
+        fetchMyWaifinityCollection(uid),
+        fetchWaifinityWallet(uid),
+        fetchMyTrades(uid),
+      ]);
+
+      if (collection) {
+        persist((prev) => ({ ...prev, collection }));
+      }
+      if (wallet) {
+        const balance = Number(wallet.balance) || 0;
+        persist((prev) => ({ ...prev, coins: balance }));
+      }
+      setTrades(rows || []);
+
+      if (withPool) {
+        await loadPool(true);
+      }
+    } catch (e) {
+      console.error("Rafraîchissement Waifinity :", e);
+      setWalletIssue(e?.message || "Impossible de rafraîchir Waifinity.");
+    } finally {
+      refreshBusyRef.current = false;
+      setRefreshing(false);
+    }
+  }, [uid, withPool, loadPool, persist]);
+
   // Après un échange, le RPC a déjà modifié waifinity_collection_items.
   // On ne réapplique donc surtout pas le swap dans le localStorage : cela
   // provoquerait des doublons et pourrait ensuite réécrire de mauvais compteurs
@@ -420,7 +457,7 @@ export function useWaifinity({ withPool = true } = {}) {
     canAffordTarget:  state.coins >= SHOP_TARGET_COST,
     canAffordGender:  state.coins >= SHOP_GENDER_COST,
     canAffordWish:    (tier) => state.coins >= wishCost(tier),
-    trades, refreshTrades, proposeTrade, acceptTrade, declineTrade, cancelTrade,
+    trades, refreshTrades, refreshWaifinity, refreshing, proposeTrade, acceptTrade, declineTrade, cancelTrade,
     saveIssue, syncIssue, walletIssue, walletBusy, walletReady,
     favorites: state.favorites || [], toggleFavorite,
   };

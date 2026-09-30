@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "motion/react";
-import { ChevronLeft, Sparkles, LayoutGrid, Store, Coins, Library, PackageOpen, Users, AlertTriangle } from "lucide-react";
+import { ChevronLeft, Sparkles, LayoutGrid, Store, Coins, Library, PackageOpen, Users, AlertTriangle, RefreshCw } from "lucide-react";
 import { TopBar } from "../components/common/TopBar";
 import { PageBanner } from "../components/common/PageBanner";
 import { useWaifinity } from "../hooks/useWaifinity";
@@ -68,7 +68,19 @@ export function GamesWaifinity() {
               <Sparkles size={26} className="text-violet-200" /> Waifinity
             </h1>
           </div>
-          <TopBar />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={game.refreshWaifinity}
+              disabled={game.refreshing}
+              title="Rafraîchir Waifinity"
+              aria-label="Rafraîchir Waifinity"
+              className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-violet-900/60 border border-white/10 text-violet-200 hover:text-white hover:border-white/20 hover:bg-violet-800/70 transition-all disabled:opacity-60 disabled:cursor-wait"
+            >
+              <RefreshCw size={16} className={game.refreshing ? "animate-spin" : ""} />
+            </button>
+            <TopBar />
+          </div>
         </div>
 
         {/* ── Stats — toujours visibles ── */}
