@@ -119,6 +119,9 @@ export async function acceptTradeServer(tradeId) {
 
 /** Marque MON côté comme répercuté dans mon état local (voir useWaifinity). */
 export async function markTradeApplied(tradeId, side) {
-  const { error } = await supabase.from("waifinity_trades").update({ [side]: true }).eq("id", tradeId);
-  if (error) console.error("Mark trade applied :", error.message);
+  const { error } = await supabase
+    .from("waifinity_trades")
+    .update({ [side]: true })
+    .eq("id", tradeId);
+  if (error) throw error;
 }

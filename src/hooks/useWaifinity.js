@@ -367,6 +367,10 @@ export function useWaifinity({ withPool = true } = {}) {
 
   // ── Échanges avec des amis ─────────────────────────────────────────────────
   const [trades, setTrades] = useState([]);
+  // Serialize all local trade applications. The initial mount effect and an
+  // explicit acceptance can otherwise fetch the same pending `from_applied` /
+  // `to_applied` flag before either call has marked it, applying the swap twice.
+  const tradeApplyLockRef = useRef(Promise.resolve());
 
   const refreshTrades = useCallback(async () => {
     if (!uid) { setTrades([]); return []; }
@@ -383,38 +387,52 @@ export function useWaifinity({ withPool = true } = {}) {
    */
   const applyResolvedTrades = useCallback(async () => {
     if (!uid) return;
-    const rows = await fetchMyTrades(uid);
-    setTrades(rows);
 
-    for (const t of rows) {
-      if (t.status !== "accepted") continue;
-      const isFrom = t.from_user === uid;
-      if (isFrom ? t.from_applied : t.to_applied) continue;
+    // Queue calls so only one invocation can inspect/apply a trade at a time.
+    // This is important because this function is called both on mount and
+    // immediately after accepting an exchange.
+    const run = tradeApplyLockRef.current.then(async () => {
+      const rows = await fetchMyTrades(uid);
+      setTrades(rows);
 
-      const lostId = isFrom ? t.offer_character_id : t.request_character_id;
-      const gained = isFrom
-        ? { id: t.request_character_id, name: t.request_name, image: t.request_image, tier: t.request_tier, series: t.request_series, gender: t.request_gender }
-        : { id: t.offer_character_id,   name: t.offer_name,   image: t.offer_image,   tier: t.offer_tier,   series: t.offer_series,   gender: t.offer_gender };
+      for (const t of rows) {
+        if (t.status !== "accepted") continue;
+        const isFrom = t.from_user === uid;
+        const appliedField = isFrom ? "from_applied" : "to_applied";
+        if (t[appliedField]) continue;
 
-      persist((prev) => {
-        const nextCollection = { ...prev.collection };
-        const existingLost = nextCollection[lostId];
-        if (existingLost) {
-          if (existingLost.count <= 1) delete nextCollection[lostId];
-          else nextCollection[lostId] = { ...existingLost, count: existingLost.count - 1 };
-        }
-        const existingGained = nextCollection[gained.id];
-        nextCollection[gained.id] = existingGained
-          ? { ...existingGained, count: existingGained.count + 1 }
-          : {
-              id: gained.id, name: gained.name, series: gained.series,
-              tier: gained.tier, gender: gained.gender ?? null, count: 1, firstObtainedAt: Date.now(),
-            };
-        return { ...prev, collection: nextCollection };
-      });
+        const lostId = isFrom ? t.offer_character_id : t.request_character_id;
+        const gained = isFrom
+          ? { id: t.request_character_id, name: t.request_name, image: t.request_image, tier: t.request_tier, series: t.request_series, gender: t.request_gender }
+          : { id: t.offer_character_id,   name: t.offer_name,   image: t.offer_image,   tier: t.offer_tier,   series: t.offer_series,   gender: t.offer_gender };
 
-      await markTradeApplied(t.id, isFrom ? "from_applied" : "to_applied");
-    }
+        // Mark the side first while the queue is locked. If another invocation
+        // is waiting, its fresh fetch will now see the applied flag and skip it.
+        await markTradeApplied(t.id, appliedField);
+
+        persist((prev) => {
+          const nextCollection = { ...prev.collection };
+          const existingLost = nextCollection[lostId];
+          if (existingLost) {
+            if (existingLost.count <= 1) delete nextCollection[lostId];
+            else nextCollection[lostId] = { ...existingLost, count: existingLost.count - 1 };
+          }
+          const existingGained = nextCollection[gained.id];
+          nextCollection[gained.id] = existingGained
+            ? { ...existingGained, count: existingGained.count + 1 }
+            : {
+                id: gained.id, name: gained.name, series: gained.series,
+                tier: gained.tier, gender: gained.gender ?? null, count: 1, firstObtainedAt: Date.now(),
+              };
+          return { ...prev, collection: nextCollection };
+        });
+      }
+    });
+
+    tradeApplyLockRef.current = run.catch((error) => {
+      console.error("Waifinity : impossible d'appliquer les échanges résolus", error);
+    });
+    return run;
   }, [uid, persist]);
 
   // Une fois au montage (et à chaque reconnexion) — capte les échanges
