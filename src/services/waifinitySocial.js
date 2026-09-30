@@ -43,7 +43,7 @@ export async function fetchMyWaifinityCollection(userId) {
     .from("waifinity_collection_items")
     .select("character_id, count, tier, name, series, gender, first_obtained_at")
     .eq("user_id", userId);
-  if (error) { console.error("Fetch ma collection Waifinity :", error.message); return {}; }
+  if (error) { console.error("Fetch ma collection Waifinity :", error.message); return null; }
   const byId = {};
   for (const row of data || []) {
     byId[row.character_id] = {
@@ -56,6 +56,18 @@ export async function fetchMyWaifinityCollection(userId) {
 }
 
 /** Items d'un seul utilisateur (écran d'échange : doublons d'un ami donné). */
+/** Supprime explicitement une carte de la collection miroir. */
+export async function deleteWaifinityItem(userId, characterId) {
+  if (!userId || characterId == null) return false;
+  const { error } = await supabase
+    .from("waifinity_collection_items")
+    .delete()
+    .eq("user_id", userId)
+    .eq("character_id", characterId);
+  if (error) throw error;
+  return true;
+}
+
 export async function fetchWaifinityItems(userId) {
   const { data, error } = await supabase
     .from("waifinity_collection_items")

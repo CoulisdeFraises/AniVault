@@ -135,37 +135,18 @@ export function useWaifinity({ withPool = true } = {}) {
     });
   }, [pool, state.collection, persist]);
 
-  // ── Réconciliation avec le miroir Supabase (filet de sécurité) ───────────
-  // waifinity_collection_items est poussé à chaque récupération de booster (claimPack). S'il a
-  // un compteur plus élevé qu'en local pour un personnage — typiquement parce
-  // que la sauvegarde localStorage a échoué (stockage plein) — on répare le
-  // local avec le serveur. À l'inverse, si le local est en avance (la synchro
-  // serveur a échoué, faute de réseau), on répare le serveur avec le local.
-  // Une fois par connexion : suffisant pour rattraper une désynchronisation
-  // sans multiplier les allers-retours réseau à chaque montage.
+  // ── Synchronisation de la collection depuis Supabase ─────────────────────
+  // Supabase est la source de vérité pour la collection. Le localStorage sert
+  // uniquement de cache UI/offline ; il ne doit jamais réécrire une collection
+  // serveur plus récente, ni faire revenir une ligne supprimée.
   const reconciledRef = useRef(null);
   useEffect(() => {
     if (!uid || reconciledRef.current === uid) return;
     reconciledRef.current = uid;
     (async () => {
       const server = await fetchMyWaifinityCollection(uid);
-      const local = stateRef.current.collection;
-      const merged = { ...local };
-      const toPushUp = [];
-      let repaired = false;
-
-      for (const id of new Set([...Object.keys(local), ...Object.keys(server)])) {
-        const lCount = local[id]?.count || 0;
-        const sCount = server[id]?.count || 0;
-        if (sCount > lCount) { merged[id] = server[id]; repaired = true; }
-        else if (lCount > sCount) { toPushUp.push(local[id]); }
-      }
-
-      if (repaired) {
-        console.warn("Waifinity : collection locale réparée depuis le miroir Supabase (désynchronisation détectée).");
-        persist((prev) => ({ ...prev, collection: merged }));
-      }
-      for (const item of toPushUp) await syncWaifinityItem(uid, item);
+      if (!server) return;
+      persist((prev) => ({ ...prev, collection: server }));
     })();
   }, [uid, persist]);
 
@@ -367,10 +348,6 @@ export function useWaifinity({ withPool = true } = {}) {
 
   // ── Échanges avec des amis ─────────────────────────────────────────────────
   const [trades, setTrades] = useState([]);
-  // Serialize all local trade applications. The initial mount effect and an
-  // explicit acceptance can otherwise fetch the same pending `from_applied` /
-  // `to_applied` flag before either call has marked it, applying the swap twice.
-  const tradeApplyLockRef = useRef(Promise.resolve());
 
   const refreshTrades = useCallback(async () => {
     if (!uid) { setTrades([]); return []; }
@@ -379,64 +356,23 @@ export function useWaifinity({ withPool = true } = {}) {
     return rows;
   }, [uid]);
 
-  /**
-   * Répercute dans l'état LOCAL chaque échange accepté dont mon côté n'est
-   * pas encore marqué comme appliqué (`from_applied`/`to_applied` côté
-   * serveur) — couvre le cas où l'autre joueur a accepté pendant que j'étais
-   * hors-jeu. Jamais deux fois pour le même échange, grâce à ce flag.
-   */
-  const applyResolvedTrades = useCallback(async () => {
-    if (!uid) return;
-
-    // Queue calls so only one invocation can inspect/apply a trade at a time.
-    // This is important because this function is called both on mount and
-    // immediately after accepting an exchange.
-    const run = tradeApplyLockRef.current.then(async () => {
-      const rows = await fetchMyTrades(uid);
-      setTrades(rows);
-
-      for (const t of rows) {
-        if (t.status !== "accepted") continue;
-        const isFrom = t.from_user === uid;
-        const appliedField = isFrom ? "from_applied" : "to_applied";
-        if (t[appliedField]) continue;
-
-        const lostId = isFrom ? t.offer_character_id : t.request_character_id;
-        const gained = isFrom
-          ? { id: t.request_character_id, name: t.request_name, image: t.request_image, tier: t.request_tier, series: t.request_series, gender: t.request_gender }
-          : { id: t.offer_character_id,   name: t.offer_name,   image: t.offer_image,   tier: t.offer_tier,   series: t.offer_series,   gender: t.offer_gender };
-
-        // Mark the side first while the queue is locked. If another invocation
-        // is waiting, its fresh fetch will now see the applied flag and skip it.
-        await markTradeApplied(t.id, appliedField);
-
-        persist((prev) => {
-          const nextCollection = { ...prev.collection };
-          const existingLost = nextCollection[lostId];
-          if (existingLost) {
-            if (existingLost.count <= 1) delete nextCollection[lostId];
-            else nextCollection[lostId] = { ...existingLost, count: existingLost.count - 1 };
-          }
-          const existingGained = nextCollection[gained.id];
-          nextCollection[gained.id] = existingGained
-            ? { ...existingGained, count: existingGained.count + 1 }
-            : {
-                id: gained.id, name: gained.name, series: gained.series,
-                tier: gained.tier, gender: gained.gender ?? null, count: 1, firstObtainedAt: Date.now(),
-              };
-          return { ...prev, collection: nextCollection };
-        });
-      }
-    });
-
-    tradeApplyLockRef.current = run.catch((error) => {
-      console.error("Waifinity : impossible d'appliquer les échanges résolus", error);
-    });
-    return run;
+  // Après un échange, le RPC a déjà modifié waifinity_collection_items.
+  // On ne réapplique donc surtout pas le swap dans le localStorage : cela
+  // provoquerait des doublons et pourrait ensuite réécrire de mauvais compteurs
+  // dans Supabase. On recharge simplement l'état serveur exact.
+  const reloadCollectionFromServer = useCallback(async () => {
+    if (!uid) return {};
+    const server = await fetchMyWaifinityCollection(uid);
+    if (server) persist((prev) => ({ ...prev, collection: server }));
+    return server || {};
   }, [uid, persist]);
 
-  // Une fois au montage (et à chaque reconnexion) — capte les échanges
-  // résolus pendant que le joueur n'était pas sur l'onglet Social.
+  const applyResolvedTrades = useCallback(async () => {
+    if (!uid) return;
+    await reloadCollectionFromServer();
+    await refreshTrades();
+  }, [uid, reloadCollectionFromServer, refreshTrades]);
+
   useEffect(() => { applyResolvedTrades(); }, [applyResolvedTrades]);
 
   const proposeTrade = useCallback(async (toUser, offer, request) => {
