@@ -44,7 +44,14 @@ const PANEL_TRANSITION    = { type: "spring", bounce: 0.18, duration: 0.32 };
 //   • Focus automatique sur le premier élément à l'ouverture.
 //   • Restauration du focus à l'élément déclencheur à la fermeture.
 // -----------------------------------------------------------------------------
-export function Modal({ onClose, maxWidth = "max-w-lg", zIndex = "z-50", children }) {
+export function Modal({
+  onClose, maxWidth = "max-w-lg", zIndex = "z-50", children,
+  // Overrides optionnels (fiche personnage en carte plein écran, voir
+  // CharacterSheetModal) — par défaut, comportement inchangé pour toutes
+  // les autres modales de l'app.
+  backdropClassName = "bg-black/70 backdrop-blur-sm",
+  panelClassName = "bg-violet-900 border border-white/10 rounded-2xl overflow-y-auto",
+}) {
   const innerRef = useRef(null);
 
   // `onClose` est très souvent une arrow function inline côté appelant, donc
@@ -109,7 +116,7 @@ export function Modal({ onClose, maxWidth = "max-w-lg", zIndex = "z-50", childre
       animate="animate"
       exit="exit"
       transition={BACKDROP_TRANSITION}
-      className={`fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 ${zIndex}`}
+      className={`fixed inset-0 ${backdropClassName} flex items-center justify-center p-4 ${zIndex}`}
       onClick={onClose}
     >
       <motion.div
@@ -120,7 +127,7 @@ export function Modal({ onClose, maxWidth = "max-w-lg", zIndex = "z-50", childre
         exit="exit"
         transition={PANEL_TRANSITION}
         onClick={(e) => e.stopPropagation()}
-        className={`bg-violet-900 border border-white/10 rounded-2xl w-full ${maxWidth} max-h-[90vh] overflow-y-auto`}
+        className={`w-full ${maxWidth} max-h-[90vh] ${panelClassName}`}
       >
         {children}
       </motion.div>

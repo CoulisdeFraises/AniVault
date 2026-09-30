@@ -28,14 +28,22 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
   const count = entry?.count || 0;
 
   return (
-    <Modal onClose={onClose} maxWidth="max-w-sm" zIndex="z-50">
-      <div className="p-5">
-        {/* Vraie carte façon TCG : image en plein cadre, infos en surimpression
-            (plus de fond violet visible), inclinaison qui suit le doigt/la
-            souris tant qu'on maintient dessus. */}
-        <TiltCard className="w-full max-w-[240px] mx-auto mb-1" holo={owned && r.shine}>
+    <Modal
+      onClose={onClose}
+      maxWidth="max-w-md"
+      zIndex="z-50"
+      backdropClassName="bg-black/55 backdrop-blur-xl"
+      panelClassName="bg-transparent overflow-y-auto flex flex-col items-center"
+    >
+      <div className="p-4 w-full flex flex-col items-center">
+        {/* Vraie carte façon TCG, quasi plein écran : nom en haut, description
+            en bas, toutes deux en surimpression sur l'image (plus de fond
+            violet — juste le flou transparent du calque de la modale
+            derrière). Inclinaison qui suit le doigt/la souris tant qu'on
+            maintient dessus. */}
+        <TiltCard className="w-[min(88vw,380px)] mx-auto mb-3" holo={owned && r.shine}>
           <CardFrame tier={character.tier} className="relative w-full aspect-[5/7]"
-            style={owned ? { boxShadow: `0 0 32px -4px ${r.glow}` } : undefined}>
+            style={{ boxShadow: owned ? `0 0 40px -4px ${r.glow}` : `0 8px 30px -8px rgba(0,0,0,0.6)` }}>
             {owned ? (
               <>
                 {character.image
@@ -43,40 +51,51 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
                   : <div className="absolute inset-0 flex items-center justify-center text-violet-600 text-3xl">?</div>}
                 {r.shine && <div className="card-shine" />}
 
-                {/* Plaque de nom façon carte, en surimpression sur l'image */}
-                <div className="absolute inset-x-0 bottom-0 px-3 pt-8 pb-2.5 bg-gradient-to-t from-black/90 via-black/55 to-transparent">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-[15px] font-bold text-white leading-tight truncate flex-1" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-                      {character.name}
-                    </p>
-                    <GenderBadge gender={character.gender} />
+                {/* Plaque de nom, en haut de la carte */}
+                <div className="absolute inset-x-0 top-0 px-3.5 pt-3 pb-7 bg-gradient-to-b from-black/85 via-black/35 to-transparent">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xl font-bold text-white leading-tight truncate" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+                        {character.name}
+                      </p>
+                      <p className="text-[12px] text-violet-200/90 truncate">{character.series}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <RarityBadge tier={character.tier} size="md" />
+                      {count > 1 && (
+                        <span className="min-w-[22px] h-[20px] px-1 rounded-full bg-black/70 border border-white/20 text-white text-[11px] font-mono font-bold flex items-center justify-center">
+                          ×{count}
+                        </span>
+                      )}
+                      {isRecentlyObtained(entry) && (
+                        <span className="px-1.5 py-0.5 rounded-full bg-amber-400 text-violet-950 text-[9px] font-mono font-bold tracking-wide shadow">NEW</span>
+                      )}
+                      <GenderBadge gender={character.gender} />
+                    </div>
                   </div>
-                  <p className="text-[11px] text-violet-200/90 truncate">{character.series}</p>
                 </div>
 
-                <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
-                  {count > 1 && (
-                    <span className="min-w-[24px] h-[24px] px-1.5 rounded-full bg-black/70 border border-white/20 text-white text-[12px] font-mono font-bold flex items-center justify-center">
-                      ×{count}
-                    </span>
-                  )}
-                  {isRecentlyObtained(entry) && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-amber-400 text-violet-950 text-[9px] font-mono font-bold tracking-wide shadow">NEW</span>
-                  )}
-                </div>
+                {/* Plaque de description, en bas de la carte */}
+                {character.about && (
+                  <div className="absolute inset-x-0 bottom-0 px-3.5 pt-10 pb-3 bg-gradient-to-t from-black/92 via-black/60 to-transparent">
+                    <p className="text-[12.5px] leading-relaxed text-violet-100 max-h-24 overflow-y-auto">
+                      {character.about}
+                    </p>
+                  </div>
+                )}
               </>
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <HelpCircle size={48} className="text-violet-700" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                <HelpCircle size={52} className="text-violet-700" />
+                <p className="text-xs text-violet-500">{character.series}</p>
               </div>
             )}
-            <div className="absolute top-2 left-2"><RarityBadge tier={character.tier} size="md" /></div>
+            {!owned && <div className="absolute top-2 left-2"><RarityBadge tier={character.tier} size="md" /></div>}
           </CardFrame>
         </TiltCard>
-        {!owned && <p className="text-xs text-violet-400 text-center mb-1">{character.series}</p>}
 
         {owned && onToggleFavorite && (
-          <div className="flex justify-center -mt-1 mb-2">
+          <div className="flex justify-center mb-2">
             <button
               onClick={() => { haptics.tap(); onToggleFavorite(character.id); }}
               disabled={!isFavorite && favoritesFull}
@@ -89,15 +108,11 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
           </div>
         )}
 
+        <div className="w-[min(88vw,380px)] mx-auto">
         <p className={`text-[11px] text-center mb-3 ${r.text}`}>{r.emoji} {r.desc}</p>
 
         {owned ? (
-          <div className="mt-4 space-y-3">
-            {character.about && (
-              <p className="max-h-32 overflow-y-auto text-[12.5px] leading-relaxed text-violet-200 text-left rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2.5">
-                {character.about}
-              </p>
-            )}
+          <div className="space-y-3">
             {entry?.firstObtainedAt && (
               <p className="flex items-center justify-center gap-1.5 text-xs text-violet-400">
                 <Calendar size={12} />
@@ -149,6 +164,7 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
         <button onClick={onClose} className="w-full mt-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-violet-200 text-sm font-semibold active:scale-[0.98]">
           Fermer
         </button>
+        </div>
       </div>
     </Modal>
   );
