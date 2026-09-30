@@ -1,6 +1,6 @@
 import { Calendar, Target, Star, Coins, HelpCircle, Heart } from "lucide-react";
 import { Modal } from "../Modal/Modal";
-import { RARITY, normalizeTier, SHOP_TARGET_COST, wishCost, isRecentlyObtained, MAX_FAVORITES } from "../../utils/waifinity";
+import { RARITY, normalizeTier, SHOP_TARGET_COST, wishCost, isRecentlyObtained, MAX_FAVORITES, STATS, statGrade } from "../../utils/waifinity";
 import { RarityBadge } from "./RarityBadge";
 import { GenderBadge } from "./GenderBadge";
 import { CardFrame } from "./CardFrame";
@@ -26,6 +26,7 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
   const owned = !!entry;
   const r = RARITY[normalizeTier(character.tier)];
   const count = entry?.count || 0;
+  const stats = character.stats;
 
   return (
     <Modal
@@ -35,15 +36,15 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
       backdropClassName="bg-black/55 backdrop-blur-xl"
       panelClassName="bg-transparent overflow-y-auto flex flex-col items-center"
     >
-      <div className="p-4 w-full flex flex-col items-center">
+      <div className="px-6 py-5 w-full flex flex-col items-center">
         {/* Vraie carte façon TCG, quasi plein écran : nom en haut, description
             en bas, toutes deux en surimpression sur l'image (plus de fond
             violet — juste le flou transparent du calque de la modale
             derrière). Inclinaison qui suit le doigt/la souris tant qu'on
             maintient dessus. */}
-        <TiltCard className="w-[min(88vw,380px)] mx-auto mb-3" holo={owned && r.shine}>
+        <TiltCard className="w-full max-w-[380px] mb-3" holo={owned && r.shine}>
           <CardFrame tier={character.tier} className="relative w-full aspect-[5/7]"
-            style={{ boxShadow: owned ? `0 0 40px -4px ${r.glow}` : `0 8px 30px -8px rgba(0,0,0,0.6)` }}>
+            style={{ boxShadow: owned ? `0 0 30px -6px ${r.glow}` : `0 8px 30px -8px rgba(0,0,0,0.6)` }}>
             {owned ? (
               <>
                 {character.image
@@ -75,12 +76,30 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
                   </div>
                 </div>
 
-                {/* Plaque de description, en bas de la carte */}
-                {character.about && (
-                  <div className="absolute inset-x-0 bottom-0 px-3.5 pt-14 pb-3 bg-gradient-to-t from-black/95 via-black/75 via-40% to-transparent">
-                    <p className="text-[12.5px] leading-relaxed text-violet-100 max-h-24 overflow-y-auto">
-                      {character.about}
-                    </p>
+                {/* Plaque du bas : description + stats avec leur grade */}
+                {(character.about || stats) && (
+                  <div className="absolute inset-x-0 bottom-0 px-3.5 pt-14 pb-3 bg-gradient-to-t from-black/95 via-black/80 via-50% to-transparent">
+                    {character.about && (
+                      <p className={`text-[12px] leading-snug text-violet-100 overflow-y-auto ${stats ? "max-h-[3.6rem]" : "max-h-24"}`}>
+                        {character.about}
+                      </p>
+                    )}
+                    {stats && (
+                      <div className="mt-2 grid grid-cols-7 gap-1">
+                        {STATS.map(({ key, short, label }) => {
+                          const v = stats[key];
+                          if (v == null) return <div key={key} />;
+                          const g = statGrade(v);
+                          return (
+                            <div key={key} title={label} className="flex flex-col items-center rounded-md bg-white/[0.08] border border-white/10 py-1">
+                              <span className="text-[8px] font-mono tracking-wide text-violet-300/90">{short}</span>
+                              <span className={`text-[16px] leading-tight font-bold ${g.cls}`} style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{g.letter}</span>
+                              <span className="text-[9px] font-mono text-violet-200/70">{v}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </>
@@ -108,7 +127,7 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
           </div>
         )}
 
-        <div className="w-[min(88vw,380px)] mx-auto">
+        <div className="w-full max-w-[380px]">
         <p className={`text-[11px] text-center mb-3 ${r.text}`}>{r.emoji} {r.desc}</p>
 
         {owned ? (

@@ -368,3 +368,32 @@ export function topSeries(pool, limit = 40) {
   });
   return [...counts.values()].sort((a, b) => b.count - a.count).slice(0, limit);
 }
+
+
+// ── Stats des personnages ────────────────────────────────────────────────────
+// Colonnes int2 de waifinity_characters. Échelle supposée : 0–100 — ajuste les
+// seuils de STAT_GRADES si ta plage est différente.
+export const STATS = [
+  { key: "intelligence", short: "INT", label: "Intelligence" },
+  { key: "strength",     short: "STR", label: "Strength" },
+  { key: "dexterity",    short: "DEX", label: "Dexterity" },
+  { key: "wisdom",       short: "WIS", label: "Wisdom" },
+  { key: "luck",         short: "LCK", label: "Luck" },
+  { key: "endurance",    short: "END", label: "Endurance" },
+  { key: "charisma",     short: "CHA", label: "Charisma" },
+];
+
+const STAT_GRADES = [
+  { min: 90, letter: "S", cls: "text-amber-300" },
+  { min: 75, letter: "A", cls: "text-fuchsia-300" },
+  { min: 60, letter: "B", cls: "text-sky-300" },
+  { min: 45, letter: "C", cls: "text-emerald-300" },
+  { min: 30, letter: "D", cls: "text-slate-200" },
+  { min: 15, letter: "E", cls: "text-slate-400" },
+  { min: -Infinity, letter: "F", cls: "text-slate-500" },
+];
+
+/** Valeur de stat → { letter, cls } (grade S → F). */
+export function statGrade(value) {
+  return STAT_GRADES.find((g) => value >= g.min);
+}

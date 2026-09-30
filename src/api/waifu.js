@@ -25,7 +25,7 @@
 import { supabase } from "../lib/supabase";
 import { anilistQuery } from "./anilist";
 import { getCached, setCached, removeCached, TTL } from "../lib/cache";
-import { computeTiers, normalizeGender } from "../utils/waifinity";
+import { computeTiers, normalizeGender, STATS } from "../utils/waifinity";
 
 const TABLE           = "waifinity_characters";
 const SUPABASE_PAGE   = 1000; // limite par requête côté PostgREST (voir range())
@@ -71,6 +71,17 @@ function mapCharacter(c) {
   };
 }
 
+/** Colonnes de stats (int2) → { intelligence: 72, ... }, ou null si aucune n'est renseignée. */
+function mapStats(row) {
+  const stats = {};
+  let any = false;
+  for (const { key } of STATS) {
+    const v = row[key];
+    if (typeof v === "number") { stats[key] = v; any = true; }
+  }
+  return any ? stats : null;
+}
+
 /** Ligne Supabase (table waifinity_characters) → entrée du bassin. */
 function mapRow(row) {
   if (row?.mal_id == null || !row.name || !row.image) return null;
@@ -83,6 +94,7 @@ function mapRow(row) {
     seriesId:   row.anime_mal_id ?? null,
     series:     row.series || "Série inconnue",
     about:      row.about || null,
+    stats:      mapStats(row),
   };
 }
 
@@ -92,7 +104,7 @@ async function fetchSupabasePool() {
   for (let from = 0; ; from += SUPABASE_PAGE) {
     const { data, error } = await supabase
       .from(TABLE)
-      .select("mal_id, name, image, gender, favourites, anime_mal_id, series, about, updated_at")
+      .select("mal_id, name, image, gender, favourites, anime_mal_id, series, about, intelligence, strength, dexterity, wisdom, luck, endurance, charisma, updated_at")
       .order("favourites", { ascending: false })
       .range(from, from + SUPABASE_PAGE - 1);
     if (error) throw new Error(error.message);
