@@ -429,6 +429,7 @@ export function useWaifinity({ withPool = true } = {}) {
   const acceptTrade = useCallback(async (trade) => {
     await acceptTradeServer(trade.id);
     await applyResolvedTrades();
+    return trade;
   }, [applyResolvedTrades]);
 
   const declineTrade = useCallback(async (tradeId) => {

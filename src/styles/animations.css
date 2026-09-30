@@ -249,3 +249,93 @@
   .rays { animation: none; }
   .tear-beam { display: none; }
 }
+
+
+/* ── Animation d'échange Waifinity ───────────────────────────────────────── */
+@keyframes tradeOutgoing {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    filter: drop-shadow(0 0 0 rgba(251, 191, 36, 0));
+  }
+  18% {
+    transform: translate(-50%, -50%) scale(1.06) rotate(-1deg);
+    filter: drop-shadow(0 0 24px rgba(251, 191, 36, 0.28));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -155vh) scale(0.72) rotate(-8deg);
+    filter: drop-shadow(0 0 34px rgba(251, 191, 36, 0));
+  }
+}
+
+@keyframes tradeIncoming {
+  0%, 32% {
+    opacity: 0;
+    transform: translate(-50%, 35%) scale(0.72);
+  }
+  62% {
+    opacity: 1;
+    transform: translate(-50%, -58%) scale(1.04);
+  }
+  82%, 100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes tradeTitle {
+  0%, 25% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes tradeRing {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.55); }
+  35% { opacity: .7; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.18); }
+}
+
+@keyframes tradeStars {
+  0% { opacity: 0; transform: scale(.8); }
+  35% { opacity: 1; }
+  100% { opacity: .2; transform: scale(1.1); }
+}
+
+.trade-outgoing {
+  animation: tradeOutgoing 1.55s cubic-bezier(.55, 0, .9, .35) forwards;
+  animation-delay: .18s;
+}
+
+.trade-incoming {
+  animation: tradeIncoming 1.65s cubic-bezier(.2, .8, .2, 1) forwards;
+}
+
+.animate-tradeTitle {
+  animation: tradeTitle .65s ease-out both;
+}
+
+.animate-tradeRing {
+  animation: tradeRing 1.5s ease-out .2s both;
+}
+
+.trade-transfer-stars {
+  background-image:
+    radial-gradient(circle at 15% 25%, rgba(255,255,255,.45) 0 1px, transparent 2px),
+    radial-gradient(circle at 80% 18%, rgba(251,191,36,.35) 0 1px, transparent 2px),
+    radial-gradient(circle at 28% 76%, rgba(217,70,239,.35) 0 1px, transparent 2px),
+    radial-gradient(circle at 84% 72%, rgba(255,255,255,.35) 0 1px, transparent 2px);
+  background-size: 130px 130px, 170px 170px, 210px 210px, 150px 150px;
+  animation: tradeStars 1.8s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trade-outgoing,
+  .trade-incoming,
+  .animate-tradeTitle,
+  .animate-tradeRing,
+  .trade-transfer-stars {
+    animation: none !important;
+  }
+  .trade-outgoing { opacity: 0; }
+  .trade-incoming { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
