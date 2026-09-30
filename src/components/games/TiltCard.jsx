@@ -90,6 +90,21 @@ export function TiltCard({ children, className = "", max = 14, holo = false }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // iOS : la permission ne s'obtient que depuis un vrai "geste utilisateur"
+  // au sens de Safari — touchend ou click, PAS pointerdown/touchstart (la
+  // fenêtre système ne s'afficherait alors jamais). Appelée depuis les deux
+  // handlers ci-dessous ; `asking` évite d'enchaîner deux demandes.
+  const asking = useRef(false);
+  function askOrientationPermission() {
+    if (orientOn.current || asking.current || typeof DeviceOrientationEvent === "undefined"
+        || typeof DeviceOrientationEvent.requestPermission !== "function") return;
+    asking.current = true;
+    DeviceOrientationEvent.requestPermission()
+      .then((state) => { if (state === "granted") startOrientation(); })
+      .catch(() => {})
+      .finally(() => { asking.current = false; });
+  }
+
   // Capture le pointeur au toucher : sans ça, un doigt qui dévie légèrement
   // des bords exacts de la carte (très fréquent en usage réel) fait perdre le
   // suivi en plein milieu du geste — la carte "décroche" et ne réagit plus
@@ -99,13 +114,6 @@ export function TiltCard({ children, className = "", max = 14, holo = false }) {
     touching.current = true;
     ref.current?.setPointerCapture?.(e.pointerId);
     onMove(e);
-    // iOS : la permission ne peut être demandée que depuis un geste utilisateur.
-    if (!orientOn.current && typeof DeviceOrientationEvent !== "undefined"
-        && typeof DeviceOrientationEvent.requestPermission === "function") {
-      DeviceOrientationEvent.requestPermission()
-        .then((state) => { if (state === "granted") startOrientation(); })
-        .catch(() => {});
-    }
   }
 
   function reset(e) {
@@ -127,6 +135,8 @@ export function TiltCard({ children, className = "", max = 14, holo = false }) {
       onPointerLeave={reset}
       onPointerUp={reset}
       onPointerCancel={reset}
+      onTouchEnd={askOrientationPermission}
+      onClick={askOrientationPermission}
       className={`relative transition-transform duration-150 ease-out motion-reduce:transition-none [touch-action:none] ${className}`}
     >
       {children}
