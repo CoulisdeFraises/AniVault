@@ -6,6 +6,7 @@ import { TopBar } from "../components/common/TopBar";
 import { PageBanner } from "../components/common/PageBanner";
 import { PullToRefresh } from "../components/common/PullToRefresh";
 import { useWaifinity } from "../hooks/useWaifinity";
+import { useWaifinityCompanion } from "../hooks/useWaifinityCompanion";
 import { MAX_FAVORITES } from "../utils/waifinity";
 import { PackOpening } from "../components/games/PackOpening";
 import { PackResultModal } from "../components/games/PackResultModal";
@@ -74,6 +75,8 @@ function Banner({ tone = "error", children }) {
 export function GamesWaifinity() {
   const navigate = useNavigate();
   const game = useWaifinity();
+  // Réactions du compagnon (booster, série complétée, favori, récompense du jour…)
+  const companion = useWaifinityCompanion(game);
   const [tab, setTab] = useState("boosters");
   const [result, setResult] = useState(null);
   const [sheetId, setSheetId] = useState(null);
@@ -134,7 +137,7 @@ export function GamesWaifinity() {
           <PackOpening pack={game.pendingPack} collection={game.collection} onConfirm={handleClaimPack} />
         ) : (
           <>
-            {tab === "boosters"   && <BoostersTab game={game} onGoShop={() => setTab("shop")} />}
+            {tab === "boosters"   && <BoostersTab game={{ ...game, claimDaily: companion.claimDaily }} onGoShop={() => setTab("shop")} />}
             {tab === "collection" && <CollectionGrid collectionList={game.collectionList} pool={game.pool} collection={game.collection} favorites={game.favorites} onOpenSheet={setSheetId} />}
             {tab === "social" && <SocialTab game={game} />}
             {tab === "shop" && (
@@ -150,7 +153,14 @@ export function GamesWaifinity() {
       </PullToRefresh>
 
       <AnimatePresence>
-        {result && <PackResultModal key="pack-result" results={result} onClose={() => setResult(null)} />}
+        {result && (
+          <PackResultModal
+            key="pack-result"
+            results={result}
+            // La bulle du compagnon est plein écran : elle réagit une fois le récap fermé.
+            onClose={() => { companion.onPackClosed(result); setResult(null); }}
+          />
+        )}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -166,7 +176,7 @@ export function GamesWaifinity() {
             favoritesFull={game.favorites.length >= MAX_FAVORITES}
             onBuyTargeted={game.openTargetedBooster}
             onBuyWish={game.openWishBooster}
-            onToggleFavorite={game.toggleFavorite}
+            onToggleFavorite={companion.toggleFavorite}
             onClose={() => setSheetId(null)}
           />
         )}

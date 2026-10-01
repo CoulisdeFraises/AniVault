@@ -69,6 +69,67 @@ export const COMPANION_LINES = {
     "Prêt(e) pour un épisode ou deux ?",
     "Toujours là ! Une petite suggestion : reprends ce que tu as en cours.",
   ],
+
+  // ── Waifinity ──────────────────────────────────────────────────────────
+  // Booster gratuit disponible à l'ouverture du jeu.
+  wfFreeReady: [
+    "Ton booster gratuit t'attend. Ça serait dommage de le laisser refroidir !",
+    "Hého, un booster gratuit est prêt. Qui sait ce qu'il y a dedans ?",
+    "Booster dispo ! Un petit tirage avant de partir ?",
+  ],
+  // Booster ordinaire : au moins une nouvelle carte, rien d'exceptionnel.
+  wfPackNew: [
+    "{newCount} nouvelle(s) carte(s) dans ta collection. Ça avance !",
+    "Pas mal ce booster : {newCount} nouveau(x) personnage(s) !",
+    "La collection grossit. Encore {newCount} de plus au compteur.",
+    "Joli tirage, {newCount} nouveauté(s) à ranger.",
+  ],
+  // Aucune nouveauté, ou presque que des doublons.
+  wfPackDupes: [
+    "Que des doublons... au moins ça rapporte {coins} Anigold.",
+    "Ce booster ne t'a rien appris. Mais {coins} Anigold, c'est toujours ça.",
+    "Pas de chance cette fois. Le prochain sera le bon !",
+    "Tout en doublons ? On se console avec les {coins} Anigold.",
+  ],
+  // Nouvelle carte Epic.
+  wfPackRare: [
+    "Une Epic ! {name}, c'est du beau monde.",
+    "{name} en Epic. Joli, très joli.",
+    "Oh, {name} ! Une belle prise.",
+  ],
+  // Nouvelle carte Legendary ou Secret.
+  wfPackTop: [
+    "{name}... {tier} ?! Tu plaisantes ? C'est énorme !",
+    "Attends, c'est bien {name} en {tier} ? Montre-moi encore !",
+    "{name} ! Une {tier} ! Je n'en reviens pas.",
+    "Voilà un tirage dont on va se souvenir : {name}, {tier} !",
+  ],
+  wfSeriesComplete: [
+    "Série {series} complète ! Bravo, collectionneur(se) !",
+    "{series} : tous les personnages sont là. Chapeau !",
+    "Tu viens de boucler {series}. Le bonus est mérité.",
+  ],
+  // Le personnage visé par un vœu vient d'être obtenu.
+  wfWish: [
+    "Ton vœu est exaucé : {name} est à toi !",
+    "{name}, comme demandé. Tu as le coup de baguette !",
+    "Vœu réalisé ! Dis bonjour à {name}.",
+  ],
+  wfFavorite: [
+    "{name} dans tes favoris. Bon choix !",
+    "Tu mets {name} en avant. J'aime bien.",
+    "{name} a droit à la place d'honneur.",
+  ],
+  wfDaily: [
+    "+{coins} Anigold, jour {day} sur 7. Reviens demain !",
+    "Récompense du jour récupérée : {coins} Anigold.",
+    "Jour {day} validé. La régularité, ça paie.",
+  ],
+  // 7e jour de la série quotidienne.
+  wfDailyMax: [
+    "7 jours d'affilée ! Le gros lot : {coins} Anigold.",
+    "Série quotidienne complète, {coins} Anigold pour toi !",
+  ],
 };
 
 // Répliques spécifiques à Chlo — "la petite démone" : drôle, incisive,
@@ -128,6 +189,60 @@ const CHLO_LINES = {
     "J'ai zéro suggestion utile aujourd'hui, mais je suis là quand même.",
     "Techniquement je devrais te motiver là... bon courage avec ça.",
     "Franchement, un épisode, c'est pas la mort. Vas-y, bouge.",
+  ],
+
+  // ── Waifinity ──────────────────────────────────────────────────────────
+  wfFreeReady: [
+    "Y'a un booster gratuit qui traîne. Je dis ça, je dis rien.",
+    "Ton booster gratuit est prêt. Même toi tu peux pas rater ça.",
+    "Booster dispo. Vas-y, que je voie ta légendaire malchance en action.",
+  ],
+  wfPackNew: [
+    "{newCount} nouveau(x). T'as de la chance ou j'ai de l'indulgence, à toi de voir.",
+    "Bon, {newCount} de plus. Ta collection prend du poids, comme toi devant tes séries.",
+    "Pas dégueu. {newCount} nouvelle(s) carte(s), je te félicite à moitié.",
+    "Ça rentre, ça rentre. {newCount} de plus, mais je compte pas les applaudir.",
+  ],
+  wfPackDupes: [
+    "Que des doublons ? {coins} Anigold. Ton talent pour la déception est impressionnant.",
+    "Zéro nouveauté. La loterie t'a dit non, et moi aussi.",
+    "Des doublons, des doublons, des doublons. Au moins ça sert de monnaie.",
+    "T'as ouvert tout ça pour {coins} Anigold ? Je pleure. Pas vraiment.",
+  ],
+  wfPackRare: [
+    "{name} en Epic. Ok, là je t'écoute.",
+    "Tiens, {name}. T'as dû négocier avec un démon, non ?",
+    "Une Epic, {name}. Je dirais pas que je suis jalouse mais presque.",
+  ],
+  wfPackTop: [
+    "{name}, {tier} ?! Comment t'as fait ça ?! Je veux savoir ce que t'as vendu.",
+    "OK. {name} en {tier}. Je te regarde différemment, là.",
+    "{name} en {tier} ?! Même moi je suis bouche bée. Et crois-moi, c'est rare.",
+    "Tu viens de tirer {name}, {tier}. Tu t'en vas mourir demain, ou quoi ?",
+  ],
+  wfSeriesComplete: [
+    "{series} au complet. T'as un problème, mais un bon problème.",
+    "Série {series} terminée. Même le bonus a l'air gêné d'être aussi mérité.",
+    "{series}, complète. Je savais que tu avais un côté obsessionnel.",
+  ],
+  wfWish: [
+    "Vœu exaucé : {name}. Paie ta chance, c'est moi qui ai tout fait.",
+    "Voilà ton {name}. Tu me dois une sieste.",
+    "{name}, comme tu voulais. Pour un démon, je suis plutôt serviable, non ?",
+  ],
+  wfFavorite: [
+    "{name} en favori ? Hm, goût douteux mais assumé, j'approuve.",
+    "{name} va rester dans le top. Au moins il y a quelqu'un qu'on aime.",
+    "Tu mets {name} sur ton podium. Et moi, alors ?",
+  ],
+  wfDaily: [
+    "Jour {day}. T'es même là pour {coins} Anigold, grand seigneur.",
+    "{coins} Anigold récupérés. Je te surveille, hein. Ça a l'air de marcher, ton truc de régularité.",
+    "Jour {day}, bien. Continue, je te promets rien mais continue.",
+  ],
+  wfDailyMax: [
+    "7 jours de suite ?! {coins} Anigold. Tu mérites un biscuit.",
+    "7 jours à venir me voir. {coins} Anigold pour avoir tenu. Bravo.",
   ],
 };
 

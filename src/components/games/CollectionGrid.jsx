@@ -9,6 +9,7 @@ import { GenderBadge } from "./GenderBadge";
 import { PillTabs } from "./PillTabs";
 import { CardFrame } from "./CardFrame";
 import { SeriesExplorer } from "./SeriesExplorer";
+import { FavoritesCarousel } from "./FavoritesCarousel";
 
 const VIEWS = [
   { key: "mine",     label: "Ma collection" },
@@ -194,9 +195,7 @@ export function CollectionGrid({ collectionList, pool, collection = {}, favorite
           <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-amber-300 mb-2">
             <Heart size={11} fill="currentColor" />Mes favoris
           </p>
-          <div className="grid grid-cols-3 gap-2.5 sm:max-w-md">
-            {favItems.map((c) => <CollectionCard key={c.id} c={c} onOpen={onOpenSheet} isFavorite />)}
-          </div>
+          <FavoritesCarousel items={favItems} onOpen={onOpenSheet} />
         </section>
       )}
 

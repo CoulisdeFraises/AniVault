@@ -30,6 +30,17 @@ const PRIORITY = {
   newEntry:      6,
   comeback:      7,
   idle:          8,
+  // Waifinity : du plus marquant au plus anecdotique.
+  wfPackTop:        1,
+  wfWish:           2,
+  wfSeriesComplete: 2,
+  wfPackRare:       3,
+  wfDailyMax:       3,
+  wfPackNew:        5,
+  wfPackDupes:      5,
+  wfFavorite:       6,
+  wfDaily:          6,
+  wfFreeReady:      8,
 };
 
 export function CompanionProvider({ children }) {

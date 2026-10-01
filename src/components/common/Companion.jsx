@@ -45,6 +45,17 @@ const MOOD_BAND = {
   idle:         3,
   streakDanger: 1,
   streakLost:   0,
+  // Waifinity
+  wfPackTop:        5,
+  wfSeriesComplete: 5,
+  wfWish:           5,
+  wfPackRare:       4,
+  wfDailyMax:       4,
+  wfFavorite:       4,
+  wfPackNew:        3,
+  wfDaily:          3,
+  wfFreeReady:      3,
+  wfPackDupes:      1,
 };
 
 function getCompanionPortrait(category) {
