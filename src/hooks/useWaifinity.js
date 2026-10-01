@@ -5,7 +5,7 @@ import { fetchWaifuPool } from "../api/waifu";
 import {
   loadState, saveState, defaultState, generatePack, coinsForDuplicate,
   msUntilFreeBooster, filterPoolByGender, GENDER_BOOSTERS, PACK_WEIGHTS,
-  SHOP_CHANCE_COST, SHOP_TARGET_COST, SHOP_GENDER_COST, wishCost, MAX_FAVORITES, claimPackCards, dailyStatus,
+  SHOP_BOOSTER_COST, SHOP_TARGET_COST, SHOP_GENDER_COST, wishCost, MAX_FAVORITES, claimPackCards, dailyStatus,
 } from "../utils/waifinity";
 import {
   syncWaifinityItem, fetchMyTrades, acceptTradeServer, markTradeApplied, closeTrade, proposeTrade as proposeTradeService,
@@ -158,7 +158,7 @@ export function useWaifinity({ withPool = true } = {}) {
   // ── Ouverture d'un booster gratuit (1 toutes les 3 h, tout le bassin) ────
   const openFreeBooster = useCallback(() => {
     if (!canOpenFree) return;
-    const cards = generatePack(pool, PACK_WEIGHTS.free);
+    const cards = generatePack(pool, PACK_WEIGHTS.standard);
     persist((prev) => ({
       ...prev,
       lastFreeOpenedAt: Date.now(),
@@ -167,24 +167,24 @@ export function useWaifinity({ withPool = true } = {}) {
     }));
   }, [canOpenFree, pool, persist]);
 
-  // ── Boutique : booster "Chance+" (meilleures probabilités, tout le bassin) ──
-  const openChanceBooster = useCallback(async () => {
-    if (!walletReady || walletBusyRef.current || state.pendingPack || pool.length === 0 || state.coins < SHOP_CHANCE_COST) return;
+  // ── Boutique : booster normal (mêmes chances que le gratuit, sans attendre) ──
+  const openStandardBooster = useCallback(async () => {
+    if (!walletReady || walletBusyRef.current || state.pendingPack || pool.length === 0 || state.coins < SHOP_BOOSTER_COST) return;
     walletBusyRef.current = true;
     setWalletBusy(true);
     setWalletIssue(null);
     try {
-      const wallet = await adjustWaifinityBalance(uid, -SHOP_CHANCE_COST, "booster_chance", newWalletOperationKey("purchase"));
-      const cards = generatePack(pool, PACK_WEIGHTS.chance);
+      const wallet = await adjustWaifinityBalance(uid, -SHOP_BOOSTER_COST, "booster_standard", newWalletOperationKey("purchase"));
+      const cards = generatePack(pool, PACK_WEIGHTS.standard);
       const openedAt = Date.now();
       persist((prev) => ({
         ...prev,
         coins: Number(wallet.balance),
-        pendingPack: { source: "chance", cards, openedAt, claimId: newWalletOperationKey("claim"), purchaseBalance: Number(wallet.balance) },
+        pendingPack: { source: "standard", cards, openedAt, claimId: newWalletOperationKey("claim"), purchaseBalance: Number(wallet.balance) },
         stats: { ...prev.stats, opened: prev.stats.opened + 1 },
       }));
     } catch (e) {
-      console.error("Waifinity achat Chance+ :", e);
+      console.error("Waifinity achat booster :", e);
       setWalletIssue(e?.message || "Achat impossible pour le moment.");
     } finally {
       walletBusyRef.current = false;
@@ -192,7 +192,7 @@ export function useWaifinity({ withPool = true } = {}) {
     }
   }, [uid, walletReady, state.pendingPack, state.coins, pool, persist]);
 
-  // ── Boutique : booster réservé aux waifus OU aux husbandos (chances du gratuit) ──
+  // ── Boutique : booster réservé aux waifus OU aux husbandos ──
   const openGenderBooster = useCallback(async (gender) => {
     const cfg = GENDER_BOOSTERS[gender];
     if (!cfg || !walletReady || walletBusyRef.current || state.pendingPack || state.coins < SHOP_GENDER_COST) return;
@@ -203,7 +203,7 @@ export function useWaifinity({ withPool = true } = {}) {
     setWalletIssue(null);
     try {
       const wallet = await adjustWaifinityBalance(uid, -SHOP_GENDER_COST, `booster_${cfg.source}`, newWalletOperationKey("purchase"));
-      const cards = generatePack(filtered, PACK_WEIGHTS.free);
+      const cards = generatePack(filtered, PACK_WEIGHTS.standard);
       const openedAt = Date.now();
       persist((prev) => ({
         ...prev,
@@ -220,7 +220,7 @@ export function useWaifinity({ withPool = true } = {}) {
     }
   }, [uid, walletReady, state.pendingPack, state.coins, pool, persist]);
 
-  // ── Boutique : booster ciblé sur une série (mêmes probabilités que "Chance+") ──
+  // ── Boutique : booster ciblé sur une série ──
   const openTargetedBooster = useCallback(async (seriesId) => {
     if (!walletReady || walletBusyRef.current || state.pendingPack || state.coins < SHOP_TARGET_COST) return;
     const filtered = pool.filter((c) => c.seriesId === seriesId);
@@ -230,7 +230,7 @@ export function useWaifinity({ withPool = true } = {}) {
     setWalletIssue(null);
     try {
       const wallet = await adjustWaifinityBalance(uid, -SHOP_TARGET_COST, "booster_targeted", newWalletOperationKey("purchase"));
-      const cards = generatePack(filtered, PACK_WEIGHTS.chance);
+      const cards = generatePack(filtered, PACK_WEIGHTS.standard);
       const openedAt = Date.now();
       persist((prev) => ({
         ...prev,
@@ -258,7 +258,7 @@ export function useWaifinity({ withPool = true } = {}) {
     setWalletIssue(null);
     try {
       const wallet = await adjustWaifinityBalance(uid, -cost, `booster_wish_${character.id}`, newWalletOperationKey("purchase"));
-      const cards = generatePack(pool, PACK_WEIGHTS.chance, undefined, character);
+      const cards = generatePack(pool, PACK_WEIGHTS.standard, undefined, character);
       const openedAt = Date.now();
       persist((prev) => ({
         ...prev,
@@ -381,32 +381,44 @@ export function useWaifinity({ withPool = true } = {}) {
     return rows;
   }, [uid]);
 
-  // Rafraîchissement manuel complet de Waifinity : Supabase est la source
-  // de vérité pour la collection et le wallet. Le bassin est rechargé en
-  // forçant son cache, puis les données sociales sont actualisées.
+  // Rafraîchissement complet de Waifinity (bouton de l'en-tête ET pull-to-refresh) :
+  // Supabase est la source de vérité pour la collection et le solde. Chaque
+  // source est indépendante (allSettled) : si les échanges échouent, la
+  // collection et le solde sont quand même mis à jour. Un solde récupéré avec
+  // succès lève aussi le blocage « wallet indisponible » d'un premier chargement raté.
+  // Ignoré pendant un achat ou la récupération d'un booster, pour ne pas
+  // écraser un état en cours d'écriture.
   const refreshWaifinity = useCallback(async () => {
-    if (!uid || refreshBusyRef.current) return;
+    if (!uid || refreshBusyRef.current || walletBusyRef.current) return;
     refreshBusyRef.current = true;
     setRefreshing(true);
+    setWalletIssue(null);
     try {
-      const [collection, wallet, rows] = await Promise.all([
+      const [collectionR, walletR, tradesR] = await Promise.allSettled([
         fetchMyWaifinityCollection(uid),
         fetchWaifinityWallet(uid),
         fetchMyTrades(uid),
+        withPool ? loadPool(true) : Promise.resolve(),
       ]);
 
-      if (collection) {
-        persist((prev) => ({ ...prev, collection }));
+      let wallet = walletR.status === "fulfilled" ? walletR.value : null;
+      if (!wallet && walletR.status === "fulfilled") {
+        // Aucun wallet encore créé pour ce compte : on l'initialise.
+        try { wallet = await ensureWaifinityWallet(uid, stateRef.current.coins); } catch (e) { console.error("Waifinity wallet :", e); }
       }
-      if (wallet) {
-        const balance = Number(wallet.balance) || 0;
-        persist((prev) => ({ ...prev, coins: balance }));
-      }
-      setTrades(rows || []);
 
-      if (withPool) {
-        await loadPool(true);
+      const collection = collectionR.status === "fulfilled" ? collectionR.value : null;
+      const balance = wallet ? Number(wallet.balance) || 0 : null;
+      if (collection || balance != null) {
+        persist((prev) => ({
+          ...prev,
+          ...(collection ? { collection } : {}),
+          ...(balance != null ? { coins: balance } : {}),
+        }));
       }
+      if (balance != null) setWalletReady(true);
+      else setWalletIssue(walletR.status === "rejected" ? (walletR.reason?.message || "Impossible de rafraîchir le solde.") : "Impossible de rafraîchir le solde.");
+      if (tradesR.status === "fulfilled") setTrades(tradesR.value || []);
     } catch (e) {
       console.error("Rafraîchissement Waifinity :", e);
       setWalletIssue(e?.message || "Impossible de rafraîchir Waifinity.");
@@ -475,9 +487,9 @@ export function useWaifinity({ withPool = true } = {}) {
     pendingPack: state.pendingPack,
     pool, poolMeta, poolLoading, poolError, reloadPool: () => loadPool(true),
     canOpenFree, cooldownMs, now,
-    openFreeBooster, openChanceBooster, openTargetedBooster, openGenderBooster, openWishBooster, claimPack,
+    openFreeBooster, openStandardBooster, openTargetedBooster, openGenderBooster, openWishBooster, claimPack,
     daily: dailyStatus(state), claimDaily,
-    canAffordChance:  state.coins >= SHOP_CHANCE_COST,
+    canAffordBooster: state.coins >= SHOP_BOOSTER_COST,
     canAffordTarget:  state.coins >= SHOP_TARGET_COST,
     canAffordGender:  state.coins >= SHOP_GENDER_COST,
     canAffordWish:    (tier) => state.coins >= wishCost(tier),

@@ -5,7 +5,7 @@ import { BoosterCard } from "./BoosterCard";
 import { haptics } from "../../utils/haptics";
 
 const SOURCE_LABEL = {
-  free: "Booster gratuit", chance: "Booster Chance+", targeted: "Booster ciblé",
+  free: "Booster gratuit", standard: "Booster normal", chance: "Booster", targeted: "Booster ciblé",
   waifu: "Booster Waifus", husbando: "Booster Husbandos", wish: "Booster Vœu",
 };
 

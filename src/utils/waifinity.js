@@ -15,12 +15,11 @@ import { purgeStaleCaches } from "../lib/cache.js";
 
 // ── Raretés ──────────────────────────────────────────────────────────────────
 //
-// coinValue (doublon → Anigold) : volontairement bas. Avant, le recyclage d'un
-// booster Chance+ (300 Anigold) rapportait en moyenne ~395 Anigold une fois la
-// collection avancée : la boutique s'autofinançait et le revenu explosait avec
-// la taille de la collection. Désormais, même à 100 % de collection, un booster
-// gratuit recycle ~60 Anigold et un Chance+ ~110 (pour 300 de coût) : la
-// boutique reste un vrai puits d'Anigold, et le revenu évolue en douceur
+// coinValue (doublon → Anigold) : volontairement bas. Les 10 cartes d'un booster
+// sont toutes conservées, donc les doublons sont fréquents et le recyclage
+// doit rester un complément, pas une source d'enrichissement : même à 100 % de
+// collection, un booster recycle ~60 Anigold pour 200 de prix en boutique. La
+// boutique reste ainsi un vrai puits d'Anigold et le revenu évolue en douceur
 // (voir NEW_CARD_COINS, DAILY_REWARDS et seriesCompletionBonus).
 
 export const RARITY_ORDER = ["common", "uncommon", "rare", "epic", "legendary", "secret"];
@@ -125,26 +124,37 @@ export function groupPoolBySeries(pool) {
 
 // ── Probabilités de tirage ───────────────────────────────────────────────────
 // PAR CARTE, indépendantes de la composition du bassin (chaque ligne = 1).
-// C'est ce qui rend un booster "plus chanceux" qu'un autre.
+// Une seule table : tous les boosters (gratuit, normal, Waifus/Husbandos,
+// ciblé, vœu) tirent avec les mêmes chances. Ce qui change, c'est le bassin
+// (tout, un genre, une série) et le prix.
 export const PACK_WEIGHTS = {
-  free:   { common: 0.550, uncommon: 0.280, rare: 0.120, epic: 0.040, legendary: 0.009, secret: 0.001 },
-  chance: { common: 0.250, uncommon: 0.330, rare: 0.250, epic: 0.130, legendary: 0.035, secret: 0.005 },
+  standard: { common: 0.550, uncommon: 0.280, rare: 0.120, epic: 0.040, legendary: 0.009, secret: 0.001 },
 };
 
 // Monnaie du jeu : l'Anigold. `coins` reste une copie locale/cache ; la source de vérité est le wallet Supabase.
+//
+// Prix de la boutique, pensés pour des boosters dont les 10 cartes sont
+// conservées : un booster normal vaut ce que vaut un booster gratuit (qu'on
+// obtient toutes les 3 h), donc on paie surtout pour ne pas attendre. Les
+// autres boosters se positionnent par rapport à lui :
+//   normal 200 · Waifus/Husbandos 260 (×1,3, pool filtré) · ciblé 500 (×2,5,
+//   un booster de série peut déclencher le bonus de complétion) · vœu =
+//   booster normal + une prime qui grimpe avec la rareté.
+// Simulation sur 120 jours : un joueur qui dépense tout en boosters normaux à
+// 200 gagne ~52 000 Anigold et en dépense ~52 000 — l'économie ne gonfle pas.
 export const BOOSTER_SIZE         = 10;
 export const FREE_COOLDOWN_HOURS  = 3;
 export const FREE_COOLDOWN_MS     = FREE_COOLDOWN_HOURS * 60 * 60 * 1000; // 1 booster gratuit toutes les 3 h
-export const SHOP_CHANCE_COST     = 300;
-export const SHOP_TARGET_COST     = 750;
-export const SHOP_GENDER_COST     = 200; // booster réservé aux waifus OU aux husbandos (chances du booster gratuit)
+export const SHOP_BOOSTER_COST    = 200;
+export const SHOP_GENDER_COST     = 260; // booster réservé aux waifus OU aux husbandos
+export const SHOP_TARGET_COST     = 500; // booster limité à une série
 
 // Vœu : garantit un personnage PRÉCIS (pas juste une série) dans le prochain
-// booster de 10 — bien plus fort qu'un booster ciblé, donc bien plus cher,
-// et scalé par palier puisque garantir un Secret vaut nettement plus qu'un
-// Common. Gros sink de coins pour la fin de partie.
+// booster de 10 — bien plus fort qu'un booster ciblé. Toujours plus cher
+// qu'un booster normal (le vœu en est un, avec 9 autres cartes), et scalé par
+// palier : garantir un Secret vaut nettement plus qu'un Common.
 export const WISH_COST = {
-  common: 80, uncommon: 120, rare: 200, epic: 350, legendary: 700, secret: 1500,
+  common: 250, uncommon: 300, rare: 450, epic: 800, legendary: 1600, secret: 3500,
 };
 export function wishCost(tier) {
   return WISH_COST[normalizeTier(tier)];

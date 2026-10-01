@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "motion/react";
-import { ChevronLeft, Sparkles, LayoutGrid, Store, Coins, Users, AlertTriangle, RefreshCw } from "lucide-react";
+import { ChevronLeft, Sparkles, LayoutGrid, Store, Coins, Users, AlertTriangle } from "lucide-react";
 import { TopBar } from "../components/common/TopBar";
 import { PageBanner } from "../components/common/PageBanner";
+import { PullToRefresh } from "../components/common/PullToRefresh";
 import { useWaifinity } from "../hooks/useWaifinity";
 import { MAX_FAVORITES } from "../utils/waifinity";
 import { PackOpening } from "../components/games/PackOpening";
@@ -80,6 +81,10 @@ export function GamesWaifinity() {
   const sheetEntry = sheetId != null ? game.collection[sheetId] : null;
   const sheetCharacter = sheetId != null ? (game.pool.find((c) => c.id === sheetId) || sheetEntry || null) : null;
 
+  // Même action que le bouton de l'en-tête. Pas de rafraîchissement pendant
+  // l'ouverture d'un booster : la page est alors dans un état transitoire.
+  const handlePullRefresh = () => (game.pendingPack ? undefined : game.refreshWaifinity());
+
   async function handleClaimPack() {
     const r = await game.claimPack();
     if (r?.length) setResult(r);
@@ -89,7 +94,8 @@ export function GamesWaifinity() {
     <div className="relative min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter',sans-serif" }}>
       <PageBanner height="clamp(180px, 26vw, 280px)" position="80% 20%" />
 
-      <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 pb-nav pt-safe-8">
+      <PullToRefresh onRefresh={handlePullRefresh} className="relative z-10">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-nav pt-safe-8">
 
         {/* ── En-tête ── */}
         <div className="flex items-start justify-between gap-3 mb-6">
@@ -103,19 +109,7 @@ export function GamesWaifinity() {
             </h1>
             <p className="mt-1 text-sm text-violet-200 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)]">Ouvre des boosters et complète ta collection.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={game.refreshWaifinity}
-              disabled={game.refreshing}
-              title="Rafraîchir Waifinity"
-              aria-label="Rafraîchir Waifinity"
-              className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-violet-900/60 border border-white/10 text-violet-200 hover:text-white hover:border-white/20 hover:bg-violet-800/70 transition-all disabled:opacity-60 disabled:cursor-wait"
-            >
-              <RefreshCw size={16} className={game.refreshing ? "animate-spin" : ""} />
-            </button>
-            <TopBar />
-          </div>
+          <TopBar onRefresh={game.refreshWaifinity} refreshing={game.refreshing} refreshLabel="Rafraîchir Waifinity" />
         </div>
 
         <Overview game={game} />
@@ -146,13 +140,14 @@ export function GamesWaifinity() {
             {tab === "shop" && (
               <ShopPanel
                 pool={game.pool} pendingPack={game.pendingPack} coins={game.coins}
-                canAffordChance={game.canAffordChance} canAffordTarget={game.canAffordTarget} canAffordGender={game.canAffordGender}
-                onBuyChance={game.openChanceBooster} onBuyTargeted={game.openTargetedBooster} onBuyGender={game.openGenderBooster}
+                canAffordBooster={game.canAffordBooster} canAffordTarget={game.canAffordTarget} canAffordGender={game.canAffordGender}
+                onBuyStandard={game.openStandardBooster} onBuyTargeted={game.openTargetedBooster} onBuyGender={game.openGenderBooster}
               />
             )}
           </>
         )}
       </div>
+      </PullToRefresh>
 
       <AnimatePresence>
         {result && <PackResultModal key="pack-result" results={result} onClose={() => setResult(null)} />}

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, Clock, RefreshCw, AlertTriangle, Coins, ChevronDown, Check, Gift } from "lucide-react";
 import {
-  RARITY, RARITY_ORDER, PACK_WEIGHTS, FREE_COOLDOWN_HOURS, FREE_COOLDOWN_MS, SHOP_GENDER_COST,
+  RARITY, RARITY_ORDER, PACK_WEIGHTS, FREE_COOLDOWN_HOURS, FREE_COOLDOWN_MS, SHOP_BOOSTER_COST,
   DAILY_REWARDS, NEW_CARD_COINS, SERIES_MIN_SIZE, SERIES_BONUS_CAP,
   countByTier, formatCountdown, formatPercent,
 } from "../../utils/waifinity";
@@ -163,8 +163,8 @@ export function BoostersTab({ game, onGoShop }) {
         {onGoShop && (
           <button onClick={() => { haptics.tap(); onGoShop(); }}
             className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs text-violet-300 hover:text-amber-300 active:scale-[0.98] transition-colors motion-reduce:transition-none">
-            Envie d'aller plus vite ? Voir la boutique · dès
-            <Coins size={11} className="text-amber-400" />{SHOP_GENDER_COST}
+            Envie d'en ouvrir plus ? Booster normal en boutique ·
+            <Coins size={11} className="text-amber-400" />{SHOP_BOOSTER_COST}
           </button>
         )}
       </section>
@@ -176,8 +176,7 @@ export function BoostersTab({ game, onGoShop }) {
       <Disclosure title="Chances de tirage">
         <div className="flex items-center gap-2 px-4 pb-1 text-[11px] text-violet-400">
           <span className="flex-1">Rareté · personnages dans le bassin</span>
-          <span className={colHead}>Gratuit</span>
-          <span className={colHead}>Chance+</span>
+          <span className="w-20 text-right text-[11px] text-violet-400">Par carte</span>
         </div>
         <ul className="divide-y divide-white/5 px-4 pb-1.5">
           {RARITY_ORDER.map((t) => {
@@ -188,13 +187,12 @@ export function BoostersTab({ game, onGoShop }) {
                 <span className={`text-[13px] font-semibold flex-1 truncate ${r.text}`}>
                   {r.label}{tierCounts[t] ? <span className="font-normal text-violet-400"> · {tierCounts[t]}</span> : null}
                 </span>
-                <span className="w-14 text-right font-mono text-xs text-violet-100 tabular-nums">{formatPercent(PACK_WEIGHTS.free[t])}</span>
-                <span className="w-14 text-right font-mono text-xs text-violet-100 tabular-nums">{formatPercent(PACK_WEIGHTS.chance[t])}</span>
+                <span className="w-20 text-right font-mono text-xs text-violet-100 tabular-nums">{formatPercent(PACK_WEIGHTS.standard[t])}</span>
               </li>
             );
           })}
         </ul>
-        <p className="text-xs text-violet-400 px-4 pb-3">Chances par carte. La rareté dépend du nombre de favoris du personnage sur MyAnimeList.</p>
+        <p className="text-xs text-violet-400 px-4 pb-3">Les mêmes chances s'appliquent à tous les boosters. La rareté dépend du nombre de favoris du personnage sur MyAnimeList.</p>
       </Disclosure>
 
       {/* ── Gains d'Anigold ── */}

@@ -1,14 +1,13 @@
 import { useState, useMemo } from "react";
 import { Sparkles, Target, Users, Coins, ChevronDown, Search, Star } from "lucide-react";
 import {
-  SHOP_CHANCE_COST, SHOP_TARGET_COST, SHOP_GENDER_COST, PACK_WEIGHTS, GENDER_BOOSTERS,
+  SHOP_BOOSTER_COST, SHOP_TARGET_COST, SHOP_GENDER_COST, GENDER_BOOSTERS,
   RARITY, RARITY_ORDER, WISH_COST, filterPoolByGender, topSeries,
 } from "../../utils/waifinity";
 import { RarityDot } from "./RarityBadge";
 import { haptics } from "../../utils/haptics";
 
 const HEADING = { fontFamily: "'Space Grotesk',sans-serif" };
-const mult = (tier) => Math.round(PACK_WEIGHTS.chance[tier] / PACK_WEIGHTS.free[tier]);
 
 function Group({ title, children }) {
   return (
@@ -48,8 +47,8 @@ function ShopCard({ icon, title, desc, children }) {
 const buyBtn = "mt-3 w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-amber-400 text-violet-950 text-sm font-semibold disabled:bg-white/5 disabled:border disabled:border-white/10 disabled:text-violet-400 disabled:cursor-not-allowed active:scale-[0.98] transition-transform motion-reduce:transition-none";
 
 export function ShopPanel({
-  pool, pendingPack, coins = 0, canAffordChance, canAffordTarget, canAffordGender,
-  onBuyChance, onBuyTargeted, onBuyGender,
+  pool, pendingPack, coins = 0, canAffordBooster, canAffordTarget, canAffordGender,
+  onBuyStandard, onBuyTargeted, onBuyGender,
 }) {
   const [seriesOpen, setSeriesOpen] = useState(false);
   const [seriesQuery, setSeriesQuery] = useState("");
@@ -69,22 +68,22 @@ export function ShopPanel({
       <Group title="Boosters aléatoires">
         <ShopCard
           icon={<Sparkles size={18} />}
-          title="Booster Chance+"
-          desc={`10 cartes avec de meilleures chances : environ ×${mult("legendary")} de Legendary et ×${mult("secret")} de Secret par rapport au booster gratuit.`}
+          title="Booster normal"
+          desc="10 cartes, toutes ajoutées à ta collection, avec les mêmes chances que le booster gratuit. Sans attendre les 3 heures."
         >
           <button
-            onClick={() => { haptics.success(); onBuyChance(); }}
-            disabled={busy || !pool.length || !canAffordChance}
+            onClick={() => { haptics.success(); onBuyStandard(); }}
+            disabled={busy || !pool.length || !canAffordBooster}
             className={buyBtn}
           >
-            <span>Acheter</span><Price cost={SHOP_CHANCE_COST} coins={coins} />
+            <span>Acheter</span><Price cost={SHOP_BOOSTER_COST} coins={coins} />
           </button>
         </ShopCard>
 
         <ShopCard
           icon={<Users size={18} />}
           title="Booster Waifus ou Husbandos"
-          desc="10 cartes uniquement ♀ ou uniquement ♂, avec les chances du booster gratuit."
+          desc="10 cartes uniquement ♀ ou uniquement ♂, avec les chances du booster normal."
         >
           <div className="mt-3 grid grid-cols-2 gap-2">
             {Object.entries(GENDER_BOOSTERS).map(([gender, cfg]) => (
@@ -105,7 +104,7 @@ export function ShopPanel({
         <ShopCard
           icon={<Target size={18} />}
           title="Booster ciblé sur une série"
-          desc={`10 cartes piochées uniquement dans la série de ton choix, avec les chances du Chance+.`}
+          desc={`10 cartes piochées uniquement dans la série de ton choix, avec les chances du booster normal.`}
         >
           <button onClick={() => setSeriesOpen((v) => !v)} disabled={busy || !series.length}
             aria-expanded={seriesOpen}
@@ -143,7 +142,7 @@ export function ShopPanel({
         <ShopCard
           icon={<Star size={18} />}
           title="Vœu sur un personnage"
-          desc="Garantit un personnage précis parmi les 10 cartes du prochain booster. Ouvre sa fiche depuis Collection › Explorer pour faire ton vœu."
+          desc="Garantit un personnage précis parmi les 10 cartes d'un booster normal. Ouvre sa fiche depuis Collection › Explorer pour faire ton vœu."
         >
           <ul className="mt-3 grid grid-cols-3 gap-1.5">
             {RARITY_ORDER.map((t) => (
