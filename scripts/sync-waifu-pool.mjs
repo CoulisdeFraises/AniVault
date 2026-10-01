@@ -102,6 +102,8 @@ const FETCH_ANIME     = !flag("no-anime");
 const DRY_RUN         = flag("dry");
 const FRESH           = flag("fresh");
 const EXCLUDE_ADULT   = flag("exclude-adult"); // désactivé par défaut : les images MAL restent des portraits SFW
+const APPEND_COUNT    = Math.max(0, Number(opt("append", 0)) || 0);
+const REPAIR_SERIES   = flag("repair-series");
 
 if (ANILIST_REQUESTED > ANILIST_MAX) {
   console.log(`⚠ --anilist-count ${ANILIST_REQUESTED} demandé, mais AniList refuse toute pagination au-delà de ${ANILIST_MAX} résultats — ramené à ${ANILIST_MAX}.`);
@@ -364,15 +366,120 @@ function cleanAbout(raw) {
   return end > 120 ? cut.slice(0, end + 1) : cut.replace(/\s+\S*$/, "") + "…";
 }
 
-/** Série principale + description d'un personnage MAL, via /characters/{id}/full. */
+const SERIES_CACHE = "series-canonical.json";
+
+/**
+ * Retourne l'anime parent d'un anime donné.
+ *
+ * On remonte uniquement via :
+ * - Prequel
+ * - Parent story
+ *
+ * Cela permet par exemple de transformer :
+ *
+ *   Naruto Shippuden
+ *        ↓ Prequel
+ *   Naruto
+ *
+ * en :
+ *
+ *   series = Naruto
+ *   anime_mal_id = 20
+ */
+async function resolveCanonicalSeries(startAnimeId) {
+  if (!startAnimeId) {
+    return { animeMalId: null, series: null };
+  }
+
+  const cache = readCache(SERIES_CACHE) || {};
+
+  if (cache[startAnimeId]) {
+    return cache[startAnimeId];
+  }
+
+  let currentId = Number(startAnimeId);
+  const visited = new Set();
+
+  for (let depth = 0; depth < 10; depth++) {
+    if (!currentId || visited.has(currentId)) break;
+    visited.add(currentId);
+
+    const json = await fetchTenraiJson(
+      `${TENRAI_BASE}/anime/${currentId}/relations`,
+      `Tenrai (relations anime ${currentId})`
+    );
+
+    const relations = json?.data || [];
+
+    const parents = relations
+      .filter((r) =>
+        r.relation === "Prequel" ||
+        r.relation === "Parent story"
+      )
+      .flatMap((r) => r.entry || [])
+      .filter((e) => e?.type === "anime" && e?.mal_id);
+
+    if (!parents.length) break;
+
+    // On prend le premier parent anime disponible.
+    currentId = Number(parents[0].mal_id);
+  }
+
+  const rootJson = await fetchTenraiJson(
+    `${TENRAI_BASE}/anime/${currentId}`,
+    `Tenrai (anime principal ${currentId})`
+  );
+
+  const result = {
+    animeMalId: currentId,
+    series: rootJson?.data?.title || null,
+  };
+
+  cache[startAnimeId] = result;
+  writeCache(SERIES_CACHE, cache);
+
+  return result;
+}
+
+
+/**
+ * Série principale + description d'un personnage MAL.
+ *
+ * On récupère d'abord un anime dans lequel le personnage est Main,
+ * puis on remonte jusqu'à la série racine.
+ */
 async function fetchMalAnime(malId) {
-  const json = await fetchTenraiJson(`${TENRAI_BASE}/characters/${malId}/full`, `Tenrai (perso ${malId})`);
+  const json = await fetchTenraiJson(
+    `${TENRAI_BASE}/characters/${malId}/full`,
+    `Tenrai (perso ${malId})`
+  );
+
   const anime = json?.data?.anime || [];
-  const main = anime.find((a) => a.role === "Main") || anime[0] || null;
+
+  const main =
+    anime.find((a) => a.role === "Main") ||
+    anime[0] ||
+    null;
+
   const about = cleanAbout(json?.data?.about);
-  return main?.anime
-    ? { animeMalId: main.anime.mal_id, series: main.anime.title, about }
-    : { animeMalId: null, series: null, about };
+
+  if (!main?.anime?.mal_id) {
+    return {
+      animeMalId: null,
+      series: null,
+      about,
+    };
+  }
+
+  const canonical = await resolveCanonicalSeries(
+    main.anime.mal_id
+  );
+
+  return {
+    animeMalId: canonical.animeMalId,
+    series: canonical.series,
+    about,
+  };
 }
 
 const ANIME_CACHE = "mal-anime.json";
@@ -444,6 +551,510 @@ function buildRows(malList, dict) {
   return { rows, matched, adultCount, adultExcluded };
 }
 
+/**
+ * Corrige les séries déjà présentes dans Supabase.
+ *
+ * Important :
+ * - aucune ligne n'est supprimée ;
+ * - on ne touche pas au mal_id du personnage ;
+ * - on corrige uniquement anime_mal_id + series.
+ */
+async function repairExistingSeries() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error(
+      "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY manquants."
+    );
+  }
+
+  const supabase = createClient(url, key, {
+    auth: { persistSession: false },
+  });
+
+  console.log("\n[REPAIR] Lecture des personnages existants…");
+
+  const { data: rows, error } = await supabase
+    .from("waifinity_characters")
+    .select("mal_id, anime_mal_id, series");
+
+  if (error) {
+    throw new Error(
+      `Lecture Supabase échouée : ${error.message}`
+    );
+  }
+
+  const animeIds = [
+    ...new Set(
+      (rows || [])
+        .map((r) => Number(r.anime_mal_id))
+        .filter(Boolean)
+    ),
+  ];
+
+  console.log(
+    `[REPAIR] ${rows.length} personnages, ${animeIds.length} séries/anime uniques.`
+  );
+
+  const canonicalCache = readCache(SERIES_CACHE) || {};
+
+  let changed = 0;
+
+  for (let i = 0; i < animeIds.length; i++) {
+    const oldId = animeIds[i];
+
+    let canonical;
+
+    try {
+      canonical = await resolveCanonicalSeries(oldId);
+    } catch (e) {
+      console.log(
+        `\n⚠ Impossible de résoudre ${oldId} : ${e.message}`
+      );
+      continue;
+    }
+
+    if (!canonical.animeMalId) continue;
+
+    const needsUpdate =
+      Number(canonical.animeMalId) !== oldId ||
+      !canonical.series;
+
+    if (!needsUpdate) {
+      continue;
+    }
+
+    const affected = (rows || []).filter(
+      (r) => Number(r.anime_mal_id) === oldId
+    );
+
+    if (!affected.length) continue;
+
+    console.log(
+      `\n  ${oldId} → ${canonical.animeMalId} : ${canonical.series} (${affected.length} personnages)`
+    );
+
+    if (!DRY_RUN) {
+      const { error: updateError } = await supabase
+        .from("waifinity_characters")
+        .update({
+          anime_mal_id: canonical.animeMalId,
+          series: canonical.series,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("anime_mal_id", oldId);
+
+      if (updateError) {
+        throw new Error(
+          `Mise à jour de la série ${oldId} échouée : ${updateError.message}`
+        );
+      }
+    }
+
+    changed += affected.length;
+
+    process.stdout.write(
+      `\r  ${i + 1}/${animeIds.length}`
+    );
+
+    await sleep(TENRAI_DELAY_MS);
+  }
+
+  process.stdout.write("\n");
+
+  console.log(
+    DRY_RUN
+      ? `\n[REPAIR] --dry : ${changed} personnages seraient corrigés.`
+      : `\n[REPAIR] ✔ ${changed} personnages corrigés.`
+  );
+}
+
+/**
+ * Récupère les personnages d'une série depuis Tenrai.
+ *
+ * Endpoint :
+ * GET /anime/{id}/characters
+ */
+async function fetchSeriesCharacters(seriesId) {
+  const json = await fetchTenraiJson(
+    `${TENRAI_BASE}/anime/${seriesId}/characters`,
+    `Tenrai (personnages série ${seriesId})`
+  );
+
+  return json?.data || [];
+}
+
+
+/**
+ * Récupère les informations complètes d'un personnage.
+ *
+ * Sert uniquement pour les nouveaux personnages ajoutés.
+ */
+async function fetchCharacterForAppend(malId) {
+  const json = await fetchTenraiJson(
+    `${TENRAI_BASE}/characters/${malId}/full`,
+    `Tenrai (nouveau perso ${malId})`
+  );
+
+  const c = json?.data;
+
+  if (!c?.mal_id) {
+    return null;
+  }
+
+  const image =
+    c.images?.jpg?.image_url ||
+    c.images?.webp?.image_url ||
+    null;
+
+  if (!image || DEFAULT_IMAGE.test(image)) {
+    return null;
+  }
+
+  return {
+    malId: c.mal_id,
+    name: c.name,
+    image,
+    favourites: c.favorites || 0,
+    about: cleanAbout(c.about),
+  };
+}
+
+
+/**
+ * Construit les nouvelles lignes à partir des séries existantes.
+ *
+ * Stratégie :
+ *
+ * 1 personnage → on ajoute 1
+ * puis
+ * 2 personnages → on ajoute 1
+ * puis
+ * 3 personnages → on ajoute 1
+ * etc.
+ *
+ * Cela évite qu'une série possédant déjà beaucoup de personnages
+ * monopolise tout l'append.
+ */
+async function buildAppendRows(count, dict) {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error(
+      "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY manquants."
+    );
+  }
+
+  const supabase = createClient(url, key, {
+    auth: { persistSession: false },
+  });
+
+  console.log("\n[APPEND] Lecture de la BDD actuelle…");
+
+  const { data: existing, error } = await supabase
+    .from("waifinity_characters")
+    .select("mal_id, anime_mal_id, series");
+
+  if (error) {
+    throw new Error(
+      `Lecture Supabase échouée : ${error.message}`
+    );
+  }
+
+  const existingIds = new Set(
+    (existing || []).map((r) => Number(r.mal_id))
+  );
+
+  // série → nombre de personnages
+  const seriesCounts = new Map();
+
+  // série → nom
+  const seriesNames = new Map();
+
+  for (const row of existing || []) {
+    const id = Number(row.anime_mal_id);
+
+    if (!id) continue;
+
+    seriesCounts.set(
+      id,
+      (seriesCounts.get(id) || 0) + 1
+    );
+
+    if (row.series) {
+      seriesNames.set(id, row.series);
+    }
+  }
+
+  console.log(
+    `[APPEND] ${existingIds.size} personnages existants.`
+  );
+
+  console.log(
+    `[APPEND] ${seriesCounts.size} séries existantes.`
+  );
+
+  const seriesCache = new Map();
+  const exhausted = new Set();
+
+  const selected = new Map();
+
+  function totalSelected() {
+    let total = 0;
+
+    for (const list of selected.values()) {
+      total += list.length;
+    }
+
+    return total;
+  }
+
+  /**
+   * On continue tant qu'on n'a pas atteint count.
+   *
+   * Chaque tour ajoute au maximum 1 personnage par série.
+   */
+  while (totalSelected() < count) {
+    const candidates = [...seriesCounts.entries()]
+      .filter(([seriesId]) => !exhausted.has(seriesId))
+      .sort((a, b) => {
+        const countA = a[1];
+        const countB = b[1];
+
+        if (countA !== countB) {
+          return countA - countB;
+        }
+
+        return (
+          String(seriesNames.get(a[0]) || "")
+            .localeCompare(
+              String(seriesNames.get(b[0]) || "")
+            )
+        );
+      });
+
+    if (!candidates.length) {
+      break;
+    }
+
+    let addedThisRound = 0;
+
+    for (const [seriesId] of candidates) {
+      if (totalSelected() >= count) break;
+
+      if (!seriesCache.has(seriesId)) {
+        try {
+          const chars = await fetchSeriesCharacters(seriesId);
+
+          const usable = chars
+            .map((entry) => entry?.character)
+            .filter(Boolean)
+            .filter((c) => c.mal_id)
+            .filter((c) => c.name)
+            .filter((c) => !MANUAL_EXCLUDE_MAL_IDS.has(c.mal_id))
+            .filter((c) => {
+              const image =
+                c.images?.jpg?.image_url ||
+                c.images?.webp?.image_url;
+
+              return image && !DEFAULT_IMAGE.test(image);
+            });
+
+          seriesCache.set(seriesId, usable);
+        } catch (e) {
+          console.log(
+            `\n⚠ Série ${seriesId} inaccessible : ${e.message}`
+          );
+
+          exhausted.add(seriesId);
+          continue;
+        }
+
+        await sleep(TENRAI_DELAY_MS);
+      }
+
+      const chars = seriesCache.get(seriesId) || [];
+
+      const alreadyChosen = selected.get(seriesId) || [];
+
+      const candidate = chars.find((c) => {
+        const id = Number(c.mal_id);
+
+        return (
+          !existingIds.has(id) &&
+          !alreadyChosen.some(
+            (x) => Number(x.malId) === id
+          )
+        );
+      });
+
+      if (!candidate) {
+        exhausted.add(seriesId);
+        continue;
+      }
+
+      alreadyChosen.push({
+        malId: candidate.mal_id,
+        name: candidate.name,
+        image:
+          candidate.images?.jpg?.image_url ||
+          candidate.images?.webp?.image_url ||
+          null,
+        seriesId,
+        series: seriesNames.get(seriesId) || null,
+      });
+
+      selected.set(seriesId, alreadyChosen);
+
+      seriesCounts.set(
+        seriesId,
+        seriesCounts.get(seriesId) + 1
+      );
+
+      addedThisRound++;
+
+      if (totalSelected() >= count) break;
+    }
+
+    console.log(
+      `\n[APPEND] ${totalSelected()}/${count} candidats sélectionnés`
+    );
+
+    if (!addedThisRound) {
+      break;
+    }
+  }
+
+  const candidates = [...selected.values()].flat();
+
+  console.log(
+    `\n[APPEND] ${candidates.length} nouveaux personnages trouvés.`
+  );
+
+  if (!candidates.length) {
+    return [];
+  }
+
+  // Maintenant seulement, on récupère les fiches complètes.
+  const rows = [];
+
+  for (let i = 0; i < candidates.length; i++) {
+    const candidate = candidates[i];
+
+    try {
+      const full = await fetchCharacterForAppend(
+        candidate.malId
+      );
+
+      if (!full) continue;
+
+      let gender = null;
+      let isAdult = false;
+
+      for (const key of nameCandidates(full.name)) {
+        const hit = dict.get(key);
+
+        if (hit) {
+          gender = hit.gender;
+          isAdult = hit.isAdult;
+          break;
+        }
+      }
+
+      if (isAdult && EXCLUDE_ADULT) {
+        continue;
+      }
+
+      rows.push({
+        mal_id: full.malId,
+        name: full.name,
+        image: full.image,
+        gender,
+        favourites: full.favourites,
+        rank: null,
+        anime_mal_id: candidate.seriesId,
+        series: candidate.series,
+        about: full.about,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.log(
+        `\n⚠ Personnage ${candidate.malId} ignoré : ${e.message}`
+      );
+    }
+
+    if (i % 10 === 0) {
+      process.stdout.write(
+        `\r  fiches ${i}/${candidates.length}`
+      );
+    }
+
+    // ~3-4 requêtes/s maximum avec Tenrai.
+    await sleep(300);
+  }
+
+  process.stdout.write(
+    `\r  fiches ${candidates.length}/${candidates.length}\n`
+  );
+
+  return rows;
+}
+
+
+/**
+ * Écrit uniquement les nouvelles lignes.
+ *
+ * IMPORTANT :
+ * aucune suppression.
+ */
+async function appendToSupabase(rows) {
+  if (!rows.length) {
+    console.log("\n[APPEND] Rien à ajouter.");
+    return;
+  }
+
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  const supabase = createClient(url, key, {
+    auth: { persistSession: false },
+  });
+
+  console.log(
+    `\n[APPEND] Ajout de ${rows.length} personnages…`
+  );
+
+  const BATCH = 500;
+
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const batch = rows.slice(i, i + BATCH);
+
+    const { error } = await supabase
+      .from("waifinity_characters")
+      .upsert(batch, {
+        onConflict: "mal_id",
+      });
+
+    if (error) {
+      throw new Error(
+        `Append Supabase échoué : ${error.message}`
+      );
+    }
+
+    process.stdout.write(
+      `\r  ${Math.min(i + BATCH, rows.length)}/${rows.length}`
+    );
+  }
+
+  process.stdout.write("\n");
+
+  console.log(
+    `✔ ${rows.length} nouveaux personnages ajoutés.`
+  );
+}
+
 async function writeToSupabase(rows) {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -480,29 +1091,144 @@ async function writeToSupabase(rows) {
 }
 
 async function main() {
-  const dict = await buildAniListDictionary(ANILIST_COUNT);
-  const malList = await fetchMalTop(MAL_COUNT);
-  if (malList.length < 100) throw new Error(`Seulement ${malList.length} personnages MAL récupérés — abandon.`);
 
-  if (FETCH_ANIME) await enrichWithAnime(malList);
+  // ─────────────────────────────────────────────
+  // MODE REPAIR
+  // ─────────────────────────────────────────────
 
-  const { rows, matched, adultCount, adultExcluded } = buildRows(malList, dict);
-  const withGender = rows.filter((r) => r.gender).length;
+  if (REPAIR_SERIES) {
+    await repairExistingSeries();
 
-  console.log(`\n✔ ${rows.length} personnages prêts`);
-  console.log(`  genre trouvé (AniList) : ${withGender}/${rows.length} (${Math.round((matched / malList.length) * 100)} % de correspondances nom)`);
-  console.log(
-    EXCLUDE_ADULT
-      ? `  écartés pour contenu adulte (via correspondance AniList) : ${adultExcluded}`
-      : `  personnages de séries "adulte" conservés (via correspondance AniList) : ${adultCount} — relance avec --exclude-adult pour les exclure`
+    if (DRY_RUN) {
+      console.log(
+        "\n✔ --repair-series --dry terminé."
+      );
+    } else {
+      console.log(
+        "\n✔ Réparation des séries terminée."
+      );
+    }
+
+    return;
+  }
+
+
+  // ─────────────────────────────────────────────
+  // MODE APPEND
+  // ─────────────────────────────────────────────
+
+  if (APPEND_COUNT > 0) {
+
+    console.log(
+      `\n════════════════════════════════════════`
+    );
+
+    console.log(
+      ` APPEND : +${APPEND_COUNT} personnages`
+    );
+
+    console.log(
+      `════════════════════════════════════════`
+    );
+
+    const dict =
+      await buildAniListDictionary(ANILIST_COUNT);
+
+    const rows =
+      await buildAppendRows(
+        APPEND_COUNT,
+        dict
+      );
+
+    console.log(
+      `\n✔ ${rows.length} personnages prêts pour append`
+    );
+
+    if (DRY_RUN) {
+      console.log(
+        "\n(--dry) Rien écrit dans Supabase."
+      );
+
+      return;
+    }
+
+    await appendToSupabase(rows);
+
+    console.log(
+      "\n✔ Append terminé."
+    );
+
+    return;
+  }
+
+
+  // ─────────────────────────────────────────────
+  // MODE NORMAL
+  // ─────────────────────────────────────────────
+
+  const dict =
+    await buildAniListDictionary(
+      ANILIST_COUNT
+    );
+
+  const malList =
+    await fetchMalTop(
+      MAL_COUNT
+    );
+
+  if (malList.length < 100) {
+    throw new Error(
+      `Seulement ${malList.length} personnages MAL récupérés — abandon.`
+    );
+  }
+
+  if (FETCH_ANIME) {
+    await enrichWithAnime(malList);
+  }
+
+  const {
+    rows,
+    matched,
+    adultCount,
+    adultExcluded,
+  } = buildRows(
+    malList,
+    dict
   );
 
-  if (DRY_RUN) { console.log("\n(--dry) Rien écrit dans Supabase. Le cache local est conservé pour un run complet ultérieur."); return; }
-  await writeToSupabase(rows);
-  console.log("\n✔ Bassin synchronisé dans Supabase (table waifinity_characters).");
+  const withGender =
+    rows.filter((r) => r.gender).length;
 
-  // Une fois écrit avec succès, le cache n'a plus lieu d'être : un prochain
-  // `npm run pool` doit repartir sur des données fraîches, pas rejouer ce run.
+  console.log(
+    `\n✔ ${rows.length} personnages prêts`
+  );
+
+  console.log(
+    `  genre trouvé (AniList) : ${withGender}/${rows.length} (${Math.round(
+      (matched / malList.length) * 100
+    )} % de correspondances nom)`
+  );
+
+  console.log(
+    EXCLUDE_ADULT
+      ? `  écartés pour contenu adulte : ${adultExcluded}`
+      : `  personnages de séries "adulte" conservés : ${adultCount}`
+  );
+
+  if (DRY_RUN) {
+    console.log(
+      "\n(--dry) Rien écrit dans Supabase."
+    );
+
+    return;
+  }
+
+  await writeToSupabase(rows);
+
+  console.log(
+    "\n✔ Bassin synchronisé dans Supabase."
+  );
+
   clearCache(ANILIST_CACHE);
   clearCache(MAL_LIST_CACHE);
   clearCache(ANIME_CACHE);
