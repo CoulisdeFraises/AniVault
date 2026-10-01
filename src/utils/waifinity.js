@@ -145,16 +145,16 @@ export const PACK_WEIGHTS = {
 export const BOOSTER_SIZE         = 10;
 export const FREE_COOLDOWN_HOURS  = 3;
 export const FREE_COOLDOWN_MS     = FREE_COOLDOWN_HOURS * 60 * 60 * 1000; // 1 booster gratuit toutes les 3 h
-export const SHOP_BOOSTER_COST    = 200;
-export const SHOP_GENDER_COST     = 260; // booster réservé aux waifus OU aux husbandos
-export const SHOP_TARGET_COST     = 500; // booster limité à une série
+export const SHOP_BOOSTER_COST    = 300;
+export const SHOP_GENDER_COST     = 350; // booster réservé aux waifus OU aux husbandos
+export const SHOP_TARGET_COST     = 1500; // booster limité à une série
 
 // Vœu : garantit un personnage PRÉCIS (pas juste une série) dans le prochain
 // booster de 10 — bien plus fort qu'un booster ciblé. Toujours plus cher
 // qu'un booster normal (le vœu en est un, avec 9 autres cartes), et scalé par
 // palier : garantir un Secret vaut nettement plus qu'un Common.
 export const WISH_COST = {
-  common: 250, uncommon: 300, rare: 450, epic: 800, legendary: 1600, secret: 3500,
+  common: 300, uncommon: 400, rare: 500, epic: 1000, legendary: 2000, secret: 5000,
 };
 export function wishCost(tier) {
   return WISH_COST[normalizeTier(tier)];
