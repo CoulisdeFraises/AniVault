@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Sparkles, Copy, Star } from "lucide-react";
+import { Sparkles, Copy, Star, Gem } from "lucide-react";
 import { RARITY, normalizeTier } from "../../utils/waifinity";
 import { RarityBadge } from "./RarityBadge";
 import { GenderBadge } from "./GenderBadge";
@@ -20,9 +20,11 @@ import { haptics } from "../../utils/haptics";
  * selon la rareté — voir RARITY dans utils/waifinity.js) attire l'œil sur
  * les tirages les plus rares. `isDuplicate` affiche un petit badge si ce
  * personnage est déjà dans la collection (ou apparaît une 2e fois dans ce
- * même booster) — calculé par le parent (PackOpening).
+ * même booster) — calculé par le parent (PackOpening). Le badge est posé au
+ * CENTRE de la carte (image assombrie) pour se repérer d'un coup d'œil ;
+ * `fragments` y affiche le nombre de fragments que ce doublon va rapporter.
  */
-export function BoosterCard({ card, revealed, isDuplicate, onReveal }) {
+export function BoosterCard({ card, revealed, isDuplicate, fragments = 0, onReveal }) {
   const r = RARITY[normalizeTier(card.tier)];
   const [flash, setFlash] = useState(false);
 
@@ -43,7 +45,7 @@ export function BoosterCard({ card, revealed, isDuplicate, onReveal }) {
     <button
       onClick={handleClick}
       className="relative aspect-[3/4] w-full [perspective:800px] active:scale-95 transition-transform motion-reduce:transition-none"
-      aria-label={revealed ? `${card.name} — ${r.label}${isDuplicate ? " — déjà possédé" : ""}${card.wish ? " — ton vœu" : ""}` : "Révéler cette carte"}
+      aria-label={revealed ? `${card.name} — ${r.label}${isDuplicate ? ` — doublon${fragments ? `, ${fragments} fragments` : ""}` : ""}${card.wish ? " — ton vœu" : ""}` : "Révéler cette carte"}
     >
       {revealed && (
         <div
@@ -82,12 +84,17 @@ export function BoosterCard({ card, revealed, isDuplicate, onReveal }) {
               : <div className="w-full h-full flex items-center justify-center text-violet-600 text-2xl">?</div>}
             <div className="absolute top-1 left-1"><RarityBadge tier={card.tier} /></div>
             {isDuplicate && (
-              <div
-                className="absolute top-1 right-1 flex items-center justify-center w-5 h-5 rounded-full bg-black/65 border border-white/25 text-violet-100"
-                title="Déjà dans ta collection — converti en Anigold"
-                aria-hidden="true"
-              >
-                <Copy size={10.5} strokeWidth={2.5} />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40 pointer-events-none" aria-hidden="true">
+                <div className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-xl bg-violet-950/85 border border-amber-300/60 shadow-lg -rotate-6">
+                  <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-200">
+                    <Copy size={11} strokeWidth={2.5} />Doublon
+                  </span>
+                  {fragments > 0 && (
+                    <span className="flex items-center gap-1 text-[10px] font-mono font-semibold text-violet-100">
+                      <Gem size={9} className="text-violet-300" />+{fragments}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
             {card.wish && (

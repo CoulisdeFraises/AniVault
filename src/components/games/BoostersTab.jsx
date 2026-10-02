@@ -7,6 +7,7 @@ import {
   countByTier, formatCountdown, formatPercent,
 } from "../../utils/waifinity";
 import { RarityDot } from "./RarityBadge";
+import { MissionsCard } from "./MissionsCard";
 import { haptics } from "../../utils/haptics";
 
 const HEADING = { fontFamily: "'Space Grotesk',sans-serif" };
@@ -97,6 +98,7 @@ export function BoostersTab({ game, onGoShop }) {
     pool, poolMeta, poolLoading, poolError, reloadPool,
     canOpenFree, cooldownMs, openFreeBooster,
     daily, claimDaily, walletBusy, walletReady,
+    missions, claimMission, claimMissionBonus,
   } = game;
 
   const tierCounts = useMemo(() => countByTier(pool), [pool]);
@@ -171,6 +173,9 @@ export function BoostersTab({ game, onGoShop }) {
 
       {/* ── Récompense quotidienne ── */}
       <DailyReward daily={daily} onClaim={claimDaily} busy={walletBusy} ready={walletReady} />
+
+      {/* ── Missions du jour ── */}
+      {missions && <MissionsCard missions={missions} onClaim={claimMission} onClaimBonus={claimMissionBonus} busy={walletBusy} ready={walletReady} />}
 
       {/* ── Chances de tirage ── */}
       <Disclosure title="Chances de tirage">

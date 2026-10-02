@@ -5,9 +5,16 @@ import { RARITY, normalizeTier, groupPoolBySeries, isRecentlyObtained } from "..
 import { RarityBadge } from "./RarityBadge";
 import { GenderBadge } from "./GenderBadge";
 import { CardFrame } from "./CardFrame";
+import { LoadMore } from "./LoadMore";
+import { usePagedList } from "../../hooks/usePagedList";
+
+// Séries affichées d'un coup, et personnages affichés d'un coup dans une
+// série dépliée (certaines franchises en comptent plusieurs dizaines).
+const PAGE_SERIES = 25;
+const PAGE_CHARACTERS = 30;
 
 /** Carte d'un personnage dans l'explorateur : art complet si possédé, silhouette sinon. */
-function ExplorerCard({ c, owned, entry, isFavorite, onOpen }) {
+function ExplorerCard({ c, owned, entry, isFavorite, cosmetic, onOpen }) {
   const r = RARITY[normalizeTier(c.tier)];
   const count = entry?.count || 0;
 
@@ -27,7 +34,7 @@ function ExplorerCard({ c, owned, entry, isFavorite, onOpen }) {
   }
 
   return (
-    <CardFrame as="button" tier={c.tier} onClick={() => onOpen(c.id)}
+    <CardFrame as="button" tier={c.tier} cosmetic={cosmetic} onClick={() => onOpen(c.id)}
       className="relative text-left active:scale-95 transition-transform motion-reduce:transition-none">
       <div className="relative aspect-[3/4] bg-violet-900/60">
         <img src={c.image} alt="" loading="lazy" className="w-full h-full object-cover" />
@@ -56,11 +63,13 @@ function ExplorerCard({ c, owned, entry, isFavorite, onOpen }) {
 }
 
 /** Ligne d'une série : en-tête (progression) + grille dépliable des personnages. */
-function SeriesRow({ group, collection, favorites, expanded, onToggle, onOpenSheet }) {
+function SeriesRow({ group, collection, favorites, equipped, expanded, onToggle, onOpenSheet }) {
   const total = group.characters.length;
   const owned = group.characters.filter((c) => collection[c.id]).length;
   const complete = total > 0 && owned === total;
   const pct = total ? (owned / total) * 100 : 0;
+  // Personnages : on ne monte que la première page, et on repart de zéro à chaque dépliage.
+  const page = usePagedList(group.characters, { pageSize: PAGE_CHARACTERS, resetKey: expanded });
 
   return (
     <div className="rounded-2xl bg-violet-900/40 border border-white/10 overflow-hidden">
@@ -89,11 +98,12 @@ function SeriesRow({ group, collection, favorites, expanded, onToggle, onOpenShe
           <motion.div key="body" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22, ease: "easeOut" }} className="overflow-hidden">
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2.5 px-4 pb-4">
-              {group.characters.map((c) => {
+              {page.visible.map((c) => {
                 const entry = collection[c.id];
-                return <ExplorerCard key={c.id} c={c} owned={!!entry} entry={entry} isFavorite={favorites?.has(c.id)} onOpen={onOpenSheet} />;
+                return <ExplorerCard key={c.id} c={c} owned={!!entry} entry={entry} isFavorite={favorites?.has(c.id)} cosmetic={equipped?.[c.id]} onOpen={onOpenSheet} />;
               })}
             </div>
+            <LoadMore hasMore={page.hasMore} onMore={page.more} shown={page.shown} total={page.total} className="pb-4 -mt-1" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -108,7 +118,7 @@ function SeriesRow({ group, collection, favorites, expanded, onToggle, onOpenShe
  * regroupement par série + un seul groupe déplié à la fois garde l'affichage
  * léger et la navigation compréhensible.
  */
-export function SeriesExplorer({ pool, collection, favorites, onOpenSheet }) {
+export function SeriesExplorer({ pool, collection, favorites, equipped, onOpenSheet }) {
   const [query, setQuery] = useState("");
   const [expandedKey, setExpandedKey] = useState(null);
 
@@ -124,6 +134,8 @@ export function SeriesExplorer({ pool, collection, favorites, onOpenSheet }) {
     const list = q ? enriched.filter((g) => g.series.toLowerCase().includes(q)) : enriched;
     return [...list].sort((a, b) => b.owned - a.owned || b.total - a.total || a.series.localeCompare(b.series));
   }, [enriched, query]);
+
+  const seriesPage = usePagedList(filtered, { pageSize: PAGE_SERIES, resetKey: query });
 
   const totalOwned = useMemo(() => pool.filter((c) => collection[c.id]).length, [pool, collection]);
   const completeSeries = useMemo(() => enriched.filter((g) => g.total > 0 && g.owned === g.total).length, [enriched]);
@@ -152,12 +164,13 @@ export function SeriesExplorer({ pool, collection, favorites, onOpenSheet }) {
 
       {filtered.length ? (
         <div className="space-y-2">
-          {filtered.map((g) => (
-            <SeriesRow key={g.key} group={g} collection={collection} favorites={favorites}
+          {seriesPage.visible.map((g) => (
+            <SeriesRow key={g.key} group={g} collection={collection} favorites={favorites} equipped={equipped}
               expanded={expandedKey === g.key}
               onToggle={() => setExpandedKey((cur) => (cur === g.key ? null : g.key))}
               onOpenSheet={onOpenSheet} />
           ))}
+          <LoadMore hasMore={seriesPage.hasMore} onMore={seriesPage.more} shown={seriesPage.shown} total={seriesPage.total} className="pt-1" />
         </div>
       ) : (
         <div className="rounded-2xl border border-dashed border-white/15 bg-violet-900/20 py-8 text-center">

@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { Coins, PackageCheck, Trophy } from "lucide-react";
+import { Coins, PackageCheck, Trophy, Gem } from "lucide-react";
 import { Modal } from "../Modal/Modal";
 import { Confetti } from "../common/Confetti";
 import { RARITY, normalizeTier } from "../../utils/waifinity";
@@ -32,6 +32,7 @@ export function PackResultModal({ results, onClose }) {
   const seriesBonuses = results.map((r) => r.seriesBonus).filter(Boolean);
   const bonusCoins = seriesBonuses.reduce((sum, b) => sum + b.coins, 0);
   const totalCoins = newCoins + dupCoins + bonusCoins;
+  const totalFragments = dups.reduce((sum, r) => sum + (r.fragmentsGained || 0), 0);
 
   const hasNewSecret = newOnes.some((r) => r.card.tier === "secret");
   const hasNewTop = newOnes.some((r) => r.card.tier === "legendary" || r.card.tier === "secret");
@@ -57,7 +58,7 @@ export function PackResultModal({ results, onClose }) {
           </div>
 
           <div className="grid grid-cols-5 gap-1.5 mb-4">
-            {results.map(({ card, isDuplicate, coinsGained }, i) => {
+            {results.map(({ card, isDuplicate }, i) => {
               const r = RARITY[normalizeTier(card.tier)];
               return (
                 <div key={card.packSlot ?? i} className="relative aspect-[3/4] animate-popIn" style={{ animationDelay: `${i * 40}ms` }}>
@@ -67,7 +68,7 @@ export function PackResultModal({ results, onClose }) {
                       : <div className="w-full h-full bg-violet-900 flex items-center justify-center text-violet-600">?</div>}
                     <span className={`absolute bottom-0 inset-x-0 text-[9px] font-bold leading-4 text-center ${
                       isDuplicate ? "bg-amber-400/90 text-violet-950" : "bg-teal-400/90 text-violet-950"}`}>
-                      {isDuplicate ? `Doublon +${coinsGained}` : "Nouveau"}
+                      {isDuplicate ? "Doublon" : "Nouveau"}
                     </span>
                   </CardFrame>
                 </div>
@@ -93,6 +94,13 @@ export function PackResultModal({ results, onClose }) {
                 <span className="flex items-center gap-1.5 text-sm font-semibold text-white"><Coins size={15} className="text-amber-400" />Total</span>
                 <span className="text-base font-bold text-amber-300 tabular-nums">+{totalCoins} Anigold</span>
               </div>
+            </div>
+          )}
+
+          {totalFragments > 0 && (
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-violet-500/10 border border-violet-400/25 px-3.5 py-2.5 mb-4 text-sm">
+              <span className="flex items-center gap-1.5 text-violet-100"><Gem size={15} className="text-violet-300" />Fragments ({dups.length} doublon{dups.length > 1 ? "s" : ""})</span>
+              <span className="font-bold text-violet-200 tabular-nums">+{totalFragments}</span>
             </div>
           )}
 

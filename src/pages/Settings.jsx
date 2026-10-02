@@ -7,7 +7,12 @@ import { usePrefs }   from "../context/PrefsContext";
 import { TopBar } from "../components/common/TopBar";
 import { useEffect } from "react";
 import { requestNotificationPermission } from "../hooks/useNotifications";
-import { subscribeToPush, unsubscribeFromPush } from "../utils/push";
+import { subscribeToPush, unsubscribeFromPush, isPushSupported } from "../utils/push";
+import {
+  COMPANION_FREQUENCIES, COMPANION_PREF_KEYS,
+  getCompanionFrequency, setCompanionFrequency, getCompanionWaifinity, setCompanionWaifinity,
+} from "../utils/companionPrefs";
+import { fetchMyShowcase, setShowcaseVisible } from "../services/waifinityShowcase";
 
 const STORAGE_KEY = "playlog-entries";
 
@@ -94,6 +99,30 @@ export function Settings() {
     autoStatus:    localStorage.getItem("pref_autoStatus")   !== "false",
     haptics:       localStorage.getItem("pref_haptics")      !== "false",
   });
+
+  // ── Compagnon & Waifinity ──────────────────────────────────────────────────
+  const [companionFreq, setCompanionFreq] = useState(getCompanionFrequency);
+  const [companionWf,   setCompanionWf]   = useState(getCompanionWaifinity);
+  const [showcaseVisible, setShowcaseVisibleState] = useState(null); // null = en cours de chargement
+  const [showcaseError,   setShowcaseError]        = useState("");
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    // Pas encore de ligne = vitrine visible par défaut (voir waifinity_showcase.sql).
+    fetchMyShowcase(user.id).then((row) => { if (!cancelled) setShowcaseVisibleState(row ? row.showcase_visible !== false : true); });
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  async function handleShowcaseVisible(next) {
+    setShowcaseError("");
+    setShowcaseVisibleState(next); // optimiste
+    const ok = await setShowcaseVisible(user.id, next);
+    if (!ok) {
+      setShowcaseVisibleState(!next);
+      setShowcaseError("Modification impossible pour le moment. Réessaie plus tard.");
+    }
+  }
 
   const [confirmClear, setConfirmClear] = useState(false);
   const [exportDone,   setExportDone]   = useState(false);
@@ -304,6 +333,27 @@ export function Settings() {
         </Row>
       </Section>
 
+      {/* ── Compagnon & Waifinity ── */}
+      <Section title="Compagnon & Waifinity">
+        <Row label="Réactions du compagnon" sublabel="Rares : seulement les grands moments. Silencieux : aucune bulle.">
+          <select
+            value={companionFreq}
+            onChange={(e) => { setCompanionFrequency(e.target.value); setCompanionFreq(e.target.value); }}
+            onClick={(e) => e.stopPropagation()}
+            className="text-sm bg-violet-950/60 border border-white/10 text-violet-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-amber-400"
+          >
+            {COMPANION_FREQUENCIES.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+          </select>
+        </Row>
+        <Row label="Réactions dans Waifinity" sublabel="Boosters, séries complétées, missions, récompenses…">
+          <Toggle checked={companionWf} onChange={(v) => { setCompanionWaifinity(v); setCompanionWf(v); }} />
+        </Row>
+        <Row label="Vitrine Waifinity publique" sublabel="Tes personnages favoris visibles par les autres joueurs (profil et Communauté)">
+          <Toggle checked={showcaseVisible !== false} disabled={showcaseVisible === null} onChange={handleShowcaseVisible} />
+        </Row>
+        {showcaseError && <p className="px-5 pb-3 text-[11px] text-rose-300">{showcaseError}</p>}
+      </Section>
+
       {/* ── Notifications ── */}
       <Section title="Notifications">
         {notifPermission === "unsupported" ? (
@@ -407,8 +457,10 @@ export function Settings() {
           label="Réinitialiser les préférences"
           sublabel="Remet tous les paramètres d'affichage à leur valeur par défaut"
           onClick={() => {
-            ["pref_defaultFilter", "pref_showProgress", "pref_autoStatus", "pref_haptics"].forEach((k) => localStorage.removeItem(k));
+            ["pref_defaultFilter", "pref_showProgress", "pref_autoStatus", "pref_haptics", ...COMPANION_PREF_KEYS].forEach((k) => localStorage.removeItem(k));
             setPrefs({ defaultFilter: "all", showProgress: true, autoStatus: true, haptics: true });
+            setCompanionFreq(getCompanionFrequency());
+            setCompanionWf(getCompanionWaifinity());
           }}
         >
           <RotateCcw size={15} className="text-violet-400" />

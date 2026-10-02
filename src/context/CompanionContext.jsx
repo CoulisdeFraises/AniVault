@@ -1,5 +1,6 @@
 import { createContext, useContext, useCallback, useEffect, useRef, useState } from "react";
 import { pickCompanionLine } from "../utils/companionLines";
+import { isCategoryAllowed } from "../utils/companionPrefs";
 
 // ── CompanionContext ─────────────────────────────────────────────────────
 //
@@ -36,6 +37,9 @@ const PRIORITY = {
   wfSeriesComplete: 2,
   wfPackRare:       3,
   wfDailyMax:       3,
+  wfMissionsAll:    2,
+  wfCosmetic:       6,
+  wfMission:        6,
   wfPackNew:        5,
   wfPackDupes:      5,
   wfFavorite:       6,
@@ -55,6 +59,8 @@ export function CompanionProvider({ children }) {
 
   const triggerCompanion = useCallback((category, vars = {}, opts = {}) => {
     const { allowRepeat = false } = opts;
+    // Réglages > Compagnon : fréquence des réactions, réactions dans Waifinity.
+    if (!isCategoryAllowed(category)) return;
     if (!allowRepeat && firedThisSession.current.has(category)) return;
 
     const text = pickCompanionLine(category, vars);

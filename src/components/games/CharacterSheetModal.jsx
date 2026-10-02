@@ -1,4 +1,4 @@
-import { Calendar, Target, Star, Coins, HelpCircle, Heart } from "lucide-react";
+import { Calendar, Target, Star, Coins, HelpCircle, Heart, Palette } from "lucide-react";
 import { Modal } from "../Modal/Modal";
 import { RARITY, normalizeTier, SHOP_TARGET_COST, wishCost, isRecentlyObtained, MAX_FAVORITES, STATS, statGrade } from "../../utils/waifinity";
 import { RarityBadge, RarityDot } from "./RarityBadge";
@@ -6,6 +6,41 @@ import { GenderBadge } from "./GenderBadge";
 import { CardFrame } from "./CardFrame";
 import { TiltCard } from "./TiltCard";
 import { haptics } from "../../utils/haptics";
+import { COSMETICS, COSMETIC_SLOTS } from "../../utils/waifinityCosmetics";
+
+/** Sélecteur de cosmétiques d'un personnage possédé : un rang par emplacement (cadre / effet). */
+function CosmeticPicker({ equipped, owned, onEquip }) {
+  if (!owned.length) {
+    return (
+      <p className="flex items-center justify-center gap-1.5 text-[11px] text-violet-400 text-center mb-3">
+        <Palette size={12} className="flex-shrink-0" />Débloque des cadres et des effets à l'Atelier (Boutique) avec tes fragments.
+      </p>
+    );
+  }
+  return (
+    <div className="rounded-xl bg-white/[0.04] border border-white/10 p-3 mb-3 space-y-2.5">
+      <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-violet-400"><Palette size={11} />Personnaliser</p>
+      {COSMETIC_SLOTS.map(({ key, label }) => {
+        const mine = COSMETICS.filter((c) => c.slot === key && owned.includes(c.id));
+        if (!mine.length) return null;
+        const current = equipped?.[key] || null;
+        const chip = (active) => `px-2.5 py-1 rounded-full text-[11px] font-medium border active:scale-95 transition-colors motion-reduce:transition-none ${
+          active ? "bg-amber-400 text-violet-950 border-amber-400 font-semibold" : "bg-white/5 border-white/10 text-violet-200"}`;
+        return (
+          <div key={key}>
+            <p className="text-[10px] text-violet-500 mb-1">{label}</p>
+            <div className="flex flex-wrap gap-1.5">
+              <button onClick={() => { haptics.tap(); onEquip(key, null); }} aria-pressed={!current} className={chip(!current)}>Aucun</button>
+              {mine.map((c) => (
+                <button key={c.id} onClick={() => { haptics.tap(); onEquip(key, c.id); }} aria-pressed={current === c.id} className={chip(current === c.id)}>{c.name}</button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 /**
  * Fiche personnage (description courte tirée de MyAnimeList, voir
@@ -21,7 +56,7 @@ import { haptics } from "../../utils/haptics";
  * booster ciblé sur sa série (moins cher, pas garanti) — mêmes actions que
  * dans la Boutique, juste accessibles sans changer d'onglet.
  */
-export function CharacterSheetModal({ character, entry, canAffordTarget, canAffordWish, busy, isFavorite, favoritesFull, onBuyTargeted, onBuyWish, onToggleFavorite, onClose }) {
+export function CharacterSheetModal({ character, entry, canAffordTarget, canAffordWish, busy, isFavorite, favoritesFull, cosmetic, ownedCosmetics = [], onEquip, onBuyTargeted, onBuyWish, onToggleFavorite, onClose }) {
   if (!character) return null;
   const owned = !!entry;
   const r = RARITY[normalizeTier(character.tier)];
@@ -47,7 +82,7 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
         <div aria-hidden="true" className="pointer-events-none absolute -inset-3 -z-10 rounded-[2rem] blur-2xl opacity-70"
           style={{ background: `radial-gradient(closest-side, ${owned ? r.glow : "rgba(139,92,246,0.25)"}, transparent 75%)` }} />
         <TiltCard className="w-full" holo={owned && r.shine}>
-          <CardFrame tier={character.tier} className="relative w-full aspect-[5/7]"
+          <CardFrame tier={character.tier} cosmetic={owned ? cosmetic : undefined} className="relative w-full aspect-[5/7]"
             style={{ boxShadow: owned ? `0 0 30px -6px ${r.glow}` : `0 8px 30px -8px rgba(0,0,0,0.6)` }}>
             {owned ? (
               <>
@@ -137,6 +172,7 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
 
         {owned ? (
           <div className="space-y-3">
+            {onEquip && <CosmeticPicker equipped={cosmetic} owned={ownedCosmetics} onEquip={onEquip} />}
             {entry?.firstObtainedAt && (
               <p className="flex items-center justify-center gap-1.5 text-xs text-violet-400">
                 <Calendar size={12} />

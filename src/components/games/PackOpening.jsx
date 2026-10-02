@@ -3,6 +3,8 @@ import { motion } from "motion/react";
 import { Sparkles, PackagePlus } from "lucide-react";
 import { BoosterCard } from "./BoosterCard";
 import { haptics } from "../../utils/haptics";
+import { normalizeTier } from "../../utils/waifinity";
+import { fragmentsForDuplicate } from "../../utils/waifinityCosmetics";
 
 const SOURCE_LABEL = {
   free: "Booster gratuit", standard: "Booster normal", chance: "Booster", targeted: "Booster ciblé",
@@ -142,7 +144,7 @@ export function PackOpening({ pack, onConfirm, collection = {} }) {
 
       <p className="text-sm text-violet-200 mb-4">
         {allRevealed
-          ? "Les 10 cartes sont à toi ! Les doublons seront convertis en Anigold."
+          ? "Les 10 cartes sont à toi ! Les doublons seront convertis en Anigold et en fragments."
           : "Tape sur chaque carte pour la révéler."}
       </p>
 
@@ -153,6 +155,7 @@ export function PackOpening({ pack, onConfirm, collection = {} }) {
             card={card}
             revealed={revealed.has(card.packSlot)}
             isDuplicate={dupSlots.has(card.packSlot)}
+            fragments={dupSlots.has(card.packSlot) ? fragmentsForDuplicate(normalizeTier(card.tier)) : 0}
             onReveal={() => setRevealed((s) => new Set(s).add(card.packSlot))}
           />
         ))}

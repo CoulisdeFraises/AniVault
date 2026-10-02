@@ -10,6 +10,14 @@ import { PillTabs } from "./PillTabs";
 import { CardFrame } from "./CardFrame";
 import { SeriesExplorer } from "./SeriesExplorer";
 import { FavoritesCarousel } from "./FavoritesCarousel";
+import { LoadMore } from "./LoadMore";
+import { usePagedList } from "../../hooks/usePagedList";
+
+// Cartes affichées d'un coup (puis « Afficher plus ») : une grosse collection
+// ne monte plus des centaines de <img> d'un coup. En vue « Par série », la
+// pagination porte sur les séries.
+const PAGE_CARDS = 60;
+const PAGE_GROUPS = 12;
 
 const VIEWS = [
   { key: "mine",     label: "Ma collection" },
@@ -23,9 +31,9 @@ const SORTS = [
 ];
 const GENDER_TABS = Object.entries(GENDER_FILTER_LABEL).map(([key, label]) => ({ key, label }));
 
-function CollectionCard({ c, onOpen, isFavorite }) {
+function CollectionCard({ c, onOpen, isFavorite, cosmetic }) {
   return (
-    <CardFrame as="button" tier={c.tier} onClick={() => onOpen(c.id)}
+    <CardFrame as="button" tier={c.tier} cosmetic={cosmetic} onClick={() => onOpen(c.id)}
       className="relative text-left active:scale-95 transition-transform motion-reduce:transition-none">
       <div className="relative aspect-[3/4] bg-violet-900/60">
         {c.image
@@ -76,7 +84,7 @@ function ProgressRing({ pct }) {
   );
 }
 
-export function CollectionGrid({ collectionList, pool, collection = {}, favorites = [], onOpenSheet }) {
+export function CollectionGrid({ collectionList, pool, collection = {}, favorites = [], equipped = {}, onOpenSheet }) {
   const [view, setView]                 = useState("mine");
   const [tierFilter, setTierFilter]     = useState("all");
   const [genderFilter, setGenderFilter] = useState("all");
@@ -133,6 +141,12 @@ export function CollectionGrid({ collectionList, pool, collection = {}, favorite
       (ownedSeriesTotals.get(b.key) || 0) - (ownedSeriesTotals.get(a.key) || 0) || a.series.localeCompare(b.series));
   }, [filtered, groupBySeries, ownedSeriesTotals]);
 
+  // Pagination (hooks avant tout retour anticipé) : remise à la 1re page dès
+  // qu'un filtre, le tri ou la recherche change.
+  const resetKey = `${tierFilter}|${genderFilter}|${sort}|${query}|${groupBySeries}`;
+  const cardsPage  = usePagedList(filtered, { pageSize: PAGE_CARDS, resetKey });
+  const groupsPage = usePagedList(groups || [], { pageSize: PAGE_GROUPS, resetKey });
+
   const viewToggle = (
     <div className="flex justify-center">
       <PillTabs tabs={VIEWS} value={view} onChange={setView} layoutId="waifinity-collection-view" size="sm" />
@@ -143,7 +157,7 @@ export function CollectionGrid({ collectionList, pool, collection = {}, favorite
     return (
       <div className="space-y-4">
         {viewToggle}
-        <SeriesExplorer pool={pool} collection={collection} favorites={favSet} onOpenSheet={onOpenSheet} />
+        <SeriesExplorer pool={pool} collection={collection} favorites={favSet} equipped={equipped} onOpenSheet={onOpenSheet} />
       </div>
     );
   }
@@ -195,7 +209,7 @@ export function CollectionGrid({ collectionList, pool, collection = {}, favorite
           <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-amber-300 mb-2">
             <Heart size={11} fill="currentColor" />Mes favoris
           </p>
-          <FavoritesCarousel items={favItems} onOpen={onOpenSheet} />
+          <FavoritesCarousel items={favItems} onOpen={onOpenSheet} equipped={equipped} />
         </section>
       )}
 
@@ -254,7 +268,7 @@ export function CollectionGrid({ collectionList, pool, collection = {}, favorite
       {filtered.length ? (
         groups ? (
           <div className="space-y-5">
-            {groups.map((g) => {
+            {groupsPage.visible.map((g) => {
               const owned = ownedSeriesTotals.get(g.key) || g.items.length;
               const total = Math.max(poolSeriesTotals.get(g.key) || 0, owned);
               const complete = owned >= total;
@@ -272,16 +286,20 @@ export function CollectionGrid({ collectionList, pool, collection = {}, favorite
                       style={{ width: `${Math.max(total ? (owned / total) * 100 : 0, 3)}%` }} />
                   </div>
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2.5">
-                    {g.items.map((c) => <CollectionCard key={c.id} c={c} onOpen={onOpenSheet} isFavorite={favSet.has(c.id)} />)}
+                    {g.items.map((c) => <CollectionCard key={c.id} c={c} onOpen={onOpenSheet} isFavorite={favSet.has(c.id)} cosmetic={equipped[c.id]} />)}
                   </div>
                 </section>
               );
             })}
+            <LoadMore hasMore={groupsPage.hasMore} onMore={groupsPage.more} shown={groupsPage.shown} total={groupsPage.total} />
           </div>
         ) : (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2.5">
-            {filtered.map((c) => <CollectionCard key={c.id} c={c} onOpen={onOpenSheet} isFavorite={favSet.has(c.id)} />)}
-          </div>
+          <>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2.5">
+              {cardsPage.visible.map((c) => <CollectionCard key={c.id} c={c} onOpen={onOpenSheet} isFavorite={favSet.has(c.id)} cosmetic={equipped[c.id]} />)}
+            </div>
+            <LoadMore hasMore={cardsPage.hasMore} onMore={cardsPage.more} shown={cardsPage.shown} total={cardsPage.total} />
+          </>
         )
       ) : (
         <div className="rounded-2xl border border-dashed border-white/15 bg-violet-900/20 py-8 text-center">

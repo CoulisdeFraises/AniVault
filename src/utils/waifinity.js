@@ -1,4 +1,5 @@
 import { purgeStaleCaches } from "../lib/cache.js";
+import { fragmentsForDuplicate, defaultCosmetics } from "./waifinityCosmetics.js";
 
 // ── Waifinity : règles du jeu ────────────────────────────────────────────────
 //
@@ -145,16 +146,16 @@ export const PACK_WEIGHTS = {
 export const BOOSTER_SIZE         = 10;
 export const FREE_COOLDOWN_HOURS  = 3;
 export const FREE_COOLDOWN_MS     = FREE_COOLDOWN_HOURS * 60 * 60 * 1000; // 1 booster gratuit toutes les 3 h
-export const SHOP_BOOSTER_COST    = 300;
-export const SHOP_GENDER_COST     = 350; // booster réservé aux waifus OU aux husbandos
-export const SHOP_TARGET_COST     = 1500; // booster limité à une série
+export const SHOP_BOOSTER_COST    = 200;
+export const SHOP_GENDER_COST     = 260; // booster réservé aux waifus OU aux husbandos
+export const SHOP_TARGET_COST     = 500; // booster limité à une série
 
 // Vœu : garantit un personnage PRÉCIS (pas juste une série) dans le prochain
 // booster de 10 — bien plus fort qu'un booster ciblé. Toujours plus cher
 // qu'un booster normal (le vœu en est un, avec 9 autres cartes), et scalé par
 // palier : garantir un Secret vaut nettement plus qu'un Common.
 export const WISH_COST = {
-  common: 300, uncommon: 400, rare: 500, epic: 1000, legendary: 2000, secret: 5000,
+  common: 250, uncommon: 300, rare: 450, epic: 800, legendary: 1600, secret: 3500,
 };
 export function wishCost(tier) {
   return WISH_COST[normalizeTier(tier)];
@@ -239,9 +240,13 @@ function shuffled(arr) {
  * repère trop vite au tirage). Le reste du booster est tiré normalement,
  * sans jamais retirer une 2e fois ce personnage par hasard.
  */
-export function generatePack(pool, weights, count = BOOSTER_SIZE, forcedCard = null) {
+export function generatePack(pool, weights, count = BOOSTER_SIZE, forcedCard = null, banner = null) {
   if (!pool.length) return [];
   const byTier = Object.fromEntries(RARITY_ORDER.map((t) => [t, pool.filter((c) => c.tier === t)]));
+  // Bannière : sous-ensemble « mis en avant » de chaque palier (voir utils/waifinityBanners.js).
+  const featuredByTier = banner
+    ? Object.fromEntries(RARITY_ORDER.map((t) => [t, byTier[t].filter((c) => banner.featuredIds.has(c.id))]))
+    : null;
 
   const used = new Set();
   const cards = [];
@@ -255,10 +260,15 @@ export function generatePack(pool, weights, count = BOOSTER_SIZE, forcedCard = n
     let tier = pickTier(weights);
     if (!byTier[tier].length) tier = nearestTier(byTier, tier);
 
-    const candidates = byTier[tier].filter((c) => !used.has(c.id));
+    let candidates = byTier[tier].filter((c) => !used.has(c.id));
+    let fromBanner = false;
+    if (featuredByTier && Math.random() < banner.rate) {
+      const featured = featuredByTier[tier].filter((c) => !used.has(c.id));
+      if (featured.length) { candidates = featured; fromBanner = true; }
+    }
     const card = pickRandom(candidates.length ? candidates : byTier[tier]);
     used.add(card.id);
-    cards.push({ ...card, tier });
+    cards.push({ ...card, tier, ...(fromBanner ? { banner: true } : {}) });
   }
 
   return shuffled(cards).map((c, i) => ({ ...c, packSlot: i }));
@@ -279,6 +289,10 @@ export function defaultState() {
     completedSeries:    {},      // { [seriesKey]: { series, coins, completedAt } } — bonus déjà versé, une seule fois par série
     dailyStreak:        0,       // jour (1-7) de la dernière récompense quotidienne récupérée
     lastDailyKey:       null,    // "AAAA-MM-JJ" (jour local) de cette récupération
+    fragments:          0,       // gagnés sur les doublons, dépensés à l'Atelier (voir waifinityCosmetics.js)
+    cosmetics:          defaultCosmetics(), // { owned: [ids], equipped: { [characterId]: { frame, effect } } }
+    missions:           null,    // { dayKey, list, bonusClaimed } — créé à la demande (voir waifinityMissions.js)
+    extrasUpdatedAt:    0,       // dernière synchro de favoris/fragments/cosmétiques avec Supabase (ms)
   };
 }
 
@@ -463,6 +477,7 @@ export function claimPackCards(state, cards, pool) {
   const collection = { ...state.collection };
   const completedSeries = { ...state.completedSeries };
   let coins = state.coins;
+  let fragments = state.fragments || 0;
   let newCount = 0;
   let dupCount = 0;
   const now = Date.now();
@@ -472,6 +487,7 @@ export function claimPackCards(state, cards, pool) {
     const existing = collection[card.id];
     const isDuplicate = !!existing;
     const coinsGained = isDuplicate ? coinsForDuplicate(card.tier) : coinsForNew(card.tier);
+    const fragmentsGained = isDuplicate ? fragmentsForDuplicate(normalizeTier(card.tier)) : 0;
 
     collection[card.id] = existing
       ? { ...existing, count: existing.count + 1 }
@@ -480,6 +496,7 @@ export function claimPackCards(state, cards, pool) {
           tier: card.tier, gender: card.gender ?? null, count: 1, firstObtainedAt: now,
         };
     coins += coinsGained;
+    fragments += fragmentsGained;
     if (isDuplicate) dupCount++; else newCount++;
 
     let seriesBonus = null;
@@ -499,13 +516,14 @@ export function claimPackCards(state, cards, pool) {
       }
     }
 
-    results.push({ card, isDuplicate, coinsGained, seriesBonus, count: collection[card.id].count });
+    results.push({ card, isDuplicate, coinsGained, fragmentsGained, seriesBonus, count: collection[card.id].count });
   }
 
   return {
     state: {
       ...state,
       coins,
+      fragments,
       pendingPack: null,
       collection,
       completedSeries,

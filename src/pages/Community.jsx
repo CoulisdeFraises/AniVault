@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Users, UserPlus, Search, ChevronLeft, Check, X,
   Loader2, Trophy, Film, Clock, UserCheck, UserX,
-  ChevronDown, Heart, ListPlus, Send, XCircle,
+  ChevronDown, Heart, ListPlus, Send, XCircle, Sparkles,
 } from "lucide-react";
 import { useAuth }    from "../context/AuthContext";
 import { TopBar } from "../components/common/TopBar";
@@ -17,6 +17,7 @@ import {
   fetchFriendFavorites, fetchFriendPublicLists,
 } from "../services/community";
 import { ACHIEVEMENTS } from "../utils/achievements";
+import { WaifinityShowcase } from "../components/games/WaifinityShowcase";
 
 // ── Lookup rapide id → métadonnées du succès (icône, nom, description) ──────
 const ACHIEVEMENTS_BY_ID = Object.fromEntries(ACHIEVEMENTS.map(a => [a.id, a]));
@@ -48,6 +49,9 @@ function FriendProfileModal({ friend, onClose, onRemove }) {
       setFavLoaded(true);
     }
   }
+
+  // ── Vitrine Waifinity (le composant charge à son affichage = chargement lazy) ──
+  const [showcaseOpen, setShowcaseOpen] = useState(false);
 
   // ── Listes publiques ─────────────────────────────────────────────────────
   const [listsOpen,    setListsOpen]    = useState(false);
@@ -147,6 +151,22 @@ function FriendProfileModal({ friend, onClose, onRemove }) {
                 )}
               </div>
             )}
+          </div>
+
+          {/* ── Vitrine Waifinity (collapsible, chargement lazy) ── */}
+          <div className="rounded-xl border border-white/5 overflow-hidden">
+            <button
+              onClick={() => setShowcaseOpen((v) => !v)}
+              aria-expanded={showcaseOpen}
+              className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/5 transition-colors"
+            >
+              <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-violet-400">
+                <Sparkles size={12} className={showcaseOpen ? "text-amber-400" : ""} />
+                Vitrine Waifinity
+              </span>
+              <ChevronDown size={12} className={`text-violet-500 transition-transform duration-200 ${showcaseOpen ? "rotate-180" : ""}`} />
+            </button>
+            {showcaseOpen && <WaifinityShowcase userId={friend.user_id} />}
           </div>
 
           {/* ── Listes publiques (collapsible, chargement lazy) ── */}

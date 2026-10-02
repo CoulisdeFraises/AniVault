@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Heart, ChevronLeft, ChevronRight } from "lucide-react";
 import { RARITY, normalizeTier } from "../../utils/waifinity";
+import { resolveCosmetic } from "../../utils/waifinityCosmetics";
 import { RarityBadge } from "./RarityBadge";
 import { CardFrame } from "./CardFrame";
 
@@ -15,13 +16,17 @@ import { CardFrame } from "./CardFrame";
 // Les cartes sont toujours centrables (marges latérales calculées), donc
 // 1, 2 ou 3 favoris restent bien centrés ; les points en dessous et les
 // flèches (écrans larges) permettent aussi de naviguer.
+//
+// `equipped` ({ [id]: { frame, effect } }) applique les cosmétiques équipés.
+// Sans `onOpen`, le carousel est en lecture seule (vitrine d'un autre joueur) :
+// toucher la carte active ne fait rien.
 
 const CARD_W = 168;   // largeur d'une carte, en px
 const GAP    = 14;    // espace entre deux cartes
 const MIN_SCALE   = 0.86;
 const MIN_OPACITY = 0.55;
 
-export function FavoritesCarousel({ items, onOpen }) {
+export function FavoritesCarousel({ items, onOpen, equipped }) {
   const scrollerRef = useRef(null);
   const cardRefs = useRef([]);
   const rafRef = useRef(0);
@@ -86,7 +91,7 @@ export function FavoritesCarousel({ items, onOpen }) {
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-6 h-40 blur-3xl opacity-40 transition-colors duration-500 motion-reduce:transition-none"
-        style={{ background: `radial-gradient(ellipse at center, ${RARITY[normalizeTier(items[active]?.tier)].glow}, transparent 70%)` }}
+        style={{ background: `radial-gradient(ellipse at center, ${resolveCosmetic(equipped?.[items[active]?.id]).frame?.glow || RARITY[normalizeTier(items[active]?.tier)].glow}, transparent 70%)` }}
       />
 
       <div
@@ -120,9 +125,10 @@ export function FavoritesCarousel({ items, onOpen }) {
               <CardFrame
                 as="button"
                 tier={c.tier}
-                onClick={() => { if (i === active) onOpen(c.id); else goTo(i); }}
+                onClick={() => { if (i !== active) goTo(i); else onOpen?.(c.id); }}
+                cosmetic={equipped?.[c.id]}
                 className="relative block w-full text-left active:brightness-110 transition-[filter] motion-reduce:transition-none"
-                style={{ boxShadow: `0 10px 28px -8px ${r.glow}` }}
+                style={{ boxShadow: `0 10px 28px -8px ${resolveCosmetic(equipped?.[c.id]).frame?.glow || r.glow}` }}
               >
                 <div className="relative aspect-[3/4] bg-violet-900/60">
                   {c.image

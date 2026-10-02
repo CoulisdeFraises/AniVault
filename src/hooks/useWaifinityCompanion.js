@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useCompanion } from "../context/CompanionContext";
 import { RARITY, normalizeTier, DAILY_REWARDS, MAX_FAVORITES } from "../utils/waifinity";
+import { COSMETICS_BY_ID } from "../utils/waifinityCosmetics";
+import { chanceMultiplier } from "../utils/companionPrefs";
 
 // ── useWaifinityCompanion ────────────────────────────────────────────────
 //
@@ -16,13 +18,16 @@ import { RARITY, normalizeTier, DAILY_REWARDS, MAX_FAVORITES } from "../utils/wa
 //                              le récap, pas par-dessus) ;
 //   - claimDaily()           → récompense quotidienne ;
 //   - toggleFavorite(id)     → ajout d'un favori ;
+//   - claimMission / claimMissionBonus / buyCosmetic → missions et Atelier ;
 //   - et, tout seul, un rappel quand le booster gratuit est disponible.
 //
 // Une seule réplique par booster, la plus marquante (vœu > série complétée
 // > Legendary/Secret > Epic > que des doublons > booster ordinaire). Les
 // cas marquants s'affichent toujours ; les boosters ordinaires seulement
 // une fois sur deux environ, pour ne pas bloquer l'écran à chaque tirage
-// quand on enchaîne les boosters.
+// quand on enchaîne les boosters. Le réglage « Réactions du compagnon »
+// (voir utils/companionPrefs.js) peut les rendre plus fréquentes ou les
+// couper ; la coupure est appliquée par CompanionContext.
 
 // Chances d'afficher une réaction sur un booster « sans histoire ».
 const CHANCE_ORDINARY = 0.35;
@@ -69,15 +74,16 @@ export function chooseReaction(results) {
 
   // 4. Booster décevant (presque que des doublons).
   const coins = results.reduce((sum, r) => sum + r.coinsGained, 0);
+  const fragments = results.reduce((sum, r) => sum + (r.fragmentsGained || 0), 0);
   if (dups.length >= DUPES_THRESHOLD) {
-    return { category: "wfPackDupes", vars: { coins }, chance: CHANCE_DUPES };
+    return { category: "wfPackDupes", vars: { coins, fragments }, chance: CHANCE_DUPES };
   }
 
   // 5. Booster ordinaire.
   if (newOnes.length > 0) {
     return { category: "wfPackNew", vars: { newCount: newOnes.length }, chance: CHANCE_ORDINARY };
   }
-  return { category: "wfPackDupes", vars: { coins }, chance: CHANCE_DUPES };
+  return { category: "wfPackDupes", vars: { coins, fragments }, chance: CHANCE_DUPES };
 }
 
 export function useWaifinityCompanion(game) {
@@ -107,7 +113,7 @@ export function useWaifinityCompanion(game) {
   const onPackClosed = useCallback((results) => {
     const r = chooseReaction(results);
     if (!r) return;
-    if (!r.always && Math.random() > r.chance) return;
+    if (!r.always && Math.random() > Math.min(1, r.chance * chanceMultiplier())) return;
     react(r.category, r.vars, REACTION_DELAY_MS);
   }, [react]);
 
@@ -119,6 +125,26 @@ export function useWaifinityCompanion(game) {
       react(isMax ? "wfDailyMax" : "wfDaily", { coins: res.reward, day: res.streak });
     }
     return res;
+  }, [react]);
+
+  // ── Missions : récompense d'une mission, puis bonus des 3 missions ──
+  const claimMission = useCallback(async (...args) => {
+    const res = await gameRef.current.claimMission(...args);
+    if (res) react("wfMission", { coins: res.reward });
+    return res;
+  }, [react]);
+
+  const claimMissionBonus = useCallback(async (...args) => {
+    const res = await gameRef.current.claimMissionBonus(...args);
+    if (res) react("wfMissionsAll", { coins: res.coins, fragments: res.fragments });
+    return res;
+  }, [react]);
+
+  // ── Atelier : achat d'un cosmétique ──
+  const buyCosmetic = useCallback((id) => {
+    const ok = gameRef.current.buyCosmetic(id);
+    if (ok) react("wfCosmetic", { name: COSMETICS_BY_ID[id]?.name || "ce cosmétique" });
+    return ok;
   }, [react]);
 
   // ── Favori ajouté ──
@@ -133,5 +159,5 @@ export function useWaifinityCompanion(game) {
     }
   }, [react]);
 
-  return { onPackClosed, claimDaily, toggleFavorite };
+  return { onPackClosed, claimDaily, toggleFavorite, claimMission, claimMissionBonus, buyCosmetic };
 }

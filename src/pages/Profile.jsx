@@ -18,6 +18,7 @@ import { updateProfileMeta, changeUsername, uploadAvatarPhoto, removeAvatarPhoto
 import { useLists, fetchUserFavorites } from "../context/ListsContext";
 import { COMPANIONS } from "../utils/companions";
 import { calcWatchTime } from "../utils/watchTime";
+import { WaifinityShowcase } from "../components/games/WaifinityShowcase";
 
 const AVATAR_COLORS = [
   "#7c3aed", "#f59e0b", "#0ea5e9", "#10b981",
@@ -742,6 +743,13 @@ export function Profile() {
               </div>
             </div>
           )}
+        </Section>
+      )}
+
+      {/* Vitrine Waifinity : ce que voient les autres joueurs (masquable dans Réglages) */}
+      {user?.id && (
+        <Section title="Vitrine Waifinity">
+          <WaifinityShowcase userId={user.id} own onGoPlay={() => navigate("/games/waifinity")} />
         </Section>
       )}
 

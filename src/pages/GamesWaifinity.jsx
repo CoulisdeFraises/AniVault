@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "motion/react";
-import { ChevronLeft, Sparkles, LayoutGrid, Store, Coins, Users, AlertTriangle } from "lucide-react";
+import { ChevronLeft, Sparkles, LayoutGrid, Store, Coins, Users, AlertTriangle, Gem } from "lucide-react";
 import { TopBar } from "../components/common/TopBar";
 import { PageBanner } from "../components/common/PageBanner";
 import { PullToRefresh } from "../components/common/PullToRefresh";
@@ -41,8 +41,9 @@ function Overview({ game }) {
           </p>
         </div>
         <div className="text-right flex-shrink-0">
-          <p className="text-xs text-violet-300">Boosters ouverts</p>
-          <p className="mt-0.5 text-lg font-semibold text-white tabular-nums">{game.stats.opened}</p>
+          <p className="text-xs text-violet-300">Fragments</p>
+          <p className="mt-0.5 flex items-center justify-end gap-1.5 text-lg font-semibold text-violet-100 tabular-nums"><Gem size={15} className="text-violet-300" />{game.fragments}</p>
+          <p className="mt-1 text-[11px] text-violet-400 tabular-nums">{game.stats.opened} booster{game.stats.opened > 1 ? "s" : ""} ouvert{game.stats.opened > 1 ? "s" : ""}</p>
         </div>
       </div>
       <div className="mt-4">
@@ -137,14 +138,21 @@ export function GamesWaifinity() {
           <PackOpening pack={game.pendingPack} collection={game.collection} onConfirm={handleClaimPack} />
         ) : (
           <>
-            {tab === "boosters"   && <BoostersTab game={{ ...game, claimDaily: companion.claimDaily }} onGoShop={() => setTab("shop")} />}
-            {tab === "collection" && <CollectionGrid collectionList={game.collectionList} pool={game.pool} collection={game.collection} favorites={game.favorites} onOpenSheet={setSheetId} />}
+            {tab === "boosters"   && (
+              <BoostersTab
+                game={{ ...game, claimDaily: companion.claimDaily, claimMission: companion.claimMission, claimMissionBonus: companion.claimMissionBonus }}
+                onGoShop={() => setTab("shop")}
+              />
+            )}
+            {tab === "collection" && <CollectionGrid collectionList={game.collectionList} pool={game.pool} collection={game.collection} favorites={game.favorites} equipped={game.equipped} onOpenSheet={setSheetId} />}
             {tab === "social" && <SocialTab game={game} />}
             {tab === "shop" && (
               <ShopPanel
                 pool={game.pool} pendingPack={game.pendingPack} coins={game.coins}
                 canAffordBooster={game.canAffordBooster} canAffordTarget={game.canAffordTarget} canAffordGender={game.canAffordGender}
                 onBuyStandard={game.openStandardBooster} onBuyTargeted={game.openTargetedBooster} onBuyGender={game.openGenderBooster}
+                banner={game.banner} canAffordBanner={game.canAffordBanner} onBuyBanner={game.openBannerBooster}
+                fragments={game.fragments} ownedCosmetics={game.ownedCosmetics} onBuyCosmetic={companion.buyCosmetic}
               />
             )}
           </>
@@ -174,6 +182,9 @@ export function GamesWaifinity() {
             busy={!!game.pendingPack}
             isFavorite={sheetId != null && game.favorites.includes(sheetId)}
             favoritesFull={game.favorites.length >= MAX_FAVORITES}
+            cosmetic={game.equipped[sheetId]}
+            ownedCosmetics={game.ownedCosmetics}
+            onEquip={(slot, id) => game.equipCosmetic(sheetId, slot, id)}
             onBuyTargeted={game.openTargetedBooster}
             onBuyWish={game.openWishBooster}
             onToggleFavorite={companion.toggleFavorite}

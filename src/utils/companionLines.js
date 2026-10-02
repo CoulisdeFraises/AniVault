@@ -86,10 +86,10 @@ export const COMPANION_LINES = {
   ],
   // Aucune nouveauté, ou presque que des doublons.
   wfPackDupes: [
-    "Que des doublons... au moins ça rapporte {coins} Anigold.",
-    "Ce booster ne t'a rien appris. Mais {coins} Anigold, c'est toujours ça.",
+    "Que des doublons... au moins ça rapporte {coins} Anigold et {fragments} fragments.",
+    "Ce booster ne t'a rien appris. Mais {fragments} fragments pour l'Atelier, c'est toujours ça.",
     "Pas de chance cette fois. Le prochain sera le bon !",
-    "Tout en doublons ? On se console avec les {coins} Anigold.",
+    "Tout en doublons ? On se console avec {coins} Anigold et {fragments} fragments.",
   ],
   // Nouvelle carte Epic.
   wfPackRare: [
@@ -129,6 +129,20 @@ export const COMPANION_LINES = {
   wfDailyMax: [
     "7 jours d'affilée ! Le gros lot : {coins} Anigold.",
     "Série quotidienne complète, {coins} Anigold pour toi !",
+  ],
+  wfMission: [
+    "Mission accomplie, +{coins} Anigold. Une de moins !",
+    "Objectif atteint ! {coins} Anigold dans la poche.",
+    "Bien joué, mission validée : +{coins} Anigold.",
+  ],
+  wfMissionsAll: [
+    "Les 3 missions du jour sont faites ! +{coins} Anigold et {fragments} fragments de bonus.",
+    "Journée bouclée : bonus de {coins} Anigold et {fragments} fragments !",
+  ],
+  wfCosmetic: [
+    "{name} débloqué ! Il va falloir l'essayer sur un de tes persos.",
+    "Joli choix, {name}. Tes cartes vont briller.",
+    "{name}, c'est dans la boîte. Va l'équiper depuis la fiche d'un personnage.",
   ],
 };
 
@@ -204,10 +218,10 @@ const CHLO_LINES = {
     "Ça rentre, ça rentre. {newCount} de plus, mais je compte pas les applaudir.",
   ],
   wfPackDupes: [
-    "Que des doublons ? {coins} Anigold. Ton talent pour la déception est impressionnant.",
+    "Que des doublons ? {coins} Anigold et {fragments} fragments. Ton talent pour la déception est impressionnant.",
     "Zéro nouveauté. La loterie t'a dit non, et moi aussi.",
-    "Des doublons, des doublons, des doublons. Au moins ça sert de monnaie.",
-    "T'as ouvert tout ça pour {coins} Anigold ? Je pleure. Pas vraiment.",
+    "Des doublons, des doublons, des doublons. Au moins {fragments} fragments, ça sert à se faire beau.",
+    "T'as ouvert tout ça pour {fragments} fragments ? Je pleure. Pas vraiment.",
   ],
   wfPackRare: [
     "{name} en Epic. Ok, là je t'écoute.",
@@ -243,6 +257,20 @@ const CHLO_LINES = {
   wfDailyMax: [
     "7 jours de suite ?! {coins} Anigold. Tu mérites un biscuit.",
     "7 jours à venir me voir. {coins} Anigold pour avoir tenu. Bravo.",
+  ],
+  wfMission: [
+    "Mission faite, +{coins} Anigold. Je suis presque fière. Presque.",
+    "{coins} Anigold pour avoir fait ce qu'on te demandait. Quel monde.",
+    "Validée. T'es plus obéissant que je pensais.",
+  ],
+  wfMissionsAll: [
+    "Les 3 missions ? Tu t'ennuyais à ce point ? Bonus : {coins} Anigold et {fragments} fragments.",
+    "Tout fini pour aujourd'hui. {coins} Anigold, {fragments} fragments. Va te reposer.",
+  ],
+  wfCosmetic: [
+    "{name} ? Tu dépenses tes fragments pour de la déco. J'adore.",
+    "Tiens, {name}. Au moins tes cartes auront de la gueule, elles.",
+    "{name} débloqué. Va l'équiper, que je voie si ça te va.",
   ],
 };
 

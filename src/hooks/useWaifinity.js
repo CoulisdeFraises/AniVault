@@ -2,6 +2,13 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { ensureWaifinityWallet, adjustWaifinityBalance, fetchWaifinityWallet, newWalletOperationKey } from "../services/waifinityWallet";
 import { fetchWaifuPool } from "../api/waifu";
+import { currentSeason, fetchSeasonMalIds } from "../api/waifuBanner";
+import { buildSeasonBanner, BANNER_COST } from "../utils/waifinityBanners";
+import { COSMETICS_BY_ID } from "../utils/waifinityCosmetics";
+import {
+  ensureMissionDay, applyMissionEvents, packMissionEvents, describeMissions, getMission, MISSION_BONUS,
+} from "../utils/waifinityMissions";
+import { fetchMyShowcase, pushShowcase } from "../services/waifinityShowcase";
 import {
   loadState, saveState, defaultState, generatePack, coinsForDuplicate,
   msUntilFreeBooster, filterPoolByGender, GENDER_BOOSTERS, PACK_WEIGHTS,
@@ -11,6 +18,11 @@ import {
   syncWaifinityItem, fetchMyTrades, acceptTradeServer, markTradeApplied, closeTrade, proposeTrade as proposeTradeService,
   fetchMyWaifinityCollection,
 } from "../services/waifinitySocial";
+
+/** Applique des événements de mission (jour courant) à un état — voir utils/waifinityMissions.js. */
+function withMissionEvents(state, uid, events) {
+  return { ...state, missions: applyMissionEvents(ensureMissionDay(state.missions, uid), events) };
+}
 
 /**
  * useWaifinity — état complet du mini-jeu (bassin de personnages, pièces,
@@ -114,18 +126,40 @@ export function useWaifinity({ withPool = true } = {}) {
     });
   }, [uid]);
 
+  // Index du bassin par id : calculé une seule fois par bassin chargé, et
+  // partagé par la resynchronisation ci-dessous et par collectionList (sans
+  // lui, chaque changement de collection reconstruisait une Map de ~3000 entrées).
+  const poolById = useMemo(() => new Map(pool.map((c) => [c.id, c])), [pool]);
+
+  // ── Bannière de saison : ids MAL des animes de la saison (cache 12 h), puis
+  // croisement avec le bassin. Pas de bannière si AniList est injoignable ou
+  // si la saison compte trop peu de personnages dans le bassin.
+  const [seasonMal, setSeasonMal] = useState(null); // { ids, info }
+  useEffect(() => {
+    if (!withPool) return;
+    let cancelled = false;
+    const info = currentSeason();
+    fetchSeasonMalIds(info)
+      .then((ids) => { if (!cancelled) setSeasonMal({ ids, info }); })
+      .catch((e) => console.error("Waifinity bannière de saison :", e?.message || e));
+    return () => { cancelled = true; };
+  }, [withPool]);
+  const banner = useMemo(
+    () => (seasonMal && pool.length ? buildSeasonBanner(pool, seasonMal.ids, seasonMal.info) : null),
+    [pool, seasonMal]
+  );
+
   // ── Resynchronise la collection avec le bassin ────────────────────────────
   // Rareté et genre d'un personnage déjà possédé suivent le bassin courant
   // (nouveau découpage en 6 paliers, genre ajouté après coup, classement mis
   // à jour…). Sans effet si rien ne change.
   useEffect(() => {
-    if (!pool.length) return;
-    const byId = new Map(pool.map((c) => [c.id, c]));
+    if (!poolById.size) return;
     persist((prev) => {
       let changed = false;
       const collection = {};
       for (const [id, e] of Object.entries(prev.collection)) {
-        const p = byId.get(e.id);
+        const p = poolById.get(e.id);
         if (p && (p.tier !== e.tier || (p.gender ?? null) !== (e.gender ?? null))) {
           collection[id] = { ...e, tier: p.tier, gender: p.gender ?? null };
           changed = true;
@@ -135,7 +169,7 @@ export function useWaifinity({ withPool = true } = {}) {
       }
       return changed ? { ...prev, collection } : prev;
     });
-  }, [pool, state.collection, persist]);
+  }, [poolById, state.collection, persist]);
 
   // ── Synchronisation de la collection depuis Supabase ─────────────────────
   // Supabase est la source de vérité pour la collection. Le localStorage sert
@@ -275,6 +309,33 @@ export function useWaifinity({ withPool = true } = {}) {
     }
   }, [uid, walletReady, state.pendingPack, state.coins, pool, persist]);
 
+  // ── Booster de saison : mêmes chances de rareté, mais une part des cartes
+  // est tirée parmi les personnages des animes de la saison (voir
+  // utils/waifinityBanners.js).
+  const openBannerBooster = useCallback(async () => {
+    if (!banner || !walletReady || walletBusyRef.current || state.pendingPack || pool.length === 0 || state.coins < BANNER_COST) return;
+    walletBusyRef.current = true;
+    setWalletBusy(true);
+    setWalletIssue(null);
+    try {
+      const wallet = await adjustWaifinityBalance(uid, -BANNER_COST, "booster_banner", newWalletOperationKey("purchase"));
+      const cards = generatePack(pool, PACK_WEIGHTS.standard, undefined, null, banner);
+      const openedAt = Date.now();
+      persist((prev) => ({
+        ...prev,
+        coins: Number(wallet.balance),
+        pendingPack: { source: "banner", cards, openedAt, claimId: newWalletOperationKey("claim"), purchaseBalance: Number(wallet.balance) },
+        stats: { ...prev.stats, opened: prev.stats.opened + 1 },
+      }));
+    } catch (e) {
+      console.error("Waifinity booster de saison :", e);
+      setWalletIssue(e?.message || "Achat impossible pour le moment.");
+    } finally {
+      walletBusyRef.current = false;
+      setWalletBusy(false);
+    }
+  }, [uid, banner, walletReady, state.pendingPack, state.coins, pool, persist]);
+
   // ── Récompense quotidienne ────────────────────────────────────────────────
   // La clé d'idempotence est liée au jour ET au compte : récupérer la même
   // journée depuis deux appareils ne crédite qu'une fois côté Supabase.
@@ -286,7 +347,7 @@ export function useWaifinity({ withPool = true } = {}) {
     setWalletIssue(null);
     try {
       const wallet = await adjustWaifinityBalance(uid, st.reward, "daily_bonus", `daily:${uid}:${st.todayKey}`);
-      persist((prev) => ({ ...prev, coins: Number(wallet.balance), dailyStreak: st.nextStreak, lastDailyKey: st.todayKey }));
+      persist((prev) => withMissionEvents({ ...prev, coins: Number(wallet.balance), dailyStreak: st.nextStreak, lastDailyKey: st.todayKey }, uid, [{ type: "daily", amount: 1 }]));
       return { reward: st.reward, streak: st.nextStreak };
     } catch (e) {
       console.error("Waifinity récompense quotidienne :", e);
@@ -331,7 +392,7 @@ export function useWaifinity({ withPool = true } = {}) {
 
       persist((prev) => {
         const next = claimPackCards(prev, pack.cards, pool).state;
-        return { ...next, coins: serverBalance };
+        return withMissionEvents({ ...next, coins: serverBalance }, uid, packMissionEvents(results, pack.source));
       });
 
       // Miroir public : un seul envoi par personnage, best effort.
@@ -360,7 +421,6 @@ export function useWaifinity({ withPool = true } = {}) {
   // local (voir claimPackCards) pour ne pas saturer le quota localStorage une fois
   // la collection grande. Sans le bassin (chargement en cours, ou personnage
   // qui en est sorti depuis), on retombe sur ce qu'on a stocké (sans image).
-  const poolById = useMemo(() => new Map(pool.map((c) => [c.id, c])), [pool]);
   const collectionList = useMemo(
     () => Object.values(state.collection)
       .map((e) => {
@@ -449,8 +509,9 @@ export function useWaifinity({ withPool = true } = {}) {
 
   const proposeTrade = useCallback(async (toUser, offer, request) => {
     await proposeTradeService({ fromUser: uid, toUser, offer, request });
+    persist((prev) => withMissionEvents(prev, uid, [{ type: "trade", amount: 1 }]));
     await refreshTrades();
-  }, [uid, refreshTrades]);
+  }, [uid, refreshTrades, persist]);
 
   const acceptTrade = useCallback(async (trade) => {
     await acceptTradeServer(trade.id);
@@ -474,9 +535,147 @@ export function useWaifinity({ withPool = true } = {}) {
       const cur = prev.favorites || [];
       if (cur.includes(id)) return { ...prev, favorites: cur.filter((x) => x !== id) };
       if (cur.length >= MAX_FAVORITES || !prev.collection[id]) return prev;
-      return { ...prev, favorites: [...cur, id] };
+      return withMissionEvents({ ...prev, favorites: [...cur, id] }, uid, [{ type: "favorite", amount: 1 }]);
     });
+  }, [persist, uid]);
+
+  // ── Atelier : cosmétiques achetés avec des fragments ──────────────────────
+  const buyCosmetic = useCallback((id) => {
+    const item = COSMETICS_BY_ID[id];
+    const s = stateRef.current;
+    if (!item || s.cosmetics.owned.includes(id) || (s.fragments || 0) < item.cost) return false;
+    persist((prev) => {
+      if (prev.cosmetics.owned.includes(id) || (prev.fragments || 0) < item.cost) return prev;
+      return {
+        ...prev,
+        fragments: prev.fragments - item.cost,
+        cosmetics: { ...prev.cosmetics, owned: [...prev.cosmetics.owned, id] },
+      };
+    });
+    return true;
   }, [persist]);
+
+  /** Équipe (ou retire, avec id = null) le cadre ou l'effet d'UN personnage possédé. */
+  const equipCosmetic = useCallback((characterId, slot, id) => {
+    persist((prev) => {
+      if (!prev.collection[characterId]) return prev;
+      if (id && !prev.cosmetics.owned.includes(id)) return prev;
+      const next = { ...(prev.cosmetics.equipped[characterId] || {}), [slot]: id || null };
+      const equipped = { ...prev.cosmetics.equipped };
+      if (!next.frame && !next.effect) delete equipped[characterId];
+      else equipped[characterId] = next;
+      const out = { ...prev, cosmetics: { ...prev.cosmetics, equipped } };
+      return id ? withMissionEvents(out, uid, [{ type: "equip", amount: 1 }]) : out;
+    });
+  }, [persist, uid]);
+
+  // ── Missions quotidiennes : récompense en Anigold, versée une seule fois ──
+  const claimMission = useCallback(async (missionId) => {
+    const today = ensureMissionDay(stateRef.current.missions, uid);
+    const mission = today.list.find((m) => m.id === missionId);
+    const def = getMission(missionId);
+    if (!mission || !def || mission.claimed || mission.progress < def.target) return null;
+    if (!uid || !walletReady || walletBusyRef.current) return null;
+    walletBusyRef.current = true;
+    setWalletBusy(true);
+    setWalletIssue(null);
+    try {
+      const wallet = await adjustWaifinityBalance(uid, def.reward, "mission_reward", `mission:${uid}:${today.dayKey}:${missionId}`);
+      persist((prev) => {
+        const cur = ensureMissionDay(prev.missions, uid);
+        const missions = cur.dayKey === today.dayKey
+          ? { ...cur, list: cur.list.map((m) => (m.id === missionId ? { ...m, claimed: true } : m)) }
+          : cur;
+        return { ...prev, coins: Number(wallet.balance), missions };
+      });
+      return { reward: def.reward, label: def.label };
+    } catch (e) {
+      console.error("Waifinity mission :", e);
+      setWalletIssue(e?.message || "Impossible de récupérer la récompense de la mission.");
+      return null;
+    } finally {
+      walletBusyRef.current = false;
+      setWalletBusy(false);
+    }
+  }, [uid, walletReady, persist]);
+
+  const claimMissionBonus = useCallback(async () => {
+    const today = ensureMissionDay(stateRef.current.missions, uid);
+    if (today.bonusClaimed || !today.list.length || !today.list.every((m) => m.claimed)) return null;
+    if (!uid || !walletReady || walletBusyRef.current) return null;
+    walletBusyRef.current = true;
+    setWalletBusy(true);
+    setWalletIssue(null);
+    try {
+      const wallet = await adjustWaifinityBalance(uid, MISSION_BONUS.coins, "mission_bonus", `mission_bonus:${uid}:${today.dayKey}`);
+      persist((prev) => {
+        const cur = ensureMissionDay(prev.missions, uid);
+        if (cur.dayKey !== today.dayKey) return { ...prev, coins: Number(wallet.balance) };
+        return {
+          ...prev,
+          coins: Number(wallet.balance),
+          fragments: (prev.fragments || 0) + MISSION_BONUS.fragments,
+          missions: { ...cur, bonusClaimed: true },
+        };
+      });
+      return { ...MISSION_BONUS };
+    } catch (e) {
+      console.error("Waifinity bonus de missions :", e);
+      setWalletIssue(e?.message || "Impossible de récupérer le bonus des missions.");
+      return null;
+    } finally {
+      walletBusyRef.current = false;
+      setWalletBusy(false);
+    }
+  }, [uid, walletReady, persist]);
+
+  // ── Vitrine / fragments / cosmétiques : miroir Supabase (best effort) ─────
+  // Au chargement, on adopte la version serveur si elle est plus récente que
+  // la dernière synchro locale ; ensuite, chaque changement est poussé après
+  // un court délai (dernier écrit gagnant). showcase_visible n'est jamais
+  // écrit ici (voir services/waifinityShowcase.js).
+  const [extrasReady, setExtrasReady] = useState(false);
+  const lastExtrasSigRef = useRef(null);
+
+  useEffect(() => {
+    setExtrasReady(false);
+    lastExtrasSigRef.current = null;
+    if (!uid || !withPool) return;
+    let cancelled = false;
+    (async () => {
+      const row = await fetchMyShowcase(uid);
+      if (cancelled) return;
+      const serverAt = row?.updated_at ? Date.parse(row.updated_at) : 0;
+      if (row && serverAt > (stateRef.current.extrasUpdatedAt || 0)) {
+        persist((prev) => ({
+          ...prev,
+          favorites: Array.isArray(row.favorites) ? row.favorites : prev.favorites,
+          fragments: Number.isFinite(row.fragments) ? row.fragments : prev.fragments,
+          cosmetics: row.cosmetics?.owned ? { owned: row.cosmetics.owned, equipped: row.cosmetics.equipped || {} } : prev.cosmetics,
+          extrasUpdatedAt: serverAt,
+        }));
+      }
+      setExtrasReady(true);
+    })();
+    return () => { cancelled = true; };
+  }, [uid, withPool, persist]);
+
+  const extrasSig = useMemo(
+    () => JSON.stringify([state.favorites, state.fragments, state.cosmetics]),
+    [state.favorites, state.fragments, state.cosmetics]
+  );
+  useEffect(() => {
+    if (!uid || !extrasReady || lastExtrasSigRef.current === extrasSig) return;
+    const t = setTimeout(async () => {
+      const s = stateRef.current;
+      const ok = await pushShowcase(uid, { favorites: s.favorites, fragments: s.fragments, cosmetics: s.cosmetics });
+      if (ok) {
+        lastExtrasSigRef.current = extrasSig;
+        persist((prev) => ({ ...prev, extrasUpdatedAt: Date.now() }));
+      }
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [uid, extrasReady, extrasSig, persist]);
 
   return {
     coins: state.coins,
@@ -489,6 +688,13 @@ export function useWaifinity({ withPool = true } = {}) {
     canOpenFree, cooldownMs, now,
     openFreeBooster, openStandardBooster, openTargetedBooster, openGenderBooster, openWishBooster, claimPack,
     daily: dailyStatus(state), claimDaily,
+    // Fragments, cosmétiques, missions, bannière de saison
+    fragments: state.fragments || 0,
+    ownedCosmetics: state.cosmetics?.owned || [],
+    equipped: state.cosmetics?.equipped || {},
+    buyCosmetic, equipCosmetic,
+    missions: describeMissions(ensureMissionDay(state.missions, uid)), claimMission, claimMissionBonus,
+    banner, openBannerBooster, canAffordBanner: state.coins >= BANNER_COST,
     canAffordBooster: state.coins >= SHOP_BOOSTER_COST,
     canAffordTarget:  state.coins >= SHOP_TARGET_COST,
     canAffordGender:  state.coins >= SHOP_GENDER_COST,

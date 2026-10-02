@@ -5,9 +5,17 @@ import {
   RARITY, RARITY_ORDER, WISH_COST, filterPoolByGender, topSeries,
 } from "../../utils/waifinity";
 import { RarityDot } from "./RarityBadge";
+import { PillTabs } from "./PillTabs";
+import { BannerCard } from "./BannerCard";
+import { AtelierPanel } from "./AtelierPanel";
 import { haptics } from "../../utils/haptics";
 
 const HEADING = { fontFamily: "'Space Grotesk',sans-serif" };
+
+const SHOP_VIEWS = [
+  { key: "boosters", label: "Boosters" },
+  { key: "atelier",  label: "Atelier" },
+];
 
 function Group({ title, children }) {
   return (
@@ -49,7 +57,10 @@ const buyBtn = "mt-3 w-full flex items-center justify-between gap-3 px-4 py-2.5 
 export function ShopPanel({
   pool, pendingPack, coins = 0, canAffordBooster, canAffordTarget, canAffordGender,
   onBuyStandard, onBuyTargeted, onBuyGender,
+  banner, canAffordBanner, onBuyBanner,
+  fragments = 0, ownedCosmetics = [], onBuyCosmetic,
 }) {
+  const [view, setView] = useState("boosters");
   const [seriesOpen, setSeriesOpen] = useState(false);
   const [seriesQuery, setSeriesQuery] = useState("");
   const series = useMemo(() => topSeries(pool, 300), [pool]);
@@ -63,8 +74,28 @@ export function ShopPanel({
   );
   const busy = !!pendingPack;
 
+  const viewTabs = (
+    <div className="flex justify-center">
+      <PillTabs tabs={SHOP_VIEWS} value={view} onChange={setView} layoutId="waifinity-shop-view" size="sm" />
+    </div>
+  );
+
+  if (view === "atelier") {
+    return (
+      <div className="space-y-5">
+        {viewTabs}
+        <AtelierPanel fragments={fragments} owned={ownedCosmetics} onBuy={onBuyCosmetic} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {viewTabs}
+      {banner && (
+        <BannerCard banner={banner} coins={coins} busy={busy || !pool.length} canAfford={canAffordBanner} onBuy={onBuyBanner} />
+      )}
+
       <Group title="Boosters aléatoires">
         <ShopCard
           icon={<Sparkles size={18} />}
