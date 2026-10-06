@@ -166,6 +166,7 @@ function MiniCard({ label, card, placeholder }) {
       <div className="min-w-0">
         <p className="text-[9px] uppercase tracking-widest text-violet-500">{label}</p>
         <p className="text-[11px] font-semibold text-white truncate">{card?.name || placeholder}</p>
+        {card?.tier && <div className="mt-0.5"><RarityBadge tier={card.tier} /></div>}
       </div>
     </div>
   );
@@ -250,7 +251,7 @@ function TradeTransferOverlay({ trade, myId, onClose }) {
               {outgoing.image && <img src={outgoing.image} alt="" className="w-full aspect-[3/4] object-cover" />}
             </div>
             <p className="mt-2 text-sm font-semibold text-white truncate">{outgoing.name}</p>
-            <p className="text-[10px] text-violet-400">Carte échangée</p>
+            <p className={`text-[10px] ${RARITY[normalizeTier(outgoing.tier)].text}`}>{RARITY[normalizeTier(outgoing.tier)].label} · carte échangée</p>
           </div>
 
           <div className="absolute left-1/2 top-1/2 w-72 h-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-300/10 animate-tradeRing pointer-events-none" />
@@ -291,8 +292,8 @@ function ConfirmChip({ label, done }) {
 function TradeRow({ trade, myId, friendsById, busy, onRespond, onConfirm, onClose }) {
   const isFrom = trade.from_user === myId;
   const otherName = friendsById[isFrom ? trade.to_user : trade.from_user]?.username || "un ami";
-  const offerCard   = { name: trade.offer_name,   image: trade.offer_image };
-  const requestCard = trade.request_character_id != null ? { name: trade.request_name, image: trade.request_image } : null;
+  const offerCard   = { name: trade.offer_name,   image: trade.offer_image,   tier: trade.offer_tier };
+  const requestCard = trade.request_character_id != null ? { name: trade.request_name, image: trade.request_image, tier: trade.request_tier } : null;
   const mine   = isFrom ? offerCard : requestCard;
   const theirs = isFrom ? requestCard : offerCard;
 
@@ -316,11 +317,13 @@ function TradeRow({ trade, myId, friendsById, busy, onRespond, onConfirm, onClos
           <ThumbSlot card={theirs} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] text-violet-300 truncate">
-            Toi : <span className="text-white font-medium">{mine?.name || "à choisir"}</span>
+          <p className="flex items-center gap-1.5 text-[11px] text-violet-300 min-w-0">
+            <span className="truncate">Toi : <span className="text-white font-medium">{mine?.name || "à choisir"}</span></span>
+            {mine?.tier && <span className="flex-shrink-0"><RarityBadge tier={mine.tier} /></span>}
           </p>
-          <p className="text-[11px] text-violet-300 truncate">
-            {otherName} : <span className="text-white font-medium">{theirs?.name || "à choisir"}</span>
+          <p className="flex items-center gap-1.5 text-[11px] text-violet-300 mt-0.5 min-w-0">
+            <span className="truncate">{otherName} : <span className="text-white font-medium">{theirs?.name || "à choisir"}</span></span>
+            {theirs?.tier && <span className="flex-shrink-0"><RarityBadge tier={theirs.tier} /></span>}
           </p>
         </div>
       </div>
@@ -587,7 +590,7 @@ export function SocialTab({ game, initialView }) {
                 <ActionBar
                   giveLabel="Tu donnes" give={returnPick}
                   getLabel={`${respondFriend?.username || "Ami"} donne`}
-                  get={{ name: respondTrade.offer_name, image: respondTrade.offer_image }}
+                  get={{ name: respondTrade.offer_name, image: respondTrade.offer_image, tier: respondTrade.offer_tier }}
                   cta="Proposer en retour" busyLabel="Envoi…" busy={responding}
                   onClick={handleCounter}
                   onCancel={() => { setRespondId(null); setReturnPick(null); }}
