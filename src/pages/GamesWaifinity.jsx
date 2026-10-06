@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence } from "motion/react";
 import { ChevronLeft, Sparkles, LayoutGrid, Store, Coins, Users, AlertTriangle, Gem } from "lucide-react";
 import { TopBar } from "../components/common/TopBar";
@@ -78,7 +78,11 @@ export function GamesWaifinity() {
   const game = useWaifinity();
   // Réactions du compagnon (booster, série complétée, favori, récompense du jour…)
   const companion = useWaifinityCompanion(game);
-  const [tab, setTab] = useState("boosters");
+  // Lien profond depuis une notification : /games/waifinity?tab=social&view=trades
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const [tab, setTab] = useState(TABS.some((t) => t.key === tabParam) ? tabParam : "boosters");
+  useEffect(() => { if (TABS.some((t) => t.key === tabParam)) setTab(tabParam); }, [tabParam]);
   const [result, setResult] = useState(null);
   const [sheetId, setSheetId] = useState(null);
 
@@ -145,7 +149,7 @@ export function GamesWaifinity() {
               />
             )}
             {tab === "collection" && <CollectionGrid collectionList={game.collectionList} pool={game.pool} collection={game.collection} favorites={game.favorites} equipped={game.equipped} onOpenSheet={setSheetId} />}
-            {tab === "social" && <SocialTab game={game} />}
+            {tab === "social" && <SocialTab game={game} initialView={searchParams.get("view")} />}
             {tab === "shop" && (
               <ShopPanel
                 pool={game.pool} pendingPack={game.pendingPack} coins={game.coins}

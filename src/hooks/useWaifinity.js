@@ -15,9 +15,11 @@ import {
   SHOP_BOOSTER_COST, SHOP_TARGET_COST, SHOP_GENDER_COST, wishCost, MAX_FAVORITES, claimPackCards, dailyStatus,
 } from "../utils/waifinity";
 import {
-  syncWaifinityItem, fetchMyTrades, acceptTradeServer, markTradeApplied, closeTrade, proposeTrade as proposeTradeService,
-  fetchMyWaifinityCollection,
+  syncWaifinityItem, fetchMyTrades, fetchMyWaifinityCollection,
+  proposeTrade as proposeTradeService, counterTradeServer, confirmTradeServer, closeTradeServer,
 } from "../services/waifinitySocial";
+import { supabase } from "../lib/supabase";
+import { markTradeEventSeen } from "./useWaifinityNotifications";
 
 /** Applique des événements de mission (jour courant) à un état — voir utils/waifinityMissions.js. */
 function withMissionEvents(state, uid, events) {
@@ -507,27 +509,65 @@ export function useWaifinity({ withPool = true } = {}) {
 
   useEffect(() => { applyResolvedTrades(); }, [applyResolvedTrades]);
 
-  const proposeTrade = useCallback(async (toUser, offer, request) => {
-    await proposeTradeService({ fromUser: uid, toUser, offer, request });
+  // Échange terminé par l'AUTRE ami pendant que j'ai l'écran ouvert : exposé
+  // pour que l'UI joue l'animation (voir SocialTab).
+  const [completedTrade, setCompletedTrade] = useState(null);
+  const animatedTradesRef = useRef(new Set());
+
+  // 1. Je propose une carte à un ami.
+  const proposeTrade = useCallback(async (toUser, offer) => {
+    await proposeTradeService({ toUser, offer });
     persist((prev) => withMissionEvents(prev, uid, [{ type: "trade", amount: 1 }]));
     await refreshTrades();
   }, [uid, refreshTrades, persist]);
 
-  const acceptTrade = useCallback(async (trade) => {
-    await acceptTradeServer(trade.id);
-    await applyResolvedTrades();
-    return trade;
-  }, [applyResolvedTrades]);
+  // 2. Je choisis (ou change) la carte que je donne en retour.
+  const counterTrade = useCallback(async (trade, card) => {
+    await counterTradeServer(trade.id, card);
+    await refreshTrades();
+  }, [refreshTrades]);
+
+  // 3. Je valide. La 2e validation exécute l'échange côté serveur.
+  //    Renvoie { status: "countered" | "accepted" | "failed", trade }.
+  const confirmTrade = useCallback(async (trade) => {
+    const status = await confirmTradeServer(trade.id);
+    if (status === "accepted") {
+      animatedTradesRef.current.add(trade.id);
+      markTradeEventSeen(uid, `${trade.id}:accepted`); // pas de notif pour celui qui vient de valider
+      await applyResolvedTrades();
+    } else {
+      await refreshTrades();
+      if (status === "failed") await reloadCollectionFromServer();
+    }
+    return { status, trade };
+  }, [uid, applyResolvedTrades, refreshTrades, reloadCollectionFromServer]);
 
   const declineTrade = useCallback(async (tradeId) => {
-    await closeTrade(tradeId, "declined");
+    await closeTradeServer(tradeId);
     await refreshTrades();
   }, [refreshTrades]);
 
-  const cancelTrade = useCallback(async (tradeId) => {
-    await closeTrade(tradeId, "cancelled");
-    await refreshTrades();
-  }, [refreshTrades]);
+  const cancelTrade = declineTrade; // le serveur distingue refus / annulation selon qui appelle
+
+  // ── Temps réel : l'écran se met à jour quand l'autre agit ────────────────
+  useEffect(() => {
+    if (!uid || !withPool) return;
+    const onChange = async (payload) => {
+      const row = payload.new;
+      await refreshTrades();
+      if (row?.status === "accepted" && !animatedTradesRef.current.has(row.id)) {
+        animatedTradesRef.current.add(row.id);
+        await reloadCollectionFromServer();
+        setCompletedTrade(row);
+      }
+    };
+    const channel = supabase
+      .channel(`waifinity-trades-ui-${uid}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "waifinity_trades", filter: `to_user=eq.${uid}` }, onChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "waifinity_trades", filter: `from_user=eq.${uid}` }, onChange)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [uid, withPool, refreshTrades, reloadCollectionFromServer]);
 
   // ── Favoris : jusqu'à MAX_FAVORITES personnages épinglés en tête de collection ──
   const toggleFavorite = useCallback((id) => {
@@ -699,7 +739,9 @@ export function useWaifinity({ withPool = true } = {}) {
     canAffordTarget:  state.coins >= SHOP_TARGET_COST,
     canAffordGender:  state.coins >= SHOP_GENDER_COST,
     canAffordWish:    (tier) => state.coins >= wishCost(tier),
-    trades, refreshTrades, refreshWaifinity, refreshing, proposeTrade, acceptTrade, declineTrade, cancelTrade,
+    trades, refreshTrades, refreshWaifinity, refreshing,
+    proposeTrade, counterTrade, confirmTrade, declineTrade, cancelTrade,
+    completedTrade, clearCompletedTrade: () => setCompletedTrade(null),
     saveIssue, syncIssue, walletIssue, walletBusy, walletReady,
     favorites: state.favorites || [], toggleFavorite,
   };

@@ -18,6 +18,7 @@ import { useAchievements }             from "./hooks/useAchievements";
 import { syncProfileStats }            from "./services/community";
 import { useNotifications }            from "./hooks/useNotifications";
 import { useFriendRequestNotifications } from "./hooks/useFriendRequestNotifications";
+import { useWaifinityTradeNotifications, useFreeBoosterNotification } from "./hooks/useWaifinityNotifications";
 import { addNotification }             from "./hooks/useNotificationStore";
 import SplashScreen                    from "./components/SplashScreen/SplashScreen";
 import { NotificationToast}            from "./components/common/NotificationToast";
@@ -162,6 +163,8 @@ function NotificationLayer() {
   const syncedRef   = useRef(false);      // évite de re-fetch à chaque changement d'entries
   useNotifications(entries);
   useFriendRequestNotifications(user?.id); // ← demandes d'ami en temps réel (Supabase Realtime)
+  useWaifinityTradeNotifications(user?.id); // ← échanges de cartes Waifinity (temps réel + rattrapage)
+  useFreeBoosterNotification(user?.id);     // ← booster gratuit Waifinity à nouveau disponible
 
   // ── Auto-sync souscription push au démarrage ──────────────────────────
   // Garantit que Supabase a toujours la souscription courante, même si

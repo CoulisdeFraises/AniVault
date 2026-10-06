@@ -320,13 +320,26 @@ export function loadState(uid) {
   }
 }
 
+/** Évènement window émis après chaque sauvegarde réussie (voir
+ *  hooks/useWaifinityNotifications.js : il suit lastFreeOpenedAt sans relire
+ *  toute la sauvegarde). detail = { uid, lastFreeOpenedAt }. */
+export const WAIFINITY_SAVED_EVENT = "waifinity:saved";
+
+function emitSaved(uid, state) {
+  try {
+    window.dispatchEvent(new CustomEvent(WAIFINITY_SAVED_EVENT, {
+      detail: { uid, lastFreeOpenedAt: state?.lastFreeOpenedAt ?? 0 },
+    }));
+  } catch { /* hors navigateur */ }
+}
+
 /** true si la sauvegarde a réussi — false = stockage plein/indisponible, la
  *  progression de cette action n'a PAS été conservée (voir useWaifinity.persist,
  *  qui répare via le miroir Supabase dans ce cas). */
 export function saveState(uid, state) {
   if (!uid) return false;
   const payload = JSON.stringify(state);
-  try { localStorage.setItem(STORAGE_KEY(uid), payload); return true; }
+  try { localStorage.setItem(STORAGE_KEY(uid), payload); emitSaved(uid, state); return true; }
   catch {
     // Le quota localStorage est partagé par toute l'app : souvent ce n'est
     // pas Waifinity qui est volumineux, mais d'autres caches (recos,
@@ -335,6 +348,7 @@ export function saveState(uid, state) {
     try {
       purgeStaleCaches();
       localStorage.setItem(STORAGE_KEY(uid), payload);
+      emitSaved(uid, state);
       return true;
     } catch { return false; }
   }

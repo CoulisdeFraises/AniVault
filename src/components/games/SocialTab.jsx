@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { fetchFriends, fetchMyProfile } from "../../services/community";
-import { fetchWaifinityItems, fetchWaifinityItemsBulk } from "../../services/waifinitySocial";
+import { fetchWaifinityItemsBulk } from "../../services/waifinitySocial";
 import { RARITY, RARITY_ORDER, normalizeTier, countByTier, collectionScore } from "../../utils/waifinity";
 import { Avatar } from "../common/Avatar";
 import { RarityBadge } from "./RarityBadge";
@@ -157,37 +157,47 @@ function CardPicker({ title, subtitle, items, selected, onSelect, loading, accen
   );
 }
 
-function TradeSummary({ mine, theirs, friendName, proposing, onPropose }) {
-  if (!mine || !theirs) return null;
+function MiniCard({ label, card, placeholder }) {
+  return (
+    <div className="min-w-0 flex-1 flex items-center gap-2 rounded-xl bg-white/5 p-2">
+      {card?.image
+        ? <img src={card.image} alt="" className="w-8 h-10 rounded-md object-cover bg-violet-900 flex-shrink-0" />
+        : <div className="w-8 h-10 rounded-md border border-dashed border-white/20 flex items-center justify-center text-violet-500 text-xs flex-shrink-0">?</div>}
+      <div className="min-w-0">
+        <p className="text-[9px] uppercase tracking-widest text-violet-500">{label}</p>
+        <p className="text-[11px] font-semibold text-white truncate">{card?.name || placeholder}</p>
+      </div>
+    </div>
+  );
+}
+
+/** Barre fixe en bas : récapitulatif + bouton d'action (proposer / répondre). */
+function ActionBar({ giveLabel, give, getLabel, get, getPlaceholder, cta, busyLabel, busy, onClick, onCancel }) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 pb-nav animate-fadeIn">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-3">
         <div className="rounded-2xl border border-amber-300/25 bg-violet-950/95 backdrop-blur-xl shadow-2xl shadow-black/40 p-2.5 sm:p-3">
           <div className="flex items-center gap-2.5 mb-2.5">
-            <div className="min-w-0 flex-1 flex items-center gap-2 rounded-xl bg-white/5 p-2">
-              <img src={mine.image} alt="" className="w-8 h-10 rounded-md object-cover bg-violet-900 flex-shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[9px] uppercase tracking-widest text-violet-500">Tu donnes</p>
-                <p className="text-[11px] font-semibold text-white truncate">{mine.name}</p>
-              </div>
-            </div>
+            <MiniCard label={giveLabel} card={give} />
             <ArrowLeftRight size={15} className="text-amber-300 flex-shrink-0" />
-            <div className="min-w-0 flex-1 flex items-center gap-2 rounded-xl bg-white/5 p-2">
-              <img src={theirs.image} alt="" className="w-8 h-10 rounded-md object-cover bg-violet-900 flex-shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[9px] uppercase tracking-widest text-violet-500">{friendName} donne</p>
-                <p className="text-[11px] font-semibold text-white truncate">{theirs.name}</p>
-              </div>
-            </div>
+            <MiniCard label={getLabel} card={get} placeholder={getPlaceholder} />
           </div>
-          <button
-            onClick={onPropose}
-            disabled={proposing}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-300 text-violet-950 font-bold text-sm shadow-lg shadow-amber-500/10 active:scale-[0.98] disabled:opacity-50 transition-transform"
-          >
-            {proposing ? <RefreshCw size={15} className="animate-spin" /> : <ArrowLeftRight size={16} />}
-            {proposing ? "Envoi de la proposition…" : "Proposer cet échange"}
-          </button>
+          <div className="flex gap-2">
+            {onCancel && (
+              <button onClick={onCancel} disabled={busy}
+                className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-violet-200 text-sm font-medium active:scale-[0.98] disabled:opacity-50">
+                Annuler
+              </button>
+            )}
+            <button
+              onClick={onClick}
+              disabled={busy}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-300 text-violet-950 font-bold text-sm shadow-lg shadow-amber-500/10 active:scale-[0.98] disabled:opacity-50 transition-transform"
+            >
+              {busy ? <RefreshCw size={15} className="animate-spin" /> : <ArrowLeftRight size={16} />}
+              {busy ? busyLabel : cta}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -258,63 +268,88 @@ function TradeTransferOverlay({ trade, myId, onClose }) {
   );
 }
 
-const STATUS_LABEL = { pending: "En attente", accepted: "Accepté", declined: "Refusé", cancelled: "Annulé", failed: "Échoué" };
+const STATUS_LABEL = { offered: "En attente", countered: "À valider", accepted: "Accepté", declined: "Refusé", cancelled: "Annulé", failed: "Échoué" };
 
-function TradeRow({ trade, myId, friendsById, onAccept, onDecline, onCancel, busy }) {
+function ThumbSlot({ card }) {
+  return (
+    <div className="w-9 h-11 rounded-md overflow-hidden bg-violet-950 flex-shrink-0 flex items-center justify-center">
+      {card?.image
+        ? <img src={card.image} alt="" className="w-full h-full object-cover" />
+        : <span className="text-violet-600 text-xs border border-dashed border-white/15 w-full h-full flex items-center justify-center">?</span>}
+    </div>
+  );
+}
+
+function ConfirmChip({ label, done }) {
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] border ${done ? "bg-emerald-400/10 border-emerald-400/30 text-emerald-300" : "bg-white/5 border-white/10 text-violet-400"}`}>
+      {done ? <Check size={10} strokeWidth={3} /> : <Clock size={10} />}{label}
+    </span>
+  );
+}
+
+function TradeRow({ trade, myId, friendsById, busy, onRespond, onConfirm, onClose }) {
   const isFrom = trade.from_user === myId;
-  const otherId = isFrom ? trade.to_user : trade.from_user;
-  const otherName = friendsById[otherId]?.username || "un ami";
-  const mine = isFrom
-    ? { name: trade.offer_name, image: trade.offer_image }
-    : { name: trade.request_name, image: trade.request_image };
-  const theirs = isFrom
-    ? { name: trade.request_name, image: trade.request_image }
-    : { name: trade.offer_name, image: trade.offer_image };
+  const otherName = friendsById[isFrom ? trade.to_user : trade.from_user]?.username || "un ami";
+  const offerCard   = { name: trade.offer_name,   image: trade.offer_image };
+  const requestCard = trade.request_character_id != null ? { name: trade.request_name, image: trade.request_image } : null;
+  const mine   = isFrom ? offerCard : requestCard;
+  const theirs = isFrom ? requestCard : offerCard;
+
+  const open = trade.status === "offered" || trade.status === "countered";
+  const myConfirmed    = isFrom ? trade.from_confirmed : trade.to_confirmed;
+  const theirConfirmed = isFrom ? trade.to_confirmed : trade.from_confirmed;
+
+  let statusText = STATUS_LABEL[trade.status] || trade.status;
+  if (trade.status === "offered") statusText = isFrom ? `En attente de la carte de ${otherName}` : "À toi de choisir une carte en retour";
+  if (trade.status === "countered") statusText = myConfirmed ? `En attente de la validation de ${otherName}` : "À valider";
+
+  const btn = "text-[11px] px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-violet-300 active:scale-95 disabled:opacity-40";
+  const primary = "flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg bg-amber-400 text-violet-950 font-semibold active:scale-95 disabled:opacity-40";
 
   return (
     <div className="rounded-xl bg-violet-900/40 border border-white/10 p-3">
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          <div className="w-9 h-11 rounded-md overflow-hidden bg-violet-950 flex-shrink-0">
-            {mine.image && <img src={mine.image} alt="" className="w-full h-full object-cover" />}
-          </div>
+          <ThumbSlot card={mine} />
           <ArrowLeftRight size={13} className="text-violet-500 flex-shrink-0" />
-          <div className="w-9 h-11 rounded-md overflow-hidden bg-violet-950 flex-shrink-0">
-            {theirs.image && <img src={theirs.image} alt="" className="w-full h-full object-cover" />}
-          </div>
+          <ThumbSlot card={theirs} />
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[11px] text-violet-300 truncate">
-            {isFrom ? "Toi" : otherName} donne <span className="text-white font-medium">{mine.name}</span>
+            Toi : <span className="text-white font-medium">{mine?.name || "à choisir"}</span>
           </p>
           <p className="text-[11px] text-violet-300 truncate">
-            {isFrom ? otherName : "Toi"} donne <span className="text-white font-medium">{theirs.name}</span>
+            {otherName} : <span className="text-white font-medium">{theirs?.name || "à choisir"}</span>
           </p>
         </div>
       </div>
 
-      <div className="flex items-center justify-between mt-2.5">
-        <span className="flex items-center gap-1 text-[10.5px] text-violet-400">
-          <Clock size={11} />{STATUS_LABEL[trade.status] || trade.status}
+      {trade.status === "countered" && (
+        <div className="flex gap-1.5 mt-2">
+          <ConfirmChip label="Toi" done={myConfirmed} />
+          <ConfirmChip label={otherName} done={theirConfirmed} />
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-2 mt-2.5">
+        <span className="flex items-center gap-1 text-[10.5px] text-violet-400 min-w-0">
+          <Clock size={11} className="flex-shrink-0" /><span className="truncate">{statusText}</span>
         </span>
-        {trade.status === "pending" && (
-          <div className="flex items-center gap-2">
-            {isFrom ? (
-              <button onClick={() => onCancel(trade.id)} disabled={busy}
-                className="text-[11px] px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-violet-300 active:scale-95 disabled:opacity-40">
-                Annuler
+        {open && (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={() => onClose(trade.id)} disabled={busy} className={btn}>
+              {isFrom ? "Annuler" : "Refuser"}
+            </button>
+            {!isFrom && (
+              <button onClick={() => onRespond(trade)} disabled={busy} className={trade.status === "offered" ? primary : btn}>
+                {trade.status === "offered" ? "Choisir ma carte" : "Changer ma carte"}
               </button>
-            ) : (
-              <>
-                <button onClick={() => onDecline(trade.id)} disabled={busy}
-                  className="text-[11px] px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-violet-300 active:scale-95 disabled:opacity-40">
-                  Refuser
-                </button>
-                <button onClick={() => onAccept(trade)} disabled={busy}
-                  className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg bg-amber-400 text-violet-950 font-semibold active:scale-95 disabled:opacity-40">
-                  <Check size={12} strokeWidth={3} />Accepter
-                </button>
-              </>
+            )}
+            {trade.status === "countered" && !myConfirmed && (
+              <button onClick={() => onConfirm(trade)} disabled={busy} className={primary}>
+                <Check size={12} strokeWidth={3} />Valider
+              </button>
             )}
           </div>
         )}
@@ -323,11 +358,13 @@ function TradeRow({ trade, myId, friendsById, onAccept, onDecline, onCancel, bus
   );
 }
 
-export function SocialTab({ game }) {
+export function SocialTab({ game, initialView }) {
   const { user } = useAuth();
   const myId = user?.id || null;
 
-  const [view, setView] = useState("leaderboard");
+  const [view, setView] = useState(initialView === "trades" ? "trades" : "leaderboard");
+  useEffect(() => { if (initialView === "trades" || initialView === "leaderboard") setView(initialView); }, [initialView]);
+
   const [friends, setFriends] = useState([]);
   const [friendsLoading, setFriendsLoading] = useState(true);
   const [myProfile, setMyProfile] = useState(null);
@@ -336,12 +373,17 @@ export function SocialTab({ game }) {
   const [error, setError] = useState(null);
 
   const myCards = useMemo(() => (game.collectionList || []).filter((c) => c.count > 0), [game.collectionList]);
+
+  // Création d'une offre (étape 1)
   const [selectedFriendId, setSelectedFriendId] = useState(null);
-  const [friendCards, setFriendCards] = useState([]);
-  const [friendCardsLoading, setFriendCardsLoading] = useState(false);
   const [myPick, setMyPick] = useState(null);
-  const [theirPick, setTheirPick] = useState(null);
   const [proposing, setProposing] = useState(false);
+
+  // Réponse à une offre (étape 2) : échange pour lequel je choisis ma carte
+  const [respondId, setRespondId] = useState(null);
+  const [returnPick, setReturnPick] = useState(null);
+  const [responding, setResponding] = useState(false);
+
   const [animationTrade, setAnimationTrade] = useState(null);
 
   const friendsById = useMemo(() => Object.fromEntries(friends.map((f) => [f.user_id, f])), [friends]);
@@ -377,69 +419,84 @@ export function SocialTab({ game }) {
 
   useEffect(() => { if (!friendsLoading) loadLeaderboard(); }, [friendsLoading, loadLeaderboard]);
 
+  // Échange terminé par l'autre ami pendant que l'écran est ouvert → animation.
+  const { completedTrade, clearCompletedTrade } = game;
   useEffect(() => {
-    if (!selectedFriendId) {
-      setFriendCards([]);
-      return;
+    if (completedTrade) { setAnimationTrade(completedTrade); clearCompletedTrade(); }
+  }, [completedTrade, clearCompletedTrade]);
+
+  // Si l'échange auquel je réponds n'est plus en cours (annulé, refusé…), on ferme le panneau.
+  const respondTrade = (game.trades || []).find((t) => t.id === respondId) || null;
+  useEffect(() => {
+    if (respondId && (!respondTrade || !["offered", "countered"].includes(respondTrade.status))) {
+      setRespondId(null); setReturnPick(null);
     }
-    setFriendCardsLoading(true);
-    setTheirPick(null);
-    fetchWaifinityItems(selectedFriendId)
-      .then((items) => {
-        setFriendCards(items.map((it) => ({ ...it, id: it.character_id })).filter((it) => it.count > 0));
-      })
-      .catch(() => setFriendCards([]))
-      .finally(() => setFriendCardsLoading(false));
-  }, [selectedFriendId]);
+  }, [respondId, respondTrade]);
 
   function selectFriend(id) {
     setSelectedFriendId(id);
     setMyPick(null);
-    setTheirPick(null);
     setError(null);
   }
 
   async function handlePropose() {
-    if (!myPick || !theirPick || !selectedFriendId) return;
+    if (!myPick || !selectedFriendId) return;
     setProposing(true);
     setError(null);
     try {
-      await game.proposeTrade(selectedFriendId, myPick, theirPick);
+      await game.proposeTrade(selectedFriendId, myPick);
       haptics.success();
       setMyPick(null);
-      setTheirPick(null);
+      setSelectedFriendId(null);
     } catch (e) {
-      setError(e?.message || "Impossible de proposer cet échange.");
+      setError(e?.message || "Impossible de proposer cette carte.");
     } finally {
       setProposing(false);
     }
   }
 
-  async function handleAccept(trade) {
+  function startRespond(trade) {
+    setRespondId(trade.id);
+    setReturnPick(null);
+    setSelectedFriendId(null);
+    setMyPick(null);
+    setError(null);
+  }
+
+  async function handleCounter() {
+    if (!respondTrade || !returnPick) return;
+    setResponding(true);
+    setError(null);
+    try {
+      await game.counterTrade(respondTrade, returnPick);
+      haptics.success();
+      setRespondId(null);
+      setReturnPick(null);
+    } catch (e) {
+      setError(e?.message || "Impossible d'envoyer ta carte en retour.");
+    } finally {
+      setResponding(false);
+    }
+  }
+
+  async function handleConfirm(trade) {
     setBusyTradeId(trade.id);
     setError(null);
     try {
-      const resolved = await game.acceptTrade(trade);
-      haptics.success();
-      setAnimationTrade(resolved || trade);
+      const { status } = await game.confirmTrade(trade);
+      if (status === "accepted") { haptics.success(); setAnimationTrade(trade); }
+      else if (status === "failed") setError("L'échange a échoué : une des cartes n'est plus disponible.");
     } catch (e) {
-      setError(e?.message || "Cet échange n'a pas pu être accepté.");
+      setError(e?.message || "Cet échange n'a pas pu être validé.");
     } finally {
       setBusyTradeId(null);
     }
   }
 
-  async function handleDecline(id) {
+  async function handleClose(id) {
     setBusyTradeId(id);
     setError(null);
-    try { await game.declineTrade(id); } catch (e) { setError(e?.message || "Impossible de refuser cet échange."); }
-    finally { setBusyTradeId(null); }
-  }
-
-  async function handleCancel(id) {
-    setBusyTradeId(id);
-    setError(null);
-    try { await game.cancelTrade(id); } catch (e) { setError(e?.message || "Impossible d'annuler cet échange."); }
+    try { await game.declineTrade(id); } catch (e) { setError(e?.message || "Impossible de fermer cet échange."); }
     finally { setBusyTradeId(null); }
   }
 
@@ -461,9 +518,21 @@ export function SocialTab({ game }) {
     );
   }
 
-  const pendingTrades = (game.trades || []).filter((t) => t.status === "pending");
-  const pastTrades = (game.trades || []).filter((t) => t.status !== "pending");
+  const allTrades = game.trades || [];
+  const openTrades = allTrades.filter((t) => t.status === "offered" || t.status === "countered");
+  // « À toi de jouer » : offre à laquelle je dois répondre, ou échange que je dois valider.
+  const needsMe = (t) => {
+    const isFrom = t.from_user === myId;
+    if (t.status === "offered") return !isFrom;
+    return t.status === "countered" && !(isFrom ? t.from_confirmed : t.to_confirmed);
+  };
+  const todoTrades = openTrades.filter(needsMe);
+  const waitingTrades = openTrades.filter((t) => !needsMe(t));
+  const pastTrades = allTrades.filter((t) => !["offered", "countered"].includes(t.status));
   const selectedFriend = friendsById[selectedFriendId];
+  const respondFriend = respondTrade ? friendsById[respondTrade.from_user] : null;
+
+  const rowProps = { myId, friendsById, onRespond: startRespond, onConfirm: handleConfirm, onClose: handleClose };
 
   return (
     <div className="space-y-4">
@@ -490,96 +559,110 @@ export function SocialTab({ game }) {
 
       {view === "trades" && (
         <div className="space-y-4">
-          {pendingTrades.length > 0 && (
+          {todoTrades.length > 0 && (
             <div className="space-y-2">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">En attente</p>
-              {pendingTrades.map((t) => (
-                <TradeRow
-                  key={t.id}
-                  trade={t}
-                  myId={myId}
-                  friendsById={friendsById}
-                  onAccept={handleAccept}
-                  onDecline={handleDecline}
-                  onCancel={handleCancel}
-                  busy={busyTradeId === t.id}
-                />
-              ))}
+              <p className="font-mono text-[10px] uppercase tracking-widest text-amber-300">À toi de jouer</p>
+              {todoTrades.map((t) => <TradeRow key={t.id} trade={t} busy={busyTradeId === t.id} {...rowProps} />)}
             </div>
           )}
 
-          <div className="rounded-2xl border border-white/10 bg-violet-900/25 p-3 sm:p-4">
-            <div className="flex items-start gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-amber-300/10 border border-amber-300/20 flex items-center justify-center text-amber-300 flex-shrink-0">
-                <ArrowLeftRight size={18} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-white">Créer un échange</p>
-                <p className="text-[11px] text-violet-400 mt-0.5">
-                  Choisis une carte que tu possèdes et une carte que ton ami possède. Les cartes uniques sont aussi échangeables.
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <p className="text-[10px] uppercase tracking-widest text-violet-500 mb-2">1 · Avec qui ?</p>
-              <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
-                {friends.map((f) => (
-                  <button
-                    key={f.user_id}
-                    type="button"
-                    onClick={() => selectFriend(f.user_id)}
-                    className={`flex flex-col items-center gap-1.5 flex-shrink-0 min-w-[64px] px-2 py-2 rounded-xl border transition-colors ${
-                      selectedFriendId === f.user_id
-                        ? "bg-amber-300/10 border-amber-300/45"
-                        : "bg-white/[0.02] border-transparent hover:border-white/10"
-                    }`}
-                  >
-                    <Avatar name={f.username} color={f.avatar_color} photoUrl={f.avatar_url} size="sm" />
-                    <span className={`text-[10px] max-w-[70px] truncate ${selectedFriendId === f.user_id ? "text-amber-200" : "text-violet-300"}`}>{f.username}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {selectedFriendId && (
+          {respondTrade && (
             <div className="space-y-3 pb-28">
               <div className="flex items-center gap-2 px-1">
-                <Avatar name={selectedFriend?.username || "Ami"} color={selectedFriend?.avatar_color} photoUrl={selectedFriend?.avatar_url} size="sm" />
+                <Avatar name={respondFriend?.username || "Ami"} color={respondFriend?.avatar_color} photoUrl={respondFriend?.avatar_url} size="sm" />
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-white">Échange avec {selectedFriend?.username || "cet ami"}</p>
-                  <p className="text-[10px] text-violet-500">Sélectionne une carte de chaque côté</p>
+                  <p className="text-xs font-semibold text-white">Ta carte en retour pour {respondFriend?.username || "ton ami"}</p>
+                  <p className="text-[10px] text-violet-500">Il te propose {respondTrade.offer_name}. Choisis la carte que tu lui donnes.</p>
+                </div>
+              </div>
+              <CardPicker
+                title="Ta carte"
+                subtitle="N'importe quelle carte de ta collection, sauf celle qu'il te propose."
+                items={myCards.filter((c) => String(c.id) !== String(respondTrade.offer_character_id))}
+                selected={returnPick}
+                onSelect={setReturnPick}
+                emptyText={myCards.length ? "Aucune carte ne correspond à ta recherche." : "Ta collection est encore vide."}
+              />
+              {returnPick && (
+                <ActionBar
+                  giveLabel="Tu donnes" give={returnPick}
+                  getLabel={`${respondFriend?.username || "Ami"} donne`}
+                  get={{ name: respondTrade.offer_name, image: respondTrade.offer_image }}
+                  cta="Proposer en retour" busyLabel="Envoi…" busy={responding}
+                  onClick={handleCounter}
+                  onCancel={() => { setRespondId(null); setReturnPick(null); }}
+                />
+              )}
+              {!returnPick && (
+                <button onClick={() => { setRespondId(null); setReturnPick(null); }}
+                  className="w-full text-xs text-violet-400 py-2">Annuler</button>
+              )}
+            </div>
+          )}
+
+          {waitingTrades.length > 0 && (
+            <div className="space-y-2">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">En attente de l'autre</p>
+              {waitingTrades.map((t) => <TradeRow key={t.id} trade={t} busy={busyTradeId === t.id} {...rowProps} />)}
+            </div>
+          )}
+
+          {!respondTrade && (
+            <div className="rounded-2xl border border-white/10 bg-violet-900/25 p-3 sm:p-4">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-amber-300/10 border border-amber-300/20 flex items-center justify-center text-amber-300 flex-shrink-0">
+                  <ArrowLeftRight size={18} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white">Proposer une carte</p>
+                  <p className="text-[11px] text-violet-400 mt-0.5">
+                    Tu proposes une de tes cartes, ton ami choisit une carte à te donner en retour, puis vous validez tous les deux.
+                  </p>
                 </div>
               </div>
 
-              <div className="grid lg:grid-cols-2 gap-3">
-                <CardPicker
-                  title="Ta carte"
-                  subtitle="N'importe quelle carte de ta collection peut être offerte."
-                  items={myCards}
-                  selected={myPick}
-                  onSelect={setMyPick}
-                  emptyText={myCards.length ? "Aucune carte ne correspond à ta recherche." : "Ta collection est encore vide."}
-                />
-                <CardPicker
-                  title={`${selectedFriend?.username || "Son"} carte`}
-                  subtitle="Toutes les cartes que cet ami possède sont disponibles."
-                  items={friendCards}
-                  selected={theirPick}
-                  onSelect={setTheirPick}
-                  loading={friendCardsLoading}
-                  accent="sky"
-                  emptyText="Cet ami ne possède aucune carte correspondant à cette recherche."
-                />
-              </div>
-
-              {(!myPick || !theirPick) && (
-                <div className="flex items-center justify-center gap-2 text-[10px] text-violet-500">
-                  <span className={myPick ? "text-emerald-300" : ""}>{myPick ? "✓ Ta carte sélectionnée" : "Choisis ta carte"}</span>
-                  <span>•</span>
-                  <span className={theirPick ? "text-emerald-300" : ""}>{theirPick ? "✓ Sa carte sélectionnée" : "Choisis sa carte"}</span>
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-violet-500 mb-2">1 · À qui ?</p>
+                <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
+                  {friends.map((f) => (
+                    <button
+                      key={f.user_id}
+                      type="button"
+                      onClick={() => selectFriend(f.user_id)}
+                      className={`flex flex-col items-center gap-1.5 flex-shrink-0 min-w-[64px] px-2 py-2 rounded-xl border transition-colors ${
+                        selectedFriendId === f.user_id
+                          ? "bg-amber-300/10 border-amber-300/45"
+                          : "bg-white/[0.02] border-transparent hover:border-white/10"
+                      }`}
+                    >
+                      <Avatar name={f.username} color={f.avatar_color} photoUrl={f.avatar_url} size="sm" />
+                      <span className={`text-[10px] max-w-[70px] truncate ${selectedFriendId === f.user_id ? "text-amber-200" : "text-violet-300"}`}>{f.username}</span>
+                    </button>
+                  ))}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {!respondTrade && selectedFriendId && (
+            <div className="space-y-3 pb-28">
+              <p className="text-[10px] uppercase tracking-widest text-violet-500 px-1">2 · Quelle carte lui proposes-tu ?</p>
+              <CardPicker
+                title="Ta carte"
+                subtitle={`${selectedFriend?.username || "Ton ami"} choisira ensuite une carte à te donner en retour.`}
+                items={myCards}
+                selected={myPick}
+                onSelect={setMyPick}
+                emptyText={myCards.length ? "Aucune carte ne correspond à ta recherche." : "Ta collection est encore vide."}
+              />
+              {myPick && (
+                <ActionBar
+                  giveLabel="Tu donnes" give={myPick}
+                  getLabel={`${selectedFriend?.username || "Ton ami"} donne`}
+                  get={null} getPlaceholder="Il choisira"
+                  cta="Proposer cette carte" busyLabel="Envoi de la proposition…" busy={proposing}
+                  onClick={handlePropose}
+                />
               )}
             </div>
           )}
@@ -587,22 +670,11 @@ export function SocialTab({ game }) {
           {pastTrades.length > 0 && (
             <div className="space-y-2">
               <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">Historique</p>
-              {pastTrades.slice(0, 10).map((t) => (
-                <TradeRow key={t.id} trade={t} myId={myId} friendsById={friendsById}
-                  onAccept={handleAccept} onDecline={handleDecline} onCancel={handleCancel} busy={false} />
-              ))}
+              {pastTrades.slice(0, 10).map((t) => <TradeRow key={t.id} trade={t} busy={false} {...rowProps} />)}
             </div>
           )}
         </div>
       )}
-
-      <TradeSummary
-        mine={myPick}
-        theirs={theirPick}
-        friendName={selectedFriend?.username || "Ton ami"}
-        proposing={proposing}
-        onPropose={handlePropose}
-      />
 
       {animationTrade && (
         <TradeTransferOverlay

@@ -98,16 +98,44 @@ export async function fetchWaifinityItemsBulk(userIds) {
 }
 
 // ── Échanges ──────────────────────────────────────────────────────────────────
+//
+// Flux en 3 étapes (voir supabase/waifinity_trades_v2.sql) :
+//   1. A propose une carte à B                    → status "offered"
+//   2. B choisit une carte à lui en retour        → status "countered"
+//   3. A et B valident ; la 2e validation exécute → status "accepted"
+// Tout passe par des fonctions SQL : le client ne modifie jamais la table.
 
-/** Propose un échange : `offer`/`request` = { id, name, image, tier, series, gender }. */
-export async function proposeTrade({ fromUser, toUser, offer, request }) {
-  const { error } = await supabase.from("waifinity_trades").insert({
-    from_user: fromUser, to_user: toUser,
-    offer_character_id: offer.id, offer_name: offer.name, offer_image: offer.image,
-    offer_tier: offer.tier, offer_series: offer.series, offer_gender: offer.gender ?? null,
-    request_character_id: request.id, request_name: request.name, request_image: request.image,
-    request_tier: request.tier, request_series: request.series, request_gender: request.gender ?? null,
+/** A propose UNE carte (`offer` = { id, … }) à un ami. */
+export async function proposeTrade({ toUser, offer }) {
+  const { error } = await supabase.rpc("propose_waifinity_trade", {
+    p_to_user: toUser,
+    p_character_id: String(offer.id),
   });
+  if (error) throw error;
+}
+
+/** B répond avec une carte à lui (remet les deux validations à zéro). */
+export async function counterTradeServer(tradeId, card) {
+  const { error } = await supabase.rpc("counter_waifinity_trade", {
+    p_trade_id: String(tradeId),
+    p_character_id: String(card.id),
+  });
+  if (error) throw error;
+}
+
+/**
+ * Valide l'échange de MON côté. Renvoie "countered" (l'autre n'a pas encore
+ * validé), "accepted" (échange exécuté) ou "failed" (une carte n'est plus là).
+ */
+export async function confirmTradeServer(tradeId) {
+  const { data, error } = await supabase.rpc("confirm_waifinity_trade", { p_trade_id: String(tradeId) });
+  if (error) throw error;
+  return data;
+}
+
+/** Refuser (destinataire) ou annuler (auteur) un échange en cours. */
+export async function closeTradeServer(tradeId) {
+  const { error } = await supabase.rpc("close_waifinity_trade", { p_trade_id: String(tradeId) });
   if (error) throw error;
 }
 
@@ -120,27 +148,4 @@ export async function fetchMyTrades(myId) {
     .order("created_at", { ascending: false });
   if (error) { console.error("Fetch Waifinity trades :", error.message); return []; }
   return data || [];
-}
-
-/** Refuser (côté to_user) ou annuler (côté from_user) une proposition en attente. */
-export async function closeTrade(tradeId, status) {
-  const { error } = await supabase.from("waifinity_trades")
-    .update({ status, resolved_at: new Date().toISOString() })
-    .eq("id", tradeId);
-  if (error) throw error;
-}
-
-/** Accepte : exécute le swap atomique côté serveur (voir accept_waifinity_trade). */
-export async function acceptTradeServer(tradeId) {
-  const { error } = await supabase.rpc("accept_waifinity_trade", { p_trade_id: tradeId });
-  if (error) throw error;
-}
-
-/** Marque MON côté comme répercuté dans mon état local (voir useWaifinity). */
-export async function markTradeApplied(tradeId, side) {
-  const { error } = await supabase
-    .from("waifinity_trades")
-    .update({ [side]: true })
-    .eq("id", tradeId);
-  if (error) throw error;
 }
