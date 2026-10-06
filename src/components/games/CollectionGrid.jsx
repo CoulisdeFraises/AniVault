@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { AnimatePresence } from "motion/react";
-import { HeartCrack, Heart, Search, X, Layers, ListOrdered } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { HeartCrack, Heart, Search, X, Layers, ListOrdered, ChevronDown } from "lucide-react";
 import {
   RARITY, RARITY_ORDER, GENDER_FILTER_LABEL, matchesGender, countByTier, normalizeTier,
   seriesKeyOf, isRecentlyObtained,
@@ -19,7 +19,21 @@ import { usePagedList } from "../../hooks/usePagedList";
 // ne monte plus des centaines de <img> d'un coup. En vue « Par série », la
 // pagination porte sur les séries.
 const PAGE_CARDS = 60;
-const PAGE_GROUPS = 12;
+const PAGE_GROUPS = 30; // séries repliées = légères : on peut en monter davantage d'un coup
+
+// Préférences de la vue « Par série » (mémorisées entre deux visites).
+const GROUP_PREF_KEY = "anivault:waifinity-group-by-series";
+const OPEN_SERIES_KEY = "anivault:waifinity-open-series";
+
+function loadGroupPref() {
+  try { return localStorage.getItem(GROUP_PREF_KEY) !== "false"; } catch { return true; } // groupé par défaut
+}
+function loadOpenSeries() {
+  try { return new Set(JSON.parse(localStorage.getItem(OPEN_SERIES_KEY) || "[]")); } catch { return new Set(); }
+}
+function saveOpenSeries(set) {
+  try { localStorage.setItem(OPEN_SERIES_KEY, JSON.stringify([...set].slice(-300))); } catch { /* quota : on perd juste la mémoire */ }
+}
 
 const VIEWS = [
   { key: "mine",     label: "Ma collection" },
@@ -95,7 +109,22 @@ export function CollectionGrid({
   const [genderFilter, setGenderFilter] = useState("all");
   const [sort, setSort]                 = useState("recent");
   const [query, setQuery]               = useState("");
-  const [groupBySeries, setGroupBySeries] = useState(false);
+  const [groupBySeries, setGroupBySeriesState] = useState(loadGroupPref);
+  // Séries dépliées (les autres sont repliées par défaut) — mémorisées localement.
+  const [openSeries, setOpenSeries] = useState(loadOpenSeries);
+
+  const setGroupBySeries = (updater) => setGroupBySeriesState((prev) => {
+    const next = typeof updater === "function" ? updater(prev) : updater;
+    try { localStorage.setItem(GROUP_PREF_KEY, String(next)); } catch { /* ignoré */ }
+    return next;
+  });
+  const toggleSeries = (key) => setOpenSeries((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    saveOpenSeries(next);
+    return next;
+  });
+  const setAllSeries = (keys) => { const next = new Set(keys); saveOpenSeries(next); setOpenSeries(next); };
 
   // Ordre des favoris : menu d'appui long (id de la carte) + écran « Réorganiser ».
   const [menuId, setMenuId]           = useState(null);
@@ -153,9 +182,21 @@ export function CollectionGrid({
       if (!m.has(key)) m.set(key, { key, series: c.series || "Série inconnue", items: [] });
       m.get(key).items.push(c);
     }
-    return [...m.values()].sort((a, b) =>
-      (ownedSeriesTotals.get(b.key) || 0) - (ownedSeriesTotals.get(a.key) || 0) || a.series.localeCompare(b.series));
-  }, [filtered, groupBySeries, ownedSeriesTotals]);
+    // L'ordre des séries suit le tri choisi : récents → séries touchées en dernier,
+    // rareté → meilleure carte de la série, nom → ordre alphabétique.
+    const list = [...m.values()].map((g) => ({
+      ...g,
+      newest: Math.max(...g.items.map((c) => c.firstObtainedAt || 0)),
+      best: Math.max(...g.items.map((c) => RARITY_ORDER.indexOf(normalizeTier(c.tier)))),
+    }));
+    const byName = (a, b) => a.series.localeCompare(b.series);
+    list.sort(
+      sort === "name"   ? byName :
+      sort === "rarity" ? (a, b) => b.best - a.best || byName(a, b) :
+                          (a, b) => b.newest - a.newest || byName(a, b)
+    );
+    return list;
+  }, [filtered, groupBySeries, sort]);
 
   // Pagination (hooks avant tout retour anticipé) : remise à la 1re page dès
   // qu'un filtre, le tri ou la recherche change.
@@ -329,27 +370,73 @@ export function CollectionGrid({
 
       {filtered.length ? (
         groups ? (
-          <div className="space-y-5">
+          <div className="space-y-2.5">
+            {/* Barre d'outils : nombre de séries + tout déplier / replier */}
+            <div className="flex items-center justify-between gap-2 px-0.5">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">
+                {groups.length} série{groups.length > 1 ? "s" : ""}
+                {!hasFilters && <span className="normal-case tracking-normal"> · {groups.filter((g) => openSeries.has(g.key)).length} dépliée{groups.filter((g) => openSeries.has(g.key)).length > 1 ? "s" : ""}</span>}
+              </p>
+              <div className="flex items-center gap-1.5">
+                <button type="button" onClick={() => setAllSeries(groups.map((g) => g.key))} disabled={!!hasFilters}
+                  className="rounded-full bg-white/5 border border-white/10 px-2.5 py-1 text-[10.5px] text-violet-200 hover:bg-white/10 active:scale-95 disabled:opacity-40">
+                  Tout déplier
+                </button>
+                <button type="button" onClick={() => setAllSeries([])} disabled={!!hasFilters}
+                  className="rounded-full bg-white/5 border border-white/10 px-2.5 py-1 text-[10.5px] text-violet-200 hover:bg-white/10 active:scale-95 disabled:opacity-40">
+                  Tout replier
+                </button>
+              </div>
+            </div>
+
             {groupsPage.visible.map((g) => {
               const owned = ownedSeriesTotals.get(g.key) || g.items.length;
               const total = Math.max(poolSeriesTotals.get(g.key) || 0, owned);
               const complete = owned >= total;
+              // Une recherche ou un filtre actif déplie tout, pour ne rien cacher du résultat.
+              const open = hasFilters || openSeries.has(g.key);
+              const preview = g.items.filter((c) => c.image).slice(0, 4);
               return (
-                <section key={g.key} className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <p className="text-[13px] font-semibold text-white truncate min-w-0 flex-1">{g.series}</p>
-                    {complete && (
-                      <span className="flex-shrink-0 text-[9px] font-mono uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-400/15 text-emerald-300 border border-emerald-400/30">Complète</span>
-                    )}
+                <section key={g.key} className="rounded-2xl bg-violet-900/40 border border-white/10 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => { if (!hasFilters) toggleSeries(g.key); }}
+                    aria-expanded={open}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left active:scale-[0.99] transition-transform motion-reduce:transition-none"
+                  >
+                    {/* Aperçu : quelques cartes de la série, visibles même repliée */}
+                    <div className="flex -space-x-2.5 flex-shrink-0" aria-hidden="true">
+                      {preview.map((c) => (
+                        <img key={c.id} src={c.image} alt="" loading="lazy" draggable="false"
+                          className="w-7 h-9 rounded-md object-cover border border-violet-950 bg-violet-950" />
+                      ))}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-[13px] font-semibold text-white truncate min-w-0">{g.series}</p>
+                        {complete && (
+                          <span className="flex-shrink-0 text-[9px] font-mono uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-400/15 text-emerald-300 border border-emerald-400/30">Complète</span>
+                        )}
+                      </div>
+                      <div className="h-1 rounded-full bg-white/10 overflow-hidden mt-1.5">
+                        <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-fuchsia-500"
+                          style={{ width: `${Math.max(total ? (owned / total) * 100 : 0, 3)}%` }} />
+                      </div>
+                    </div>
                     <span className="flex-shrink-0 font-mono text-[11px] text-violet-300">{owned}/{total}</span>
-                  </div>
-                  <div className="h-1 rounded-full bg-white/10 overflow-hidden">
-                    <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-fuchsia-500"
-                      style={{ width: `${Math.max(total ? (owned / total) * 100 : 0, 3)}%` }} />
-                  </div>
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2.5">
-                    {g.items.map((c) => <CollectionCard key={c.id} c={c} onOpen={onOpenSheet} isFavorite={favSet.has(c.id)} cosmetic={equipped[c.id]} />)}
-                  </div>
+                    <ChevronDown size={15} className={`flex-shrink-0 text-violet-400 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
+                  </button>
+
+                  <AnimatePresence initial={false}>
+                    {open && (
+                      <motion.div key="body" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2, ease: "easeOut" }} className="overflow-hidden">
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2.5 px-3.5 pb-3.5">
+                          {g.items.map((c) => <CollectionCard key={c.id} c={c} onOpen={onOpenSheet} isFavorite={favSet.has(c.id)} cosmetic={equipped[c.id]} />)}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </section>
               );
             })}
