@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Heart, ChevronLeft, ChevronRight } from "lucide-react";
 import { RARITY, normalizeTier } from "../../utils/waifinity";
+import { haptics } from "../../utils/haptics";
 import { resolveCosmetic } from "../../utils/waifinityCosmetics";
 import { RarityBadge } from "./RarityBadge";
 import { CardFrame } from "./CardFrame";
@@ -20,13 +21,21 @@ import { CardFrame } from "./CardFrame";
 // `equipped` ({ [id]: { frame, effect } }) applique les cosmétiques équipés.
 // Sans `onOpen`, le carousel est en lecture seule (vitrine d'un autre joueur) :
 // toucher la carte active ne fait rien.
+//
+// `onLongPress(id)` (optionnel) : appui long (~0,45 s, sans bouger) ou clic droit
+// sur une carte — utilisé pour ouvrir le menu de réorganisation. Un défilement
+// ou un déplacement du doigt annule l'appui long.
+// `focusId` + `focusToken` : à chaque changement du token, recentre le carrousel
+// sur la carte `focusId` (utile après l'avoir déplacée).
 
 const CARD_W = 168;   // largeur d'une carte, en px
 const GAP    = 14;    // espace entre deux cartes
 const MIN_SCALE   = 0.86;
 const MIN_OPACITY = 0.55;
+const LONG_PRESS_MS = 450;
+const LONG_PRESS_SLOP = 10; // px de déplacement tolérés avant d'annuler
 
-export function FavoritesCarousel({ items, onOpen, equipped }) {
+export function FavoritesCarousel({ items, onOpen, equipped, onLongPress, focusId, focusToken }) {
   const scrollerRef = useRef(null);
   const cardRefs = useRef([]);
   const rafRef = useRef(0);
@@ -83,6 +92,39 @@ export function FavoritesCarousel({ items, onOpen, equipped }) {
     });
   };
 
+  // Recentrage après un déplacement (le DOM vient d'être réordonné).
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  useEffect(() => {
+    if (!focusToken) return;
+    const raf = requestAnimationFrame(() => {
+      const i = itemsRef.current.findIndex((c) => c.id === focusId);
+      if (i >= 0) goTo(i);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [focusToken]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Appui long ──
+  const lpRef = useRef({ timer: 0, x: 0, y: 0, fired: false });
+  const cancelLongPress = useCallback(() => clearTimeout(lpRef.current.timer), []);
+  useEffect(() => cancelLongPress, [cancelLongPress]);
+
+  const startLongPress = (e, id) => {
+    if (!onLongPress || (e.pointerType === "mouse" && e.button !== 0)) return;
+    clearTimeout(lpRef.current.timer);
+    lpRef.current = {
+      x: e.clientX, y: e.clientY, fired: false,
+      timer: setTimeout(() => {
+        lpRef.current.fired = true;
+        haptics.longPress();
+        onLongPress(id);
+      }, LONG_PRESS_MS),
+    };
+  };
+  const moveLongPress = (e) => {
+    if (Math.hypot(e.clientX - lpRef.current.x, e.clientY - lpRef.current.y) > LONG_PRESS_SLOP) cancelLongPress();
+  };
+
   const many = items.length > 1;
 
   return (
@@ -119,13 +161,27 @@ export function FavoritesCarousel({ items, onOpen, equipped }) {
               ref={(el) => { cardRefs.current[i] = el; }}
               aria-roledescription="slide"
               aria-label={`${i + 1} sur ${items.length}`}
-              className="snap-center shrink-0 will-change-transform origin-center"
+              className={`snap-center shrink-0 will-change-transform origin-center${onLongPress ? " select-none [-webkit-touch-callout:none]" : ""}`}
               style={{ width: CARD_W }}
+              onPointerDown={onLongPress ? (e) => startLongPress(e, c.id) : undefined}
+              onPointerMove={onLongPress ? moveLongPress : undefined}
+              onPointerUp={onLongPress ? cancelLongPress : undefined}
+              onPointerLeave={onLongPress ? cancelLongPress : undefined}
+              onPointerCancel={onLongPress ? cancelLongPress : undefined}
+              onContextMenu={onLongPress ? (e) => {
+                e.preventDefault();
+                // Appui long tactile : déjà géré par le minuteur. Clic droit souris : on ouvre ici.
+                if (!lpRef.current.fired) onLongPress(c.id);
+              } : undefined}
             >
               <CardFrame
                 as="button"
                 tier={c.tier}
-                onClick={() => { if (i !== active) goTo(i); else onOpen?.(c.id); }}
+                onClick={() => {
+                  // Le relâchement qui suit un appui long ne doit pas ouvrir la fiche.
+                  if (lpRef.current.fired) { lpRef.current.fired = false; return; }
+                  if (i !== active) goTo(i); else onOpen?.(c.id);
+                }}
                 cosmetic={equipped?.[c.id]}
                 className="relative block w-full text-left active:brightness-110 transition-[filter] motion-reduce:transition-none"
                 style={{ boxShadow: `0 10px 28px -8px ${resolveCosmetic(equipped?.[c.id]).frame?.glow || r.glow}` }}

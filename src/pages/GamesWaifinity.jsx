@@ -148,7 +148,8 @@ export function GamesWaifinity() {
                 onGoShop={() => setTab("shop")}
               />
             )}
-            {tab === "collection" && <CollectionGrid collectionList={game.collectionList} pool={game.pool} collection={game.collection} favorites={game.favorites} equipped={game.equipped} onOpenSheet={setSheetId} />}
+            {tab === "collection" && <CollectionGrid collectionList={game.collectionList} pool={game.pool} collection={game.collection} favorites={game.favorites} equipped={game.equipped} onOpenSheet={setSheetId}
+              onMoveFavorite={game.moveFavorite} onReorderFavorites={game.setFavoritesOrder} onToggleFavorite={companion.toggleFavorite} />}
             {tab === "social" && <SocialTab game={game} initialView={searchParams.get("view")} />}
             {tab === "shop" && (
               <ShopPanel

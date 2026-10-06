@@ -579,6 +579,37 @@ export function useWaifinity({ withPool = true } = {}) {
     });
   }, [persist, uid]);
 
+  // ── Ordre des favoris ─────────────────────────────────────────────────────
+  // `favorites` est un tableau ordonné : l'ordre = celui du carrousel (et de la
+  // vitrine vue par les amis). Il est synchronisé comme le reste des extras
+  // (voir extrasSig plus bas), aucune autre écriture à prévoir.
+
+  /** Déplace un favori à la position `toIndex` (0 = premier). */
+  const moveFavorite = useCallback((id, toIndex) => {
+    persist((prev) => {
+      const cur = prev.favorites || [];
+      const from = cur.indexOf(id);
+      if (from < 0) return prev;
+      const to = Math.max(0, Math.min(cur.length - 1, toIndex));
+      if (to === from) return prev;
+      const next = [...cur];
+      next.splice(from, 1);
+      next.splice(to, 0, id);
+      return { ...prev, favorites: next };
+    });
+  }, [persist]);
+
+  /** Applique un nouvel ordre complet (glisser-déposer). Ne peut ni ajouter ni retirer de favori. */
+  const setFavoritesOrder = useCallback((ids) => {
+    persist((prev) => {
+      const cur = prev.favorites || [];
+      const next = ids.filter((id, i) => cur.includes(id) && ids.indexOf(id) === i);
+      for (const id of cur) if (!next.includes(id)) next.push(id);
+      if (next.length === cur.length && next.every((id, i) => id === cur[i])) return prev;
+      return { ...prev, favorites: next };
+    });
+  }, [persist]);
+
   // ── Atelier : cosmétiques achetés avec des fragments ──────────────────────
   const buyCosmetic = useCallback((id) => {
     const item = COSMETICS_BY_ID[id];
@@ -743,6 +774,6 @@ export function useWaifinity({ withPool = true } = {}) {
     proposeTrade, counterTrade, confirmTrade, declineTrade, cancelTrade,
     completedTrade, clearCompletedTrade: () => setCompletedTrade(null),
     saveIssue, syncIssue, walletIssue, walletBusy, walletReady,
-    favorites: state.favorites || [], toggleFavorite,
+    favorites: state.favorites || [], toggleFavorite, moveFavorite, setFavoritesOrder,
   };
 }

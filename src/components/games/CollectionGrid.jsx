@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { HeartCrack, Heart, Search, X, Layers } from "lucide-react";
+import { AnimatePresence } from "motion/react";
+import { HeartCrack, Heart, Search, X, Layers, ListOrdered } from "lucide-react";
 import {
   RARITY, RARITY_ORDER, GENDER_FILTER_LABEL, matchesGender, countByTier, normalizeTier,
   seriesKeyOf, isRecentlyObtained,
@@ -10,6 +11,7 @@ import { PillTabs } from "./PillTabs";
 import { CardFrame } from "./CardFrame";
 import { SeriesExplorer } from "./SeriesExplorer";
 import { FavoritesCarousel } from "./FavoritesCarousel";
+import { FavoriteActionSheet, FavoritesReorderModal } from "./FavoritesManager";
 import { LoadMore } from "./LoadMore";
 import { usePagedList } from "../../hooks/usePagedList";
 
@@ -84,13 +86,27 @@ function ProgressRing({ pct }) {
   );
 }
 
-export function CollectionGrid({ collectionList, pool, collection = {}, favorites = [], equipped = {}, onOpenSheet }) {
+export function CollectionGrid({
+  collectionList, pool, collection = {}, favorites = [], equipped = {}, onOpenSheet,
+  onMoveFavorite, onReorderFavorites, onToggleFavorite,
+}) {
   const [view, setView]                 = useState("mine");
   const [tierFilter, setTierFilter]     = useState("all");
   const [genderFilter, setGenderFilter] = useState("all");
   const [sort, setSort]                 = useState("recent");
   const [query, setQuery]               = useState("");
   const [groupBySeries, setGroupBySeries] = useState(false);
+
+  // Ordre des favoris : menu d'appui long (id de la carte) + écran « Réorganiser ».
+  const [menuId, setMenuId]           = useState(null);
+  const [reorderOpen, setReorderOpen] = useState(false);
+  const [focus, setFocus]             = useState({ id: null, token: 0 });
+  const canReorder = !!(onMoveFavorite && onReorderFavorites);
+
+  // Ferme le menu puis ouvre une autre modale APRÈS son animation de sortie :
+  // deux <Modal> qui se chevauchent laisseraient le body bloqué en overflow:hidden
+  // (voir le commentaire dans Modal.jsx).
+  const afterMenuClose = (fn) => { setMenuId(null); setTimeout(fn, 280); };
 
   const favSet = useMemo(() => new Set(favorites), [favorites]);
   const poolTotals  = useMemo(() => countByTier(pool), [pool]);
@@ -206,12 +222,58 @@ export function CollectionGrid({ collectionList, pool, collection = {}, favorite
       {/* Favoris épinglés */}
       {!hasFilters && favItems.length > 0 && (
         <section>
-          <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-amber-300 mb-2">
-            <Heart size={11} fill="currentColor" />Mes favoris
-          </p>
-          <FavoritesCarousel items={favItems} onOpen={onOpenSheet} equipped={equipped} />
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-amber-300">
+              <Heart size={11} fill="currentColor" />Mes favoris
+              <span className="text-violet-400 normal-case tracking-normal">{favItems.length}</span>
+            </p>
+            {canReorder && favItems.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setReorderOpen(true)}
+                className="flex items-center gap-1.5 rounded-full bg-white/5 border border-white/10 px-2.5 py-1 text-[10.5px] text-violet-200 hover:bg-white/10 active:scale-95"
+              >
+                <ListOrdered size={12} />Réorganiser
+              </button>
+            )}
+          </div>
+          <FavoritesCarousel
+            items={favItems}
+            onOpen={onOpenSheet}
+            equipped={equipped}
+            onLongPress={canReorder ? setMenuId : undefined}
+            focusId={focus.id}
+            focusToken={focus.token}
+          />
+          {canReorder && favItems.length > 1 && (
+            <p className="text-center text-[10px] text-violet-500 mt-1">Appui long sur une carte pour changer sa position</p>
+          )}
         </section>
       )}
+
+      <AnimatePresence>
+        {canReorder && menuId != null && (
+          <FavoriteActionSheet
+            key="fav-menu"
+            items={favItems}
+            characterId={menuId}
+            onMove={(id, to) => { onMoveFavorite(id, to); setFocus((f) => ({ id, token: f.token + 1 })); }}
+            onOpenSheet={(id) => afterMenuClose(() => onOpenSheet?.(id))}
+            onOpenReorder={() => afterMenuClose(() => setReorderOpen(true))}
+            onRemove={(id) => onToggleFavorite?.(id)}
+            onClose={() => setMenuId(null)}
+          />
+        )}
+        {canReorder && reorderOpen && (
+          <FavoritesReorderModal
+            key="fav-reorder"
+            items={favItems}
+            onReorder={onReorderFavorites}
+            onMove={onMoveFavorite}
+            onClose={() => setReorderOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Raretés : progression par palier + filtre */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
