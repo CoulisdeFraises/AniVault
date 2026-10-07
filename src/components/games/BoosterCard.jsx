@@ -24,12 +24,12 @@ import { haptics } from "../../utils/haptics";
  * CENTRE de la carte (image assombrie) pour se repérer d'un coup d'œil ;
  * `fragments` y affiche le nombre de fragments que ce doublon va rapporter.
  */
-export function BoosterCard({ card, revealed, isDuplicate, fragments = 0, onReveal }) {
+export function BoosterCard({ card, revealed, isDuplicate, fragments = 0, onReveal, quiet = false }) {
   const r = RARITY[normalizeTier(card.tier)];
   const [flash, setFlash] = useState(false);
 
   useEffect(() => {
-    if (revealed && r.shine) haptics.success();
+    if (revealed && r.shine && !quiet) haptics.success(); // `quiet` : récapitulatif, déjà vibré à la révélation
   }, [revealed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleClick() {

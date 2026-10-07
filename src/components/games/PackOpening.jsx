@@ -1,7 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "motion/react";
 import { Sparkles, PackagePlus } from "lucide-react";
 import { BoosterCard } from "./BoosterCard";
+import { PackDeck } from "./PackDeck";
+import { GameButton } from "./ui";
 import { haptics } from "../../utils/haptics";
 import { normalizeTier } from "../../utils/waifinity";
 import { fragmentsForDuplicate } from "../../utils/waifinityCosmetics";
@@ -15,59 +18,21 @@ const INTRO_DURATION_MS = 1100;
 const BURST_DELAY_MS = 620; // déclenche l'explosion peu avant la fin du suspense
 const BURST_COUNT = 8;
 
-/**
- * Ouverture d'un booster de 10 : un court suspense animé (le booster qui
- * "charge") précède la révélation, puis chaque carte se révèle au tap. Une
- * fois les 10 révélées, un bouton les ajoute TOUTES à la collection (plus de
- * choix d'une seule carte) ; un doublon est converti en Anigold.
- *
- * `collection` (état persistant du joueur) sert à repérer les doublons parmi
- * les cartes de CE booster : un personnage déjà possédé, ou qui apparaît
- * deux fois dans le même tirage, reçoit un petit badge sur sa carte révélée.
- */
-export function PackOpening({ pack, onConfirm, collection = {} }) {
-  const [intro, setIntro] = useState(true);
+/** Suspense avant la révélation : la pochette « charge » puis s'ouvre en deux. Tap pour passer. */
+function PackIntro({ onDone }) {
   const [burst, setBurst] = useState(false);
-  const [revealed, setRevealed] = useState(() => new Set());
 
-  // Court suspense avant de révéler la grille — tap pour passer directement.
   useEffect(() => {
-    const t = setTimeout(() => setIntro(false), INTRO_DURATION_MS);
-    return () => clearTimeout(t);
-  }, []);
+    const t1 = setTimeout(onDone, INTRO_DURATION_MS);
+    const t2 = setTimeout(() => setBurst(true), BURST_DELAY_MS); // explosion peu avant la fin
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [onDone]);
 
-  // Petite explosion de sparkles juste avant la fin du suspense.
-  useEffect(() => {
-    const t = setTimeout(() => setBurst(true), BURST_DELAY_MS);
-    return () => clearTimeout(t);
-  }, []);
-
-  // Doublon = déjà dans la collection avant ce booster, OU 2e apparition du
-  // même personnage dans ce même tirage (generatePack peut, rarement, tirer
-  // deux fois le même id si un palier est très restreint).
-  const dupSlots = useMemo(() => {
-    const seen = new Set();
-    const dup = new Set();
-    for (const c of pack.cards) {
-      if (collection[c.id] || seen.has(c.id)) dup.add(c.packSlot);
-      seen.add(c.id);
-    }
-    return dup;
-  }, [pack, collection]);
-
-  const allRevealed = revealed.size === pack.cards.length;
-
-  function revealAll() {
-    haptics.tap();
-    setRevealed(new Set(pack.cards.map((c) => c.packSlot)));
-  }
-
-  if (intro) {
-    return (
+  return (
       <button
-        onClick={() => setIntro(false)}
+        onClick={onDone}
         aria-label="Ouverture du booster — toucher pour passer"
-        className="w-full flex flex-col items-center justify-center gap-5 py-24 text-violet-200"
+        className="flex-1 w-full flex flex-col items-center justify-center gap-5 text-violet-200"
       >
         <motion.div
           initial={{ scale: 0.5, opacity: 0, rotate: -6 }}
@@ -126,56 +91,137 @@ export function PackOpening({ pack, onConfirm, collection = {} }) {
           Ouverture du booster…
         </p>
       </button>
-    );
-  }
+  );
+}
 
-  return (
-    <div className="pb-28">
-      <div className="flex items-center justify-between mb-3">
-        <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500">
-          {SOURCE_LABEL[pack.source] || "Booster"} · {revealed.size}/{pack.cards.length}
+/**
+ * Ouverture d'un booster — page plein écran en trois temps :
+ *  1. suspense (la pochette s'ouvre) ;
+ *  2. cartes une par une (PackDeck) : tap ou glissé pour révéler puis passer à
+ *     la suivante, « Tout révéler » à tout moment ;
+ *  3. récapitulatif : les cartes en grille, puis un bouton les ajoute TOUTES à
+ *     la collection (un doublon est converti en Anigold et en fragments).
+ *
+ * `collection` (état persistant du joueur) sert à repérer les doublons : un
+ * personnage déjà possédé, ou qui apparaît deux fois dans le même tirage,
+ * reçoit un badge. Rendu dans un portail sur <body> : plein écran malgré les
+ * `transform` de la page (pull-to-refresh, transitions d'onglets).
+ */
+export function PackOpening({ pack, onConfirm, collection = {} }) {
+  const [stage, setStage] = useState("intro"); // intro | deck | summary
+  const [revealed, setRevealed] = useState(() => new Set());
+
+  // Plein écran : on fige le défilement de la page derrière.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  // Doublon = déjà dans la collection avant ce booster, OU 2e apparition du
+  // même personnage dans ce même tirage (generatePack peut, rarement, tirer
+  // deux fois le même id si un palier est très restreint).
+  const dupSlots = useMemo(() => {
+    const seen = new Set();
+    const dup = new Set();
+    for (const c of pack.cards) {
+      if (collection[c.id] || seen.has(c.id)) dup.add(c.packSlot);
+      seen.add(c.id);
+    }
+    return dup;
+  }, [pack, collection]);
+
+  const fragmentsFor = useCallback((card) => fragmentsForDuplicate(normalizeTier(card.tier)), []);
+  const startDeck = useCallback(() => setStage((st) => (st === "intro" ? "deck" : st)), []);
+  const revealCard = useCallback((slot) => setRevealed((s) => new Set(s).add(slot)), []);
+  const showSummary = useCallback(() => {
+    setRevealed(new Set(pack.cards.map((c) => c.packSlot)));
+    setStage("summary");
+  }, [pack]);
+
+  const n = pack.cards.length;
+  const newCount = n - dupSlots.size;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[70] flex flex-col text-violet-50"
+      style={{
+        fontFamily: "'Inter',sans-serif",
+        background: "radial-gradient(ellipse at 50% 0%, #4c1d95 0%, #2e1065 38%, #170a35 100%)",
+        paddingTop: "max(0.75rem, env(safe-area-inset-top))",
+        paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))",
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={SOURCE_LABEL[pack.source] || "Booster"}
+    >
+      {/* Halos d'ambiance (même vocabulaire que l'Agenda) */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-24 -left-20 w-72 h-72 rounded-full bg-violet-500/25 blur-3xl" />
+        <div className="absolute -bottom-24 -right-16 w-72 h-72 rounded-full bg-fuchsia-500/15 blur-3xl" />
+      </div>
+
+      <header className="relative z-10 flex items-center justify-between px-5 pt-1 pb-2">
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-white" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+          <Sparkles size={15} className="text-amber-300" />{SOURCE_LABEL[pack.source] || "Booster"}
         </p>
-        {!allRevealed && (
-          <button onClick={revealAll} className="flex items-center gap-1.5 text-xs text-amber-300 hover:text-amber-200 active:scale-95">
-            <Sparkles size={13} />Tout révéler
-          </button>
+        {stage === "summary" && (
+          <p className="text-xs text-violet-300 tabular-nums">{newCount} nouveau{newCount > 1 ? "x" : ""}{dupSlots.size > 0 && ` · ${dupSlots.size} doublon${dupSlots.size > 1 ? "s" : ""}`}</p>
+        )}
+      </header>
+
+      <div className="relative z-10 flex flex-1 min-h-0 flex-col">
+        {stage === "intro" && <PackIntro onDone={startDeck} />}
+
+        {stage === "deck" && (
+          <PackDeck
+            cards={pack.cards}
+            dupSlots={dupSlots}
+            fragmentsFor={fragmentsFor}
+            onRevealCard={revealCard}
+            onFinish={showSummary}
+            onRevealAll={showSummary}
+          />
+        )}
+
+        {stage === "summary" && (
+          <>
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 pb-4">
+              <p className="mb-4 text-sm text-violet-200 max-w-md">
+                Voici tes {n} cartes. Les doublons seront convertis en Anigold et en fragments.
+              </p>
+              <div className="mx-auto grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-5">
+                {pack.cards.map((card, i) => (
+                  <motion.div
+                    key={card.packSlot}
+                    initial={{ opacity: 0, y: 18, scale: 0.92 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ delay: i * 0.05, type: "spring", stiffness: 300, damping: 24 }}
+                  >
+                    <BoosterCard
+                      card={card}
+                      revealed={revealed.has(card.packSlot)}
+                      isDuplicate={dupSlots.has(card.packSlot)}
+                      fragments={dupSlots.has(card.packSlot) ? fragmentsFor(card) : 0}
+                      onReveal={() => {}}
+                      quiet
+                    />
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            <div className="px-4 sm:px-6 pt-2 animate-fadeIn">
+              <div className="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-violet-950/80 backdrop-blur-xl p-3 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.8)]">
+                <GameButton size="lg" full onClick={() => { haptics.success(); onConfirm(); }}>
+                  <PackagePlus size={17} />Ajouter les {n} cartes à ma collection
+                </GameButton>
+              </div>
+            </div>
+          </>
         )}
       </div>
-
-      <p className="text-sm text-violet-200 mb-4">
-        {allRevealed
-          ? "Les 10 cartes sont à toi ! Les doublons seront convertis en Anigold et en fragments."
-          : "Tape sur chaque carte pour la révéler."}
-      </p>
-
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        {pack.cards.map((card) => (
-          <BoosterCard
-            key={card.packSlot}
-            card={card}
-            revealed={revealed.has(card.packSlot)}
-            isDuplicate={dupSlots.has(card.packSlot)}
-            fragments={dupSlots.has(card.packSlot) ? fragmentsForDuplicate(normalizeTier(card.tier)) : 0}
-            onReveal={() => setRevealed((s) => new Set(s).add(card.packSlot))}
-          />
-        ))}
-      </div>
-
-      {/* Barre de récupération, sticky au-dessus de la BottomNav — dispo une fois tout révélé */}
-      {allRevealed && (
-        <div className="fixed inset-x-0 bottom-0 z-30 pb-nav animate-fadeIn">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-3">
-            <div className="rounded-2xl bg-violet-900/95 backdrop-blur-xl border border-white/10 shadow-2xl p-3">
-              <button
-                onClick={() => { haptics.success(); onConfirm(); }}
-                className="w-full flex items-center justify-center gap-2 px-3.5 py-3 rounded-xl bg-amber-400 text-violet-950 text-sm font-semibold active:scale-95 transition-transform"
-              >
-                <PackagePlus size={16} />Ajouter les {pack.cards.length} cartes à ma collection
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </div>,
+    document.body
   );
 }
