@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AnimatePresence } from "motion/react";
-import { ChevronLeft, Sparkles, LayoutGrid, Store, Coins, Users, AlertTriangle, Gem } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { ChevronLeft, Sparkles, AlertTriangle } from "lucide-react";
 import { TopBar } from "../components/common/TopBar";
 import { PageBanner } from "../components/common/PageBanner";
 import { PullToRefresh } from "../components/common/PullToRefresh";
@@ -15,50 +15,20 @@ import { CollectionGrid } from "../components/games/CollectionGrid";
 import { ShopPanel } from "../components/games/ShopPanel";
 import { BoostersTab } from "../components/games/BoostersTab";
 import { SocialTab } from "../components/games/SocialTab";
-import { PillTabs } from "../components/games/PillTabs";
+import { WaifinityNav } from "../components/games/WaifinityNav";
+import { WalletHero } from "../components/games/WalletHero";
+import { useAuth } from "../context/AuthContext";
+import { tradeNeedsMe } from "../utils/waifinityTrades";
 
+// Les 4 écrans du jeu. La navigation se fait par la barre du bas (WaifinityNav) ;
+// l'écran actif vit dans l'URL (?tab=…) pour que les liens des notifications,
+// le bouton retour et le rechargement retombent au bon endroit.
 const TABS = [
-  { key: "boosters",   label: "Boosters",   icon: Sparkles },
-  { key: "collection", label: "Collection", icon: LayoutGrid },
-  { key: "social",     label: "Social",     icon: Users },
-  { key: "shop",       label: "Boutique",   icon: Store },
+  { key: "boosters",   title: "Boosters",   desc: "Récupère tes récompenses et ouvre des boosters." },
+  { key: "collection", title: "Collection", desc: "Tes personnages, tes séries et tes favoris." },
+  { key: "social",     title: "Social",     desc: "Compare ta collection et échange avec tes amis." },
+  { key: "shop",       title: "Boutique",   desc: "Dépense ton Anigold et tes fragments." },
 ];
-
-/** Solde, progression de la collection et boosters ouverts — toujours visibles. */
-function Overview({ game }) {
-  const owned = game.collectionList.length;
-  const total = game.pool.length;
-  const pct = total ? Math.min(100, (owned / total) * 100) : 0;
-  return (
-    <section className="mb-5 rounded-3xl bg-gradient-to-br from-violet-800/60 to-violet-900/40 backdrop-blur-md border border-white/10 p-4 sm:p-5">
-      <div className="flex items-end justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-xs text-violet-300">Solde</p>
-          <p className="mt-0.5 flex items-center gap-2 text-3xl font-bold text-amber-300 tabular-nums" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-            <Coins size={24} className="flex-shrink-0" />
-            {game.coins.toLocaleString("fr-FR")}
-            <span className="text-sm font-medium text-amber-200/70">Anigold</span>
-          </p>
-        </div>
-        <div className="text-right flex-shrink-0">
-          <p className="text-xs text-violet-300">Fragments</p>
-          <p className="mt-0.5 flex items-center justify-end gap-1.5 text-lg font-semibold text-violet-100 tabular-nums"><Gem size={15} className="text-violet-300" />{game.fragments}</p>
-          <p className="mt-1 text-[11px] text-violet-400 tabular-nums">{game.stats.opened} booster{game.stats.opened > 1 ? "s" : ""} ouvert{game.stats.opened > 1 ? "s" : ""}</p>
-        </div>
-      </div>
-      <div className="mt-4">
-        <div className="flex items-center justify-between text-xs mb-1.5">
-          <span className="text-violet-300">Collection</span>
-          <span className="text-violet-100 tabular-nums">{owned}{total ? ` / ${total}` : ""}</span>
-        </div>
-        <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-          <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-fuchsia-500 transition-[width] duration-700 motion-reduce:transition-none"
-            style={{ width: `${Math.max(pct, owned ? 2 : 0)}%` }} />
-        </div>
-      </div>
-    </section>
-  );
-}
 
 const BANNER_TONE = {
   error: "bg-rose-500/10 border-rose-500/30 text-rose-200",
@@ -78,11 +48,23 @@ export function GamesWaifinity() {
   const game = useWaifinity();
   // Réactions du compagnon (booster, série complétée, favori, récompense du jour…)
   const companion = useWaifinityCompanion(game);
-  // Lien profond depuis une notification : /games/waifinity?tab=social&view=trades
-  const [searchParams] = useSearchParams();
+  const { user } = useAuth();
+  // Écran actif dans l'URL — lien profond depuis une notification : ?tab=social&view=trades
+  const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const [tab, setTab] = useState(TABS.some((t) => t.key === tabParam) ? tabParam : "boosters");
-  useEffect(() => { if (TABS.some((t) => t.key === tabParam)) setTab(tabParam); }, [tabParam]);
+  const tabMeta = TABS.find((t) => t.key === tabParam) || TABS[0];
+  const tab = tabMeta.key;
+  function setTab(key) {
+    if (key === tab) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    setSearchParams(key === "boosters" ? {} : { tab: key }, { replace: true });
+    window.scrollTo(0, 0);
+  }
+
+  // Pastilles de la barre : ce qui attend une action du joueur.
+  const tradesTodo = (game.trades || []).filter((t) => tradeNeedsMe(t, user?.id)).length;
+  const missionsReady = game.missions?.list?.filter((m) => m.done && !m.claimed).length || 0;
+  const bonusReady = game.missions?.allClaimed && !game.missions?.bonusClaimed ? 1 : 0;
+  const boostersTodo = (game.canOpenFree ? 1 : 0) + (game.daily && !game.daily.claimed ? 1 : 0) + missionsReady + bonusReady;
   const [result, setResult] = useState(null);
   const [sheetId, setSheetId] = useState(null);
 
@@ -106,21 +88,22 @@ export function GamesWaifinity() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-nav pt-safe-8">
 
         {/* ── En-tête ── */}
-        <div className="flex items-start justify-between gap-3 mb-6">
+        <div className="flex items-start justify-between gap-3 mb-5">
           <div className="min-w-0">
             <button onClick={() => navigate("/games")}
               className="flex items-center gap-1.5 text-sm text-violet-300 hover:text-violet-100 transition-colors mb-3 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)]">
               <ChevronLeft size={16} /> Jeux
             </button>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2 [text-shadow:0_2px_14px_rgba(20,8,50,0.9)]" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-              <Sparkles size={26} className="text-violet-200" /> Waifinity
+              <Sparkles size={26} className="text-amber-300" /> Waifinity
+              <span className="text-violet-300 font-medium">/ {tabMeta.title}</span>
             </h1>
-            <p className="mt-1 text-sm text-violet-200 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)]">Ouvre des boosters et complète ta collection.</p>
+            <p className="mt-1 text-sm text-violet-200 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)]">{tabMeta.desc}</p>
           </div>
           <TopBar onRefresh={game.refreshWaifinity} refreshing={game.refreshing} refreshLabel="Rafraîchir Waifinity" />
         </div>
 
-        <Overview game={game} />
+        <WalletHero game={game} compact={tab !== "boosters"} />
 
         {game.saveIssue && game.syncIssue && (
           <Banner>Sauvegarde locale et synchronisation en ligne impossibles (stockage plein et pas de connexion). Ta dernière action risque de ne pas être conservée : vérifie ta connexion et libère de l'espace sur cet appareil.</Banner>
@@ -132,38 +115,48 @@ export function GamesWaifinity() {
           <Banner tone="warn">Stockage local plein sur cet appareil. Ta collection reste sauvegardée en ligne et sera réparée à la prochaine ouverture ; libère de l'espace pour faire disparaître ce message.</Banner>
         )}
 
-        {/* ── Onglets ── */}
-        <div className="flex justify-center mb-6">
-          <PillTabs tabs={TABS} value={tab} onChange={setTab} layoutId="waifinity-tab-pill" disabled={!!game.pendingPack} />
-        </div>
-
-        {/* Un booster en cours d'ouverture prend le pas sur les onglets */}
+        {/* Un booster en cours d'ouverture prend le pas sur les écrans */}
         {game.pendingPack ? (
           <PackOpening pack={game.pendingPack} collection={game.collection} onConfirm={handleClaimPack} />
         ) : (
-          <>
-            {tab === "boosters"   && (
-              <BoostersTab
-                game={{ ...game, claimDaily: companion.claimDaily, claimMission: companion.claimMission, claimMissionBonus: companion.claimMissionBonus }}
-                onGoShop={() => setTab("shop")}
-              />
-            )}
-            {tab === "collection" && <CollectionGrid collectionList={game.collectionList} pool={game.pool} collection={game.collection} favorites={game.favorites} equipped={game.equipped} onOpenSheet={setSheetId}
-              onMoveFavorite={game.moveFavorite} onReorderFavorites={game.setFavoritesOrder} onToggleFavorite={companion.toggleFavorite} />}
-            {tab === "social" && <SocialTab game={game} initialView={searchParams.get("view")} />}
-            {tab === "shop" && (
-              <ShopPanel
-                pool={game.pool} pendingPack={game.pendingPack} coins={game.coins}
-                canAffordBooster={game.canAffordBooster} canAffordTarget={game.canAffordTarget} canAffordGender={game.canAffordGender}
-                onBuyStandard={game.openStandardBooster} onBuyTargeted={game.openTargetedBooster} onBuyGender={game.openGenderBooster}
-                banner={game.banner} canAffordBanner={game.canAffordBanner} onBuyBanner={game.openBannerBooster}
-                fragments={game.fragments} ownedCosmetics={game.ownedCosmetics} onBuyCosmetic={companion.buyCosmetic}
-              />
-            )}
-          </>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={tab}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
+            >
+              {tab === "boosters" && (
+                <BoostersTab
+                  game={{ ...game, claimDaily: companion.claimDaily, claimMission: companion.claimMission, claimMissionBonus: companion.claimMissionBonus }}
+                  onGoShop={() => setTab("shop")}
+                />
+              )}
+              {tab === "collection" && (
+                <CollectionGrid collectionList={game.collectionList} pool={game.pool} collection={game.collection} favorites={game.favorites} equipped={game.equipped} onOpenSheet={setSheetId}
+                  onMoveFavorite={game.moveFavorite} onReorderFavorites={game.setFavoritesOrder} onToggleFavorite={companion.toggleFavorite} />
+              )}
+              {tab === "social" && <SocialTab game={game} initialView={searchParams.get("view")} />}
+              {tab === "shop" && (
+                <ShopPanel
+                  pool={game.pool} pendingPack={game.pendingPack} coins={game.coins}
+                  canAffordBooster={game.canAffordBooster} canAffordTarget={game.canAffordTarget} canAffordGender={game.canAffordGender}
+                  onBuyStandard={game.openStandardBooster} onBuyTargeted={game.openTargetedBooster} onBuyGender={game.openGenderBooster}
+                  banner={game.banner} canAffordBanner={game.canAffordBanner} onBuyBanner={game.openBannerBooster}
+                  fragments={game.fragments} ownedCosmetics={game.ownedCosmetics} onBuyCosmetic={companion.buyCosmetic}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
         )}
       </div>
       </PullToRefresh>
+
+      {/* Barre de navigation du jeu — masquée pendant l'ouverture d'un booster (écran immersif) */}
+      {!game.pendingPack && (
+        <WaifinityNav tab={tab} onChange={setTab} badges={{ boosters: boostersTodo, social: tradesTodo }} />
+      )}
 
       <AnimatePresence>
         {result && (

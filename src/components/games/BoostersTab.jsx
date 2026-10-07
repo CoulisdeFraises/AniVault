@@ -8,6 +8,7 @@ import {
 } from "../../utils/waifinity";
 import { RarityDot } from "./RarityBadge";
 import { MissionsCard } from "./MissionsCard";
+import { GameButton, Panel } from "./ui";
 import { haptics } from "../../utils/haptics";
 
 const HEADING = { fontFamily: "'Space Grotesk',sans-serif" };
@@ -16,7 +17,7 @@ const HEADING = { fontFamily: "'Space Grotesk',sans-serif" };
 function DailyReward({ daily, onClaim, busy, ready }) {
   const { claimed, streak, nextStreak, reward } = daily;
   return (
-    <section className="rounded-2xl bg-violet-900/40 border border-white/10 p-4">
+    <Panel tone={!claimed && ready ? "highlight" : "default"}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-white" style={HEADING}>Récompense quotidienne</p>
@@ -24,16 +25,15 @@ function DailyReward({ daily, onClaim, busy, ready }) {
             {claimed ? "C'est noté. Reviens demain pour garder ta série." : `Jour ${nextStreak} sur ${DAILY_REWARDS.length}`}
           </p>
         </div>
-        <button
-          onClick={() => { haptics.success(); onClaim(); }}
-          disabled={claimed || busy || !ready}
-          className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold active:scale-[0.97] transition-transform motion-reduce:transition-none disabled:cursor-not-allowed ${
-            claimed ? "bg-white/5 border border-white/10 text-violet-300" : "bg-amber-400 text-violet-950 disabled:opacity-50"}`}
-        >
-          {claimed
-            ? <><Check size={14} />Récupérée</>
-            : <><Gift size={14} />+{reward}</>}
-        </button>
+        {claimed ? (
+          <span className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-200">
+            <Check size={14} />Récupérée
+          </span>
+        ) : (
+          <GameButton className="flex-shrink-0" onClick={() => { haptics.success(); onClaim(); }} disabled={busy || !ready}>
+            <Gift size={14} />+{reward}
+          </GameButton>
+        )}
       </div>
 
       <ol className="mt-3 grid grid-cols-7 gap-1.5">
@@ -55,7 +55,7 @@ function DailyReward({ daily, onClaim, busy, ready }) {
           );
         })}
       </ol>
-    </section>
+    </Panel>
   );
 }
 
@@ -63,7 +63,7 @@ function DailyReward({ daily, onClaim, busy, ready }) {
 function Disclosure({ title, children }) {
   const [open, setOpen] = useState(false);
   return (
-    <section className="rounded-2xl bg-violet-900/40 border border-white/10 overflow-hidden">
+    <Panel flush className="overflow-hidden">
       <button
         onClick={() => { haptics.tap(); setOpen((v) => !v); }}
         className="w-full flex items-center justify-between px-4 py-3 text-left active:scale-[0.99] transition-transform motion-reduce:transition-none"
@@ -86,7 +86,7 @@ function Disclosure({ title, children }) {
           </motion.div>
         )}
       </AnimatePresence>
-    </section>
+    </Panel>
   );
 }
 
@@ -116,7 +116,7 @@ export function BoostersTab({ game, onGoShop }) {
       <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-5 text-center">
         <AlertTriangle size={22} className="mx-auto text-rose-300 mb-2" />
         <p className="text-sm text-rose-200 mb-3">{poolError}</p>
-        <button onClick={reloadPool} className="px-4 py-2 rounded-xl bg-rose-500/20 border border-rose-400/40 text-rose-100 text-sm active:scale-95">Réessayer</button>
+        <GameButton variant="danger" onClick={reloadPool}>Réessayer</GameButton>
       </div>
     );
   }
@@ -128,7 +128,7 @@ export function BoostersTab({ game, onGoShop }) {
   return (
     <div className="space-y-4">
       {/* ── Booster gratuit ── */}
-      <section className="rounded-2xl bg-gradient-to-br from-violet-800/50 to-violet-950/50 border border-white/10 p-4 sm:p-5">
+      <Panel tone={canOpenFree ? "highlight" : "default"} className="sm:p-5">
         <div className="flex items-center gap-4">
           <div className="relative w-14 h-[4.5rem] flex-shrink-0" aria-hidden="true">
             <span className="absolute inset-0 rounded-xl bg-violet-800 border border-white/15 -rotate-12 origin-bottom-left" />
@@ -145,10 +145,11 @@ export function BoostersTab({ game, onGoShop }) {
           </div>
         </div>
 
-        <button
+        <GameButton
+          size="lg" full
           onClick={() => { haptics.success(); openFreeBooster(); }}
           disabled={!canOpenFree}
-          className="relative mt-4 w-full overflow-hidden flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-400 text-violet-950 font-semibold disabled:cursor-not-allowed active:scale-[0.98] transition-transform motion-reduce:transition-none disabled:bg-white/5 disabled:border disabled:border-white/10 disabled:text-violet-200"
+          className="mt-4 overflow-hidden"
         >
           {waiting && (
             <span aria-hidden="true" className="absolute inset-y-0 left-0 bg-white/10 transition-[width] duration-1000 ease-linear motion-reduce:transition-none" style={{ width: `${waitPct}%` }} />
@@ -160,7 +161,7 @@ export function BoostersTab({ game, onGoShop }) {
                 ? <><Clock size={16} />Prochain booster dans {formatCountdown(cooldownMs)}</>
                 : "Aucun personnage disponible"}
           </span>
-        </button>
+        </GameButton>
 
         {onGoShop && (
           <button onClick={() => { haptics.tap(); onGoShop(); }}
@@ -169,7 +170,7 @@ export function BoostersTab({ game, onGoShop }) {
             <Coins size={11} className="text-amber-400" />{SHOP_BOOSTER_COST}
           </button>
         )}
-      </section>
+      </Panel>
 
       {/* ── Récompense quotidienne ── */}
       <DailyReward daily={daily} onClaim={claimDaily} busy={walletBusy} ready={walletReady} />

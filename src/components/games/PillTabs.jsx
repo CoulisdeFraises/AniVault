@@ -5,7 +5,8 @@ import { motion } from "motion/react";
  * Recommandations / Prochaine saison (pilule ambrée animée via layoutId).
  * `layoutId` doit être unique par sélecteur affiché en même temps.
  */
-export function PillTabs({ tabs, value, onChange, layoutId, disabled = false, size = "md", className = "" }) {
+export function PillTabs({ tabs, value, onChange, layoutId, disabled = false, size = "md", tone = "amber", className = "" }) {
+  const violet = tone === "violet"; // même pastille que les filtres de l'Agenda
   const sm = size === "sm";
   return (
     <div className={`inline-flex max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden rounded-full bg-white/5 border border-white/10 p-0.5 ${className}`}>
@@ -22,7 +23,9 @@ export function PillTabs({ tabs, value, onChange, layoutId, disabled = false, si
           {value === key && (
             <motion.span
               layoutId={layoutId}
-              className="absolute inset-0 bg-amber-400 rounded-full shadow-sm"
+              className={violet
+                ? "absolute inset-0 rounded-full bg-gradient-to-b from-violet-200 to-violet-400 shadow-[0_0_14px_rgba(167,139,250,0.5)]"
+                : "absolute inset-0 bg-amber-400 rounded-full shadow-sm"}
               transition={{ type: "spring", stiffness: 500, damping: 35 }}
             />
           )}

@@ -10,6 +10,7 @@ import { RARITY, RARITY_ORDER, normalizeTier, countByTier, collectionScore } fro
 import { Avatar } from "../common/Avatar";
 import { RarityBadge } from "./RarityBadge";
 import { PillTabs } from "./PillTabs";
+import { GameButton, Panel } from "./ui";
 import { haptics } from "../../utils/haptics";
 
 const SOCIAL_VIEWS = [
@@ -177,7 +178,7 @@ function ActionBar({ giveLabel, give, getLabel, get, getPlaceholder, cta, busyLa
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 pb-nav animate-fadeIn">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-3">
-        <div className="rounded-2xl border border-amber-300/25 bg-violet-950/95 backdrop-blur-xl shadow-2xl shadow-black/40 p-2.5 sm:p-3">
+        <div className="rounded-2xl border border-amber-300/25 bg-violet-950/95 backdrop-blur-xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.06)] p-2.5 sm:p-3">
           <div className="flex items-center gap-2.5 mb-2.5">
             <MiniCard label={giveLabel} card={give} />
             <ArrowLeftRight size={15} className="text-amber-300 flex-shrink-0" />
@@ -185,19 +186,12 @@ function ActionBar({ giveLabel, give, getLabel, get, getPlaceholder, cta, busyLa
           </div>
           <div className="flex gap-2">
             {onCancel && (
-              <button onClick={onCancel} disabled={busy}
-                className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-violet-200 text-sm font-medium active:scale-[0.98] disabled:opacity-50">
-                Annuler
-              </button>
+              <GameButton variant="secondary" onClick={onCancel} disabled={busy}>Annuler</GameButton>
             )}
-            <button
-              onClick={onClick}
-              disabled={busy}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-300 text-violet-950 font-bold text-sm shadow-lg shadow-amber-500/10 active:scale-[0.98] disabled:opacity-50 transition-transform"
-            >
-              {busy ? <RefreshCw size={15} className="animate-spin" /> : <ArrowLeftRight size={16} />}
+            <GameButton className="flex-1" onClick={onClick} loading={busy}>
+              {!busy && <ArrowLeftRight size={16} />}
               {busy ? busyLabel : cta}
-            </button>
+            </GameButton>
           </div>
         </div>
       </div>
@@ -305,11 +299,8 @@ function TradeRow({ trade, myId, friendsById, busy, onRespond, onConfirm, onClos
   if (trade.status === "offered") statusText = isFrom ? `En attente de la carte de ${otherName}` : "À toi de choisir une carte en retour";
   if (trade.status === "countered") statusText = myConfirmed ? `En attente de la validation de ${otherName}` : "À valider";
 
-  const btn = "text-[11px] px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-violet-300 active:scale-95 disabled:opacity-40";
-  const primary = "flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg bg-amber-400 text-violet-950 font-semibold active:scale-95 disabled:opacity-40";
-
   return (
-    <div className="rounded-xl bg-violet-900/40 border border-white/10 p-3">
+    <Panel as="div" className="!p-3 !rounded-xl">
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
           <ThumbSlot card={mine} />
@@ -341,23 +332,23 @@ function TradeRow({ trade, myId, friendsById, busy, onRespond, onConfirm, onClos
         </span>
         {open && (
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={() => onClose(trade.id)} disabled={busy} className={btn}>
+            <GameButton variant="secondary" size="sm" onClick={() => onClose(trade.id)} disabled={busy}>
               {isFrom ? "Annuler" : "Refuser"}
-            </button>
+            </GameButton>
             {!isFrom && (
-              <button onClick={() => onRespond(trade)} disabled={busy} className={trade.status === "offered" ? primary : btn}>
+              <GameButton variant={trade.status === "offered" ? "primary" : "secondary"} size="sm" onClick={() => onRespond(trade)} disabled={busy}>
                 {trade.status === "offered" ? "Choisir ma carte" : "Changer ma carte"}
-              </button>
+              </GameButton>
             )}
             {trade.status === "countered" && !myConfirmed && (
-              <button onClick={() => onConfirm(trade)} disabled={busy} className={primary}>
+              <GameButton size="sm" onClick={() => onConfirm(trade)} disabled={busy}>
                 <Check size={12} strokeWidth={3} />Valider
-              </button>
+              </GameButton>
             )}
           </div>
         )}
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -540,7 +531,7 @@ export function SocialTab({ game, initialView }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-center">
-        <PillTabs tabs={SOCIAL_VIEWS} value={view} onChange={setView} layoutId="waifinity-social-view" size="sm" />
+        <PillTabs tabs={SOCIAL_VIEWS} value={view} onChange={setView} layoutId="waifinity-social-view" size="sm" tone="violet" />
       </div>
 
       {error && (

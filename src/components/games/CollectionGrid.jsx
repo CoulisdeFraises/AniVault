@@ -206,7 +206,7 @@ export function CollectionGrid({
 
   const viewToggle = (
     <div className="flex justify-center">
-      <PillTabs tabs={VIEWS} value={view} onChange={setView} layoutId="waifinity-collection-view" size="sm" />
+      <PillTabs tabs={VIEWS} value={view} onChange={setView} layoutId="waifinity-collection-view" size="sm" tone="violet" />
     </div>
   );
 
@@ -356,10 +356,10 @@ export function CollectionGrid({
       {/* Genre + tri + regroupement */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="max-w-full overflow-x-auto scrollbar-none">
-          <PillTabs tabs={GENDER_TABS} value={genderFilter} onChange={setGenderFilter} layoutId="waifinity-gender-filter" size="sm" />
+          <PillTabs tabs={GENDER_TABS} value={genderFilter} onChange={setGenderFilter} layoutId="waifinity-gender-filter" size="sm" tone="violet" />
         </div>
         <div className="flex items-center gap-2 max-w-full">
-          <PillTabs tabs={SORTS} value={sort} onChange={setSort} layoutId="waifinity-sort" size="sm" />
+          <PillTabs tabs={SORTS} value={sort} onChange={setSort} layoutId="waifinity-sort" size="sm" tone="violet" />
           <button onClick={() => setGroupBySeries((v) => !v)} aria-pressed={groupBySeries}
             className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] active:scale-95 transition-colors motion-reduce:transition-none ${
               groupBySeries ? "bg-amber-400 text-violet-950 border-amber-400 font-semibold" : "bg-white/5 border-white/10 text-violet-300 font-medium"}`}>

@@ -9,6 +9,7 @@ import { PillTabs } from "./PillTabs";
 import { BannerCard } from "./BannerCard";
 import { AtelierPanel } from "./AtelierPanel";
 import { haptics } from "../../utils/haptics";
+import { GameButton, Panel, SectionTitle } from "./ui";
 
 const HEADING = { fontFamily: "'Space Grotesk',sans-serif" };
 
@@ -20,7 +21,7 @@ const SHOP_VIEWS = [
 function Group({ title, children }) {
   return (
     <section className="space-y-2.5">
-      <h2 className="px-1 text-sm font-semibold text-violet-200" style={HEADING}>{title}</h2>
+      <SectionTitle title={title} />
       {children}
     </section>
   );
@@ -39,20 +40,18 @@ function Price({ cost, coins }) {
 
 function ShopCard({ icon, title, desc, children }) {
   return (
-    <div className="rounded-2xl bg-violet-900/40 border border-white/10 p-4">
+    <Panel as="div">
       <div className="flex items-start gap-3">
-        <span className="w-10 h-10 rounded-xl bg-violet-500/20 border border-violet-400/30 flex items-center justify-center flex-shrink-0 text-violet-200">{icon}</span>
+        <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-300/25 to-violet-500/10 border border-violet-300/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] flex items-center justify-center flex-shrink-0 text-violet-100">{icon}</span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-white" style={HEADING}>{title}</p>
           <p className="text-xs text-violet-300 mt-0.5">{desc}</p>
         </div>
       </div>
       {children}
-    </div>
+    </Panel>
   );
 }
-
-const buyBtn = "mt-3 w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-amber-400 text-violet-950 text-sm font-semibold disabled:bg-white/5 disabled:border disabled:border-white/10 disabled:text-violet-400 disabled:cursor-not-allowed active:scale-[0.98] transition-transform motion-reduce:transition-none";
 
 export function ShopPanel({
   pool, pendingPack, coins = 0, canAffordBooster, canAffordTarget, canAffordGender,
@@ -76,7 +75,7 @@ export function ShopPanel({
 
   const viewTabs = (
     <div className="flex justify-center">
-      <PillTabs tabs={SHOP_VIEWS} value={view} onChange={setView} layoutId="waifinity-shop-view" size="sm" />
+      <PillTabs tabs={SHOP_VIEWS} value={view} onChange={setView} layoutId="waifinity-shop-view" size="sm" tone="violet" />
     </div>
   );
 
@@ -102,13 +101,13 @@ export function ShopPanel({
           title="Booster normal"
           desc="10 cartes, toutes ajoutées à ta collection, avec les mêmes chances que le booster gratuit. Sans attendre les 3 heures."
         >
-          <button
+          <GameButton
+            full className="mt-3 !justify-between"
             onClick={() => { haptics.success(); onBuyStandard(); }}
             disabled={busy || !pool.length || !canAffordBooster}
-            className={buyBtn}
           >
             <span>Acheter</span><Price cost={SHOP_BOOSTER_COST} coins={coins} />
-          </button>
+          </GameButton>
         </ShopCard>
 
         <ShopCard
@@ -118,13 +117,13 @@ export function ShopPanel({
         >
           <div className="mt-3 grid grid-cols-2 gap-2">
             {Object.entries(GENDER_BOOSTERS).map(([gender, cfg]) => (
-              <button key={gender}
+              <GameButton key={gender}
+                className="!flex-col !gap-0.5"
                 onClick={() => { haptics.success(); onBuyGender(gender); }}
-                disabled={busy || !canAffordGender || !genderCounts[gender]}
-                className="flex flex-col items-center gap-0.5 py-2.5 rounded-xl bg-amber-400 text-violet-950 text-sm font-semibold disabled:bg-white/5 disabled:border disabled:border-white/10 disabled:text-violet-400 disabled:cursor-not-allowed active:scale-[0.98] transition-transform motion-reduce:transition-none">
+                disabled={busy || !canAffordGender || !genderCounts[gender]}>
                 <span>{gender === "female" ? "♀" : "♂"} {cfg.label}</span>
                 <span className="flex items-center gap-1 text-xs font-medium"><Coins size={11} />{SHOP_GENDER_COST}</span>
-              </button>
+              </GameButton>
             ))}
           </div>
           {!canAffordGender && <p className="text-xs text-violet-400 text-center mt-2">Il te manque {SHOP_GENDER_COST - coins} Anigold.</p>}
@@ -137,15 +136,15 @@ export function ShopPanel({
           title="Booster ciblé sur une série"
           desc={`10 cartes piochées uniquement dans la série de ton choix, avec les chances du booster normal.`}
         >
-          <button onClick={() => setSeriesOpen((v) => !v)} disabled={busy || !series.length}
-            aria-expanded={seriesOpen}
-            className="mt-3 w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-violet-100 disabled:opacity-40 active:scale-[0.99] transition-transform motion-reduce:transition-none">
+          <GameButton variant="secondary" full className="mt-3 !justify-between"
+            onClick={() => setSeriesOpen((v) => !v)} disabled={busy || !series.length}
+            aria-expanded={seriesOpen}>
             <span>Choisir une série</span>
             <span className="flex items-center gap-2 text-violet-300">
               <span className="flex items-center gap-1 text-xs tabular-nums"><Coins size={11} className="text-amber-400" />{SHOP_TARGET_COST}</span>
               <ChevronDown size={14} className={`transition-transform motion-reduce:transition-none ${seriesOpen ? "rotate-180" : ""}`} />
             </span>
-          </button>
+          </GameButton>
           {seriesOpen && (
             <div className="mt-2 rounded-xl bg-violet-950/60 border border-white/10 overflow-hidden">
               <div className="relative border-b border-white/10">

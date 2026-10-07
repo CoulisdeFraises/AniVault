@@ -28,6 +28,9 @@ export function BottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Waifinity a sa propre barre (components/games/WaifinityNav) : on ne double pas.
+  if (location.pathname.startsWith("/games/waifinity")) return null;
+
   return (
     <nav
       aria-label="Navigation principale"

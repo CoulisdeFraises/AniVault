@@ -1,6 +1,7 @@
 import { Check, Gift, Coins, Gem, Target } from "lucide-react";
 import { MISSION_BONUS } from "../../utils/waifinityMissions";
 import { haptics } from "../../utils/haptics";
+import { GameButton, Panel } from "./ui";
 
 const HEADING = { fontFamily: "'Space Grotesk',sans-serif" };
 
@@ -17,7 +18,7 @@ export function MissionsCard({ missions, onClaim, onClaimBonus, busy, ready }) {
   const doneCount = list.filter((m) => m.claimed).length;
 
   return (
-    <section className="rounded-2xl bg-violet-900/40 border border-white/10 p-4">
+    <Panel>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-sm font-semibold text-white" style={HEADING}>
@@ -48,13 +49,13 @@ export function MissionsCard({ missions, onClaim, onClaimBonus, busy, ready }) {
                 {m.claimed ? (
                   <span className="flex-shrink-0 flex items-center gap-1 text-[11px] text-emerald-300"><Check size={13} />Reçu</span>
                 ) : (
-                  <button
+                  <GameButton
+                    size="sm" className="flex-shrink-0"
                     onClick={() => { haptics.success(); onClaim(m.id); }}
                     disabled={!m.done || busy || !ready}
-                    className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-400 text-violet-950 disabled:bg-white/5 disabled:border disabled:border-white/10 disabled:text-violet-300 disabled:cursor-not-allowed active:scale-95 transition-transform motion-reduce:transition-none"
                   >
                     {m.done ? <Gift size={12} /> : <Coins size={12} />}+{m.reward}
-                  </button>
+                  </GameButton>
                 )}
               </div>
             </li>
@@ -74,15 +75,15 @@ export function MissionsCard({ missions, onClaim, onClaimBonus, busy, ready }) {
         {bonusClaimed ? (
           <span className="flex items-center gap-1 text-[11px] text-emerald-300"><Check size={13} />Reçu</span>
         ) : (
-          <button
+          <GameButton
+            size="sm"
             onClick={() => { haptics.success(); onClaimBonus(); }}
             disabled={!allClaimed || busy || !ready}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-400 text-violet-950 disabled:bg-white/5 disabled:border disabled:border-white/10 disabled:text-violet-300 disabled:cursor-not-allowed active:scale-95 transition-transform motion-reduce:transition-none"
           >
             <Gift size={12} />Récupérer
-          </button>
+          </GameButton>
         )}
       </div>
-    </section>
+    </Panel>
   );
 }
