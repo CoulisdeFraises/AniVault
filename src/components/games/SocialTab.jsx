@@ -393,25 +393,56 @@ export function SocialTab({ game, initialView }) {
 
   useEffect(() => { loadFriends(); }, [loadFriends]);
 
+  // Rareté « de référence » de chaque personnage = celle du bassin ACTUEL.
+  // La colonne `tier` du miroir est figée au dernier envoi de la carte : dès que
+  // le bassin est re-classé, elle est périmée pour tout joueur qui n'a pas rouvert
+  // le jeu depuis — d'où des scores qui divergeaient selon qui regardait.
+  const poolTier = useMemo(() => new Map((game.pool || []).map((c) => [String(c.id), c.tier])), [game.pool]);
+
+  // Score + nombre de personnages DISTINCTS d'un joueur, calculés à partir de son
+  // miroir (même source, même formule pour tout le monde, moi compris).
+  const scoreItems = useCallback((items) => {
+    const seen = new Set();
+    const tiered = [];
+    for (const it of items || []) {
+      if (!(Number(it.count) > 0)) continue;
+      const key = String(it.character_id);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      tiered.push({ tier: poolTier.get(key) ?? it.tier });
+    }
+    return { score: collectionScore(countByTier(tiered)), owned: tiered.length };
+  }, [poolTier]);
+
+  const collectionSize = (game.collectionList || []).length;
+
   const loadLeaderboard = useCallback(async () => {
-    if (!myId || !friends.length) { setLeaderboard(myId ? [{ isMe: true }] : []); return; }
-    const byUser = await fetchWaifinityItemsBulk(friends.map((f) => f.user_id));
-    const rows = friends.map((f) => {
-      const items = byUser[f.user_id] || [];
-      const tierCounts = countByTier(items);
-      return { userId: f.user_id, name: f.username, color: f.avatar_color, photoUrl: f.avatar_url, score: collectionScore(tierCounts), owned: items.length };
-    });
-    const myTierCounts = countByTier(game.collectionList || []);
+    if (!myId) { setLeaderboard([]); return; }
+    // Moi + mes amis, lus au même endroit : tous les scores sont comparables
+    // et identiques à ce que mes amis voient de moi.
+    const byUser = await fetchWaifinityItemsBulk([myId, ...friends.map((f) => f.user_id)]);
+    const rows = friends.map((f) => ({
+      userId: f.user_id, name: f.username, color: f.avatar_color, photoUrl: f.avatar_url, ...scoreItems(byUser[f.user_id]),
+    }));
     rows.push({
       userId: myId, isMe: true,
       name: myProfile?.username || "Toi", color: myProfile?.avatar_color, photoUrl: myProfile?.avatar_url,
-      score: collectionScore(myTierCounts), owned: (game.collectionList || []).length,
+      ...scoreItems(byUser[myId]),
     });
-    rows.sort((a, b) => b.score - a.score);
+    // Tri déterministe : à score égal, mêmes critères pour tous (sinon l'ordre
+    // dépendrait de l'ordre de la liste d'amis de chacun).
+    rows.sort((a, b) =>
+      b.score - a.score ||
+      b.owned - a.owned ||
+      String(a.name).localeCompare(String(b.name), "fr", { sensitivity: "base" }) ||
+      String(a.userId).localeCompare(String(b.userId))
+    );
     setLeaderboard(rows);
-  }, [myId, friends, game.collectionList, myProfile]);
+  }, [myId, friends, myProfile, scoreItems]);
 
-  useEffect(() => { if (!friendsLoading) loadLeaderboard(); }, [friendsLoading, loadLeaderboard]);
+  // `collectionSize` : on relit le classement quand ma collection change (booster, échange).
+  useEffect(() => { if (!friendsLoading) loadLeaderboard(); }, [friendsLoading, loadLeaderboard, collectionSize]);
+
 
   // Échange terminé par l'autre ami pendant que l'écran est ouvert → animation.
   const { completedTrade, clearCompletedTrade } = game;
@@ -546,7 +577,7 @@ export function SocialTab({ game, initialView }) {
             <RankRow key={r.userId} rank={i + 1} name={r.name} color={r.color} photoUrl={r.photoUrl} score={r.score} owned={r.owned} isMe={r.isMe} />
           ))}
           <p className="text-[10px] text-violet-500 px-1 pt-1">
-            Score = personnages distincts pondérés par rareté (les doublons ne comptent pas plus qu'une fois).
+            Score = personnages distincts pondérés par rareté (les doublons ne comptent qu'une fois), d'après les collections synchronisées. À score égal : plus de personnages, puis ordre alphabétique.
           </p>
         </div>
       )}
