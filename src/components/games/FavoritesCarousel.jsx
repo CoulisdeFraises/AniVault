@@ -7,90 +7,110 @@ import { resolveCosmetic } from "../../utils/waifinityCosmetics";
 import { RarityBadge } from "./RarityBadge";
 import { CardFrame } from "./CardFrame";
 
-// ── FavoritesCarousel — le feuillet ────────────────────────────────────────
+// ── FavoritesCarousel — coverflow serré, cartes qui se retournent ──────────
 //
-// Les favoris sont empilés comme les pages d'un carnet : la carte du dessus est
-// à plat, celles d'après dépassent en éventail derrière elle. En glissant le
-// doigt (ou avec les flèches / points / clavier), la carte du dessus SE TOURNE
-// autour de son bord gauche — son verso apparaît, elle s'assombrit puis
-// disparaît — et la suivante prend sa place. Le geste suit le doigt en continu
-// (une seule valeur `p` = position fractionnaire dans la pile pilote toutes les
-// cartes) et, au relâchement, la pile se cale en ressort sur la carte la plus
-// proche en tenant compte de l'élan.
+// La carte du milieu est de face. De chaque côté, les voisines sont de DOS,
+// inclinées vers le centre et serrées les unes contre les autres (la plus proche
+// passe un peu sous la carte centrale). En glissant — ou en touchant une voisine,
+// avec les flèches, les points, le clavier — la carte qui arrive au centre SE
+// RETOURNE pour montrer sa face, pendant que l'ancienne se retourne de dos et
+// part de l'autre côté.
 //
-// Props (inchangées) :
+// Tout est piloté par une seule valeur continue `p` (position fractionnaire dans
+// la liste) : chaque carte déduit sa place, son angle et son ombre de
+// `d = index − p`, donc le geste suit le doigt, et au relâchement la pile se cale
+// en ressort sur la carte la plus proche en tenant compte de l'élan.
+//
+// Props :
 //  • `items`    favoris dans l'ordre d'affichage ;
 //  • `equipped` ({ [id]: { frame, effect } }) cosmétiques équipés ;
-//  • `onOpen(id)`  toucher la carte du dessus ; sans lui, lecture seule
+//  • `onOpen(id)`  toucher la carte centrale ; sans lui, lecture seule
 //    (vitrine d'un autre joueur) ;
 //  • `onLongPress(id)`  appui long (~0,45 s, sans bouger) ou clic droit sur la
-//    carte du dessus — menu de réorganisation ;
-//  • `focusId` + `focusToken`  à chaque changement du token, tourne jusqu'à `focusId`.
+//    carte centrale — menu de réorganisation ;
+//  • `focusId` + `focusToken`  à chaque changement du token, se centre sur `focusId`.
 //
-// « Réduire les animations » : plus de rotation ni d'éventail, simple fondu.
+// « Réduire les animations » : plus d'inclinaison ni de retournement, les cartes
+// restent de face et seule la position change.
 
-const CARD_W = 208;          // largeur de la carte, px (ratio 3/4)
-const PAN_PX = 150;          // px de glissé pour tourner une page entière
-const PEEK = 3;              // nombre de cartes visibles derrière
+const CARD_W = 176;          // largeur de la carte, px (ratio 3/4)
+const CARD_H = (CARD_W * 4) / 3;
+const PAN_PX = 85;           // px de glissé pour avancer d'une carte
+const SIDE = 3;              // nombre de cartes visibles de chaque côté
+const TILT = 45;             // inclinaison des voisines, degrés
 const LONG_PRESS_MS = 450;
 const LONG_PRESS_SLOP = 10;  // px tolérés avant d'annuler l'appui long
-const SPRING = { type: "spring", stiffness: 170, damping: 22, mass: 0.9 };
+const SPRING = { type: "spring", stiffness: 190, damping: 24, mass: 0.85 };
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-/** Verso : une page de carnet, avec le cœur des favoris en filigrane. */
-function PaperBack() {
+// Courbes d'espacement : un grand saut entre le centre et la 1re voisine, puis
+// les suivantes très serrées.
+const D_KEYS  = [-3, -2, -1, 0, 1, 2, 3];
+const X_KEYS  = [-182, -150, -112, 0, 112, 150, 182];
+const S_KEYS  = [0.74, 0.8, 0.88, 1, 0.88, 0.8, 0.74];
+
+/** Dos de carte, avec un fin liseré à la couleur de la rareté (indice discret). */
+function CardBack({ glow }) {
   return (
-    <div className="absolute inset-0 rounded-xl overflow-hidden border border-white/15 bg-gradient-to-br from-violet-800 via-violet-900 to-violet-950">
-      <div className="absolute inset-0 opacity-25" style={{ backgroundImage: "repeating-linear-gradient(to bottom, transparent 0 22px, rgba(255,255,255,0.35) 22px 23px)" }} />
+    <div
+      className="absolute inset-0 rounded-xl overflow-hidden bg-gradient-to-br from-violet-700 via-violet-900 to-violet-950 border"
+      style={{ borderColor: glow, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.14), 0 10px 24px -12px ${glow}` }}
+    >
+      <div className="absolute inset-0 opacity-25" style={{ backgroundImage: "radial-gradient(circle at 28% 18%, white, transparent 45%)" }} />
+      <div className="absolute inset-2 rounded-lg border border-amber-300/25" />
       <div className="absolute inset-0 flex items-center justify-center">
-        <Heart size={44} className="text-pink-300/25" fill="currentColor" />
+        <span className="flex h-12 w-12 items-center justify-center rounded-full border border-pink-300/30 bg-gradient-to-b from-pink-400/20 to-fuchsia-500/10">
+          <Heart size={22} className="text-pink-300/70" fill="currentColor" />
+        </span>
       </div>
     </div>
   );
 }
 
-/** Une carte de la pile. Toute son apparence découle de `p` (position fractionnaire de la pile). */
+/** Une carte. Toute son apparence découle de `p` (position fractionnaire dans la liste). */
 function Leaf({ item, i, p, reduce, equipped, isActive, onTap }) {
   const r = RARITY[normalizeTier(item.tier)];
-  const d = useTransform(p, (v) => i - v); // 0 = au-dessus ; < 0 = déjà tournée ; > 0 = derrière
+  const d = useTransform(p, (v) => i - v); // 0 = au centre ; < 0 = à gauche ; > 0 = à droite
 
-  // Enveloppe externe (fondu, empilement) — l'opacité reste ici pour ne pas
-  // aplatir la 3D de la carte interne.
-  const opacity = useTransform(d, reduce ? [-1, 0, 1] : [-1, -0.8, 0, PEEK - 0.4, PEEK],
-                                   reduce ? [0, 1, 0]  : [0, 1, 1, 1, 0]);
-  const zIndex = useTransform(d, (v) => (v <= 0 ? 100 : 100 - Math.round(v * 10)));
+  // Enveloppe externe : empilement, fondu en bout de pile, assombrissement.
+  // (L'opacité et le filtre restent ici pour ne pas aplatir la 3D de la carte interne.)
+  const zIndex  = useTransform(d, (v) => 100 - Math.round(Math.abs(v) * 10));
+  const opacity = useTransform(d, [-SIDE - 0.6, -SIDE, SIDE, SIDE + 0.6], [0, 1, 1, 0]);
+  const filter  = useTransform(d, [-SIDE, -1, 0, 1, SIDE],
+    reduce ? Array(5).fill("brightness(1)")
+           : ["brightness(0.45)", "brightness(0.66)", "brightness(1)", "brightness(0.66)", "brightness(0.45)"]);
 
-  // Carte interne : tourne autour de son bord gauche, glisse et rétrécit derrière la pile.
-  const rotateY = useTransform(d, [-1, 0, PEEK], reduce ? [0, 0, 0] : [-168, 0, 0]);
-  const x       = useTransform(d, [0, 1, 2, PEEK], reduce ? [0, 0, 0, 0] : [0, 17, 31, 42]);
-  const y       = useTransform(d, [0, 1, 2, PEEK], reduce ? [0, 0, 0, 0] : [0, -3, -5, -6]);
-  const scale   = useTransform(d, [0, 1, 2, PEEK], reduce ? [1, 1, 1, 1] : [1, 0.95, 0.9, 0.86]);
-  // Ombre portée : la page qui se tourne s'assombrit, celles du dessous restent dans l'ombre.
-  const shade   = useTransform(d, [-1, 0, 1, PEEK], reduce ? [0, 0, 0, 0] : [0.65, 0, 0.3, 0.55]);
-  // Reflet qui balaie la carte pendant qu'elle se tourne.
-  const sheen   = useTransform(d, [-1, -0.5, 0], reduce ? [0, 0, 0] : [0, 0.45, 0]);
+  // Carte interne. Angle total = inclinaison + retournement : à d = ±1 la carte est
+  // de dos (|angle| > 90°) et penchée de TILT° vers le centre ; elle passe de face à
+  // dos en traversant 90°, donc la face change à mi-chemin du déplacement.
+  const rotateY = useTransform(d, [-1, 0, 1], reduce ? [0, 0, 0] : [180 + TILT, 0, -(180 + TILT)]);
+  const x       = useTransform(d, D_KEYS, reduce ? D_KEYS.map((k) => k * 70) : X_KEYS);
+  const scale   = useTransform(d, D_KEYS, reduce ? Array(7).fill(1) : S_KEYS);
+  // Reflet qui balaie la face pendant le retournement.
+  const sheen   = useTransform(d, [-0.6, -0.3, 0, 0.3, 0.6], reduce ? Array(5).fill(0) : [0, 0.4, 0, 0.4, 0]);
 
   const frameGlow = resolveCosmetic(equipped?.[item.id]).frame?.glow || r.glow;
 
   return (
     <motion.div
-      className="absolute inset-0 [perspective:1400px]"
-      style={{ opacity, zIndex, pointerEvents: isActive ? "auto" : "none" }}
-      aria-hidden={!isActive}
+      data-leaf={i}
+      className="absolute inset-0 [perspective:1100px]"
+      style={{ zIndex, opacity, filter }}
     >
       <motion.div
         className="relative h-full w-full [transform-style:preserve-3d] will-change-transform"
-        style={{ rotateY, x, y, scale, originX: 0, originY: 0.5 }}
+        style={{ rotateY, x, scale }}
       >
-        {/* ── Recto ── */}
+        {/* ── Face ── */}
         <div className="absolute inset-0 [backface-visibility:hidden]">
           <CardFrame
             as="button"
             tier={item.tier}
             type="button"
             tabIndex={isActive ? 0 : -1}
-            onClick={isActive ? onTap : undefined}
+            aria-label={isActive ? `Ouvrir la fiche de ${item.name}` : `Afficher ${item.name}`}
+            onClick={onTap}
             cosmetic={equipped?.[item.id]}
             className="relative block h-full w-full text-left active:brightness-110 transition-[filter] motion-reduce:transition-none"
             style={{ boxShadow: `0 14px 34px -10px ${frameGlow}` }}
@@ -101,7 +121,7 @@ function Leaf({ item, i, p, reduce, equipped, isActive, onTap }) {
                 : <div className="flex h-full w-full items-center justify-center text-violet-600">?</div>}
 
               <div className="absolute top-2 left-2"><RarityBadge tier={item.tier} /></div>
-              <span className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-black/60" aria-label="Favori">
+              <span className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-black/60" aria-hidden="true">
                 <Heart size={12} className="text-pink-400" fill="currentColor" />
               </span>
               {r.shine && <div className="card-shine" />}
@@ -111,8 +131,6 @@ function Leaf({ item, i, p, reduce, equipped, isActive, onTap }) {
                 <p className="truncate text-[11px] text-violet-200/90">{item.series}</p>
               </div>
 
-              {/* Ombre et reflet pilotés par la rotation */}
-              <motion.div className="pointer-events-none absolute inset-0 bg-black" style={{ opacity: shade }} />
               <motion.div
                 className="pointer-events-none absolute inset-0"
                 style={{ opacity: sheen, background: "linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.7) 50%, transparent 70%)" }}
@@ -121,8 +139,16 @@ function Leaf({ item, i, p, reduce, equipped, isActive, onTap }) {
           </CardFrame>
         </div>
 
-        {/* ── Verso (visible quand la page est retournée) ── */}
-        <div className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)]"><PaperBack /></div>
+        {/* ── Dos (visible quand la carte est retournée) ── */}
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={`Afficher ${item.name}`}
+          onClick={onTap}
+          className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)]"
+        >
+          <CardBack glow={frameGlow} />
+        </button>
       </motion.div>
     </motion.div>
   );
@@ -131,11 +157,11 @@ function Leaf({ item, i, p, reduce, equipped, isActive, onTap }) {
 export function FavoritesCarousel({ items, onOpen, equipped, onLongPress, focusId, focusToken }) {
   const reduce = useReducedMotion();
   const n = items.length;
-  const p = useMotionValue(0);            // position fractionnaire dans la pile
+  const p = useMotionValue(0);            // position fractionnaire dans la liste
   const anim = useRef(null);
   const [active, setActive] = useState(0);
 
-  // L'index « actif » (carte du dessus) ne change qu'en passant un entier.
+  // L'index « actif » (carte du milieu) ne change qu'en passant un entier.
   useMotionValueEvent(p, "change", (v) => {
     const a = clamp(Math.round(v), 0, Math.max(n - 1, 0));
     setActive((prev) => (prev === a ? prev : a));
@@ -165,13 +191,20 @@ export function FavoritesCarousel({ items, onOpen, equipped, onLongPress, focusI
     return () => cancelAnimationFrame(raf);
   }, [focusToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Appui long (carte du dessus) ──
+  // ── Appui long (carte du milieu uniquement) ──
   const lpRef = useRef({ timer: 0, x: 0, y: 0, fired: false });
   const cancelLongPress = useCallback(() => clearTimeout(lpRef.current.timer), []);
   useEffect(() => cancelLongPress, [cancelLongPress]);
 
+  /** Index de la carte sous le doigt / le curseur (undefined si hors carte). */
+  const leafIndexOf = (e) => {
+    const el = e.target?.closest?.("[data-leaf]");
+    return el ? Number(el.dataset.leaf) : undefined;
+  };
+
   const startLongPress = (e) => {
     if (!onLongPress || (e.pointerType === "mouse" && e.button !== 0)) return;
+    if (leafIndexOf(e) !== active) return; // les voisines : un tap les centre, pas de menu
     const id = items[active]?.id;
     if (id == null) return;
     clearTimeout(lpRef.current.timer);
@@ -184,7 +217,7 @@ export function FavoritesCarousel({ items, onOpen, equipped, onLongPress, focusI
     if (Math.hypot(e.clientX - lpRef.current.x, e.clientY - lpRef.current.y) > LONG_PRESS_SLOP) cancelLongPress();
   };
 
-  // ── Glissé : la page suit le doigt, puis se cale avec l'élan ──
+  // ── Glissé : les cartes suivent le doigt, puis se calent avec l'élan ──
   const startP = useRef(0);
   const panned = useRef(false);
 
@@ -195,11 +228,11 @@ export function FavoritesCarousel({ items, onOpen, equipped, onLongPress, focusI
   }
   function onPan(_, info) {
     if (Math.abs(info.offset.x) > 6) { panned.current = true; cancelLongPress(); }
-    // Légère résistance aux extrémités (on ne peut pas tourner dans le vide).
-    p.set(clamp(startP.current - info.offset.x / PAN_PX, -0.18, n - 1 + 0.18));
+    // Légère résistance aux extrémités (on ne peut pas aller dans le vide).
+    p.set(clamp(startP.current - info.offset.x / PAN_PX, -0.2, n - 1 + 0.2));
   }
   function onPanEnd(_, info) {
-    const momentum = (-info.velocity.x / PAN_PX) * 0.22;
+    const momentum = (-info.velocity.x / PAN_PX) * 0.2;
     goTo(p.get() + momentum);
   }
 
@@ -213,20 +246,21 @@ export function FavoritesCarousel({ items, onOpen, equipped, onLongPress, focusI
   const glow = resolveCosmetic(equipped?.[current?.id]).frame?.glow || RARITY[normalizeTier(current?.tier)].glow;
 
   // Seules les cartes proches de la position courante sont montées.
-  const from = Math.max(active - 2, 0);
-  const to = Math.min(active + PEEK + 1, n - 1);
+  const from = Math.max(active - SIDE - 1, 0);
+  const to = Math.min(active + SIDE + 1, n - 1);
   const visible = [];
   for (let i = from; i <= to; i++) visible.push(i);
 
   return (
     <div className="relative">
-      {/* Halo doux derrière la carte du dessus, à la couleur de sa rareté */}
+      {/* Halo doux derrière la carte du milieu, à la couleur de sa rareté */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-6 h-44 blur-3xl opacity-40 transition-colors duration-500 motion-reduce:transition-none"
+        className="pointer-events-none absolute inset-x-0 top-8 h-44 blur-3xl opacity-40 transition-colors duration-500 motion-reduce:transition-none"
         style={{ background: `radial-gradient(ellipse at center, ${glow}, transparent 70%)` }}
       />
 
+      {/* Zone de glisse sur toute la largeur ; les cartes sont centrées dedans. */}
       <motion.div
         role="region"
         aria-roledescription="carousel"
@@ -244,40 +278,44 @@ export function FavoritesCarousel({ items, onOpen, equipped, onLongPress, focusI
         onContextMenu={onLongPress ? (e) => {
           e.preventDefault();
           // Appui long tactile : déjà géré par le minuteur. Clic droit souris : on ouvre ici.
-          if (!lpRef.current.fired && current) onLongPress(current.id);
+          if (!lpRef.current.fired && leafIndexOf(e) === active && current) onLongPress(current.id);
         } : undefined}
-        className={`relative mx-auto my-4 select-none rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60 ${
+        className={`relative my-3 w-full select-none overflow-x-clip rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60 ${
           onLongPress ? "[-webkit-touch-callout:none]" : ""}`}
         // pan-y : le défilement vertical de la page reste possible ; l'horizontal est à nous.
-        style={{ width: CARD_W, height: (CARD_W * 4) / 3, touchAction: "pan-y", x: many && !reduce ? -14 : 0 }}
+        style={{ height: CARD_H + 24, touchAction: "pan-y" }}
       >
-        {visible.map((i) => (
-          <Leaf
-            key={items[i].id}
-            item={items[i]}
-            i={i}
-            p={p}
-            reduce={reduce}
-            equipped={equipped}
-            isActive={i === active}
-            onTap={() => {
-              // Un glissé ou un appui long ne doivent pas ouvrir la fiche.
-              if (panned.current) { panned.current = false; return; }
-              if (lpRef.current.fired) { lpRef.current.fired = false; return; }
-              onOpen?.(items[i].id);
-            }}
-          />
-        ))}
+        {/* Les cartes se superposent : on les centre dans un cadre de la taille d'une carte. */}
+        <div className="absolute left-1/2 top-3 -translate-x-1/2" style={{ width: CARD_W, height: CARD_H }}>
+          {visible.map((i) => (
+            <Leaf
+              key={items[i].id}
+              item={items[i]}
+              i={i}
+              p={p}
+              reduce={reduce}
+              equipped={equipped}
+              isActive={i === active}
+              onTap={() => {
+                // Un glissé ou un appui long ne doivent rien déclencher.
+                if (panned.current) { panned.current = false; return; }
+                if (lpRef.current.fired) { lpRef.current.fired = false; return; }
+                if (i === active) onOpen?.(items[i].id); // carte centrale : fiche
+                else goTo(i);                              // voisine : elle vient au centre
+              }}
+            />
+          ))}
+        </div>
       </motion.div>
 
       {many && (
         <>
-          {/* Flèches : utiles à la souris, masquées sur mobile (glissé) */}
+          {/* Flèches : utiles à la souris, masquées sur mobile (glissé / tap sur une voisine) */}
           <button
             onClick={() => goTo(active - 1)}
             disabled={active === 0}
             aria-label="Favori précédent"
-            className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 w-8 h-8 items-center justify-center rounded-full bg-black/50 border border-white/15 text-white disabled:opacity-0 transition-opacity motion-reduce:transition-none hover:bg-black/70"
+            className="hidden sm:flex absolute left-1 top-1/2 -translate-y-1/2 z-[120] w-8 h-8 items-center justify-center rounded-full bg-black/50 border border-white/15 text-white disabled:opacity-0 transition-opacity motion-reduce:transition-none hover:bg-black/70"
           >
             <ChevronLeft size={16} />
           </button>
@@ -285,7 +323,7 @@ export function FavoritesCarousel({ items, onOpen, equipped, onLongPress, focusI
             onClick={() => goTo(active + 1)}
             disabled={active === n - 1}
             aria-label="Favori suivant"
-            className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 w-8 h-8 items-center justify-center rounded-full bg-black/50 border border-white/15 text-white disabled:opacity-0 transition-opacity motion-reduce:transition-none hover:bg-black/70"
+            className="hidden sm:flex absolute right-1 top-1/2 -translate-y-1/2 z-[120] w-8 h-8 items-center justify-center rounded-full bg-black/50 border border-white/15 text-white disabled:opacity-0 transition-opacity motion-reduce:transition-none hover:bg-black/70"
           >
             <ChevronRight size={16} />
           </button>
