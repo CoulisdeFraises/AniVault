@@ -3,62 +3,35 @@ import { useNavigate } from "react-router-dom";
 import { Home, LayoutGrid, Sparkles, Users, Store } from "lucide-react";
 import { haptics } from "../../utils/haptics";
 
-// ── Barre de navigation propre à Waifinity ─────────────────────────────────
+// ── Barre de navigation de Waifinity ───────────────────────────────────────
 //
-// Remplace la BottomNav de l'app tant qu'on est dans le jeu (celle-ci se masque
-// sur /games/waifinity) : les 4 écrans du jeu sont à un tap du pouce, et
-// « Accueil » reste là pour quitter. Le bouton central (Boosters) est l'action
-// la plus fréquente ; sa pastille signale ce qui est à récupérer (booster
-// gratuit, récompense du jour, missions). Même silhouette que la BottomNav pour
-// ne pas dépayser, mais un seul accent : l'ambre est réservé à l'écran actif.
+// Strictement le même habillage que la barre principale (common/BottomNav) :
+// même conteneur flottant, mêmes pastilles actives, mêmes libellés, même bouton
+// central ambré. Seuls les éléments changent : les 4 écrans du jeu + « Accueil »
+// pour quitter. Le bouton central (Boosters) est l'action la plus fréquente.
+// Si tu modifies le style de l'une des deux barres, répercute-le dans l'autre.
+//
+// Seul ajout propre au jeu : une petite pastille de compteur (booster gratuit,
+// récompenses, échanges en attente).
 
-const SIDE_LEFT  = [
-  { key: "home",       label: "Accueil",    icon: Home,       exit: true },
-  { key: "collection", label: "Collection", icon: LayoutGrid },
-];
-const SIDE_RIGHT = [
-  { key: "social",     label: "Social",     icon: Users },
-  { key: "shop",       label: "Boutique",   icon: Store },
+const ITEMS = [
+  { key: "home",       icon: Home,       label: "Accueil",    exit: true },
+  { key: "collection", icon: LayoutGrid, label: "Collection" },
+  { key: "boosters",   icon: Sparkles,   label: "Boosters",   primary: true },
+  { key: "social",     icon: Users,      label: "Social" },
+  { key: "shop",       icon: Store,      label: "Boutique" },
 ];
 
-function Badge({ count }) {
+function Badge({ count, className = "" }) {
   if (!count) return null;
   return (
     <span
       aria-label={`${count} à traiter`}
-      className="absolute -top-1 -right-1.5 z-20 min-w-[17px] h-[17px] px-1 rounded-full flex items-center justify-center
-        bg-gradient-to-b from-fuchsia-400 to-rose-500 text-white text-[9.5px] font-bold leading-none tabular-nums
-        ring-2 ring-violet-950 shadow-[0_2px_8px_rgba(244,63,94,0.5)]"
+      className={`absolute z-20 min-w-[15px] h-[15px] px-1 rounded-full flex items-center justify-center
+        bg-rose-500 text-white text-[9px] font-bold leading-none tabular-nums ring-2 ring-violet-950 ${className}`}
     >
       {count > 9 ? "9+" : count}
     </span>
-  );
-}
-
-function NavItem({ item, active, badge, onSelect }) {
-  const Icon = item.icon;
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(item)}
-      aria-current={active ? "page" : undefined}
-      className="flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-2xl active:scale-95
-        transition-transform motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60"
-    >
-      <span className="relative flex items-center justify-center w-11 h-8 rounded-xl">
-        {active && (
-          <motion.span
-            layoutId="waifinity-nav-pill"
-            className="absolute inset-0 rounded-xl bg-gradient-to-b from-amber-300/25 to-amber-400/5 ring-1 ring-amber-300/30
-              shadow-[0_0_16px_rgba(251,191,36,0.2)]"
-            transition={{ type: "spring", stiffness: 500, damping: 35 }}
-          />
-        )}
-        <Icon size={19} className={`relative z-10 transition-colors motion-reduce:transition-none ${active ? "text-amber-300" : "text-violet-300"}`} />
-        <Badge count={badge} />
-      </span>
-      <span className={`text-[10.5px] leading-none font-medium ${active ? "text-amber-200" : "text-violet-400"}`}>{item.label}</span>
-    </button>
   );
 }
 
@@ -76,8 +49,6 @@ export function WaifinityNav({ tab, onChange, badges = {} }) {
     else onChange(item.key);
   }
 
-  const boostersActive = tab === "boosters";
-
   return (
     <nav
       aria-label="Navigation Waifinity"
@@ -85,38 +56,63 @@ export function WaifinityNav({ tab, onChange, badges = {} }) {
       style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
     >
       <div
-        className="pointer-events-auto relative w-full max-w-md flex items-center justify-between gap-0.5
-          rounded-[1.75rem] bg-violet-950/80 backdrop-blur-xl border border-white/10
-          shadow-[0_20px_50px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.07)] px-1.5 py-1.5"
+        className="pointer-events-auto w-full max-w-md flex items-center justify-between gap-0.5
+          rounded-[1.75rem] bg-violet-950/75 backdrop-blur-xl border border-white/10
+          shadow-2xl shadow-black/50 px-1.5 py-1.5"
       >
-        {SIDE_LEFT.map((it) => (
-          <NavItem key={it.key} item={it} active={tab === it.key} onSelect={select} />
-        ))}
+        {ITEMS.map(({ key, icon: Icon, label, primary, exit }) => {
+          const active = !exit && tab === key;
+          const badge = badges[key];
 
-        {/* Bouton central : Boosters */}
-        <div className="flex-shrink-0 w-[4.5rem] flex flex-col items-center">
-          <button
-            type="button"
-            onClick={() => { haptics.tap(); onChange("boosters"); }}
-            aria-label="Boosters"
-            aria-current={boostersActive ? "page" : undefined}
-            className={`relative -mt-7 w-[3.75rem] h-[3.75rem] rounded-full flex items-center justify-center active:scale-90
-              transition-[transform,box-shadow] motion-reduce:transition-none
-              bg-gradient-to-b from-amber-200 via-amber-400 to-amber-500
-              ring-4 ring-violet-950
-              focus-visible:outline-none focus-visible:ring-amber-200
-              shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_10px_26px_-6px_rgba(245,158,11,0.75)]
-              ${boostersActive ? "" : "saturate-[0.85]"} ${badges.boosters ? "animate-glowPulse motion-reduce:animate-none" : ""}`}
-          >
-            <Sparkles size={24} className="text-violet-950" />
-            <Badge count={badges.boosters} />
-          </button>
-          <span className={`mt-0.5 text-[10.5px] leading-none font-medium ${boostersActive ? "text-amber-200" : "text-violet-400"}`}>Boosters</span>
-        </div>
+          if (primary) {
+            return (
+              <button
+                key={key}
+                onClick={() => select({ key })}
+                aria-label={label}
+                aria-current={active ? "page" : undefined}
+                className={`relative flex-shrink-0 -mt-6 w-14 h-14 rounded-full flex items-center justify-center
+                  shadow-lg shadow-amber-500/30 active:scale-90 transition-all motion-reduce:transition-none
+                  ${active ? "bg-amber-300" : "bg-amber-400"} ${badge ? "animate-glowPulse motion-reduce:animate-none" : ""}`}
+              >
+                <Icon size={20} className="text-violet-950" />
+                <Badge count={badge} className="-top-0.5 -right-0.5" />
+              </button>
+            );
+          }
 
-        {SIDE_RIGHT.map((it) => (
-          <NavItem key={it.key} item={it} active={tab === it.key} badge={badges[it.key]} onSelect={select} />
-        ))}
+          return (
+            <button
+              key={key}
+              onClick={() => select({ key, exit })}
+              aria-label={label}
+              aria-current={active ? "page" : undefined}
+              className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-2xl
+                active:scale-95 transition-all motion-reduce:transition-none"
+            >
+              <span className="relative flex items-center justify-center w-9 h-7 rounded-xl">
+                {active && (
+                  <motion.span
+                    layoutId="waifinityNavActivePill"
+                    className="absolute inset-0 rounded-xl bg-amber-400/15"
+                    transition={{ type: "spring", bounce: 0.25, duration: 0.4 }}
+                  />
+                )}
+                <Icon size={18} className={`relative z-10 transition-colors motion-reduce:transition-none ${
+                  active ? "text-amber-400" : "text-violet-400"
+                }`} />
+                <Badge count={badge} className="-top-1 -right-1" />
+              </span>
+              <span
+                className={`font-mono text-[8.5px] uppercase tracking-wide leading-none ${
+                  active ? "text-amber-300" : "text-violet-500"
+                }`}
+              >
+                {label}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </nav>
   );
