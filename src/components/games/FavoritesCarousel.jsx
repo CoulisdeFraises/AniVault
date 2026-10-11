@@ -7,19 +7,20 @@ import { resolveCosmetic } from "../../utils/waifinityCosmetics";
 import { RarityBadge } from "./RarityBadge";
 import { CardFrame } from "./CardFrame";
 
-// ── FavoritesCarousel — coverflow serré, cartes qui se retournent ──────────
+// ── FavoritesCarousel — coverflow serré ────────────────────────────────────
 //
-// La carte du milieu est de face. De chaque côté, les voisines sont de DOS,
-// inclinées vers le centre et serrées les unes contre les autres (la plus proche
-// passe un peu sous la carte centrale). En glissant — ou en touchant une voisine,
-// avec les flèches, les points, le clavier — la carte qui arrive au centre SE
-// RETOURNE pour montrer sa face, pendant que l'ancienne se retourne de dos et
-// part de l'autre côté.
+// La carte du milieu est de face, bien droite. De chaque côté, les voisines sont
+// elles aussi de FACE (illustration visible), simplement inclinées vers le centre
+// et serrées les unes contre les autres : la plus proche passe un peu sous la
+// carte centrale. En glissant — ou en touchant une voisine, avec les flèches, les
+// points, le clavier — la carte voisine se redresse et vient au centre pendant que
+// l'ancienne s'incline de l'autre côté. L'angle reste modéré (jamais plus de TILT°),
+// il n'y a aucun retournement.
 //
-// Tout est piloté par une seule valeur continue `p` (position fractionnaire dans
-// la liste) : chaque carte déduit sa place, son angle et son ombre de
-// `d = index − p`, donc le geste suit le doigt, et au relâchement la pile se cale
-// en ressort sur la carte la plus proche en tenant compte de l'élan.
+// Tout est piloté par une seule valeur continue `p` (position fractionnaire dans la
+// liste) : chaque carte déduit sa place, son angle et son ombre de `d = index − p`,
+// donc le geste suit le doigt, et au relâchement la liste se cale en ressort sur la
+// carte la plus proche en tenant compte de l'élan.
 //
 // Props :
 //  • `items`    favoris dans l'ordre d'affichage ;
@@ -30,14 +31,13 @@ import { CardFrame } from "./CardFrame";
 //    carte centrale — menu de réorganisation ;
 //  • `focusId` + `focusToken`  à chaque changement du token, se centre sur `focusId`.
 //
-// « Réduire les animations » : plus d'inclinaison ni de retournement, les cartes
-// restent de face et seule la position change.
+// « Réduire les animations » : plus d'inclinaison, seule la position change.
 
 const CARD_W = 176;          // largeur de la carte, px (ratio 3/4)
 const CARD_H = (CARD_W * 4) / 3;
 const PAN_PX = 85;           // px de glissé pour avancer d'une carte
 const SIDE = 3;              // nombre de cartes visibles de chaque côté
-const TILT = 45;             // inclinaison des voisines, degrés
+const TILT = 38;             // inclinaison maximale des voisines, degrés
 const LONG_PRESS_MS = 450;
 const LONG_PRESS_SLOP = 10;  // px tolérés avant d'annuler l'appui long
 const SPRING = { type: "spring", stiffness: 190, damping: 24, mass: 0.85 };
@@ -50,44 +50,24 @@ const D_KEYS  = [-3, -2, -1, 0, 1, 2, 3];
 const X_KEYS  = [-182, -150, -112, 0, 112, 150, 182];
 const S_KEYS  = [0.74, 0.8, 0.88, 1, 0.88, 0.8, 0.74];
 
-/** Dos de carte, avec un fin liseré à la couleur de la rareté (indice discret). */
-function CardBack({ glow }) {
-  return (
-    <div
-      className="absolute inset-0 rounded-xl overflow-hidden bg-gradient-to-br from-violet-700 via-violet-900 to-violet-950 border"
-      style={{ borderColor: glow, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.14), 0 10px 24px -12px ${glow}` }}
-    >
-      <div className="absolute inset-0 opacity-25" style={{ backgroundImage: "radial-gradient(circle at 28% 18%, white, transparent 45%)" }} />
-      <div className="absolute inset-2 rounded-lg border border-amber-300/25" />
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full border border-pink-300/30 bg-gradient-to-b from-pink-400/20 to-fuchsia-500/10">
-          <Heart size={22} className="text-pink-300/70" fill="currentColor" />
-        </span>
-      </div>
-    </div>
-  );
-}
-
 /** Une carte. Toute son apparence découle de `p` (position fractionnaire dans la liste). */
 function Leaf({ item, i, p, reduce, equipped, isActive, onTap }) {
   const r = RARITY[normalizeTier(item.tier)];
   const d = useTransform(p, (v) => i - v); // 0 = au centre ; < 0 = à gauche ; > 0 = à droite
 
-  // Enveloppe externe : empilement, fondu en bout de pile, assombrissement.
-  // (L'opacité et le filtre restent ici pour ne pas aplatir la 3D de la carte interne.)
+  // Enveloppe externe : empilement, fondu en bout de liste, assombrissement des voisines.
   const zIndex  = useTransform(d, (v) => 100 - Math.round(Math.abs(v) * 10));
   const opacity = useTransform(d, [-SIDE - 0.6, -SIDE, SIDE, SIDE + 0.6], [0, 1, 1, 0]);
   const filter  = useTransform(d, [-SIDE, -1, 0, 1, SIDE],
     reduce ? Array(5).fill("brightness(1)")
-           : ["brightness(0.45)", "brightness(0.66)", "brightness(1)", "brightness(0.66)", "brightness(0.45)"]);
+           : ["brightness(0.55)", "brightness(0.78)", "brightness(1)", "brightness(0.78)", "brightness(0.55)"]);
 
-  // Carte interne. Angle total = inclinaison + retournement : à d = ±1 la carte est
-  // de dos (|angle| > 90°) et penchée de TILT° vers le centre ; elle passe de face à
-  // dos en traversant 90°, donc la face change à mi-chemin du déplacement.
-  const rotateY = useTransform(d, [-1, 0, 1], reduce ? [0, 0, 0] : [180 + TILT, 0, -(180 + TILT)]);
+  // Carte interne : droite au centre, penchée de TILT° vers le centre dès la 1re voisine
+  // (au-delà l'angle ne grandit plus, donc rien ne tourne trop).
+  const rotateY = useTransform(d, [-1, 0, 1], reduce ? [0, 0, 0] : [TILT, 0, -TILT]);
   const x       = useTransform(d, D_KEYS, reduce ? D_KEYS.map((k) => k * 70) : X_KEYS);
   const scale   = useTransform(d, D_KEYS, reduce ? Array(7).fill(1) : S_KEYS);
-  // Reflet qui balaie la face pendant le retournement.
+  // Reflet qui balaie la carte quand elle se redresse.
   const sheen   = useTransform(d, [-0.6, -0.3, 0, 0.3, 0.6], reduce ? Array(5).fill(0) : [0, 0.4, 0, 0.4, 0]);
 
   const frameGlow = resolveCosmetic(equipped?.[item.id]).frame?.glow || r.glow;
@@ -99,11 +79,10 @@ function Leaf({ item, i, p, reduce, equipped, isActive, onTap }) {
       style={{ zIndex, opacity, filter }}
     >
       <motion.div
-        className="relative h-full w-full [transform-style:preserve-3d] will-change-transform"
+        className="relative h-full w-full will-change-transform"
         style={{ rotateY, x, scale }}
       >
-        {/* ── Face ── */}
-        <div className="absolute inset-0 [backface-visibility:hidden]">
+        <div className="absolute inset-0">
           <CardFrame
             as="button"
             tier={item.tier}
@@ -138,17 +117,6 @@ function Leaf({ item, i, p, reduce, equipped, isActive, onTap }) {
             </div>
           </CardFrame>
         </div>
-
-        {/* ── Dos (visible quand la carte est retournée) ── */}
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-label={`Afficher ${item.name}`}
-          onClick={onTap}
-          className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)]"
-        >
-          <CardBack glow={frameGlow} />
-        </button>
       </motion.div>
     </motion.div>
   );

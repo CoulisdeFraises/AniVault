@@ -47,7 +47,7 @@ export function useFriendRequestNotifications(userId) {
             title: "Nouvelle demande d'ami",
             body: `@${username} veut devenir ton ami.`,
             icon: "user-plus",
-            link: "/community",
+            link: "/profile?section=friends",
             dedupeKey: `friend-req-${row.id}`,
           });
         }
@@ -64,7 +64,7 @@ export function useFriendRequestNotifications(userId) {
             title: "Demande acceptée",
             body: `@${username} a accepté ta demande d'ami !`,
             icon: "user-check",
-            link: "/community",
+            link: "/profile?section=friends",
             dedupeKey: `friend-acc-${row.id}`,
           });
         }

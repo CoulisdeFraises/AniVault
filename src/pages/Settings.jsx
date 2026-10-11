@@ -348,7 +348,7 @@ export function Settings() {
         <Row label="Réactions dans Waifinity" sublabel="Boosters, séries complétées, missions, récompenses…">
           <Toggle checked={companionWf} onChange={(v) => { setCompanionWaifinity(v); setCompanionWf(v); }} />
         </Row>
-        <Row label="Vitrine Waifinity publique" sublabel="Tes personnages favoris visibles par les autres joueurs (profil et Communauté)">
+        <Row label="Vitrine Waifinity publique" sublabel="Tes personnages favoris visibles par les autres joueurs (profil et liste d'amis)">
           <Toggle checked={showcaseVisible !== false} disabled={showcaseVisible === null} onChange={handleShowcaseVisible} />
         </Row>
         {showcaseError && <p className="px-5 pb-3 text-[11px] text-rose-300">{showcaseError}</p>}

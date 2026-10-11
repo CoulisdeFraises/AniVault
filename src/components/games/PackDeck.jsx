@@ -10,11 +10,12 @@ import { haptics } from "../../utils/haptics";
 
 // ── Ouverture carte par carte ───────────────────────────────────────────────
 //
-// Une pile de cartes face cachée. UN geste = UNE étape, au tap comme au glissé :
-//   carte cachée → elle se retourne (révélation, effets selon la rareté) ;
-//   carte révélée → elle s'envole et la suivante prend sa place.
-// Clavier : Entrée / Espace / → font la même chose. Après la dernière carte,
-// `onFinish` ; `onRevealAll` saute directement au récapitulatif.
+// Une pile de cartes. Chaque carte arrive au-dessus de la pile et SE RETOURNE
+// toute seule pour montrer sa face (effets selon la rareté) : aucun tap pour la
+// révéler. UN geste = UNE carte, au tap comme au glissé : elle s'envole et la
+// suivante prend sa place. Clavier : Entrée / Espace / → font la même chose.
+// Après la dernière carte, `onFinish` ; `onRevealAll` saute directement au
+// récapitulatif.
 
 const SWIPE_DISTANCE = 80;   // px parcourus pour valider un glissé
 const SWIPE_VELOCITY = 450;  // px/s : un geste court mais vif compte aussi
@@ -42,7 +43,7 @@ function CardFace({ card, isDuplicate, fragments }) {
   return (
     <CardFrame
       tier={card.tier}
-      className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] flex flex-col !rounded-2xl"
+      className="absolute inset-0 [backface-visibility:hidden] flex flex-col !rounded-2xl"
       style={{ boxShadow: `0 0 34px -2px ${r.glow}, 0 20px 40px -18px rgba(0,0,0,0.9)` }}
     >
       <div className="relative flex-1 min-h-0 bg-violet-900/60">
@@ -117,11 +118,19 @@ const cardVariants = {
  * glissé est trop court, elle revient seule, sinon `onStep` reçoit la direction
  * et l'envol est joué par la variante `exit` (voir AnimatePresence plus bas).
  */
-function TopCard({ card, flipped, isDuplicate, fragments, reduce, onStep }) {
+function TopCard({ card, isDuplicate, fragments, reduce, onStep }) {
   const r = RARITY[normalizeTier(card.tier)];
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const rotate = useTransform(x, [-220, 220], [-14, 14]);
+
+  // La carte arrive de dos puis se retourne seule ; l'aura et les étincelles
+  // partent quand la face commence à apparaître.
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setOpen(true), reduce ? 0 : 260);
+    return () => clearTimeout(t);
+  }, [reduce]);
 
   function onDragEnd(_, info) {
     const { offset, velocity } = info;
@@ -153,10 +162,10 @@ function TopCard({ card, flipped, isDuplicate, fragments, reduce, onStep }) {
       style={{ x, y, rotate: reduce ? 0 : rotate }}
       role="button"
       tabIndex={0}
-      aria-label={flipped ? "Carte suivante" : "Révéler cette carte"}
+      aria-label="Carte suivante"
     >
       {/* Aura pulsante derrière la carte révélée */}
-      {flipped && (
+      {open && (
         <div
           className="card-aura absolute -inset-3 -z-10 rounded-3xl pointer-events-none"
           style={{ background: `radial-gradient(circle, ${r.glow} 0%, transparent 72%)`, filter: "blur(14px)", animationDuration: `${r.auraDuration}s`, "--aura-peak": r.auraPeak }}
@@ -167,14 +176,15 @@ function TopCard({ card, flipped, isDuplicate, fragments, reduce, onStep }) {
       {/* Retournement 3D */}
       <motion.div
         className="relative h-full w-full [transform-style:preserve-3d]"
-        animate={{ rotateY: flipped ? 180 : 0 }}
-        transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 170, damping: 17, mass: 0.9 }}
+        initial={{ rotateY: reduce ? 0 : 180 }}
+        animate={{ rotateY: 0 }}
+        transition={reduce ? { duration: 0 } : { delay: 0.14, type: "spring", stiffness: 150, damping: 17, mass: 0.9 }}
       >
-        <div className="absolute inset-0 [backface-visibility:hidden]"><CardBack /></div>
+        <div className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)]"><CardBack /></div>
         <CardFace card={card} isDuplicate={isDuplicate} fragments={fragments} />
       </motion.div>
 
-      {flipped && <Burst tier={card.tier} />}
+      {open && <Burst tier={card.tier} />}
     </motion.div>
   );
 }
@@ -184,7 +194,6 @@ const reducedVariants = { enter: { opacity: 0 }, center: { opacity: 1 }, exit: {
 export function PackDeck({ cards, dupSlots, fragmentsFor, onRevealCard, onFinish, onRevealAll }) {
   const reduce = useReducedMotion();
   const [index, setIndex] = useState(0);
-  const [flipped, setFlipped] = useState(false);
   const [exitDir, setExitDir] = useState({ x: 1, y: 0 });
   const [flash, setFlash] = useState(null);
   const [tiers, setTiers] = useState([]); // paliers des cartes déjà révélées (pastilles de progression)
@@ -194,24 +203,28 @@ export function PackDeck({ cards, dupSlots, fragmentsFor, onRevealCard, onFinish
   const r = RARITY[normalizeTier(card.tier)];
   const isDuplicate = dupSlots.has(card.packSlot);
 
-  const reveal = useCallback(() => {
-    setFlipped(true);
-    setTiers((t) => [...t, card.tier]);
-    onRevealCard(card.packSlot);
-    if (r.shine) haptics.success(); else haptics.light();
-    if (r.flashPeak) setFlash(card.packSlot);
-  }, [card, r, onRevealCard]);
+  // Dès qu'une carte arrive : comptabilisée comme révélée (pastilles, récapitulatif),
+  // puis vibration et flash calés sur le moment où la face apparaît. Si on passe
+  // la carte avant, ces deux effets sont annulés.
+  useEffect(() => {
+    const c = cards[index];
+    const rr = RARITY[normalizeTier(c.tier)];
+    setTiers((t) => { const next = [...t]; next[index] = c.tier; return next; });
+    onRevealCard(c.packSlot);
+    const timer = setTimeout(() => {
+      if (rr.shine) haptics.success(); else haptics.light();
+      if (rr.flashPeak) setFlash(c.packSlot);
+    }, reduce ? 0 : 260);
+    return () => clearTimeout(timer);
+  }, [index]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dismiss = useCallback((dir) => {
+  // Un geste = une carte : elle s'envole, la suivante prend sa place.
+  const step = useCallback((dir) => {
     setExitDir(dir || { x: index % 2 ? -1 : 1, y: 0 });
     haptics.tap();
     if (index + 1 >= n) { onFinish(); return; }
     setIndex((i) => i + 1);
-    setFlipped(false);
   }, [index, n, onFinish]);
-
-  // Un geste = une étape.
-  const step = useCallback((dir) => { if (flipped) dismiss(dir); else reveal(); }, [flipped, dismiss, reveal]);
 
   useEffect(() => {
     function onKey(e) {
@@ -237,17 +250,15 @@ export function PackDeck({ cards, dupSlots, fragmentsFor, onRevealCard, onFinish
 
       {/* Scène */}
       <div className="relative flex w-full flex-1 min-h-0 items-center justify-center px-6">
-        {/* Halo de la rareté, une fois la carte retournée */}
+        {/* Halo à la couleur de la rareté de la carte du dessus */}
         <AnimatePresence>
-          {flipped && (
-            <motion.div
-              key={`glow-${card.packSlot}`}
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}
-              className="pointer-events-none absolute inset-0"
-              style={{ background: `radial-gradient(circle at 50% 48%, ${r.glow} 0%, transparent 62%)` }}
-              aria-hidden="true"
-            />
-          )}
+          <motion.div
+            key={`glow-${card.packSlot}`}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4, delay: reduce ? 0 : 0.25 }}
+            className="pointer-events-none absolute inset-0"
+            style={{ background: `radial-gradient(circle at 50% 48%, ${r.glow} 0%, transparent 62%)` }}
+            aria-hidden="true"
+          />
         </AnimatePresence>
 
         <div className="relative aspect-[3/4] w-[min(72vw,18rem)] max-h-full [perspective:1100px]">
@@ -269,7 +280,6 @@ export function PackDeck({ cards, dupSlots, fragmentsFor, onRevealCard, onFinish
             <TopCard
               key={`top-${card.packSlot}`}
               card={card}
-              flipped={flipped}
               isDuplicate={isDuplicate}
               fragments={isDuplicate ? fragmentsFor(card) : 0}
               reduce={reduce}
@@ -280,11 +290,11 @@ export function PackDeck({ cards, dupSlots, fragmentsFor, onRevealCard, onFinish
       </div>
 
       <p className="mt-3 min-h-[1.25rem] text-center text-sm text-violet-200" aria-live="polite">
-        {flipped
-          ? <><span className={`font-semibold ${r.text}`}>{card.name}</span> · {r.label}{isDuplicate ? " · doublon" : " · nouveau"}</>
-          : "Touche ou glisse la carte pour la révéler"}
+        <span className={`font-semibold ${r.text}`}>{card.name}</span> · {r.label}{isDuplicate ? " · doublon" : " · nouveau"}
       </p>
-      <p className="mb-1 text-xs text-violet-500">{flipped ? "Touche ou glisse pour passer à la suivante" : "\u00A0"}</p>
+      <p className="mb-1 text-xs text-violet-500">
+        {index + 1 >= n ? "Touche ou glisse pour voir tout ton booster" : "Touche ou glisse pour passer à la suivante"}
+      </p>
 
       {flash === card.packSlot && <ScreenFlash tier={card.tier} onDone={() => setFlash(null)} />}
 

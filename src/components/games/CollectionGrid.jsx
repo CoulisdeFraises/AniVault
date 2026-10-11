@@ -287,7 +287,7 @@ export function CollectionGrid({
             focusToken={focus.token}
           />
           {canReorder && favItems.length > 1 && (
-            <p className="text-center text-[10px] text-violet-500 mt-1">Appui long sur une carte pour changer sa position</p>
+            <p className="text-center text-[10px] text-violet-500 mt-1">Touche une voisine pour la centrer · appui long sur la carte du milieu pour changer sa position</p>
           )}
         </section>
       )}

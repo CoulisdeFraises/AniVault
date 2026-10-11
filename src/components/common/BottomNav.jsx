@@ -1,18 +1,19 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
-import { Home, ListPlus, Calendar, Search, Sparkles, Users, User } from "lucide-react";
+import { Home, ListPlus, Calendar, Search, Sparkles, Gamepad2, User } from "lucide-react";
 
 // ── Pages accessibles depuis la barre flottante ────────────────────────────────
 // Les actions "de compte / réglages" (paramètres, historique, sync,
 // données & sauvegarde, déconnexion, notifs) restent en haut de chaque page
 // via <TopBar />. Ici : uniquement la navigation entre les grandes sections.
+// Les amis vivent désormais sur la page Profil (section « Amis »).
 const ITEMS = [
   { path: "/search",          icon: Search,   label: "Ajouter"  },
   { path: "/lists",           icon: ListPlus, label: "Listes"   },
   { path: "/calendar",        icon: Calendar, label: "Agenda"   },
   { path: "/",                icon: Home,     label: "Accueil",  primary: true },
   { path: "/recommendations", icon: Sparkles, label: "Recos"    },
-  { path: "/community",       icon: Users,    label: "Amis"     },
+  { path: "/games",           icon: Gamepad2, label: "Jeux"     },
   { path: "/profile",         icon: User,     label: "Profil"   },
 ];
 
@@ -43,7 +44,9 @@ export function BottomNav() {
           shadow-2xl shadow-black/50 px-1.5 py-1.5"
       >
         {ITEMS.map(({ path, icon: Icon, label, primary }) => {
-          const active = location.pathname === path;
+          // « Jeux » reste actif sur toutes ses sous-pages (/games, /games/…).
+          const active = location.pathname === path
+            || (path !== "/" && location.pathname.startsWith(`${path}/`));
           if (primary) {
             return (
               <button

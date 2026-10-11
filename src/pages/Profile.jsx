@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate }        from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Loader2, Check, Lock, Trash2, ArrowLeft,
   ChevronDown, Eye, EyeOff, KeyRound, AlertTriangle, Copy, Camera, X as XIcon,
@@ -19,6 +19,7 @@ import { useLists, fetchUserFavorites } from "../context/ListsContext";
 import { COMPANIONS } from "../utils/companions";
 import { calcWatchTime } from "../utils/watchTime";
 import { WaifinityShowcase } from "../components/games/WaifinityShowcase";
+import { FriendsSection } from "../components/community/FriendsSection";
 
 const AVATAR_COLORS = [
   "#7c3aed", "#f59e0b", "#0ea5e9", "#10b981",
@@ -317,6 +318,17 @@ function AchievementsPanel({ allAchievements, unlockedIds }) {
 // ── Page principale ───────────────────────────────────────────────────────────
 export function Profile() {
   const navigate = useNavigate();
+
+  // /profile?section=friends (notifications de demande d'ami, ancienne route /community) :
+  // on fait défiler jusqu'à la section Amis une fois la page installée.
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("section") !== "friends") return;
+    const t = setTimeout(() => {
+      document.getElementById("friends")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchParams]);
   const { user, profile, userProfile, refreshProfile, logout } = useAuth();
   const { entries, setEntries } = useLibrary();
   const { allAchievements, unlockedIds } = useAchievements();
@@ -705,6 +717,9 @@ export function Profile() {
           </div>
         )}
       </div>
+
+      {/* Amis : liste, demandes et recherche (ex-page « Communauté ») */}
+      <FriendsSection />
 
       {/* ── FIX : Favoris déplacé AU-DESSUS des Succès ── */}
 

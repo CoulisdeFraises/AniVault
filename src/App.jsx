@@ -38,7 +38,6 @@ const CalendarFilms    = lazy(() => import("./pages/CalendarFilms")  .then(m => 
 const NextSeason       = lazy(() => import("./pages/NextSeason")     .then(m => ({ default: m.NextSeason })));
 const History         = lazy(() => import("./pages/History")        .then(m => ({ default: m.History })));
 const Recommendations = lazy(() => import("./pages/Recommendations").then(m => ({ default: m.Recommendations })));
-const Community       = lazy(() => import("./pages/Community")      .then(m => ({ default: m.Community })));
 const Lists           = lazy(() => import("./pages/Lists")          .then(m => ({ default: m.Lists })));
 const SearchPage      = lazy(() => import("./pages/Search")         .then(m => ({ default: m.SearchPage })));
 const Games           = lazy(() => import("./pages/Games")          .then(m => ({ default: m.Games })));
@@ -87,7 +86,7 @@ function CompanionWatcherLayer() {
 
 // ── ProfileStatsSyncLayer — tient entries_count/episodes_watched à jour ────
 //
-// Ces deux champs (affichés aux amis sur /community) vivent dans la table
+// Ces deux champs (affichés aux amis dans la section « Amis » du Profil) vivent dans la table
 // `profiles` et ne sont PAS recalculés à la volée côté lecteur : chaque
 // utilisateur pousse ses propres stats vers son profil. Ce layer, monté une
 // fois pour toute la session (indépendamment de la page affichée), réagit à
@@ -251,8 +250,9 @@ const AppRoutes = () => {
               element={<ProtectedRoute><PageTransition><History /></PageTransition></ProtectedRoute>} />
             <Route path="/recommendations"
               element={<ProtectedRoute><PageTransition><Recommendations /></PageTransition></ProtectedRoute>} />
+            {/* Ancienne page Amis : fusionnée dans le Profil (liens anciens, notifications déjà reçues) */}
             <Route path="/community"
-              element={<ProtectedRoute><PageTransition><Community /></PageTransition></ProtectedRoute>} />
+              element={<Navigate to="/profile?section=friends" replace />} />
             <Route path="/lists"
               element={<ProtectedRoute><PageTransition><Lists /></PageTransition></ProtectedRoute>} />
             <Route path="/"

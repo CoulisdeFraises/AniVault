@@ -56,7 +56,7 @@ export function addNotification({ title, body, entryId = null, icon = "sparkles"
     body,
     entryId,
     icon,
-    link, // ── route interne à ouvrir au clic (ex: "/community"), prioritaire sur entryId ──
+    link, // ── route interne à ouvrir au clic (ex: "/profile?section=friends"), prioritaire sur entryId ──
     dedupeKey,
     readAt:    null,
     createdAt: Date.now(),
