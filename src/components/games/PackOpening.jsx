@@ -15,7 +15,7 @@ const SOURCE_LABEL = {
 };
 
 const INTRO_DURATION_MS = 1500;
-const BURST_DELAY_MS = 950; // déclenche l'ouverture peu avant la fin du suspense
+const BURST_DELAY_MS = 950; // déclenche la déchirure peu avant la fin du suspense
 const BURST_COUNT = 10;
 
 // Sachet selon le type de booster : rose = Waifus, bleu = Husbandos, violet = tous les autres
@@ -31,13 +31,13 @@ if (typeof Image !== "undefined") {
   [PACK_DEFAULT, ...Object.values(PACK_VARIANT)].forEach((v) => { new Image().src = v.img; });
 }
 
-// Bords déchirés (verticaux) : chaque moitié du sachet garde un côté en dents de scie.
-const TEAR_LEFT  = "polygon(0% 0%,100% 0%,86% 8%,98% 17%,82% 27%,97% 38%,81% 49%,96% 60%,83% 71%,97% 82%,85% 92%,100% 100%,0% 100%)";
-const TEAR_RIGHT = "polygon(100% 0%,0% 0%,14% 8%,2% 17%,18% 27%,3% 38%,19% 49%,4% 60%,17% 71%,3% 82%,15% 92%,0% 100%,100% 100%)";
+// Déchirure : un simple trait horizontal à 20 % depuis le haut du sachet. La bande du haut
+// (avec la soudure) s'envole, le reste du sachet reste en place.
+const TEAR_AT = 20; // % de la hauteur
 
 /**
  * Suspense avant la révélation : le sachet arrive, tremble de plus en plus,
- * puis se déchire en deux dans un éclat de lumière. Tap pour passer.
+ * puis on le déchire d'un trait en haut dans un éclat de lumière. Tap pour passer.
  */
 function PackIntro({ source, onDone }) {
   const [burst, setBurst] = useState(false);
@@ -49,73 +49,87 @@ function PackIntro({ source, onDone }) {
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [onDone]);
 
-  const half = (side) => ({
+  // Les deux morceaux montrent la même image, chacun sa portion (haut 20 % / bas 80 %).
+  const topStyle = {
     backgroundImage: `url(${variant.img})`,
-    backgroundSize: "200% 100%",
-    backgroundPosition: side === "left" ? "0% 0%" : "100% 0%",
-    clipPath: side === "left" ? TEAR_LEFT : TEAR_RIGHT,
-  });
+    backgroundSize: `100% ${10000 / TEAR_AT}%`,
+    backgroundPosition: "0% 0%",
+  };
+  const bottomStyle = {
+    backgroundImage: `url(${variant.img})`,
+    backgroundSize: `100% ${10000 / (100 - TEAR_AT)}%`,
+    backgroundPosition: "0% 100%",
+  };
 
   return (
     <button
       onClick={onDone}
       aria-label="Ouverture du booster — toucher pour passer"
-      className="flex-1 w-full flex flex-col items-center justify-center gap-8 text-violet-200"
+      className="flex-1 w-full flex flex-col items-center justify-center gap-10 text-violet-200"
     >
       {/* Entrée du sachet */}
       <motion.div
         initial={{ scale: 0.55, opacity: 0, y: 36, rotate: -8 }}
         animate={{ scale: 1, opacity: 1, y: 0, rotate: 0 }}
         transition={{ type: "spring", stiffness: 220, damping: 16 }}
-        className="relative aspect-[2/3] w-[9.5rem] sm:w-44"
+        className="relative aspect-[2/3] w-[min(64vw,15rem)]"
       >
-        {/* Halo à la couleur du sachet, qui pulse puis explose à l'ouverture */}
+        {/* Halo à la couleur du sachet, qui pulse puis éclate à l'ouverture */}
         <motion.span
           aria-hidden="true"
-          className="absolute -inset-10 rounded-full blur-2xl"
+          className="absolute -inset-14 rounded-full blur-2xl"
           style={{ background: `radial-gradient(circle, ${variant.glow} 0%, transparent 68%)` }}
-          animate={burst ? { opacity: 1, scale: 1.6 } : { opacity: [0.3, 0.85, 0.3], scale: [0.95, 1.08, 0.95] }}
+          animate={burst ? { opacity: 1, scale: 1.5 } : { opacity: [0.3, 0.85, 0.3], scale: [0.95, 1.08, 0.95] }}
           transition={burst ? { duration: 0.4, ease: "easeOut" } : { duration: 0.9, repeat: Infinity, ease: "easeInOut" }}
         />
 
         {/* Tremblement qui s'intensifie avant la déchirure */}
         <motion.div
-          className="relative h-full w-full drop-shadow-[0_14px_22px_rgba(0,0,0,0.55)]"
+          className="relative h-full w-full drop-shadow-[0_16px_26px_rgba(0,0,0,0.55)]"
           animate={burst ? { rotate: 0, x: 0 } : { rotate: [0, -2, 2.5, -3.5, 4, -5, 5, 0], x: [0, -1, 1, -2, 2, -3, 3, 0] }}
           transition={burst ? { duration: 0.1 } : { delay: 0.5, duration: 0.45, ease: "linear" }}
         >
-          {/* Les deux moitiés du sachet : au burst, chacune part sur son côté */}
+          {/* Bas du sachet : reste en place, petit contrecoup à la déchirure */}
           <motion.span
-            className="absolute inset-y-0 left-0 w-1/2"
-            style={half("left")}
-            animate={burst ? { x: "-70%", rotate: -14, opacity: 0 } : { x: 0, rotate: 0, opacity: 1 }}
-            transition={{ duration: 0.45, ease: "easeIn" }}
+            className="absolute inset-x-0 bottom-0"
+            style={{ ...bottomStyle, height: `${100 - TEAR_AT}%` }}
+            animate={burst ? { y: [0, 5, 0] } : { y: 0 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
           />
+          {/* Bande du haut : arrachée, elle s'envole en basculant */}
           <motion.span
-            className="absolute inset-y-0 right-0 w-1/2"
-            style={half("right")}
-            animate={burst ? { x: "70%", rotate: 14, opacity: 0 } : { x: 0, rotate: 0, opacity: 1 }}
-            transition={{ duration: 0.45, ease: "easeIn" }}
+            className="absolute inset-x-0 top-0"
+            style={{ ...topStyle, height: `${TEAR_AT}%`, transformOrigin: "100% 100%" }}
+            animate={burst ? { y: "-260%", x: "28%", rotate: 24, opacity: 0 } : { y: 0, x: 0, rotate: 0, opacity: 1 }}
+            transition={{ duration: 0.5, ease: [0.3, 0, 0.8, 0.5] }}
           />
 
-          {/* Lumière qui s'échappe de la déchirure */}
+          {/* Trait de lumière le long de la déchirure */}
           {burst && (
-            <span
-              className="tear-beam absolute inset-y-[-15%] left-1/2 w-3 bg-gradient-to-b from-transparent via-white to-transparent blur-[2px]"
+            <motion.span
               aria-hidden="true"
+              className="absolute -inset-x-[6%] h-[3px] rounded-full bg-gradient-to-r from-transparent via-white to-transparent blur-[1.5px]"
+              style={{ top: `${TEAR_AT}%` }}
+              initial={{ scaleX: 0, opacity: 1 }}
+              animate={{ scaleX: 1.1, opacity: [1, 1, 0] }}
+              transition={{ duration: 0.45, ease: "easeOut" }}
             />
           )}
         </motion.div>
 
-        {burst && Array.from({ length: BURST_COUNT }).map((_, i) => (
-          <Sparkles
-            key={i}
-            size={12 + (i % 3) * 5}
-            className="sparkle-burst text-amber-100"
-            style={{ "--angle": `${(360 / BURST_COUNT) * i}deg`, "--dist": `${80 + (i % 2) * 28}px`, animationDelay: `${(i % 4) * 15}ms` }}
-            aria-hidden="true"
-          />
-        ))}
+        {/* Étincelles : jaillissent de la déchirure */}
+        {burst && (
+          <div className="absolute inset-x-0 h-0" style={{ top: `${TEAR_AT}%` }} aria-hidden="true">
+            {Array.from({ length: BURST_COUNT }).map((_, i) => (
+              <Sparkles
+                key={i}
+                size={12 + (i % 3) * 5}
+                className="sparkle-burst text-amber-100"
+                style={{ "--angle": `${(360 / BURST_COUNT) * i}deg`, "--dist": `${90 + (i % 2) * 30}px`, animationDelay: `${(i % 4) * 15}ms` }}
+              />
+            ))}
+          </div>
+        )}
       </motion.div>
 
       <p className="font-mono text-[11px] uppercase tracking-widest text-violet-300 animate-pulse motion-reduce:animate-none">
@@ -127,7 +141,7 @@ function PackIntro({ source, onDone }) {
 
 /**
  * Ouverture d'un booster — page plein écran en trois temps :
- *  1. suspense (le sachet, violet / rose / bleu selon le booster, se déchire) ;
+ *  1. suspense (le sachet, violet / rose / bleu selon le booster, se déchire en haut) ;
  *  2. cartes une par une (PackDeck) : chaque carte se retourne seule, un tap ou un
  *     glissé passe à la suivante, « Tout révéler » à tout moment ;
  *  3. récapitulatif : les cartes en grille, puis un bouton les ajoute TOUTES à
