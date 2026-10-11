@@ -362,7 +362,13 @@ export function SocialTab({ game, initialView }) {
   const [friends, setFriends] = useState([]);
   const [friendsLoading, setFriendsLoading] = useState(true);
   const [myProfile, setMyProfile] = useState(null);
-  const [leaderboard, setLeaderboard] = useState(null);
+  // Classement : les DONNÉES (miroir de chaque joueur) sont lues une fois puis
+  // conservées ; le score est recalculé à la volée (voir `leaderboard` plus bas), donc
+  // un changement de bassin ne déclenche pas de nouvelle requête.
+  const [itemsByUser, setItemsByUser] = useState(null);
+  const [boardError, setBoardError] = useState(false);
+  const [boardLoading, setBoardLoading] = useState(false);
+  const [boardUpdatedAt, setBoardUpdatedAt] = useState(null);
   const [busyTradeId, setBusyTradeId] = useState(null);
   const [error, setError] = useState(null);
 
@@ -416,18 +422,40 @@ export function SocialTab({ game, initialView }) {
 
   const collectionSize = (game.collectionList || []).length;
 
-  const loadLeaderboard = useCallback(async () => {
-    if (!myId) { setLeaderboard([]); return; }
-    // Moi + mes amis, lus au même endroit : tous les scores sont comparables
-    // et identiques à ce que mes amis voient de moi.
-    const byUser = await fetchWaifinityItemsBulk([myId, ...friends.map((f) => f.user_id)]);
+  const friendIds = useMemo(() => friends.map((f) => f.user_id), [friends]);
+
+  // Moi + mes amis, lus au même endroit (colonnes minimales, lecture paginée) : tous
+  // les scores sont comparables et identiques à ce que mes amis voient de moi.
+  // En cas d'erreur on GARDE le dernier classement connu et on l'indique, plutôt que
+  // d'afficher des scores calculés sur des données incomplètes.
+  const loadItems = useCallback(async () => {
+    if (!myId) return;
+    setBoardLoading(true);
+    const byUser = await fetchWaifinityItemsBulk([myId, ...friendIds], "user_id, character_id, count, tier");
+    setBoardLoading(false);
+    if (!byUser) { setBoardError(true); return; }
+    setBoardError(false);
+    setItemsByUser(byUser);
+    setBoardUpdatedAt(Date.now());
+  }, [myId, friendIds]);
+
+  // Relu à l'ouverture, quand ma collection change (booster, échange) et au retour sur l'app.
+  useEffect(() => { if (!friendsLoading) loadItems(); }, [friendsLoading, loadItems, collectionSize]);
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === "visible" && !friendsLoading) loadItems(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [friendsLoading, loadItems]);
+
+  const leaderboard = useMemo(() => {
+    if (!myId || !itemsByUser) return null;
     const rows = friends.map((f) => ({
-      userId: f.user_id, name: f.username, color: f.avatar_color, photoUrl: f.avatar_url, ...scoreItems(byUser[f.user_id]),
+      userId: f.user_id, name: f.username, color: f.avatar_color, photoUrl: f.avatar_url, ...scoreItems(itemsByUser[f.user_id]),
     }));
     rows.push({
       userId: myId, isMe: true,
       name: myProfile?.username || "Toi", color: myProfile?.avatar_color, photoUrl: myProfile?.avatar_url,
-      ...scoreItems(byUser[myId]),
+      ...scoreItems(itemsByUser[myId]),
     });
     // Tri déterministe : à score égal, mêmes critères pour tous (sinon l'ordre
     // dépendrait de l'ordre de la liste d'amis de chacun).
@@ -437,11 +465,9 @@ export function SocialTab({ game, initialView }) {
       String(a.name).localeCompare(String(b.name), "fr", { sensitivity: "base" }) ||
       String(a.userId).localeCompare(String(b.userId))
     );
-    setLeaderboard(rows);
-  }, [myId, friends, myProfile, scoreItems]);
+    return rows;
+  }, [myId, friends, myProfile, itemsByUser, scoreItems]);
 
-  // `collectionSize` : on relit le classement quand ma collection change (booster, échange).
-  useEffect(() => { if (!friendsLoading) loadLeaderboard(); }, [friendsLoading, loadLeaderboard, collectionSize]);
 
 
   // Échange terminé par l'autre ami pendant que l'écran est ouvert → animation.
@@ -573,6 +599,22 @@ export function SocialTab({ game, initialView }) {
 
       {view === "leaderboard" && (
         <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2 px-0.5">
+            <p className="text-[11px] text-violet-400">
+              {boardUpdatedAt ? `Mis à jour à ${new Date(boardUpdatedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : "Chargement du classement…"}
+            </p>
+            <GameButton variant="ghost" size="sm" onClick={loadItems} loading={boardLoading}>
+              {!boardLoading && <RefreshCw size={12} />}Actualiser
+            </GameButton>
+          </div>
+
+          {boardError && (
+            <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs">
+              <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" />
+              <span>Impossible de lire toutes les collections.{leaderboard ? " Le classement affiché date de la dernière lecture réussie." : ""} Réessaie avec « Actualiser ».</span>
+            </div>
+          )}
+
           {(leaderboard || []).map((r, i) => (
             <RankRow key={r.userId} rank={i + 1} name={r.name} color={r.color} photoUrl={r.photoUrl} score={r.score} owned={r.owned} isMe={r.isMe} />
           ))}

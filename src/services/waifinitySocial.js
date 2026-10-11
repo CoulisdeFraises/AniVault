@@ -7,23 +7,37 @@ import { supabase } from "../lib/supabase";
 // pour le classement entre amis et l'écran d'échange. Voir
 // supabase/waifinity_social.sql pour le schéma et les policies RLS.
 
-/**
- * Pousse UN personnage (nouvellement obtenu, ou dont le compteur a changé).
- * Ne pas envoyer `first_obtained_at` ici : PostgREST ne met à jour QUE les
- * colonnes présentes dans le payload sur un conflit, donc l'omettre revient à
- * ne jamais l'écraser après l'INSERT initial (où sa valeur par défaut
- * s'applique). Renvoie true/false — voir useWaifinity : ce miroir sert de
- * filet de sécurité si la sauvegarde locale échoue (quota localStorage).
- */
-export async function syncWaifinityItem(userId, item) {
-  if (!userId || !item) return false;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const RETRY_DELAYS_MS = [0, 600, 1800]; // 1 essai + 2 réessais (réseau mobile instable)
 
-  // Une carte à 0 n'est plus un élément de collection.
-  // On la supprime plutôt que de conserver une ligne fantôme.
-  if (Number(item.count) <= 0) {
-    return deleteWaifinityItem(userId, item.id);
-  }
+// File d'attente locale des envois définitivement échoués : rejouée au chargement
+// suivant (voir flushWaifinitySyncQueue). Sans elle, une carte jamais arrivée sur
+// le serveur disparaissait de la collection ET du classement au prochain chargement,
+// puisque le serveur est la source de vérité.
+const queueKey = (uid) => `anivault:waifinity-sync-queue:${uid}`;
+function loadQueue(uid) {
+  try { return JSON.parse(localStorage.getItem(queueKey(uid)) || "{}"); } catch { return {}; }
+}
+function saveQueue(uid, q) {
+  try {
+    if (Object.keys(q).length) localStorage.setItem(queueKey(uid), JSON.stringify(q));
+    else localStorage.removeItem(queueKey(uid));
+  } catch { /* quota : tant pis, le prochain envoi réussi suffira */ }
+}
+function enqueue(uid, item) {
+  const q = loadQueue(uid);
+  q[item.id] = {
+    id: item.id, count: item.count, tier: item.tier, name: item.name,
+    image: item.image, series: item.series, gender: item.gender ?? null,
+  };
+  saveQueue(uid, q);
+}
+function dequeue(uid, id) {
+  const q = loadQueue(uid);
+  if (q[id] !== undefined) { delete q[id]; saveQueue(uid, q); }
+}
 
+async function upsertItem(userId, item) {
   const { error } = await supabase.from("waifinity_collection_items").upsert({
     user_id:      userId,
     character_id: item.id,
@@ -35,8 +49,87 @@ export async function syncWaifinityItem(userId, item) {
     gender:       item.gender ?? null,
     updated_at:   new Date().toISOString(),
   });
-  if (error) { console.error("Sync Waifinity (item) :", error.message); return false; }
-  return true;
+  return error || null;
+}
+
+/**
+ * Pousse UN personnage (nouvellement obtenu, ou dont le compteur a changé).
+ * Ne pas envoyer `first_obtained_at` ici : PostgREST ne met à jour QUE les
+ * colonnes présentes dans le payload sur un conflit, donc l'omettre revient à
+ * ne jamais l'écraser après l'INSERT initial (où sa valeur par défaut
+ * s'applique). Renvoie true/false — voir useWaifinity : ce miroir sert de
+ * filet de sécurité si la sauvegarde locale échoue (quota localStorage).
+ *
+ * En cas d'échec, l'envoi est retenté 2 fois puis mis en file d'attente locale
+ * pour être rejoué au prochain chargement.
+ */
+export async function syncWaifinityItem(userId, item) {
+  if (!userId || !item) return false;
+
+  // Une carte à 0 n'est plus un élément de collection.
+  // On la supprime plutôt que de conserver une ligne fantôme.
+  if (Number(item.count) <= 0) {
+    dequeue(userId, item.id);
+    return deleteWaifinityItem(userId, item.id);
+  }
+
+  let lastError = null;
+  for (const wait of RETRY_DELAYS_MS) {
+    if (wait) await sleep(wait);
+    lastError = await upsertItem(userId, item);
+    if (!lastError) { dequeue(userId, item.id); return true; }
+  }
+  console.error("Sync Waifinity (item) :", lastError?.message);
+  enqueue(userId, item);
+  return false;
+}
+
+/**
+ * Rejoue les envois restés en file d'attente. À appeler AVANT de relire la
+ * collection serveur. Un élément n'est renvoyé que si le serveur en a moins
+ * (jamais arrivé, ou arrivé en retard) : on ne réécrit pas un compteur que
+ * l'autre côté d'un échange aurait fait baisser entre-temps.
+ */
+export async function flushWaifinitySyncQueue(userId) {
+  if (!userId) return;
+  const q = loadQueue(userId);
+  const ids = Object.keys(q);
+  if (!ids.length) return;
+
+  const { data, error } = await supabase
+    .from("waifinity_collection_items")
+    .select("character_id, count")
+    .eq("user_id", userId)
+    .in("character_id", ids);
+  if (error) return; // réseau : on réessaiera au prochain chargement
+
+  const serverCount = new Map((data || []).map((r) => [String(r.character_id), Number(r.count) || 0]));
+  for (const id of ids) {
+    const item = q[id];
+    if ((serverCount.get(String(id)) ?? 0) >= item.count) { delete q[id]; continue; }
+    if (!(await upsertItem(userId, item))) delete q[id];
+  }
+  saveQueue(userId, q);
+}
+
+// ── Lectures paginées ────────────────────────────────────────────────────────
+// PostgREST plafonne chaque réponse (1 000 lignes par défaut sur Supabase) SANS
+// renvoyer d'erreur : une grosse collection, ou le classement de plusieurs amis,
+// était silencieusement tronqué — scores faux, différents selon qui regarde, et
+// collection locale remplacée par une version incomplète. On lit donc page par
+// page (ordre stable) jusqu'à épuisement ; on avance du nombre de lignes
+// RÉELLEMENT reçues, donc même un plafond serveur plus bas est géré.
+const PAGE_SIZE = 1000;
+
+async function fetchAllRows(buildQuery) {
+  const rows = [];
+  for (let from = 0; ; ) {
+    const { data, error } = await buildQuery().range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    if (!data?.length) return rows;
+    rows.push(...data);
+    from += data.length;
+  }
 }
 
 /**
@@ -46,13 +139,20 @@ export async function syncWaifinityItem(userId, item) {
  */
 export async function fetchMyWaifinityCollection(userId) {
   if (!userId) return {};
-  const { data, error } = await supabase
-    .from("waifinity_collection_items")
-    .select("character_id, count, tier, name, series, gender, first_obtained_at")
-    .eq("user_id", userId);
-  if (error) { console.error("Fetch ma collection Waifinity :", error.message); return null; }
+  let data;
+  try {
+    data = await fetchAllRows(() => supabase
+      .from("waifinity_collection_items")
+      .select("character_id, count, tier, name, series, gender, first_obtained_at")
+      .eq("user_id", userId)
+      .order("character_id"));
+  } catch (error) {
+    // null (et non {}) : l'appelant ne doit JAMAIS remplacer la collection locale par du vide.
+    console.error("Fetch ma collection Waifinity :", error.message);
+    return null;
+  }
   const byId = {};
-  for (const row of data || []) {
+  for (const row of data) {
     byId[row.character_id] = {
       id: row.character_id, count: row.count, tier: row.tier, name: row.name,
       series: row.series, gender: row.gender,
@@ -76,24 +176,40 @@ export async function deleteWaifinityItem(userId, characterId) {
 }
 
 export async function fetchWaifinityItems(userId) {
-  const { data, error } = await supabase
-    .from("waifinity_collection_items")
-    .select("character_id, count, tier, name, image, series, gender")
-    .eq("user_id", userId);
-  if (error) { console.error("Fetch Waifinity items :", error.message); return []; }
-  return data || [];
+  try {
+    return await fetchAllRows(() => supabase
+      .from("waifinity_collection_items")
+      .select("character_id, count, tier, name, image, series, gender")
+      .eq("user_id", userId)
+      .order("character_id"));
+  } catch (error) {
+    console.error("Fetch Waifinity items :", error.message);
+    return [];
+  }
 }
 
-/** Items de plusieurs utilisateurs à la fois (classement). */
-export async function fetchWaifinityItemsBulk(userIds) {
+/**
+ * Items de plusieurs utilisateurs à la fois (classement). `columns` permet de ne
+ * lire que le nécessaire (le classement n'a besoin ni des noms ni des images).
+ * Renvoie `null` en cas d'erreur — surtout PAS {} : un classement calculé sur des
+ * données manquantes afficherait des scores faux au lieu d'un message d'erreur.
+ */
+export async function fetchWaifinityItemsBulk(userIds, columns = "user_id, character_id, count, tier, name, image, series, gender") {
   if (!userIds?.length) return {};
-  const { data, error } = await supabase
-    .from("waifinity_collection_items")
-    .select("user_id, character_id, count, tier, name, image, series, gender")
-    .in("user_id", userIds);
-  if (error) { console.error("Fetch Waifinity items (bulk) :", error.message); return {}; }
+  let rows;
+  try {
+    rows = await fetchAllRows(() => supabase
+      .from("waifinity_collection_items")
+      .select(columns)
+      .in("user_id", userIds)
+      .order("user_id")
+      .order("character_id"));
+  } catch (error) {
+    console.error("Fetch Waifinity items (bulk) :", error.message);
+    return null;
+  }
   const byUser = {};
-  for (const row of data || []) (byUser[row.user_id] ||= []).push(row);
+  for (const row of rows) (byUser[row.user_id] ||= []).push(row);
   return byUser;
 }
 

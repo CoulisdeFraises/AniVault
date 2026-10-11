@@ -15,7 +15,7 @@ import {
   SHOP_BOOSTER_COST, SHOP_TARGET_COST, SHOP_GENDER_COST, wishCost, MAX_FAVORITES, claimPackCards, dailyStatus,
 } from "../utils/waifinity";
 import {
-  syncWaifinityItem, fetchMyTrades, fetchMyWaifinityCollection,
+  syncWaifinityItem, flushWaifinitySyncQueue, fetchMyTrades, fetchMyWaifinityCollection,
   proposeTrade as proposeTradeService, counterTradeServer, confirmTradeServer, closeTradeServer,
 } from "../services/waifinitySocial";
 import { supabase } from "../lib/supabase";
@@ -182,6 +182,9 @@ export function useWaifinity({ withPool = true } = {}) {
     if (!uid || reconciledRef.current === uid) return;
     reconciledRef.current = uid;
     (async () => {
+      // D'abord renvoyer ce qui n'avait pas pu l'être (réseau coupé après un booster),
+      // sinon la lecture ci-dessous ferait disparaître ces cartes de la collection locale.
+      await flushWaifinitySyncQueue(uid).catch(() => {});
       const server = await fetchMyWaifinityCollection(uid);
       if (!server) return;
       persist((prev) => ({ ...prev, collection: server }));
@@ -456,6 +459,7 @@ export function useWaifinity({ withPool = true } = {}) {
     setRefreshing(true);
     setWalletIssue(null);
     try {
+      await flushWaifinitySyncQueue(uid).catch(() => {});
       const [collectionR, walletR, tradesR] = await Promise.allSettled([
         fetchMyWaifinityCollection(uid),
         fetchWaifinityWallet(uid),
