@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AnimatePresence, motion, animate, useMotionValue, useTransform, useReducedMotion } from "motion/react";
 import { Sparkles, Copy, Star, Gem } from "lucide-react";
 import { RARITY, normalizeTier } from "../../utils/waifinity";
@@ -196,6 +196,9 @@ export function PackDeck({ cards, dupSlots, fragmentsFor, onRevealCard, onFinish
   const [index, setIndex] = useState(0);
   const [exitDir, setExitDir] = useState({ x: 1, y: 0 });
   const [flash, setFlash] = useState(null);
+  const [leaving, setLeaving] = useState(false); // dernière carte envolée : le récapitulatif suit
+  const finishTimer = useRef(0);
+  useEffect(() => () => clearTimeout(finishTimer.current), []);
   const [tiers, setTiers] = useState([]); // paliers des cartes déjà révélées (pastilles de progression)
 
   const n = cards.length;
@@ -219,12 +222,21 @@ export function PackDeck({ cards, dupSlots, fragmentsFor, onRevealCard, onFinish
   }, [index]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Un geste = une carte : elle s'envole, la suivante prend sa place.
+  // Dernière carte : on NE démonte PAS le deck dans le gestionnaire du geste — le
+  // glissé (Framer Motion) est encore en cours de traitement et son démontage en plein
+  // `onDragEnd` faisait planter l'app. La carte s'envole d'abord (retirée de
+  // l'AnimatePresence), puis le récapitulatif s'affiche une fois l'animation terminée.
   const step = useCallback((dir) => {
+    if (leaving) return;
     setExitDir(dir || { x: index % 2 ? -1 : 1, y: 0 });
     haptics.tap();
-    if (index + 1 >= n) { onFinish(); return; }
+    if (index + 1 >= n) {
+      setLeaving(true);
+      finishTimer.current = setTimeout(onFinish, reduce ? 0 : 360);
+      return;
+    }
     setIndex((i) => i + 1);
-  }, [index, n, onFinish]);
+  }, [index, n, onFinish, leaving, reduce]);
 
   useEffect(() => {
     function onKey(e) {
@@ -277,14 +289,16 @@ export function PackDeck({ cards, dupSlots, fragmentsFor, onRevealCard, onFinish
 
           {/* Carte du dessus : `custom` indique à la carte sortante où s'envoler */}
           <AnimatePresence custom={exitDir}>
-            <TopCard
-              key={`top-${card.packSlot}`}
-              card={card}
-              isDuplicate={isDuplicate}
-              fragments={isDuplicate ? fragmentsFor(card) : 0}
-              reduce={reduce}
-              onStep={step}
-            />
+            {!leaving && (
+              <TopCard
+                key={`top-${card.packSlot}`}
+                card={card}
+                isDuplicate={isDuplicate}
+                fragments={isDuplicate ? fragmentsFor(card) : 0}
+                reduce={reduce}
+                onStep={step}
+              />
+            )}
           </AnimatePresence>
         </div>
       </div>
