@@ -17,7 +17,6 @@ import { PageTransition }              from "./components/common/PageTransition"
 import { useAchievements }             from "./hooks/useAchievements";
 import { syncProfileStats }            from "./services/community";
 import { useNotifications }            from "./hooks/useNotifications";
-import { useSync }                     from "./hooks/useSync";
 import { useFriendRequestNotifications } from "./hooks/useFriendRequestNotifications";
 import { useWaifinityTradeNotifications, useFreeBoosterNotification } from "./hooks/useWaifinityNotifications";
 import { addNotification }             from "./hooks/useNotificationStore";
@@ -43,6 +42,7 @@ const Lists           = lazy(() => import("./pages/Lists")          .then(m => (
 const SearchPage      = lazy(() => import("./pages/Search")         .then(m => ({ default: m.SearchPage })));
 const Games           = lazy(() => import("./pages/Games")          .then(m => ({ default: m.Games })));
 const GamesWaifinity  = lazy(() => import("./pages/GamesWaifinity") .then(m => ({ default: m.GamesWaifinity })));
+const AniDle          = lazy(() => import("./pages/AniDle").then(m => ({ default: m.AniDle })));
 
 // ── Loaders ───────────────────────────────────────────────────────────────────
 
@@ -157,22 +157,7 @@ function AnnouncementLayer() {
 }
 
 function NotificationLayer() {
-  const { entries, loading } = useLibrary();
-  const { syncAll } = useSync();
-  const autoSyncRef = useRef({ done: false, timer: null });
-
-  // ── Synchro auto à l'ouverture de l'app ───────────────────────────────
-  // Titres de la bibliothèque présents au calendrier : épisodes sortis, nouvelles saisons,
-  // prochaine diffusion (voir hooks/useSync.js). Une seule fois par ouverture, après le
-  // chargement de la bibliothèque ; pas de nettoyage au changement de `entries`, sinon la
-  // minuterie serait annulée avant de se déclencher.
-  useEffect(() => {
-    if (loading || autoSyncRef.current.done || !entries.length) return;
-    autoSyncRef.current.done = true;
-    autoSyncRef.current.timer = setTimeout(() => syncAll(), 2500);
-  }, [loading, entries.length, syncAll]);
-  useEffect(() => () => clearTimeout(autoSyncRef.current.timer), []);
-
+  const { entries } = useLibrary();
   const { user }    = useAuth();          // ← ajouter
   const navigate    = useNavigate();
   const syncedRef   = useRef(false);      // évite de re-fetch à chaque changement d'entries
@@ -283,6 +268,8 @@ const AppRoutes = () => {
               element={<ProtectedRoute><PageTransition><Games /></PageTransition></ProtectedRoute>} />
             <Route path="/games/waifinity"
               element={<ProtectedRoute><PageTransition><GamesWaifinity /></PageTransition></ProtectedRoute>} />
+            <Route path="/games/anidle"
+              element={<ProtectedRoute><PageTransition><AniDle /></PageTransition></ProtectedRoute>} />
             <Route path="*"
               element={<Navigate to="/" replace />} />
           </Routes>
