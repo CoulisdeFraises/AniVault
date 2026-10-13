@@ -5,8 +5,14 @@ import { ChevronLeft, Heart, Trophy, RotateCcw, Sparkles, Loader2, Users, Medal 
 import { useAuth } from "../context/AuthContext";
 import { fetchAniDleLeaderboard, saveAniDleBest } from "../services/anidleScores";
 import { TopBar } from "../components/common/TopBar";
+import { PillTabs } from "../components/games/PillTabs";
 import { PageBanner } from "../components/common/PageBanner";
 import { useWaifinity } from "../hooks/useWaifinity";
+
+const TABS = [
+  { key: "jeu", label: "Jouer", icon: Sparkles },
+  { key: "classement", label: "Classement", icon: Users },
+];
 
 function pickDifferent(pool, excludedIds = []) {
   const choices = pool.filter((c) => !excludedIds.includes(c.id));
@@ -67,11 +73,11 @@ function CharacterChoice({ character, side, onChoose, disabled, revealed, isCorr
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-violet-950/70">
         <CharacterImage src={character.image} alt={character.name} />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-violet-950 via-violet-950/70 to-transparent" />
+        {revealed && <span className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full border border-rose-300/30 bg-black/55 px-2.5 py-1 text-xs font-bold text-rose-300 backdrop-blur"><Heart size={12} fill="currentColor" /> {likes.toLocaleString("fr-FR")}</span>}
         <span className="absolute left-3 top-3 z-10 rounded-full border border-white/15 bg-black/50 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-violet-100 backdrop-blur">{side}</span>
-        <div className="absolute inset-x-0 bottom-0 z-10 p-3 sm:p-4">
+        <div className="absolute inset-x-0 bottom-0 z-10 px-3 pb-2 pt-3 sm:px-4 sm:pb-3">
           <h2 className="line-clamp-2 text-base font-bold leading-tight text-white sm:text-xl">{character.name}</h2>
           <p className="mt-1 line-clamp-1 text-xs text-violet-200">{character.series || "Série inconnue"}</p>
-          <p className={`mt-2 flex h-5 items-center gap-1.5 text-sm font-bold text-rose-300 transition-opacity ${revealed ? "opacity-100" : "opacity-0"}`}><Heart size={15} fill="currentColor" /> {likes.toLocaleString("fr-FR")} likes</p>
         </div>
       </div>
       <div className={`flex min-h-[44px] items-center justify-center gap-2 px-2 py-3 text-center text-xs font-semibold ${revealed ? (isCorrect ? "bg-emerald-400/15 text-emerald-200" : "bg-rose-400/15 text-rose-200") : "text-amber-200"}`}>{revealed ? (isCorrect ? "Bonne réponse" : "Moins populaire") : <><Heart size={15} /> Plus de likes ?</>}</div>
@@ -174,15 +180,12 @@ export function AniDle() {
             <button onClick={() => navigate("/games")} className="mb-3 flex items-center gap-1.5 text-sm text-violet-300 transition-colors hover:text-violet-100 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)]"><ChevronLeft size={16} /> Jeux</button>
             <p className="mb-0.5 font-mono text-[11px] uppercase tracking-[0.3em] text-amber-300 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)]">Le plus populaire ?</p>
             <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight sm:text-3xl [text-shadow:0_2px_14px_rgba(20,8,50,0.9)]" style={{ fontFamily: "'Space Grotesk',sans-serif" }}><Sparkles className="text-amber-300" size={26} /> AniDle</h1>
-            <p className="mt-1 text-sm text-violet-200 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)]">Choisis le personnage qui a le plus de likes. À chaque bonne réponse, le nouveau personnage devient le champion.</p>
           </div>
           <TopBar onRefresh={refreshWaifinity} />
         </div>
+        <p className="-mt-2 mb-5 text-sm leading-relaxed text-violet-200 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)]">Choisis le personnage qui a le plus de likes. À chaque bonne réponse, le nouveau personnage devient le champion.</p>
 
-        <div className="mb-5 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-violet-900/50 p-1.5">
-          <button onClick={() => setTab("jeu")} className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition ${tab === "jeu" ? "bg-amber-300 text-violet-950" : "text-violet-200 hover:bg-white/5"}`}><Sparkles size={16} /> Jouer</button>
-          <button onClick={() => setTab("classement")} className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition ${tab === "classement" ? "bg-amber-300 text-violet-950" : "text-violet-200 hover:bg-white/5"}`}><Users size={16} /> Classement</button>
-        </div>
+        <PillTabs tabs={TABS} value={tab} onChange={setTab} layoutId="anidle-tabs" size="sm" tone="violet" className="mb-5" />
         {tab === "classement" && <section className="rounded-3xl border border-white/10 bg-violet-900/50 p-4 sm:p-6">
           <div className="mb-4 flex items-center gap-3"><Medal className="text-amber-300" size={24} /><div><h2 className="text-xl font-bold">Classement entre amis</h2><p className="text-xs text-violet-300">Meilleur score AniDle</p></div><button onClick={() => { if (!user?.id) return; setLeaderboardLoading(true); fetchAniDleLeaderboard(user.id).then(setLeaderboard).catch(() => setLeaderboardError("Impossible de charger le classement." )).finally(() => setLeaderboardLoading(false)); }} className="ml-auto text-xs text-amber-200 underline">Actualiser</button></div>
           {!user && <p className="rounded-xl bg-violet-950/70 p-4 text-sm text-violet-200">Connecte-toi pour voir le classement de tes amis.</p>}
@@ -209,6 +212,11 @@ export function AniDle() {
                 <CharacterChoice key={champion.id} character={champion} side="Champion" onChoose={answer} disabled={phase !== "playing"} revealed={phase === "revealed"} isCorrect={chosenId === champion.id ? roundCorrect : (championLikes >= challengerLikes)} />
                 <CharacterChoice key={challenger.id} character={challenger} side="Nouveau défi" onChoose={answer} disabled={phase !== "playing"} revealed={phase === "revealed"} isCorrect={chosenId === challenger.id ? roundCorrect : (challengerLikes > championLikes)} />
               </div>
+              {phase === "revealed" && !roundCorrect && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-30 flex items-center justify-center rounded-3xl bg-violet-950/60 p-3 backdrop-blur-[2px]">
+                  <motion.div initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 260, damping: 22 }} className="w-full max-w-xs rounded-3xl border border-rose-400/30 bg-violet-950/95 p-5 text-center shadow-2xl shadow-black/50 backdrop-blur"><p className="text-xl font-bold text-rose-200">Partie terminée !</p><p className="mt-1 text-sm text-violet-200">Tu as marqué <strong>{score}</strong> point{score > 1 ? "s" : ""}. Le bon choix était <strong>{challengerLikes > championLikes ? challenger.name : champion.name}</strong>.</p><button onClick={restart} className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-violet-950 transition hover:bg-amber-200"><RotateCcw size={16} /> Recommencer</button></motion.div>
+                </motion.div>
+              )}
               <AnimatePresence>
                 {toast && (
                   <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
@@ -219,7 +227,6 @@ export function AniDle() {
             </div>
             {phase === "playing" && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 text-center text-xs text-violet-400">Appuie sur une carte pour deviner laquelle est la plus aimée.</motion.p>}
             {phase === "revealed" && roundCorrect && <div className="mt-4 text-center text-xs text-emerald-200/80">Bonne réponse, manche suivante…</div>}
-            {phase === "revealed" && !roundCorrect && <motion.div initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 260, damping: 22 }} className="mt-5 rounded-2xl border border-rose-400/25 bg-rose-400/10 p-5 text-center"><p className="text-xl font-bold text-rose-200">Partie terminée !</p><p className="mt-1 text-sm text-violet-200">Tu as marqué <strong>{score}</strong> point{score > 1 ? "s" : ""}. Le bon choix était <strong>{challengerLikes > championLikes ? challenger.name : champion.name}</strong>.</p><button onClick={restart} className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-violet-950 transition hover:bg-amber-200"><RotateCcw size={16} /> Recommencer</button></motion.div>}
           </>
         )}
         </>}
