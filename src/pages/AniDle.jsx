@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronLeft, Heart, Trophy, RotateCcw, Sparkles, Loader2, Users, Medal, Crown, Timer, EyeOff, Layers, FlipHorizontal, Swords, Check } from "lucide-react";
+import { ChevronLeft, Heart, Trophy, RotateCcw, Sparkles, Loader2, Users, Medal, Crown, Timer, EyeOff, Layers, FlipHorizontal, Swords, Check, Volume2, VolumeX } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { fetchAniDleLeaderboard, saveAniDleBest } from "../services/anidleScores";
 import { TopBar } from "../components/common/TopBar";
@@ -10,6 +10,7 @@ import { PillTabs } from "../components/games/PillTabs";
 import { Confetti } from "../components/common/Confetti";
 import { useCountUp } from "../hooks/useCountUp";
 import { haptics } from "../utils/haptics";
+import { sounds } from "../utils/sounds";
 import { PageBanner } from "../components/common/PageBanner";
 import { useWaifinity } from "../hooks/useWaifinity";
 
@@ -207,6 +208,7 @@ export function AniDle() {
   const lastBossRef = useRef(null);
   const timeoutRef = useRef(null);
   const cardsRef = useRef([]);
+  const [soundOn, setSoundOn] = useState(() => localStorage.getItem("pref_sounds") !== "false");
   const recordAnnouncedRef = useRef(false);
   const recentRef = useRef([]);
   const upcomingRef = useRef(null);
@@ -315,6 +317,10 @@ export function AniDle() {
       }
       if (newRecord || bossWin) setRecordHit(true);
       if (bossWin) haptics.celebration();
+      if (bossWin) sounds.bossWin();
+      else if (newRecord) sounds.record();
+      else if (boss) sounds.bossHit();
+      else sounds.correct();
       setRoundToast({
         gold: newRecord || bossWin,
         icon: newRecord ? "record" : boss ? "boss" : "point",
@@ -323,7 +329,7 @@ export function AniDle() {
           : boss ? "Touché ! +1 point" : "+1 point",
       });
     }
-    else haptics.error();
+    else { haptics.error(); sounds.wrong(); }
     setPhase("revealed");
   };
 
@@ -334,6 +340,7 @@ export function AniDle() {
     setRoundCorrect(false);
     setTimedOut(true);
     haptics.error();
+    sounds.wrong();
     setPhase("revealed");
   };
 
@@ -356,6 +363,7 @@ export function AniDle() {
     const type = types[Math.floor(Math.random() * types.length)];
     lastBossRef.current = type;
     haptics.medium();
+    sounds.bossIntro();
     loadBossRound(type, 0, true);
   };
 
@@ -391,6 +399,13 @@ export function AniDle() {
     setChosenId(null);
     setRoundCorrect(null);
     setPhase("playing");
+  };
+
+  const toggleSound = () => {
+    const next = !soundOn;
+    setSoundOn(next);
+    localStorage.setItem("pref_sounds", String(next));
+    if (next) sounds.correct(); // aperçu au moment de l'activation
   };
 
   const restart = () => startGame(pool);
@@ -450,7 +465,7 @@ export function AniDle() {
 
         {!poolLoading && champion && challenger && (
           <>
-            <div className="mb-4 flex items-center justify-between gap-3"><span className="text-xs text-violet-300">{boss ? "Combat de boss" : `Manche ${score + 1}`}</span><span className="rounded-full border border-white/10 bg-violet-900/60 px-3 py-1 text-xs text-violet-200">Pool : {pool.length.toLocaleString("fr-FR")} personnages</span></div>
+            <div className="mb-4 flex items-center justify-between gap-3"><span className="text-xs text-violet-300">{boss ? "Combat de boss" : `Manche ${score + 1}`}</span><div className="flex items-center gap-2"><button type="button" onClick={toggleSound} aria-pressed={soundOn} aria-label={soundOn ? "Couper le son" : "Activer le son"} className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-violet-900/60 text-violet-200 transition-colors hover:text-white">{soundOn ? <Volume2 size={14} /> : <VolumeX size={14} />}</button><span className="rounded-full border border-white/10 bg-violet-900/60 px-3 py-1 text-xs text-violet-200">Pool : {pool.length.toLocaleString("fr-FR")} personnages</span></div></div>
             {recordHit && createPortal(<Confetti active intensity="season" />, document.body)}
             {boss && <BossHud boss={boss} phase={phase} roundCorrect={roundCorrect} onTimeout={() => timeoutRef.current?.()} />}
             <div className="relative mx-auto max-w-3xl">
