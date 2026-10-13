@@ -42,6 +42,7 @@ const Lists           = lazy(() => import("./pages/Lists")          .then(m => (
 const SearchPage      = lazy(() => import("./pages/Search")         .then(m => ({ default: m.SearchPage })));
 const Games           = lazy(() => import("./pages/Games")          .then(m => ({ default: m.Games })));
 const GamesWaifinity  = lazy(() => import("./pages/GamesWaifinity") .then(m => ({ default: m.GamesWaifinity })));
+const AniDle          = lazy(() => import("./pages/AniDle").then(m => ({ default: m.AniDle })));
 
 // ── Loaders ───────────────────────────────────────────────────────────────────
 
@@ -267,6 +268,8 @@ const AppRoutes = () => {
               element={<ProtectedRoute><PageTransition><Games /></PageTransition></ProtectedRoute>} />
             <Route path="/games/waifinity"
               element={<ProtectedRoute><PageTransition><GamesWaifinity /></PageTransition></ProtectedRoute>} />
+            <Route path="/games/anidle"
+              element={<ProtectedRoute><PageTransition><AniDle /></PageTransition></ProtectedRoute>} />
             <Route path="*"
               element={<Navigate to="/" replace />} />
           </Routes>
