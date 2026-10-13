@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Gamepad2, Sparkles, Lock, Coins } from "lucide-react";
+import { ChevronLeft, Gamepad2, Sparkles, Lock, Coins, Heart } from "lucide-react";
 import { TopBar } from "../components/common/TopBar";
 import { PageBanner } from "../components/common/PageBanner";
 import { useWaifinity } from "../hooks/useWaifinity";
@@ -65,6 +65,13 @@ export function Games() {
                 <span>· {collectionList.length} personnage{collectionList.length > 1 ? "s" : ""} collecté{collectionList.length > 1 ? "s" : ""}</span>
               </div>
             }
+          />
+          <GameCard
+            icon={<Heart size={22} />}
+            title="AniDle"
+            desc="Devine lequel de deux personnages a le plus de likes et enchaîne les bonnes réponses."
+            onClick={() => { haptics.tap(); navigate("/games/anidle"); }}
+            tag={<div className="text-[11px] text-amber-200">Un duel, un point, continue tant que tu gagnes.</div>}
           />
           <GameCard icon={<Lock size={20} />} title="Bientôt disponible" desc="D'autres jeux arriveront ici prochainement." disabled />
         </div>
