@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronLeft, Heart, Trophy, RotateCcw, Sparkles, Loader2, Users, Medal } from "lucide-react";
+import { ChevronLeft, Heart, Trophy, RotateCcw, Sparkles, Loader2, Users, Medal, Crown, Timer, EyeOff, Layers, FlipHorizontal, Swords, Check } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { fetchAniDleLeaderboard, saveAniDleBest } from "../services/anidleScores";
 import { TopBar } from "../components/common/TopBar";
@@ -30,11 +30,11 @@ const BOSS_EVERY = 10;   // un boss tous les 10 points
 const BOSS_ROUNDS = 3;   // manches à gagner d'affilée
 const BOSS_BONUS = 3;    // points bonus à la victoire
 const BOSSES = {
-  giant:  { emoji: "👑", name: "Le Géant",   desc: "Des personnages ultra-populaires. Le plus connu ne gagne pas toujours !" },
-  sprint: { emoji: "⏱️", name: "Le Sprint",  desc: "Seulement 5 secondes par manche. Pas le temps de douter !", timer: 5 },
-  mirror: { emoji: "🪞", name: "Le Miroir",  desc: "Des likes presque identiques. Fie-toi à ton instinct." },
-  blind:  { emoji: "🙈", name: "L'Aveugle",  desc: "Noms et séries cachés : seule l'image te guide." },
-  triple: { emoji: "🔱", name: "Le Triple",  desc: "Trois personnages, un seul est le plus aimé." },
+  giant:  { icon: Crown, name: "Le Géant",   desc: "Des personnages ultra-populaires. Le plus connu ne gagne pas toujours !" },
+  sprint: { icon: Timer, name: "Le Sprint",  desc: "Seulement 5 secondes par manche. Pas le temps de douter !", timer: 5 },
+  mirror: { icon: FlipHorizontal, name: "Le Miroir",  desc: "Des likes presque identiques. Fie-toi à ton instinct." },
+  blind:  { icon: EyeOff, name: "L'Aveugle",  desc: "Noms et séries cachés : seule l'image te guide." },
+  triple: { icon: Layers, name: "Le Triple",  desc: "Trois personnages, un seul est le plus aimé." },
 };
 
 const likesOf = (c) => Number(c?.favourites) || 0;
@@ -121,13 +121,20 @@ function LikesBadge({ likes, correct, compact }) {
   );
 }
 
+function BossIcon({ type, size = 18, className }) {
+  const Icon = BOSSES[type].icon;
+  return <Icon size={size} className={className} aria-hidden="true" />;
+}
+
+const TOAST_ICONS = { record: Trophy, boss: Swords, point: Check };
+
 function BossHud({ boss, phase, roundCorrect, onTimeout }) {
   const def = BOSSES[boss.type];
   const hpLeft = BOSS_ROUNDS - boss.round - (phase === "revealed" && roundCorrect ? 1 : 0);
   return (
     <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-4 rounded-2xl border border-rose-400/40 bg-gradient-to-r from-rose-950/90 to-violet-950/90 p-3 shadow-[0_0_24px_-6px_rgba(251,113,133,0.5)]">
       <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-2 text-sm font-extrabold text-rose-200"><span className="text-lg" aria-hidden="true">{def.emoji}</span>Boss · {def.name}</span>
+        <span className="flex items-center gap-2 text-sm font-extrabold text-rose-200"><BossIcon type={boss.type} />Boss · {def.name}</span>
         <span className="font-mono text-[11px] uppercase tracking-widest text-rose-200/80">Manche {Math.min(boss.round + 1, BOSS_ROUNDS)}/{BOSS_ROUNDS}</span>
       </div>
       <div className="mt-2 flex gap-1.5" role="img" aria-label={`Vie du boss : ${hpLeft} sur ${BOSS_ROUNDS}`}>
@@ -192,7 +199,7 @@ export function AniDle() {
   const [toast, setToast] = useState(false);
   const [recordHit, setRecordHit] = useState(false);
   const [recordRun, setRecordRun] = useState(false);
-  const [roundToast, setRoundToast] = useState({ text: "✓ +1 point", gold: false });
+  const [roundToast, setRoundToast] = useState({ text: "+1 point", gold: false, icon: "point" });
   const [boss, setBoss] = useState(null);
   const [third, setThird] = useState(null);
   const [timedOut, setTimedOut] = useState(false);
@@ -316,9 +323,10 @@ export function AniDle() {
       if (bossWin) haptics.celebration();
       setRoundToast({
         gold: newRecord || bossWin,
-        text: bossWin ? (newRecord ? "💥 Boss vaincu ! 🏆 Record !" : `💥 Boss vaincu ! +${1 + BOSS_BONUS} points`)
-          : newRecord ? "🏆 Nouveau record !"
-          : boss ? "⚔️ Touché ! +1 point" : "✓ +1 point",
+        icon: newRecord ? "record" : boss ? "boss" : "point",
+        text: bossWin ? (newRecord ? "Boss vaincu ! Nouveau record !" : `Boss vaincu ! +${1 + BOSS_BONUS} points`)
+          : newRecord ? "Nouveau record !"
+          : boss ? "Touché ! +1 point" : "+1 point",
       });
     }
     else haptics.error();
@@ -457,7 +465,7 @@ export function AniDle() {
                   {cards.map((c, i) => (
                     <motion.div key={c.id} layout="position" exit={{ opacity: 0, x: -48, scale: 0.94 }} transition={{ type: "spring", stiffness: 260, damping: 30 }}>
                       <CharacterChoice character={c}
-                        side={boss?.type === "giant" ? (c.id === boss.giantId ? "👑 Géant" : "Rival") : boss ? "ABC"[i] : (i === 0 ? "Champion" : "Nouveau défi")}
+                        side={boss?.type === "giant" ? (c.id === boss.giantId ? "Géant" : "Rival") : boss ? "ABC"[i] : (i === 0 ? "Champion" : "Nouveau défi")}
                         showLikes={i === 0 && score > 0 && !boss}
                         chosen={chosenId === c.id} onChoose={answer} disabled={phase !== "playing"} revealed={phase === "revealed"}
                         isCorrect={likesOf(c) === maxLikes} tie={topCount > 1} compact={!!third} hideInfo={boss?.type === "blind"} />
@@ -481,7 +489,7 @@ export function AniDle() {
                 {phase === "intro" && boss && (
                   <motion.div key="boss-intro" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-40 flex items-center justify-center rounded-3xl bg-violet-950/85 p-3 backdrop-blur-sm">
                     <motion.div initial={{ opacity: 0, scale: 0.8, rotate: -2 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 240, damping: 16 }} className="w-full max-w-xs rounded-3xl border border-rose-400/40 bg-violet-950/95 p-5 text-center shadow-2xl shadow-black/50">
-                      <motion.div animate={{ scale: [1, 1.15, 1] }} transition={{ repeat: Infinity, duration: 1.2 }} className="text-5xl" aria-hidden="true">{BOSSES[boss.type].emoji}</motion.div>
+                      <motion.div animate={{ scale: [1, 1.15, 1] }} transition={{ repeat: Infinity, duration: 1.2 }} className="flex justify-center text-rose-300"><BossIcon type={boss.type} size={52} /></motion.div>
                       <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.3em] text-rose-300">Boss</p>
                       <p className="text-2xl font-extrabold text-white">{BOSSES[boss.type].name}</p>
                       <p className="mt-1 text-sm text-violet-200">{BOSSES[boss.type].desc}</p>
@@ -494,7 +502,7 @@ export function AniDle() {
               <AnimatePresence>
                 {toast && (
                   <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
-                    <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ type: "spring", stiffness: 320, damping: 22 }} className={`rounded-full border px-6 py-3 text-base font-extrabold shadow-2xl shadow-black/40 backdrop-blur ${roundToast.gold ? "border-amber-300/50 bg-amber-950/95 text-amber-200" : "border-emerald-300/40 bg-emerald-950/95 text-emerald-200"}`}>{roundToast.text}</motion.div>
+                    <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ type: "spring", stiffness: 320, damping: 22 }} className={`flex items-center gap-2 rounded-full border px-6 py-3 text-base font-extrabold shadow-2xl shadow-black/40 backdrop-blur ${roundToast.gold ? "border-amber-300/50 bg-amber-950/95 text-amber-200" : "border-emerald-300/40 bg-emerald-950/95 text-emerald-200"}`}>{(() => { const ToastIcon = TOAST_ICONS[roundToast.icon] || Check; return <ToastIcon size={18} aria-hidden="true" />; })()}{roundToast.text}</motion.div>
                   </div>
                 )}
               </AnimatePresence>
