@@ -26,7 +26,7 @@ function pickDifferent(pool, excludedIds = [], recentIds = []) {
   return choices[Math.floor(Math.random() * choices.length)] || null;
 }
 
-const BOSS_EVERY = 10;   // un boss tous les 10 points
+const BOSS_EVERY = 10;   // un boss toutes les 10 manches normales jouées (indépendant du score)
 const BOSS_ROUNDS = 3;   // manches à gagner d'affilée
 const BOSS_BONUS = 3;    // points bonus à la victoire
 const BOSSES = {
@@ -203,7 +203,7 @@ export function AniDle() {
   const [boss, setBoss] = useState(null);
   const [third, setThird] = useState(null);
   const [timedOut, setTimedOut] = useState(false);
-  const nextBossRef = useRef(BOSS_EVERY);
+  const roundsSinceBossRef = useRef(0);
   const lastBossRef = useRef(null);
   const timeoutRef = useRef(null);
   const cardsRef = useRef([]);
@@ -230,7 +230,7 @@ export function AniDle() {
     recentRef.current = [first.id, second.id];
     setRecordHit(false);
     setRecordRun(false);
-    nextBossRef.current = BOSS_EVERY;
+    roundsSinceBossRef.current = 0;
     lastBossRef.current = null;
     setBoss(null);
     setThird(null);
@@ -272,13 +272,6 @@ export function AniDle() {
     preloadImage(next?.image);
   }, [champion?.id, challenger?.id, boss, pool]);
 
-  // L'écran d'intro du boss se ferme tout seul au bout de quelques secondes.
-  useEffect(() => {
-    if (phase !== "intro") return;
-    const t = setTimeout(() => setPhase("playing"), 3200);
-    return () => clearTimeout(t);
-  }, [phase]);
-
   useEffect(() => {
     if (phase !== "revealed" || !roundCorrect) return;
     setToast(true);
@@ -309,6 +302,7 @@ export function AniDle() {
       const nextScore = score + 1 + (bossWin ? BOSS_BONUS : 0);
       setScore(nextScore);
       haptics.success();
+      if (!boss) roundsSinceBossRef.current += 1;
       let newRecord = false;
       if (nextScore > best) {
         // Événement « nouveau record » (toast + confettis) : uniquement au premier dépassement de la série.
@@ -373,7 +367,7 @@ export function AniDle() {
       const winner = cards.find((c) => c.id === chosenId) || topCard;
       const nextChallenger = pickDifferent(pool, [winner.id], recentRef.current);
       if (!nextChallenger) return;
-      nextBossRef.current = (Math.floor(score / BOSS_EVERY) + 1) * BOSS_EVERY;
+      roundsSinceBossRef.current = 0;
       recentRef.current = [...recentRef.current, nextChallenger.id].slice(-12);
       setBoss(null);
       setThird(null);
@@ -384,7 +378,7 @@ export function AniDle() {
       setPhase("playing");
       return;
     }
-    if (pool.length >= 6 && score >= nextBossRef.current) { startBoss(); return; }
+    if (pool.length >= 6 && roundsSinceBossRef.current >= BOSS_EVERY) { roundsSinceBossRef.current = 0; startBoss(); return; }
     const nextChampion = challenger;
     const planned = upcomingRef.current;
     const nextChallenger = planned && planned.id !== nextChampion.id
