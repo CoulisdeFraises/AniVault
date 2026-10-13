@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronLeft, Heart, Trophy, RotateCcw, Sparkles, Loader2, Users, Medal } from "lucide-react";
@@ -13,31 +13,65 @@ function pickDifferent(pool, excludedIds = []) {
   return choices[Math.floor(Math.random() * choices.length)] || null;
 }
 
+function CharacterImage({ src, alt }) {
+  const ref = useRef(null);
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  // Image déjà en cache (carte qui change de côté) : pas de re-fondu depuis le noir.
+  useEffect(() => {
+    setFailed(false);
+    setLoaded(!!ref.current?.complete && ref.current.naturalWidth > 0);
+  }, [src]);
+
+  return (
+    <>
+      {!loaded && !failed && <div className="absolute inset-0 animate-pulse bg-violet-900/60" />}
+      {failed || !src ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-violet-800/60 to-violet-950 text-4xl font-bold text-violet-300/60" aria-hidden="true">
+          {(alt || "?").slice(0, 1).toUpperCase()}
+        </div>
+      ) : (
+        <img
+          ref={ref}
+          src={src}
+          alt={alt}
+          decoding="async"
+          draggable={false}
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
+          className={`absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`}
+        />
+      )}
+    </>
+  );
+}
+
 function CharacterChoice({ character, side, onChoose, disabled, revealed, isCorrect }) {
   const likes = Number(character?.favourites) || 0;
   return (
     <motion.button
       type="button"
-      initial={{ opacity: 0, y: 18, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      whileHover={!disabled ? { y: -5, scale: 1.015 } : undefined}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      whileHover={!disabled ? { y: -4 } : undefined}
       whileTap={!disabled ? { scale: 0.975 } : undefined}
-      transition={{ type: "spring", stiffness: 280, damping: 22 }}
+      transition={{ type: "spring", stiffness: 280, damping: 24 }}
       onClick={() => onChoose(character.id)}
       disabled={disabled}
-      className={`group relative overflow-hidden rounded-3xl border text-left transition-all duration-200
-        ${disabled ? "cursor-default" : "hover:-translate-y-1 hover:border-amber-300/70 active:scale-[0.98]"}
+      className={`group relative flex w-full flex-col overflow-hidden rounded-3xl border text-left transition-colors duration-200
+        ${disabled ? "cursor-default" : "hover:border-amber-300/70"}
         ${revealed && isCorrect ? "border-emerald-400/80 ring-2 ring-emerald-400/20" : "border-white/10"}
         bg-violet-900/60 shadow-xl shadow-black/20`}
     >
-      <div className="relative aspect-[3/4] max-h-[390px] bg-violet-950/70">
-        <img src={character.image} alt={character.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
-        <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-violet-950 via-violet-950/50 to-transparent" />
-        <span className="absolute left-3 top-3 rounded-full border border-white/15 bg-black/40 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-violet-100 backdrop-blur">{side}</span>
-        <div className="absolute inset-x-0 bottom-0 p-4">
-          <h2 className="text-lg font-bold leading-tight text-white sm:text-xl">{character.name}</h2>
-          <p className="mt-1 text-xs text-violet-200">{character.series || "Série inconnue"}</p>
-          {revealed && <p className="mt-3 flex items-center gap-1.5 text-sm font-bold text-rose-300"><Heart size={15} fill="currentColor" /> {likes.toLocaleString("fr-FR")} likes</p>}
+      <div className="relative aspect-[3/4] w-full overflow-hidden bg-violet-950/70">
+        <CharacterImage src={character.image} alt={character.name} />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-violet-950 via-violet-950/70 to-transparent" />
+        <span className="absolute left-3 top-3 z-10 rounded-full border border-white/15 bg-black/50 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-violet-100 backdrop-blur">{side}</span>
+        <div className="absolute inset-x-0 bottom-0 z-10 p-3 sm:p-4">
+          <h2 className="line-clamp-2 text-base font-bold leading-tight text-white sm:text-xl">{character.name}</h2>
+          <p className="mt-1 line-clamp-1 text-xs text-violet-200">{character.series || "Série inconnue"}</p>
+          <p className={`mt-2 flex h-5 items-center gap-1.5 text-sm font-bold text-rose-300 transition-opacity ${revealed ? "opacity-100" : "opacity-0"}`}><Heart size={15} fill="currentColor" /> {likes.toLocaleString("fr-FR")} likes</p>
         </div>
       </div>
       <div className={`flex min-h-[44px] items-center justify-center gap-2 px-2 py-3 text-center text-xs font-semibold ${revealed ? (isCorrect ? "bg-emerald-400/15 text-emerald-200" : "bg-rose-400/15 text-rose-200") : "text-amber-200"}`}>{revealed ? (isCorrect ? "Bonne réponse" : "Moins populaire") : <><Heart size={15} /> Plus de likes ?</>}</div>
@@ -134,16 +168,16 @@ export function AniDle() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }} className="relative min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter',sans-serif" }}>
       <PageBanner height="clamp(180px, 26vw, 280px)" position="80% 20%" />
-      <div className="fixed right-3 top-3 z-50 rounded-2xl bg-violet-950/70 p-1 backdrop-blur-md sm:right-5 sm:top-4"><TopBar onRefresh={refreshWaifinity} /></div>
-      <div className="relative z-10 mx-auto w-full max-w-5xl px-4 pb-nav pt-safe-8 sm:px-6">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} className="mb-6 flex flex-col items-stretch gap-3 pt-10 sm:pt-8">
-          <div className="min-w-0 w-full">
-            <button onClick={() => navigate("/games")} className="mb-3 flex items-center gap-1.5 text-sm text-violet-300 hover:text-white"><ChevronLeft size={16} /> Jeux</button>
-            <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.3em] text-amber-300">Le plus populaire ?</p>
-            <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk',sans-serif" }}><Sparkles className="text-amber-300" size={28} /> AniDle</h1>
-            <p className="mt-2 w-full max-w-none text-sm leading-relaxed text-violet-200 sm:text-base">Choisis le personnage qui a le plus de likes. À chaque bonne réponse, le nouveau personnage devient le champion.</p>
+      <div className="relative z-10 mx-auto w-full max-w-4xl px-4 pb-nav pt-safe-8 sm:px-6">
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <button onClick={() => navigate("/games")} className="mb-3 flex items-center gap-1.5 text-sm text-violet-300 transition-colors hover:text-violet-100 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)]"><ChevronLeft size={16} /> Jeux</button>
+            <p className="mb-0.5 font-mono text-[11px] uppercase tracking-[0.3em] text-amber-300 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)]">Le plus populaire ?</p>
+            <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight sm:text-3xl [text-shadow:0_2px_14px_rgba(20,8,50,0.9)]" style={{ fontFamily: "'Space Grotesk',sans-serif" }}><Sparkles className="text-amber-300" size={26} /> AniDle</h1>
+            <p className="mt-1 text-sm text-violet-200 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)]">Choisis le personnage qui a le plus de likes. À chaque bonne réponse, le nouveau personnage devient le champion.</p>
           </div>
-        </motion.div>
+          <TopBar onRefresh={refreshWaifinity} />
+        </div>
 
         <div className="mb-5 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-violet-900/50 p-1.5">
           <button onClick={() => setTab("jeu")} className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition ${tab === "jeu" ? "bg-amber-300 text-violet-950" : "text-violet-200 hover:bg-white/5"}`}><Sparkles size={16} /> Jouer</button>
@@ -170,12 +204,19 @@ export function AniDle() {
         {!poolLoading && champion && challenger && (
           <>
             <div className="mb-4 flex items-center justify-between gap-3"><span className="text-xs text-violet-300">Manche {score + 1}</span><span className="rounded-full border border-white/10 bg-violet-900/60 px-3 py-1 text-xs text-violet-200">Pool : {pool.length.toLocaleString("fr-FR")} personnages</span></div>
-            <AnimatePresence mode="wait">
-            <motion.div key={`${champion.id}-${challenger.id}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.22 }} className="grid grid-cols-2 items-start gap-3 sm:gap-5">
-              <CharacterChoice character={champion} side="Champion" onChoose={answer} disabled={phase !== "playing"} revealed={phase === "revealed"} isCorrect={chosenId === champion.id ? roundCorrect : (championLikes >= challengerLikes)} />
-              <CharacterChoice character={challenger} side="Nouveau défi" onChoose={answer} disabled={phase !== "playing"} revealed={phase === "revealed"} isCorrect={chosenId === challenger.id ? roundCorrect : (challengerLikes > championLikes)} />
-            </motion.div>
-            </AnimatePresence>
+            <div className="relative mx-auto max-w-3xl">
+              <div className="grid grid-cols-2 items-start gap-3 sm:gap-5">
+                <CharacterChoice key={champion.id} character={champion} side="Champion" onChoose={answer} disabled={phase !== "playing"} revealed={phase === "revealed"} isCorrect={chosenId === champion.id ? roundCorrect : (championLikes >= challengerLikes)} />
+                <CharacterChoice key={challenger.id} character={challenger} side="Nouveau défi" onChoose={answer} disabled={phase !== "playing"} revealed={phase === "revealed"} isCorrect={chosenId === challenger.id ? roundCorrect : (challengerLikes > championLikes)} />
+              </div>
+              <AnimatePresence>
+                {toast && (
+                  <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
+                    <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ type: "spring", stiffness: 320, damping: 22 }} className="rounded-full border border-emerald-300/40 bg-emerald-950/95 px-6 py-3 text-base font-extrabold text-emerald-200 shadow-2xl shadow-black/40 backdrop-blur">✓ +1 point</motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+            </div>
             {phase === "playing" && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 text-center text-xs text-violet-400">Appuie sur une carte pour deviner laquelle est la plus aimée.</motion.p>}
             {phase === "revealed" && roundCorrect && <div className="mt-4 text-center text-xs text-emerald-200/80">Bonne réponse, manche suivante…</div>}
             {phase === "revealed" && !roundCorrect && <motion.div initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 260, damping: 22 }} className="mt-5 rounded-2xl border border-rose-400/25 bg-rose-400/10 p-5 text-center"><p className="text-xl font-bold text-rose-200">Partie terminée !</p><p className="mt-1 text-sm text-violet-200">Tu as marqué <strong>{score}</strong> point{score > 1 ? "s" : ""}. Le bon choix était <strong>{challengerLikes > championLikes ? challenger.name : champion.name}</strong>.</p><button onClick={restart} className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-violet-950 transition hover:bg-amber-200"><RotateCcw size={16} /> Recommencer</button></motion.div>}
@@ -183,7 +224,6 @@ export function AniDle() {
         )}
         </>}
       </div>
-      <AnimatePresence>{toast && <motion.div initial={{ opacity: 0, y: 12, scale: 0.94 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8 }} className="pointer-events-none fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full border border-emerald-300/30 bg-emerald-950/95 px-5 py-3 text-sm font-extrabold text-emerald-200 shadow-2xl shadow-black/30">✓ +1 point</motion.div>}</AnimatePresence>
     </motion.div>
   );
 }
