@@ -8,7 +8,7 @@ import {
   searchTVMaze, fetchTVMazeSeasons, fetchTVMazeSeasonTotal, fetchTVMazeNextSeason,
   fetchTVMazeEpisodesBySeason, fetchTVMazeDescription, fetchNextAiringTVMaze,
 } from "./tvmaze";
-import { withCache }       from "../services/cache";
+import { withCache, cacheSet } from "../services/cache";
 import { translateGenres } from "../utils/genres";
 import { getFormatGroup }  from "../utils/format";
 import { findAniListMovie } from "./crossRef";
@@ -232,8 +232,10 @@ export async function refreshEntryCard(entry) {
       const existing = existingByAnilistId.get(String(freshSeason.anilistId));
       if (existing) {
         return {
-          ...freshSeason,
+          ...existing,            // conserve ce que l'utilisateur a saisi (note…)
+          ...freshSeason,         // données fraîches : titre, couverture, statut de sortie…
           watchedEpisodes: existing.watchedEpisodes,
+          rating: existing.rating,
           totalEpisodes: freshSeason.totalEpisodes ?? existing.totalEpisodes,
         };
       }
@@ -414,17 +416,25 @@ export async function findNextSeason(entry) {
 }
 
 const NEXT_AIRING_TTL = 5 * 60 * 1000;
-export async function fetchNextAiring(entry) {
+export async function fetchNextAiring(entry, { force = false } = {}) {
   const key = entry.source === "anilist"
     ? `next-airing:anilist:${entry.anilistIds?.[entry.anilistIds.length - 1]}`
     : entry.source === "tvmaze" ? `next-airing:tvmaze:${entry.tvmazeId}` : null;
   if (!key) return null;
-  return withCache(key, NEXT_AIRING_TTL, async () => {
+  const load = async () => {
     if (entry.source === "anilist") {
       const id = entry.anilistIds?.[entry.anilistIds.length - 1];
-      return id ? fetchNextAiringAniList(id) : null;
+      return id ? fetchNextAiringAniList(id, { force }) : null;
     }
     if (entry.source === "tvmaze") return fetchNextAiringTVMaze(entry.tvmazeId);
     return null;
-  });
+  };
+  if (force) {
+    // Relecture forcée : on contourne le cache local ET le cache serveur, puis on republie la
+    // donnée fraîche pour les prochains appels.
+    const data = await load();
+    cacheSet(key, data);
+    return data;
+  }
+  return withCache(key, NEXT_AIRING_TTL, load);
 }

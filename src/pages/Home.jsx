@@ -27,7 +27,8 @@ import { FilterPanel }      from "../components/common/FilterPanel";
 import { AnimatePresence }  from "motion/react";
 import { fetchWeeklySchedule } from "../api/anilist";
 import { fetchNextAiring } from "../api";
-import { getDisplayStatus } from "../utils/status";
+import { getDisplayStatus, AIRING_REFRESH_EVENT } from "../utils/status";
+import { useNow } from "../hooks/useNow";
 import { getCached, setCached, getStaleCached, TTL } from "../lib/cache";
 import { haptics } from "../utils/haptics";
 import { titleSimilarity } from "../utils/fuzzy";
@@ -137,7 +138,8 @@ function sortEntries(entries, sortBy) {
 export function Home() {
   const { entries, loading, saveError, offline } = useLibrary();
   const { lists }  = useLists();
-  const { syncAll } = useSync();
+  const { syncAll } = useSync(); // tirer-pour-rafraîchir ; la synchro auto est lancée au démarrage de l'app (App.jsx)
+  const now        = useNow();   // recalcule « à jour » quand l'heure d'un épisode est passée
   const navigate   = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -159,6 +161,7 @@ export function Home() {
   const [airingIds,         setAiringIds]         = useState(new Set());
   const [todaySchedules,    setTodaySchedules]    = useState([]);
   const [nextAiringByEntry, setNextAiringByEntry] = useState(new Map()); // entryId -> { episode, airingAt } | null — pour dériver le statut "à jour"
+  const [airingTick,       setAiringTick]       = useState(0); // incrémenté pour relire les prochaines diffusions (synchro, retour sur l'app)
   const [cachetteOpen,      setCachetteOpen]      = useState(false);
   const [cachetteRevealed,  setCachetteRevealed]  = useState(false);
   const [cachetteSortBy,    setCachetteSortBy]    = useState("date");
@@ -185,12 +188,6 @@ export function Home() {
     setSearchParams(p, { replace: true });
   }, [typeFilter, selectedStatuses, sortBy, setSearchParams]);
 
-  useEffect(() => {
-    if (!loading && entries.length > 0) {
-      const t = setTimeout(() => syncAll(), 1500);
-      return () => clearTimeout(t);
-    }
-  }, [loading]); // eslint-disable-line
 
   // ── Titres "dans le calendrier" (diffusés cette semaine) ────────────────────
   // Réutilise la même clé de cache que Calendar.jsx (offset 0) pour éviter un
@@ -235,6 +232,17 @@ export function Home() {
   // même cache (clé + TTL) que celui utilisé par Card.jsx pour son propre
   // compte à rebours : ça ne double pas le trafic réseau, ça se contente de
   // lire/amorcer le même cache un peu plus tôt.
+  // Relu quand une synchro vient de rafraîchir les diffusions, et toutes les 10 min / au retour
+  // sur l'app : sans ça la carte d'un titre « à jour » ne réagissait qu'à un rechargement.
+  useEffect(() => {
+    const bump = () => setAiringTick((t) => t + 1);
+    const onVisible = () => { if (document.visibilityState === "visible") bump(); };
+    const id = setInterval(bump, 10 * 60 * 1000);
+    window.addEventListener(AIRING_REFRESH_EVENT, bump);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearInterval(id); window.removeEventListener(AIRING_REFRESH_EVENT, bump); document.removeEventListener("visibilitychange", onVisible); };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const targets = entries.filter((e) =>
@@ -258,7 +266,7 @@ export function Home() {
     });
 
     return () => { cancelled = true; };
-  }, [entries]);
+  }, [entries, airingTick]);
 
   const hiddenListEntries = useMemo(() => {
     const hidden = lists.find(l => l.id === HIDDEN_LIST_ID);
@@ -322,7 +330,7 @@ export function Home() {
     const qLower = q.toLowerCase();
     return byType.filter((e) => {
       const statusOk   = selectedStatuses.length === 0
-        || selectedStatuses.includes(getDisplayStatus(e, nextAiringByEntry.get(e.id)));
+        || selectedStatuses.includes(getDisplayStatus(e, nextAiringByEntry.get(e.id), now));
       const favOk      = !showFavoritesOnly || favoritesEntryIds.has(e.id);
       const calendarOk = !showCalendarOnly  || isAiringThisWeek(e);
 
@@ -346,7 +354,7 @@ export function Home() {
         || (e.notes || "").toLowerCase().includes(qLower);
       return statusOk && favOk && calendarOk && searchOk;
     });
-  }, [byType, selectedStatuses, searchQuery, showFavoritesOnly, favoritesEntryIds, showCalendarOnly, isAiringThisWeek, nextAiringByEntry]);
+  }, [byType, selectedStatuses, searchQuery, showFavoritesOnly, favoritesEntryIds, showCalendarOnly, isAiringThisWeek, nextAiringByEntry, now]);
 
   const sorted = useMemo(() => sortEntries(filtered, sortBy), [filtered, sortBy]);
 

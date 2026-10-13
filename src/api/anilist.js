@@ -163,7 +163,7 @@ export async function fetchAniListFranchise(startId, { force = false } = {}) {
     const rest = await followTVChain(sequel?.node?.id ?? null, visited);
     if (isTV) {
       return [{ anilistId: id, format: fmt, title: parseTitle(m), totalEpisodes: parseEps(m),
-                coverImage: m.coverImage?.large ?? null, edges }, ...rest];
+                releaseStatus: m.status ?? null, coverImage: m.coverImage?.large ?? null, edges }, ...rest];
     }
     return rest;
   }
@@ -174,7 +174,7 @@ export async function fetchAniListFranchise(startId, { force = false } = {}) {
     const m = await fetchMedia(id); // laisse remonter les erreurs (429, réseau…)
     extrasMap.set(id, {
       anilistId: id, format: m.format ?? formatHint, title: parseTitle(m),
-      totalEpisodes: parseEps(m), coverImage: m.coverImage?.large ?? null,
+      totalEpisodes: parseEps(m), releaseStatus: m.status ?? null, coverImage: m.coverImage?.large ?? null,
     });
   }
 
@@ -227,16 +227,16 @@ export async function fetchAniListFranchise(startId, { force = false } = {}) {
   const seasons = [
     ...tvOnlyChain.map((m) => ({ number: ++tvN, format: m.format ?? "TV",
       title: tvOnlyChain.length > 1 ? m.title : null, totalEpisodes: m.totalEpisodes,
-      watchedEpisodes: 0, coverImage: m.coverImage ?? null, anilistId: m.anilistId })),
+      watchedEpisodes: 0, coverImage: m.coverImage ?? null, anilistId: m.anilistId, releaseStatus: m.releaseStatus ?? null })),
     ...tvShorts.map((m) => ({ number: ++ovaN, format: m.format, title: m.title,
       totalEpisodes: m.totalEpisodes, watchedEpisodes: 0, coverImage: m.coverImage ?? null,
-      anilistId: m.anilistId })),
+      anilistId: m.anilistId, releaseStatus: m.releaseStatus ?? null })),
     ...ovas.map((m) => ({ number: ++ovaN, format: m.format, title: m.title,
       totalEpisodes: m.totalEpisodes, watchedEpisodes: 0, coverImage: m.coverImage ?? null,
-      anilistId: m.anilistId })),
+      anilistId: m.anilistId, releaseStatus: m.releaseStatus ?? null })),
     ...movies.map((m) => ({ number: ++movieN, format: m.format, title: m.title,
       totalEpisodes: m.totalEpisodes, watchedEpisodes: 0, coverImage: m.coverImage ?? null,
-      anilistId: m.anilistId })),
+      anilistId: m.anilistId, releaseStatus: m.releaseStatus ?? null })),
   ];
 
   let anilistIds = tvOnlyChain.map((m) => m.anilistId);
@@ -259,6 +259,7 @@ export async function fetchAniListFranchise(startId, { force = false } = {}) {
         watchedEpisodes: 0,
         coverImage:    m.coverImage?.large ?? null,
         anilistId:     startId,
+        releaseStatus: m.status ?? null,
       });
       anilistIds = [startId];
     } catch { /* réseau indisponible — on retourne ce qu'on a */ }
@@ -377,9 +378,11 @@ export async function fetchAniListTitles(anilistId) {
   });
 }
 
-export async function fetchNextAiringAniList(anilistId) {
+export async function fetchNextAiringAniList(anilistId, { force = false } = {}) {
   try {
-    const m = await getMediaDetails("anilist", anilistId);
+    // force : contourne le cache « catalogue » (valable plusieurs heures) — sans ça, après la
+    // diffusion d'un épisode on relisait pendant des heures l'ancienne « prochaine diffusion ».
+    const m = await getMediaDetails("anilist", anilistId, { force });
     const n = m?.nextAiringEpisode;
     return n ? { episode: n.episode, airingAt: n.airingAt * 1000 } : null;
   } catch { return null; }

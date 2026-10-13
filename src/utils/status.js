@@ -27,20 +27,6 @@ export function seasonTotals(seasons) {
 
 function isTVSeason(s) { const f = s.format; return !f || f === "TV" || f === "TV_SHORT"; }
 
-/**
- * getActiveTVSeason — la saison TV "en cours de diffusion" : la première
- * saison pas encore complète, sinon la dernière saison TV de la fiche.
- * C'est cette même saison que vise `fetchNextAiring` (dernier anilistId /
- * tvmazeId), donc c'est la seule dont le nombre d'épisodes vus doit être
- * comparé au seuil `nextAiring.episode`.
- */
-function getActiveTVSeason(seasons) {
-  const tv = (seasons || []).filter(isTVSeason);
-  if (!tv.length) return null;
-  const i = tv.findIndex((s) => s.totalEpisodes == null || s.watchedEpisodes < s.totalEpisodes);
-  return i === -1 ? tv[tv.length - 1] : tv[i];
-}
-
 export function autoStatus(entry, updatedSeasons) {
   const tvS  = updatedSeasons.filter(isTVSeason);
   const ref  = tvS.length ? tvS : updatedSeasons;
@@ -53,31 +39,83 @@ export function autoStatus(entry, updatedSeasons) {
   return entry.status;
 }
 
+/** Événement window émis quand une synchro vient de rafraîchir les prochaines diffusions
+ *  (cartes et accueil relisent alors leur donnée — voir hooks/useSync.js). */
+export const AIRING_REFRESH_EVENT = "anivault:airing-refreshed";
+
 /**
- * isCaughtUp — un titre "en-cours" est-il "à jour" ? C'est-à-dire : tous
- * les épisodes déjà sortis de la saison actuellement diffusée ont été vus,
- * mais la diffusion continue (un prochain épisode est déjà annoncé).
- *
- * `nextAiring` est la donnée { episode, airingAt } déjà récupérée par
- * ailleurs (Card.jsx / Details.jsx font déjà cet appel pour le compte à
- * rebours et l'auto-correction d'un statut "Terminé" resté figé) — cette
- * fonction ne fait AUCUN appel réseau, elle ne fait que la lecture.
- *
- * `nextAiring.episode` est le numéro du PROCHAIN épisode (pas encore
- * diffusé) : episode - 1 est donc le nombre d'épisodes déjà sortis.
- *
- * FIX : on ne compare plus au total tous-saisons-confondues (`entry.seasons`),
- * qui restait artificiellement élevé sur une fiche multi-saisons (saisons
- * précédentes déjà vues) et empêchait le chip de redescendre — même après
- * un -1 sur la saison en cours, ou quand un nouvel épisode sortait. On ne
- * compare désormais qu'à la saison TV active elle-même.
+ * Une saison TV est-elle « prévue mais pas encore sortie » ?
+ *  - AniList le dit explicitement : `releaseStatus === "NOT_YET_RELEASED"` (champ
+ *    enregistré à l'ajout / à l'actualisation d'un titre) ;
+ *  - sinon (données plus anciennes, sans ce champ, ou source TVmaze) : c'est la
+ *    DERNIÈRE saison, sans nombre d'épisodes connu (« 0 / ? ») et sans diffusion
+ *    annoncée — elle ne peut rien avoir de disponible à regarder.
  */
-export function isCaughtUp(entry, nextAiring) {
+function isUnreleasedSeason(season, hasUpcoming) {
+  if (season.releaseStatus === "NOT_YET_RELEASED") return true;
+  return season.releaseStatus == null && !hasUpcoming
+    && (season.totalEpisodes == null || season.totalEpisodes === 0);
+}
+
+/**
+ * isEnProduction — le titre a-t-il une saison TV encore en production ? (dernière
+ * saison TV sans nombre d'épisodes connu, ou prévue mais pas encore sortie).
+ * C'est une SURCOUCHE d'affichage (puce « En production »), qui s'ajoute au statut
+ * normal du titre au lieu de le remplacer. Source unique : Card.jsx et useSync.js.
+ */
+export function isEnProduction(entry) {
+  if (entry.status === "termine" || entry.status === "abandonne") return false;
+  const tv = (entry.seasons || []).filter(isTVSeason);
+  if (!tv.length) return false;
+  const last = tv[tv.length - 1];
+  return last.releaseStatus === "NOT_YET_RELEASED" || last.totalEpisodes == null || last.totalEpisodes === 0;
+}
+
+/**
+ * isCaughtUp — un titre "en-cours" est-il "à jour" ? C'est-à-dire : TOUT ce qui est
+ * déjà sorti a été vu. Trois situations :
+ *  1. une saison diffuse et un prochain épisode est annoncé → il reste à voir
+ *     uniquement s'il y a des épisodes sortis non vus ;
+ *  2. la dernière saison est prévue mais pas sortie (ex. « Saison 3 — 0 / ? ») →
+ *     « à jour » dès que les saisons déjà sorties sont terminées, même sans
+ *     prochaine diffusion connue (c'était le cas qui restait bloqué en « en cours ») ;
+ *  3. la diffusion est marquée en cours sans prochain épisode connu (pause) → on
+ *     compare au nombre d'épisodes déjà sortis.
+ *
+ * `nextAiring` = { episode, airingAt } déjà récupéré ailleurs (aucun appel réseau ici).
+ * `nextAiring.episode` est le numéro du PROCHAIN épisode annoncé. Si son heure de
+ * diffusion est PASSÉE (donnée en cache pas encore renouvelée), cet épisode est
+ * sorti : `now` permet de le prendre en compte tout de suite — sinon le statut
+ * « à jour » restait affiché alors qu'un épisode était disponible.
+ */
+export function isCaughtUp(entry, nextAiring, now = Date.now()) {
   if (entry.status !== "en-cours") return false;
-  if (!nextAiring?.airingAt || nextAiring.episode == null) return false;
-  const active = getActiveTVSeason(entry.seasons);
-  const watched = active?.watchedEpisodes || 0;
-  return watched >= nextAiring.episode - 1;
+  const tv = (entry.seasons || []).filter(isTVSeason);
+  if (!tv.length) return false;
+
+  const hasUpcoming = !!nextAiring?.airingAt && nextAiring.episode != null;
+  const last = tv[tv.length - 1];
+  const lastUnreleased = isUnreleasedSeason(last, hasUpcoming);
+
+  // Saisons dont des épisodes peuvent déjà être regardés.
+  const watchable = lastUnreleased ? tv.slice(0, -1) : tv;
+  if (!watchable.length) return false;
+
+  // Toute saison antérieure doit être terminée (total connu et atteint).
+  for (const s of watchable.slice(0, -1)) {
+    if (s.totalEpisodes == null || (s.watchedEpisodes || 0) < s.totalEpisodes) return false;
+  }
+
+  const cur = watchable[watchable.length - 1];
+  const watched = cur.watchedEpisodes || 0;
+
+  if (!lastUnreleased && hasUpcoming) {
+    const released = nextAiring.airingAt <= now ? nextAiring.episode : nextAiring.episode - 1;
+    return watched >= released;
+  }
+  if (lastUnreleased) return cur.totalEpisodes != null && watched >= cur.totalEpisodes;
+  if (cur.releaseStatus === "RELEASING" && cur.totalEpisodes != null) return watched >= cur.totalEpisodes;
+  return false;
 }
 
 /**
@@ -86,8 +124,8 @@ export function isCaughtUp(entry, nextAiring) {
  * logique métier (sync, notifs, achievements...) : ces derniers doivent
  * continuer à tester `entry.status` directement.
  */
-export function getDisplayStatus(entry, nextAiring) {
-  return isCaughtUp(entry, nextAiring) ? "a-jour" : entry.status;
+export function getDisplayStatus(entry, nextAiring, now = Date.now()) {
+  return isCaughtUp(entry, nextAiring, now) ? "a-jour" : entry.status;
 }
 
 export function formatCountdown(airingAt) {

@@ -224,6 +224,7 @@ export function LibraryProvider({ children }) {
         coverImage: s.coverImage ?? null,
         rating: Math.min(10, Math.max(0, Number(s.rating) || 0)),
         ...(s.anilistId != null ? { anilistId: s.anilistId } : {}),
+        ...(s.releaseStatus != null ? { releaseStatus: s.releaseStatus } : {}),
       };
     });
     const prevEntry = editingId ? entriesRef.current.find((e) => e.id === editingId) : null;
@@ -337,6 +338,22 @@ export function LibraryProvider({ children }) {
     }));
   }, [user]);
 
+  /**
+   * patchEntry — applique `updater(entréeActuelle)` à la version LA PLUS RÉCENTE de l'entrée
+   * (jamais à une copie lue avant un appel réseau : un épisode coché pendant ce temps serait
+   * écrasé). `updater` renvoie la nouvelle entrée, ou la même pour ne rien changer.
+   * silent (défaut) : ne touche pas updatedAt — une synchro auto ne doit pas remonter le titre
+   * dans le tri « récent ».
+   */
+  const patchEntry = useCallback((id, updater, silent = true) => {
+    persist(entriesRef.current.map((e) => {
+      if (e.id !== id) return e;
+      const next = updater(e);
+      if (!next || next === e) return e;
+      return { ...next, ...(silent ? {} : { updatedAt: Date.now() }) };
+    }));
+  }, [user]);
+
   const addSeason = useCallback((id, seasonData = {}) => {
     persist(entriesRef.current.map((e) => {
       if (e.id !== id) return e;
@@ -362,7 +379,7 @@ export function LibraryProvider({ children }) {
       entries, setEntries, loading, saveError, offline,
       findDuplicate, saveEntry, deleteEntry,
       incrementEpisode, decrementEpisode, setEpisodeCount,
-      markDone, updateRating, updateSeasonRating, updateSeasonTotal, addSeason, deleteSeason,
+      markDone, updateRating, updateSeasonRating, updateSeasonTotal, patchEntry, addSeason, deleteSeason,
     }}>
       {children}
     </LibraryContext.Provider>

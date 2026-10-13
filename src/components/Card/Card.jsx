@@ -7,7 +7,8 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useLists }         from "../../context/ListsContext";
 import { ConfirmDialog }    from "../Modal/Modal";
-import { STATUS, seasonTotals, formatCountdown, formatRating, getDisplayStatus } from "../../utils/status";
+import { STATUS, seasonTotals, formatCountdown, formatRating, getDisplayStatus, isEnProduction, AIRING_REFRESH_EVENT } from "../../utils/status";
+import { useNow }          from "../../hooks/useNow";
 import { useLibrary }       from "../../context/LibraryContext";
 import { fetchNextAiring, refreshEntryCard } from "../../api";
 import { getShowProgress }  from "../../context/PrefsContext";
@@ -67,7 +68,8 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   const ptrRef      = useRef({ id: null, startX: 0, startY: 0, timer: null, axis: null });
 
   const isAbandoned = entry.status === "abandonne";
-  const s           = STATUS[getDisplayStatus(entry, nextAiring)] ?? STATUS["a-voir"];
+  const now         = useNow(); // recalcule « à jour » quand l'heure d'un épisode est passée
+  const s           = STATUS[getDisplayStatus(entry, nextAiring, now)] ?? STATUS["a-voir"];
   const dimmed      = isAbandoned ? "opacity-50 grayscale" : "";
   const cur         = tvSeasons[Math.min(activeTVIdx, Math.max(0, tvSeasons.length - 1))] ?? null;
   // Saison ciblée par le swipe (épisode +1 / -1) : la saison TV en cours,
@@ -87,12 +89,8 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
     ? (rateTarget.totalEpisodes ?? (getFormatGroup(rateTarget.format) === "movie" ? 1 : null))
     : null;
 
-  const showEnProduction = useMemo(() => {
-    if (entry.status === "termine" || entry.status === "abandonne") return false;
-    if (!tvSeasons.length) return false;
-    const lastTV = tvSeasons[tvSeasons.length - 1];
-    return lastTV.totalEpisodes == null || lastTV.totalEpisodes === 0;
-  }, [entry.status, tvSeasons]);
+  // « En production » : surcouche affichée EN PLUS de la puce de statut (jamais à sa place).
+  const showEnProduction = useMemo(() => isEnProduction(entry), [entry.status, entry.seasons]);
 
   // ── FIX : auto-fermeture du menu 1,8s après résultat du refresh ──────────
   useEffect(() => {
@@ -234,17 +232,37 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
     if (entry.status === "abandonne") { setNextAiring(null); return; }
     if (!((entry.source === "anilist" && entry.anilistIds?.length) || (entry.source === "tvmaze" && entry.tvmazeId))) return;
     let c = false;
-    const t = setTimeout(async () => {
+    let retry = null;
+
+    // Lit la prochaine diffusion. `force` contourne les caches. Deux cas demandent une relecture :
+    //  • la « prochaine » diffusion lue est DÉJÀ PASSÉE (cache périmé) → on relit tout de suite
+    //    en forçant, sinon l'état « à jour » restait affiché alors qu'un épisode est sorti ;
+    //  • elle est à venir → on programme une relecture forcée peu après son heure, pour passer
+    //    d'elle-même au suivant (puis « à jour » disparaît sans rouvrir l'app).
+    async function load(force = false) {
       try {
-        const r = await fetchNextAiring(entry);
+        const r = await fetchNextAiring(entry, { force });
         if (c) return;
         setNextAiring(r);
         if (r?.airingAt && entry.status === "termine") {
           saveEntry({ ...entry, status: "en-cours" }, entry.id);
         }
+        clearTimeout(retry);
+        if (r?.airingAt) {
+          const stale = r.airingAt <= Date.now();
+          if (stale && !force) return load(true);
+          // Toujours périmé après une relecture forcée : la source n'a pas encore bougé → on réessaie plus tard.
+          const delay = stale ? 10 * 60 * 1000 : Math.min(r.airingAt - Date.now() + 90 * 1000, 2 ** 31 - 1);
+          retry = setTimeout(() => load(true), delay);
+        }
       } catch (_) {}
-    }, Math.random() * 800);
-    return () => { c = true; clearTimeout(t); };
+    }
+
+    const t = setTimeout(() => load(false), Math.random() * 800);
+    // Une synchro (hooks/useSync) vient de rafraîchir les diffusions : on relit le cache à jour.
+    const onRefresh = () => load(false);
+    window.addEventListener(AIRING_REFRESH_EVENT, onRefresh);
+    return () => { c = true; clearTimeout(t); clearTimeout(retry); window.removeEventListener(AIRING_REFRESH_EVENT, onRefresh); };
   }, [entry.id, entry.source, entry.status, entry.anilistIds?.length, entry.tvmazeId]);
 
   const prevTvW = useRef(tvW);
@@ -359,13 +377,12 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
                 <TypeIcon size={10} />
                 {entry.category === "movie" ? "Film" : entry.type === "anime" ? "Anime" : "Série"}
               </span>
-              {showEnProduction ? (
+              <span className={`inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-white/5 whitespace-nowrap flex-shrink-0 ${s.text}`}>
+                <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${s.dot}`} />{s.label}
+              </span>
+              {showEnProduction && (
                 <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-indigo-400/15 text-indigo-300 whitespace-nowrap">
                   <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse flex-shrink-0" />En production
-                </span>
-              ) : (
-                <span className={`inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-white/5 whitespace-nowrap ${s.text}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${s.dot}`} />{s.label}
                 </span>
               )}
             </div>
