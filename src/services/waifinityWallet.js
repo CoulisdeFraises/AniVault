@@ -53,3 +53,23 @@ export function newWalletOperationKey(prefix = "op") {
   }
   return `${prefix}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
 }
+
+export function isIdempotencyConflict(e) {
+  return String(e?.message || e || "").includes("idempotency_key_reused_with_different_amount");
+}
+
+/**
+ * Crédit à clé fixe (récompense quotidienne, mission, pack…). Si Supabase
+ * répond que la clé a déjà servi avec un autre montant, le crédit a DÉJÀ été
+ * appliqué : on relit simplement le solde serveur au lieu d'échouer.
+ */
+export async function creditOnce(userId, amount, reason, idempotencyKey) {
+  try {
+    return await adjustWaifinityBalance(userId, amount, reason, idempotencyKey);
+  } catch (e) {
+    if (!isIdempotencyConflict(e)) throw e;
+    const wallet = await fetchWaifinityWallet(userId);
+    if (!wallet) throw e;
+    return wallet;
+  }
+}

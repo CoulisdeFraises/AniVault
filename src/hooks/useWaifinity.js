@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
-import { ensureWaifinityWallet, adjustWaifinityBalance, fetchWaifinityWallet, newWalletOperationKey } from "../services/waifinityWallet";
+import { ensureWaifinityWallet, adjustWaifinityBalance, fetchWaifinityWallet, newWalletOperationKey, creditOnce } from "../services/waifinityWallet";
 import { fetchWaifuPool } from "../api/waifu";
 import { currentSeason, fetchSeasonMalIds } from "../api/waifuBanner";
 import { buildSeasonBanner, BANNER_COST } from "../utils/waifinityBanners";
@@ -35,9 +35,12 @@ function withMissionEvents(state, uid, events) {
  * `withPool: false` → ne charge pas le bassin de personnages (utile pour un
  * simple aperçu : pièces, taille de la collection…).
  */
-export function useWaifinity({ withPool = true } = {}) {
+export function useWaifinity({ withPool = true, syncAccount = true } = {}) {
   const { user } = useAuth();
   const uid = user?.id || null;
+  // syncAccount: false → pas de création/lecture du wallet ni de réconciliation de la
+  // collection (ex. AniDle n'a besoin que du bassin de personnages).
+  const accountUid = syncAccount ? uid : null;
 
   const [state, setState]       = useState(defaultState);
   const [pool, setPool]         = useState([]);
@@ -59,8 +62,8 @@ export function useWaifinity({ withPool = true } = {}) {
     const local = loadState(uid);
     setState(local);
     setWalletIssue(null);
-    setWalletReady(!uid);
-    if (!uid) return;
+    setWalletReady(!accountUid);
+    if (!accountUid) return;
 
     let cancelled = false;
     (async () => {
@@ -68,7 +71,7 @@ export function useWaifinity({ withPool = true } = {}) {
         // Premier passage : si aucun wallet n'existe encore, le solde local
         // historique est utilisé pour migrer le compte. Ensuite, Supabase
         // devient la seule source de vérité du solde.
-        const wallet = await ensureWaifinityWallet(uid, local.coins);
+        const wallet = await ensureWaifinityWallet(accountUid, local.coins);
         if (cancelled || !wallet) return;
         const balance = Number(wallet.balance) || 0;
         setWalletReady(true);
@@ -87,7 +90,7 @@ export function useWaifinity({ withPool = true } = {}) {
     })();
 
     return () => { cancelled = true; };
-  }, [uid]);
+  }, [uid, accountUid]);
 
   // ── Chargement du bassin de personnages (Supabase, sinon repli AniList en direct) ──
   const loadPool = useCallback(async (force = false) => {
@@ -179,17 +182,17 @@ export function useWaifinity({ withPool = true } = {}) {
   // serveur plus récente, ni faire revenir une ligne supprimée.
   const reconciledRef = useRef(null);
   useEffect(() => {
-    if (!uid || reconciledRef.current === uid) return;
-    reconciledRef.current = uid;
+    if (!accountUid || reconciledRef.current === accountUid) return;
+    reconciledRef.current = accountUid;
     (async () => {
       // D'abord renvoyer ce qui n'avait pas pu l'être (réseau coupé après un booster),
       // sinon la lecture ci-dessous ferait disparaître ces cartes de la collection locale.
-      await flushWaifinitySyncQueue(uid).catch(() => {});
-      const server = await fetchMyWaifinityCollection(uid);
+      await flushWaifinitySyncQueue(accountUid).catch(() => {});
+      const server = await fetchMyWaifinityCollection(accountUid);
       if (!server) return;
       persist((prev) => ({ ...prev, collection: server }));
     })();
-  }, [uid, persist]);
+  }, [accountUid, persist]);
 
   const cooldownMs = msUntilFreeBooster(state.lastFreeOpenedAt);
   const canOpenFree = cooldownMs <= 0 && !state.pendingPack && pool.length > 0;
@@ -351,7 +354,7 @@ export function useWaifinity({ withPool = true } = {}) {
     setWalletBusy(true);
     setWalletIssue(null);
     try {
-      const wallet = await adjustWaifinityBalance(uid, st.reward, "daily_bonus", `daily:${uid}:${st.todayKey}`);
+      const wallet = await creditOnce(uid, st.reward, "daily_bonus", `daily:${uid}:${st.todayKey}`);
       persist((prev) => withMissionEvents({ ...prev, coins: Number(wallet.balance), dailyStreak: st.nextStreak, lastDailyKey: st.todayKey }, uid, [{ type: "daily", amount: 1 }]));
       return { reward: st.reward, streak: st.nextStreak };
     } catch (e) {
@@ -374,7 +377,13 @@ export function useWaifinity({ withPool = true } = {}) {
     if (!pack || walletBusyRef.current) return null;
 
     const { state: calculatedState, results } = claimPackCards(stateRef.current, pack.cards, pool);
-    const coinDelta = calculatedState.coins - stateRef.current.coins;
+    // Le montant est figé au 1er essai : réessayer avec la même claimId mais un autre
+    // montant (collection resynchronisée entre-temps) ferait refuser la clé par Supabase.
+    const coinDelta = Number.isFinite(pack.claimDelta) ? pack.claimDelta : calculatedState.coins - stateRef.current.coins;
+    if (!Number.isFinite(pack.claimDelta)) {
+      persist((prev) => (prev.pendingPack && prev.pendingPack.claimId === pack.claimId
+        ? { ...prev, pendingPack: { ...prev.pendingPack, claimDelta: coinDelta } } : prev));
+    }
 
     walletBusyRef.current = true;
     setWalletBusy(true);
@@ -383,7 +392,7 @@ export function useWaifinity({ withPool = true } = {}) {
     try {
       let serverBalance = stateRef.current.coins;
       if (coinDelta !== 0) {
-        const wallet = await adjustWaifinityBalance(
+        const wallet = await creditOnce(
           uid,
           coinDelta,
           "pack_rewards",
@@ -655,7 +664,7 @@ export function useWaifinity({ withPool = true } = {}) {
     setWalletBusy(true);
     setWalletIssue(null);
     try {
-      const wallet = await adjustWaifinityBalance(uid, def.reward, "mission_reward", `mission:${uid}:${today.dayKey}:${missionId}`);
+      const wallet = await creditOnce(uid, def.reward, "mission_reward", `mission:${uid}:${today.dayKey}:${missionId}`);
       persist((prev) => {
         const cur = ensureMissionDay(prev.missions, uid);
         const missions = cur.dayKey === today.dayKey
@@ -682,7 +691,7 @@ export function useWaifinity({ withPool = true } = {}) {
     setWalletBusy(true);
     setWalletIssue(null);
     try {
-      const wallet = await adjustWaifinityBalance(uid, MISSION_BONUS.coins, "mission_bonus", `mission_bonus:${uid}:${today.dayKey}`);
+      const wallet = await creditOnce(uid, MISSION_BONUS.coins, "mission_bonus", `mission_bonus:${uid}:${today.dayKey}`);
       persist((prev) => {
         const cur = ensureMissionDay(prev.missions, uid);
         if (cur.dayKey !== today.dayKey) return { ...prev, coins: Number(wallet.balance) };

@@ -57,13 +57,15 @@ function CharacterImage({ src, alt }) {
   );
 }
 
-function LikesBadge({ likes }) {
-  const shown = useCountUp(likes, 900);
+function LikesBadge({ likes, correct }) {
+  const shown = useCountUp(likes, 700);
   return (
-    <motion.span initial={{ opacity: 0, scale: 0.8, y: -6 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 400, damping: 22 }}
-      className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full border border-rose-300/30 bg-black/55 px-2.5 py-1 text-xs font-bold tabular-nums text-rose-300 backdrop-blur">
-      <Heart size={12} fill="currentColor" /> {shown.toLocaleString("fr-FR")}
-    </motion.span>
+    <div className="pointer-events-none absolute inset-x-0 top-[26%] z-20 flex justify-center">
+      <motion.span initial={{ opacity: 0, scale: 0.7, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 380, damping: 20 }}
+        className={`flex items-center gap-1.5 rounded-full border-2 bg-violet-950/90 px-3.5 py-1.5 text-lg font-extrabold tabular-nums shadow-xl shadow-black/50 backdrop-blur sm:text-2xl ${correct ? "border-emerald-300/80 text-emerald-200" : "border-rose-300/80 text-rose-200"}`}>
+        <Heart size={18} fill="currentColor" /> {shown.toLocaleString("fr-FR")}
+      </motion.span>
+    </div>
   );
 }
 
@@ -77,7 +79,7 @@ function CharacterChoice({ character, side, onChoose, disabled, revealed, isCorr
         !revealed ? { opacity: 1, y: 0, x: 0, scale: 1 }
         : isCorrect ? { opacity: 1, y: 0, x: 0, scale: [1, 1.045, 1] }
         : chosen ? { opacity: 1, y: 0, x: [0, -9, 9, -6, 6, 0], scale: 1 }
-        : { opacity: 0.75, y: 0, x: 0, scale: 0.97 }
+        : { opacity: 0.92, y: 0, x: 0, scale: 0.97 }
       }
       whileHover={!disabled ? { y: -4 } : undefined}
       whileTap={!disabled ? { scale: 0.975 } : undefined}
@@ -93,7 +95,7 @@ function CharacterChoice({ character, side, onChoose, disabled, revealed, isCorr
         <CharacterImage src={character.image} alt={character.name} />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent opacity-70" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-violet-950 via-violet-950/70 to-transparent" />
-        {revealed && <LikesBadge likes={likes} />}
+        {revealed && <LikesBadge likes={likes} correct={isCorrect} />}
         <span className="absolute left-3 top-3 z-10 rounded-full border border-white/15 bg-black/50 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-violet-100 backdrop-blur">{side}</span>
         <div className="absolute inset-x-0 bottom-0 z-10 px-3 pb-2 pt-3 sm:px-4 sm:pb-3">
           <h2 className="line-clamp-2 text-base font-bold leading-tight text-white sm:text-xl">{character.name}</h2>
@@ -107,7 +109,7 @@ function CharacterChoice({ character, side, onChoose, disabled, revealed, isCorr
 
 export function AniDle() {
   const navigate = useNavigate();
-  const { pool, poolLoading, poolError, refreshWaifinity } = useWaifinity();
+  const { pool, poolLoading, poolError, refreshWaifinity } = useWaifinity({ syncAccount: false });
   const { user } = useAuth();
   const [tab, setTab] = useState("jeu");
   const [toast, setToast] = useState(false);
@@ -154,7 +156,7 @@ export function AniDle() {
   useEffect(() => {
     if (phase !== "revealed" || !roundCorrect) return;
     setToast(true);
-    const timer = setTimeout(() => { setToast(false); continueGame(); }, 900);
+    const timer = setTimeout(() => { setToast(false); continueGame(); }, 1600);
     return () => clearTimeout(timer);
   }, [phase, roundCorrect]);
 
@@ -215,7 +217,9 @@ export function AniDle() {
         </div>
         <p className="-mt-2 mb-5 text-sm leading-relaxed text-violet-200 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)]">Choisis le personnage qui a le plus de likes. À chaque bonne réponse, le nouveau personnage devient le champion.</p>
 
-        <PillTabs tabs={TABS} value={tab} onChange={setTab} layoutId="anidle-tabs" size="sm" tone="violet" className="mb-5" />
+        <div className="mb-5 flex justify-center">
+          <PillTabs tabs={TABS} value={tab} onChange={setTab} layoutId="anidle-tabs" size="sm" tone="violet" />
+        </div>
         {tab === "classement" && <section className="rounded-3xl border border-white/10 bg-violet-900/50 p-4 sm:p-6">
           <div className="mb-4 flex items-center gap-3"><Medal className="text-amber-300" size={24} /><div><h2 className="text-xl font-bold">Classement entre amis</h2><p className="text-xs text-violet-300">Meilleur score AniDle</p></div><button onClick={() => { if (!user?.id) return; setLeaderboardLoading(true); fetchAniDleLeaderboard(user.id).then(setLeaderboard).catch(() => setLeaderboardError("Impossible de charger le classement." )).finally(() => setLeaderboardLoading(false)); }} className="ml-auto text-xs text-amber-200 underline">Actualiser</button></div>
           {!user && <p className="rounded-xl bg-violet-950/70 p-4 text-sm text-violet-200">Connecte-toi pour voir le classement de tes amis.</p>}
@@ -251,7 +255,8 @@ export function AniDle() {
               <AnimatePresence>
                 {phase === "playing" && (
                   <motion.div key="vs" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ type: "spring", stiffness: 360, damping: 22 }}
-                    className="pointer-events-none absolute left-1/2 top-[38%] z-20 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-amber-300/70 bg-violet-950/90 font-mono text-xs font-extrabold text-amber-300 shadow-[0_0_22px_rgba(252,211,77,0.45)] backdrop-blur sm:h-14 sm:w-14 sm:text-sm">VS</motion.div>
+                    style={{ x: "-50%", y: "-50%" }}
+                    className="pointer-events-none absolute left-1/2 top-[38%] z-20 flex h-11 w-11 items-center justify-center rounded-full border-2 border-amber-300/70 bg-violet-950/90 font-mono text-xs font-extrabold text-amber-300 shadow-[0_0_22px_rgba(252,211,77,0.45)] backdrop-blur sm:h-14 sm:w-14 sm:text-sm">VS</motion.div>
                 )}
               </AnimatePresence>
               <AnimatePresence>
