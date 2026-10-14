@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronLeft, Heart, Trophy, RotateCcw, Sparkles, Loader2, Users, Medal, Crown, Timer, EyeOff, Layers, FlipHorizontal, Swords, Check, Volume2, VolumeX } from "lucide-react";
+import { ChevronLeft, Heart, Trophy, RotateCcw, Sparkles, Loader2, Users, Medal, Crown, Timer, EyeOff, Layers, FlipHorizontal, Swords, Check, Volume2, VolumeX, ArrowUpDown, Target, Library, ListOrdered, ArrowUp, ArrowDown } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { fetchAniDleLeaderboard, saveAniDleBest } from "../services/anidleScores";
 import { TopBar } from "../components/common/TopBar";
@@ -31,17 +31,97 @@ const BOSS_EVERY = 10;   // un boss toutes les 10 manches normales jouées (ind�
 const BOSS_ROUNDS = 3;   // manches à gagner d'affilée
 const BOSS_BONUS = 3;    // points bonus à la victoire
 const BOSSES = {
-  giant:  { icon: Crown, name: "Le Géant",   desc: "Des personnages ultra-populaires. Le plus connu ne gagne pas toujours !" },
-  sprint: { icon: Timer, name: "Le Sprint",  desc: "Seulement 5 secondes par manche. Pas le temps de douter !", timer: 5 },
-  mirror: { icon: FlipHorizontal, name: "Le Miroir",  desc: "Des likes presque identiques. Fie-toi à ton instinct." },
-  blind:  { icon: EyeOff, name: "L'Aveugle",  desc: "Noms et séries cachés : seule l'image te guide." },
-  triple: { icon: Layers, name: "Le Triple",  desc: "Trois personnages, un seul est le plus aimé." },
+  giant:      { icon: Crown,        name: "Le Géant",     rule: "Choisis le personnage le plus aimé.", desc: "Des personnages ultra-populaires. Le plus connu ne gagne pas toujours !" },
+  sprint:     { icon: Timer,        name: "Le Sprint",    rule: "Choisis le plus aimé avant la fin du chrono.", desc: "Seulement 5 secondes par manche. Pas le temps de douter !", timer: 5 },
+  mirror:     { icon: FlipHorizontal, name: "Le Miroir",  rule: "Choisis le personnage le plus aimé.", desc: "Des likes proches l'un de l'autre. Fie-toi à ton instinct." },
+  blind:      { icon: EyeOff,       name: "L'Aveugle",    rule: "Choisis le plus aimé, sans voir les noms.", desc: "Noms et séries cachés : seule l'image te guide." },
+  triple:     { icon: Layers,       name: "Le Triple",    rule: "Choisis le plus aimé des trois.", desc: "Trois personnages, un seul est le plus aimé." },
+  inverter:   { icon: ArrowUpDown,  name: "L'Inverseur",  rule: "Règle inversée : choisis le MOINS aimé.", desc: "Les règles sont inversées : désigne le personnage qui a le moins de likes." },
+  threshold:  { icon: Target,       name: "Le Seuil",     rule: "Compare ses likes au chiffre indiqué.", desc: "Un seul personnage et un chiffre. A-t-il plus ou moins de likes ?" },
+  collective: { icon: Library,      name: "Le Collectif", rule: "Choisis la série qui cumule le plus de likes.", desc: "Des séries entières : celle dont les personnages cumulent le plus de likes l'emporte." },
+  sort:       { icon: ListOrdered,  name: "Le Tri",       rule: "Touche les personnages du plus au moins aimé.", desc: "Classe 4 personnages du plus au moins aimé. Une seule épreuve, un seul essai.", rounds: 1, flatPoints: 3 },
 };
+const bossRounds = (type) => BOSSES[type].rounds || BOSS_ROUNDS;
 
 const likesOf = (c) => Number(c?.favourites) || 0;
 
-// Tire les personnages d'une manche de boss selon son type. `sorted` = pool trié par likes décroissants.
-function pickBossRound(type, pool, sorted, recent) {
+function shuffle(list) {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Arrondi « propre » à 2 chiffres significatifs : le seuil ressemble à un vrai chiffre rond.
+function niceRound(x) {
+  if (x < 20) return Math.max(1, Math.round(x));
+  const mag = Math.pow(10, Math.floor(Math.log10(x)) - 1);
+  return Math.round(x / mag) * mag;
+}
+
+// Regroupe le pool par série : likes cumulés, nombre de personnages, image du personnage le plus aimé.
+function buildSeries(pool) {
+  const map = new Map();
+  for (const c of pool) {
+    const name = typeof c.series === "string" ? c.series.trim() : "";
+    if (!name) continue;
+    const key = c.seriesId ?? name;
+    let e = map.get(key);
+    if (!e) { e = { id: `series:${key}`, name, count: 0, favourites: 0, top: c }; map.set(key, e); }
+    e.count += 1;
+    e.favourites += likesOf(c);
+    if (likesOf(c) > likesOf(e.top)) e.top = c;
+  }
+  return [...map.values()]
+    .filter((e) => e.count >= 2 && e.favourites > 0)
+    .map((e) => ({ id: e.id, name: e.name, series: `${e.count} personnages`, image: e.top.image, favourites: e.favourites, isSeries: true }));
+}
+
+// Boss Tri : 4 personnages dont les likes s'étagent régulièrement (chacun vaut 35 à 80 % du précédent),
+// pour que chaque paire soit départageable sans que le classement soit évident.
+function pickSortRound(pool, sorted, recent) {
+  const n = sorted.length;
+  const startPool = sorted.slice(0, Math.max(4, Math.ceil(n * 0.75))).filter((c) => likesOf(c) >= 100);
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const avoid = attempt < 30 ? recent : [];
+    const start = pickDifferent(startPool.length ? startPool : sorted, [], avoid);
+    if (!start) break;
+    const chosen = [start];
+    let target = likesOf(start);
+    for (let k = 0; k < 3; k++) {
+      target *= 0.5 + Math.random() * 0.25;
+      let best = null;
+      let bestD = Infinity;
+      for (const c of pool) {
+        if (chosen.includes(c) || avoid.includes(c.id)) continue;
+        const d = Math.abs(Math.log((likesOf(c) + 1) / (target + 1)));
+        if (d < bestD) { best = c; bestD = d; }
+      }
+      if (!best) break;
+      chosen.push(best);
+      target = likesOf(best);
+    }
+    if (chosen.length < 4) continue;
+    const likes = chosen.map(likesOf);
+    const steady = likes.every((l, i) => i === 0 || (l / likes[i - 1] >= 0.35 && l / likes[i - 1] <= 0.8));
+    if (steady) return shuffle(chosen);
+  }
+  // Repli (pool très petit ou atypique) : 4 rangs répartis sur tout le classement.
+  const step = Math.max(1, Math.floor(n / 4));
+  const picks = [];
+  for (let i = 0; i < 4; i++) {
+    const c = sorted[Math.min(n - 1, i * step + Math.floor(Math.random() * step))];
+    if (c && !picks.includes(c)) picks.push(c);
+  }
+  for (const c of sorted) { if (picks.length >= 4) break; if (!picks.includes(c)) picks.push(c); }
+  return shuffle(picks.slice(0, 4));
+}
+
+// Tire les personnages d'une manche de boss. `sorted` = pool trié par likes décroissants,
+// `series` = séries agrégées. Les types « custom » portent leurs propres cartes dans l'état du boss.
+function pickBossRound(type, { pool, sorted, series, recent }) {
   const n = sorted.length;
   const rnd = (list, excl = []) => pickDifferent(list, excl, recent);
   const shuffle2 = (a, b) => (Math.random() < 0.5 ? [a, b] : [b, a]);
@@ -51,10 +131,26 @@ function pickBossRound(type, pool, sorted, recent) {
     return { cards: shuffle2(giant, rival), giantId: giant.id };
   }
   if (type === "mirror") {
-    const a = rnd(pool);
-    const i = sorted.findIndex((c) => c.id === a.id);
-    const near = sorted.slice(Math.max(0, i - 6), i + 7).filter((c) => c.id !== a.id);
-    const b = rnd(near, [a.id]) || rnd(pool, [a.id]);
+    // Likes proches mais départageables : le plus petit représente 60 à 85 % du plus grand.
+    let a = null;
+    let close = [];
+    for (let t = 0; t < 8 && !close.length; t++) {
+      a = rnd(pool);
+      const la = likesOf(a);
+      close = pool.filter((c) => {
+        if (c.id === a.id) return false;
+        const lb = likesOf(c);
+        const hi = Math.max(la, lb);
+        const ratio = hi > 0 ? Math.min(la, lb) / hi : 1;
+        return ratio >= 0.6 && ratio <= 0.85;
+      });
+    }
+    let b = close.length ? rnd(close, [a.id]) : null;
+    if (!b) {
+      const i = sorted.findIndex((c) => c.id === a.id);
+      const near = sorted.slice(Math.max(0, i - 12), i + 13).filter((c) => c.id !== a.id);
+      b = rnd(near, [a.id]) || rnd(pool, [a.id]);
+    }
     return { cards: shuffle2(a, b) };
   }
   if (type === "triple") {
@@ -63,6 +159,46 @@ function pickBossRound(type, pool, sorted, recent) {
     const c = rnd(pool, [a.id, b.id]);
     return { cards: [a, b, c] };
   }
+  if (type === "inverter") {
+    // Évite les paires quasi identiques : le moins aimé doit être clairement identifiable.
+    let a = null;
+    let b = null;
+    for (let t = 0; t < 8; t++) {
+      a = rnd(pool);
+      b = rnd(pool, [a.id]);
+      const hi = Math.max(likesOf(a), likesOf(b));
+      if (hi > 0 && Math.min(likesOf(a), likesOf(b)) / hi <= 0.85) break;
+    }
+    return { cards: [a, b] };
+  }
+  if (type === "threshold") {
+    // Le seuil est placé 20 à 40 % sous ou au-dessus du vrai nombre de likes, arrondi à un chiffre rond.
+    const eligible = pool.filter((c) => likesOf(c) >= 50);
+    const c = rnd(eligible.length ? eligible : pool);
+    const likes = likesOf(c);
+    const r = 0.6 + Math.random() * 0.2;
+    let x = niceRound(Math.random() < 0.5 ? likes * r : likes / r);
+    if (x === likes) x = likes + Math.max(1, Math.round(likes * 0.25));
+    return { cards: [c], threshold: x, custom: true };
+  }
+  if (type === "collective") {
+    // Deux séries dont les likes cumulés sont comparables mais départageables (50 à 85 %).
+    let a = null;
+    let close = [];
+    for (let t = 0; t < 8 && !close.length; t++) {
+      a = rnd(series);
+      const sa = likesOf(a);
+      close = series.filter((s) => {
+        if (s.id === a.id) return false;
+        const hi = Math.max(sa, likesOf(s));
+        const ratio = Math.min(sa, likesOf(s)) / hi;
+        return ratio >= 0.5 && ratio <= 0.85;
+      });
+    }
+    const b = (close.length ? rnd(close, [a.id]) : null) || rnd(series, [a.id]);
+    return { cards: shuffle2(a, b), custom: true };
+  }
+  if (type === "sort") return { cards: pickSortRound(pool, sorted, recent), custom: true };
   const a = rnd(pool);
   const b = rnd(pool, [a.id]);
   return { cards: [a, b] };
@@ -131,18 +267,20 @@ const TOAST_ICONS = { record: Trophy, boss: Swords, point: Check };
 
 function BossHud({ boss, phase, roundCorrect, onTimeout }) {
   const def = BOSSES[boss.type];
-  const hpLeft = BOSS_ROUNDS - boss.round - (phase === "revealed" && roundCorrect ? 1 : 0);
+  const rounds = bossRounds(boss.type);
+  const hpLeft = rounds - boss.round - (phase === "revealed" && roundCorrect ? 1 : 0);
   return (
     <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-4 rounded-2xl border border-rose-400/40 bg-gradient-to-r from-rose-950/90 to-violet-950/90 p-3 shadow-[0_0_24px_-6px_rgba(251,113,133,0.5)]">
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 text-sm font-extrabold text-rose-200"><BossIcon type={boss.type} />Boss · {def.name}</span>
-        <span className="font-mono text-[11px] uppercase tracking-widest text-rose-200/80">Manche {Math.min(boss.round + 1, BOSS_ROUNDS)}/{BOSS_ROUNDS}</span>
+        <span className="font-mono text-[11px] uppercase tracking-widest text-rose-200/80">{rounds === 1 ? "Épreuve unique" : `Manche ${Math.min(boss.round + 1, rounds)}/${rounds}`}</span>
       </div>
-      <div className="mt-2 flex gap-1.5" role="img" aria-label={`Vie du boss : ${hpLeft} sur ${BOSS_ROUNDS}`}>
-        {Array.from({ length: BOSS_ROUNDS }, (_, i) => (
+      <div className="mt-2 flex gap-1.5" role="img" aria-label={`Vie du boss : ${hpLeft} sur ${rounds}`}>
+        {Array.from({ length: rounds }, (_, i) => (
           <motion.div key={i} animate={{ opacity: i < hpLeft ? 1 : 0.15, scaleY: i < hpLeft ? 1 : 0.7 }} className="h-2.5 flex-1 rounded-full bg-rose-400" />
         ))}
       </div>
+      {def.rule && <p className="mt-2 text-xs text-rose-100/80">{def.rule}</p>}
       {def.timer && (
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
           {phase === "playing" && <motion.div key={boss.round} initial={{ scaleX: 1 }} animate={{ scaleX: 0 }} transition={{ duration: def.timer, ease: "linear" }} onAnimationComplete={onTimeout} style={{ transformOrigin: "left" }} className="h-full bg-amber-300" />}
@@ -152,7 +290,7 @@ function BossHud({ boss, phase, roundCorrect, onTimeout }) {
   );
 }
 
-function CharacterChoice({ character, side, onChoose, disabled, revealed, isCorrect, chosen, showLikes, tie, compact, hideInfo }) {
+function CharacterChoice({ character, side, onChoose, disabled, revealed, isCorrect, chosen, showLikes, tie, compact, hideInfo, question, okLabel, koLabel, rank, inverted }) {
   const likes = Number(character?.favourites) || 0;
   const masked = hideInfo && !revealed;
   return (
@@ -173,6 +311,7 @@ function CharacterChoice({ character, side, onChoose, disabled, revealed, isCorr
       className={`group relative flex w-full flex-col overflow-hidden rounded-3xl border text-left transition-colors duration-200
         ${disabled ? "cursor-default" : "hover:border-amber-300/70"}
         ${revealed && isCorrect ? "border-emerald-400/80 ring-2 ring-emerald-400/30 shadow-[0_0_28px_-4px_rgba(52,211,153,0.55)]" : revealed && chosen ? "border-rose-400/80 ring-2 ring-rose-400/25 shadow-[0_0_28px_-4px_rgba(251,113,133,0.5)]" : "border-white/10"}
+        ${rank != null && !revealed ? "ring-2 ring-amber-300/70" : ""}
         bg-violet-900/60 shadow-xl shadow-black/20`}
     >
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-violet-950/70">
@@ -181,12 +320,13 @@ function CharacterChoice({ character, side, onChoose, disabled, revealed, isCorr
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-violet-950 via-violet-950/70 to-transparent" />
         {revealed && <LikesBadge likes={likes} correct={isCorrect} compact={compact} />}
         <span className="absolute left-3 top-3 z-10 rounded-full border border-white/15 bg-black/50 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-violet-100 backdrop-blur">{side}</span>
+        {rank != null && <span className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-amber-400 text-sm font-extrabold text-violet-950 shadow-lg">{rank}</span>}
         <div className="absolute inset-x-0 bottom-0 z-10 px-3 pb-2 pt-3 sm:px-4 sm:pb-3">
           <h2 className={`line-clamp-2 font-bold leading-tight text-white ${compact ? "text-xs sm:text-base" : "text-base sm:text-xl"}`}>{masked ? "???" : character.name}</h2>
           <p className={`mt-1 line-clamp-1 text-violet-200 ${compact ? "text-[10px]" : "text-xs"}`}>{masked ? "Personnage mystère" : (character.series || "Série inconnue")}</p>
         </div>
       </div>
-      <div className={`flex min-h-[44px] items-center justify-center gap-2 px-2 py-3 text-center font-semibold ${compact ? "text-[10px]" : "text-xs"} ${revealed ? (isCorrect ? "bg-emerald-400/15 text-emerald-200" : "bg-rose-400/15 text-rose-200") : "text-amber-200"}`}>{revealed ? (isCorrect ? (tie ? "Égalité" : "Bonne réponse") : "Moins populaire") : showLikes ? <><Heart size={15} fill="currentColor" /><span className="tabular-nums">{likes.toLocaleString("fr-FR")} likes</span></> : <><Heart size={15} /> Plus de likes ?</>}</div>
+      <div className={`flex min-h-[44px] items-center justify-center gap-2 px-2 py-3 text-center font-semibold ${compact ? "text-[10px]" : "text-xs"} ${revealed ? (isCorrect ? "bg-emerald-400/15 text-emerald-200" : "bg-rose-400/15 text-rose-200") : "text-amber-200"}`}>{revealed ? (isCorrect ? (okLabel || (tie ? "Égalité" : "Bonne réponse")) : (koLabel || (inverted ? "Plus populaire" : "Moins populaire"))) : showLikes ? <><Heart size={15} fill="currentColor" /><span className="tabular-nums">{likes.toLocaleString("fr-FR")} likes</span></> : <><Heart size={15} /> {question || "Plus de likes ?"}</>}</div>
     </motion.button>
   );
 }
@@ -196,6 +336,7 @@ export function AniDle() {
   const { pool, poolLoading, poolError, refreshWaifinity } = useWaifinity({ syncAccount: false });
   const { user } = useAuth();
   const sortedPool = useMemo(() => [...pool].sort((a, b) => likesOf(b) - likesOf(a)), [pool]);
+  const seriesList = useMemo(() => buildSeries(pool), [pool]);
   const [tab, setTab] = useState("jeu");
   const [toast, setToast] = useState(false);
   const [recordHit, setRecordHit] = useState(false);
@@ -207,12 +348,12 @@ export function AniDle() {
   const roundsSinceBossRef = useRef(0);
   const lastBossRef = useRef(null);
   const timeoutRef = useRef(null);
-  const cardsRef = useRef([]);
+  const keyRef = useRef(null);
+  const [sortPicks, setSortPicks] = useState([]);
   const [soundOn, setSoundOn] = useState(() => localStorage.getItem("pref_sounds") !== "false");
   const recordAnnouncedRef = useRef(false);
   const recentRef = useRef([]);
   const upcomingRef = useRef(null);
-  const answerRef = useRef(null);
   const [leaderboard, setLeaderboard] = useState([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [leaderboardError, setLeaderboardError] = useState("");
@@ -237,6 +378,7 @@ export function AniDle() {
     setBoss(null);
     setThird(null);
     setTimedOut(false);
+    setSortPicks([]);
     setChampion(first);
     setChallenger(second);
     setScore(0);
@@ -287,21 +429,42 @@ export function AniDle() {
     return () => clearTimeout(t);
   }, [recordHit]);
 
-  const cards = [champion, challenger, third].filter(Boolean);
-  const maxLikes = cards.length ? Math.max(...cards.map(likesOf)) : 0;
+  const cards = boss?.cards || [champion, challenger, third].filter(Boolean);
+  const likesList = cards.map(likesOf);
+  const maxLikes = cards.length ? Math.max(...likesList) : 0;
+  const minLikes = cards.length ? Math.min(...likesList) : 0;
   const topCount = cards.filter((c) => likesOf(c) === maxLikes).length;
+  const minCount = cards.filter((c) => likesOf(c) === minLikes).length;
   const topCard = cards.find((c) => likesOf(c) === maxLikes) || null;
+  const minCard = cards.find((c) => likesOf(c) === minLikes) || null;
+  const sortedLikes = boss?.type === "sort" ? [...likesList].sort((x, y) => y - x) : [];
 
-  const answer = (id) => {
-    if (phase !== "playing" || !champion || !challenger) return;
-    const picked = cards.find((c) => c.id === id);
-    if (!picked) return;
-    const correct = likesOf(picked) === maxLikes; // égalité : tous les ex æquo sont corrects
+  // Ordre complet du boss Tri : les choix du joueur, plus la dernière carte qui est déduite.
+  const sortOrderIds = () => (sortPicks.length >= 3
+    ? [...sortPicks, ...cards.filter((c) => !sortPicks.includes(c.id)).map((c) => c.id)]
+    : sortPicks);
+  const rankOf = (id) => {
+    const i = sortPicks.indexOf(id);
+    if (i >= 0) return i + 1;
+    return sortPicks.length >= 3 ? 4 : null;
+  };
+  const cardCorrect = (c) => {
+    if (boss?.type === "threshold") return !!roundCorrect;
+    if (boss?.type === "sort") return likesOf(c) === sortedLikes[sortOrderIds().indexOf(c.id)];
+    if (boss?.type === "inverter") return likesOf(c) === minLikes;
+    return likesOf(c) === maxLikes;
+  };
+
+  // Enregistre le résultat d'une manche (score, record, boss, sons, toast).
+  const commitAnswer = (correct, id) => {
+    if (phase !== "playing") return;
+    const def = boss ? BOSSES[boss.type] : null;
+    const bossWin = !!boss && boss.round + 1 >= bossRounds(boss.type);
     setChosenId(id);
     setRoundCorrect(correct);
     if (correct) {
-      const bossWin = !!boss && boss.round + 1 >= BOSS_ROUNDS;
-      const nextScore = score + 1 + (bossWin ? BOSS_BONUS : 0);
+      const gained = def?.flatPoints ?? (1 + (bossWin ? BOSS_BONUS : 0));
+      const nextScore = score + gained;
       setScore(nextScore);
       haptics.success();
       if (!boss) roundsSinceBossRef.current += 1;
@@ -324,13 +487,43 @@ export function AniDle() {
       setRoundToast({
         gold: newRecord || bossWin,
         icon: newRecord ? "record" : boss ? "boss" : "point",
-        text: bossWin ? (newRecord ? "Boss vaincu ! Nouveau record !" : `Boss vaincu ! +${1 + BOSS_BONUS} points`)
+        text: bossWin ? (newRecord ? "Boss vaincu ! Nouveau record !" : `Boss vaincu ! +${gained} points`)
           : newRecord ? "Nouveau record !"
           : boss ? "Touché ! +1 point" : "+1 point",
       });
     }
     else { haptics.error(); sounds.wrong(); }
     setPhase("revealed");
+  };
+
+  // Choix d'une carte : « le plus aimé », ou « le moins aimé » pour l'Inverseur. Égalité : tous les ex æquo sont corrects.
+  const answer = (id) => {
+    if (phase !== "playing" || !champion || !challenger) return;
+    const picked = cards.find((c) => c.id === id);
+    if (!picked) return;
+    commitAnswer(likesOf(picked) === (boss?.type === "inverter" ? minLikes : maxLikes), id);
+  };
+
+  // Boss Seuil : « plus » ou « moins » que le chiffre indiqué.
+  const answerThreshold = (more) => {
+    if (phase !== "playing" || boss?.type !== "threshold" || !cards[0]) return;
+    const likes = likesOf(cards[0]);
+    commitAnswer(more ? likes > boss.threshold : likes < boss.threshold, more ? "more" : "less");
+  };
+
+  // Boss Tri : toucher une carte la classe ; toucher une carte déjà classée annule son rang et les suivants.
+  const pickSort = (id) => {
+    if (phase !== "playing" || boss?.type !== "sort") return;
+    haptics.tap();
+    const idx = sortPicks.indexOf(id);
+    if (idx >= 0) setSortPicks(sortPicks.slice(0, idx));
+    else if (sortPicks.length < 4) setSortPicks([...sortPicks, id]);
+  };
+  const submitSort = () => {
+    if (phase !== "playing" || boss?.type !== "sort") return;
+    const order = sortOrderIds();
+    if (order.length < 4) return;
+    commitAnswer(order.every((id, i) => likesOf(cards.find((c) => c.id === id)) === sortedLikes[i]), null);
   };
 
   // Temps écoulé (boss Sprint) : la manche est perdue.
@@ -345,12 +538,13 @@ export function AniDle() {
   };
 
   const loadBossRound = (type, round, intro = false) => {
-    const picked = pickBossRound(type, pool, sortedPool, recentRef.current);
+    const picked = pickBossRound(type, { pool, sorted: sortedPool, series: seriesList, recent: recentRef.current });
     recentRef.current = [...recentRef.current, ...picked.cards.map((c) => c.id)].slice(-12);
-    setBoss({ type, round, giantId: picked.giantId });
+    setBoss({ type, round, giantId: picked.giantId, threshold: picked.threshold, cards: picked.custom ? picked.cards : undefined });
     setChampion(picked.cards[0]);
-    setChallenger(picked.cards[1]);
-    setThird(picked.cards[2] || null);
+    setChallenger(picked.cards[1] || picked.cards[0]);
+    setThird(picked.custom ? null : (picked.cards[2] || null));
+    setSortPicks([]);
     setChosenId(null);
     setRoundCorrect(null);
     setTimedOut(false);
@@ -359,7 +553,11 @@ export function AniDle() {
 
   // Boss toujours aléatoire, jamais deux fois le même d'affilée.
   const startBoss = () => {
-    const types = Object.keys(BOSSES).filter((t) => t !== lastBossRef.current && (t !== "triple" || pool.length >= 3));
+    const available = (t) => t !== lastBossRef.current
+      && (t !== "triple" || pool.length >= 3)
+      && (t !== "sort" || pool.length >= 30)
+      && (t !== "collective" || seriesList.length >= 4);
+    const types = Object.keys(BOSSES).filter(available);
     const type = types[Math.floor(Math.random() * types.length)];
     lastBossRef.current = type;
     haptics.medium();
@@ -370,15 +568,19 @@ export function AniDle() {
   const continueGame = () => {
     if (!roundCorrect) return;
     if (boss) {
-      if (boss.round + 1 < BOSS_ROUNDS) { loadBossRound(boss.type, boss.round + 1); return; }
+      if (boss.round + 1 < bossRounds(boss.type)) { loadBossRound(boss.type, boss.round + 1); return; }
       // Boss vaincu : le gagnant de la dernière manche devient champion.
-      const winner = cards.find((c) => c.id === chosenId) || topCard;
+      // Collectif : les cartes sont des séries, le nouveau champion est donc un personnage tiré au hasard.
+      const winner = boss.type === "collective"
+        ? pickDifferent(pool, [], recentRef.current)
+        : cards.find((c) => c.id === chosenId) || topCard;
       const nextChallenger = pickDifferent(pool, [winner.id], recentRef.current);
       if (!nextChallenger) return;
       roundsSinceBossRef.current = 0;
       recentRef.current = [...recentRef.current, nextChallenger.id].slice(-12);
       setBoss(null);
       setThird(null);
+      setSortPicks([]);
       setChampion(winner);
       setChallenger(nextChallenger);
       setChosenId(null);
@@ -409,21 +611,31 @@ export function AniDle() {
   };
 
   const restart = () => startGame(pool);
-  answerRef.current = answer;
-  timeoutRef.current = handleTimeout;
-  cardsRef.current = cards;
 
-  // Raccourcis clavier : ← / → (ou 1, 2, 3) pour choisir une carte.
+  // Raccourcis clavier : ← / → (ou 1 à 4 pour le Tri).
+  const handleKey = (key) => {
+    if (phase !== "playing" || !champion) return;
+    if (boss?.type === "threshold") {
+      if (key === "ArrowLeft") answerThreshold(false);
+      else if (key === "ArrowRight") answerThreshold(true);
+      return;
+    }
+    if (boss?.type === "sort") {
+      const i = ["1", "2", "3", "4"].indexOf(key);
+      if (cards[i]) pickSort(cards[i].id);
+      return;
+    }
+    let idx = -1;
+    if (key === "ArrowLeft") idx = 0;
+    else if (key === "ArrowRight") idx = cards.length - 1;
+    else if (["1", "2", "3"].includes(key)) idx = Number(key) - 1;
+    if (cards[idx]) answer(cards[idx].id);
+  };
+  keyRef.current = handleKey;
+  timeoutRef.current = handleTimeout;
+
   useEffect(() => {
-    const onKey = (e) => {
-      if (tab !== "jeu") return;
-      const list = cardsRef.current;
-      let idx = -1;
-      if (e.key === "ArrowLeft") idx = 0;
-      else if (e.key === "ArrowRight") idx = list.length - 1;
-      else if (["1", "2", "3"].includes(e.key)) idx = Number(e.key) - 1;
-      if (list[idx]) answerRef.current?.(list[idx].id);
-    };
+    const onKey = (e) => { if (tab === "jeu") keyRef.current?.(e.key); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [tab]);
@@ -469,45 +681,71 @@ export function AniDle() {
             {recordHit && createPortal(<Confetti active intensity="season" />, document.body)}
             {boss && <BossHud boss={boss} phase={phase} roundCorrect={roundCorrect} onTimeout={() => timeoutRef.current?.()} />}
             <div className="relative mx-auto max-w-3xl">
-              <div className={`relative grid items-start ${third ? "grid-cols-3 gap-2 sm:gap-4" : "grid-cols-2 gap-3 sm:gap-5"}`}>
+              <div className={`relative grid items-start ${boss?.type === "threshold" ? "mx-auto max-w-[220px] grid-cols-1 gap-3" : boss?.type === "sort" ? "grid-cols-2 gap-3 sm:gap-4" : third ? "grid-cols-3 gap-2 sm:gap-4" : "grid-cols-2 gap-3 sm:gap-5"}`}>
                 <AnimatePresence mode="popLayout" initial={false}>
                   {cards.map((c, i) => (
                     <motion.div key={c.id} layout="position" exit={{ opacity: 0, x: -48, scale: 0.94 }} transition={{ type: "spring", stiffness: 260, damping: 30 }}>
                       <CharacterChoice character={c}
-                        side={boss?.type === "giant" ? (c.id === boss.giantId ? "Géant" : "Rival") : boss ? "ABC"[i] : (i === 0 ? "Champion" : "Nouveau défi")}
+                        side={!boss ? (i === 0 ? "Champion" : "Nouveau défi")
+                          : boss.type === "giant" ? (c.id === boss.giantId ? "Géant" : "Rival")
+                          : boss.type === "threshold" ? "Cible"
+                          : boss.type === "collective" ? "Série"
+                          : "ABCD"[i]}
                         showLikes={i === 0 && score > 0 && !boss}
-                        chosen={chosenId === c.id} onChoose={answer} disabled={phase !== "playing"} revealed={phase === "revealed"}
-                        isCorrect={likesOf(c) === maxLikes} tie={topCount > 1} compact={!!third} hideInfo={boss?.type === "blind"} />
+                        chosen={boss?.type === "sort" || boss?.type === "threshold" ? true : chosenId === c.id}
+                        onChoose={boss?.type === "sort" ? pickSort : answer}
+                        disabled={phase !== "playing" || boss?.type === "threshold"} revealed={phase === "revealed"}
+                        isCorrect={cardCorrect(c)}
+                        tie={(boss?.type === "inverter" ? minCount : topCount) > 1}
+                        compact={!!third} hideInfo={boss?.type === "blind"}
+                        inverted={boss?.type === "inverter"}
+                        rank={boss?.type === "sort" ? rankOf(c.id) : null}
+                        question={boss?.type === "collective" ? "Plus de likes cumulés ?"
+                          : boss?.type === "threshold" ? "Combien de likes ?"
+                          : boss?.type === "inverter" ? "Moins de likes ?"
+                          : boss?.type === "sort" ? (rankOf(c.id) != null ? "Classé" : "Touche pour classer")
+                          : undefined}
+                        okLabel={boss?.type === "sort" ? "Bien placé" : undefined}
+                        koLabel={boss?.type === "sort" ? `Place réelle : ${sortedLikes.indexOf(likesOf(c)) + 1}` : boss?.type === "threshold" ? "Raté" : undefined} />
                     </motion.div>
                   ))}
                 </AnimatePresence>
               </div>
               {phase === "revealed" && !roundCorrect && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-30 flex items-center justify-center rounded-3xl bg-violet-950/60 p-3 backdrop-blur-[2px]">
-                  <motion.div initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 260, damping: 22 }} className="w-full max-w-xs rounded-3xl border border-rose-400/30 bg-violet-950/95 p-5 text-center shadow-2xl shadow-black/50 backdrop-blur"><p className="text-xl font-bold text-rose-200">{timedOut ? "Temps écoulé !" : boss ? "Le boss t'a vaincu !" : "Partie terminée !"}</p><p className="mt-1 text-sm text-violet-200">Tu as marqué <strong>{score}</strong> point{score > 1 ? "s" : ""}. Le bon choix était <strong>{topCard?.name}</strong>.</p><button onClick={restart} className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-violet-950 transition hover:bg-amber-200"><RotateCcw size={16} /> Recommencer</button></motion.div>
+                  <motion.div initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 260, damping: 22 }} className="w-full max-w-xs rounded-3xl border border-rose-400/30 bg-violet-950/95 p-5 text-center shadow-2xl shadow-black/50 backdrop-blur"><p className="text-xl font-bold text-rose-200">{timedOut ? "Temps écoulé !" : boss ? "Le boss t'a vaincu !" : "Partie terminée !"}</p><p className="mt-1 text-sm text-violet-200">Tu as marqué <strong>{score}</strong> point{score > 1 ? "s" : ""}. {boss?.type === "sort" ? <>Le bon ordre : <strong>{[...cards].sort((x, y) => likesOf(y) - likesOf(x)).map((c) => c.name).join(", ")}</strong>.</>
+                    : boss?.type === "threshold" ? <><strong>{cards[0]?.name}</strong> avait <strong>{likesOf(cards[0]).toLocaleString("fr-FR")}</strong> likes.</>
+                    : boss?.type === "inverter" ? <>Le bon choix était <strong>{minCard?.name}</strong>.</>
+                    : <>Le bon choix était <strong>{topCard?.name}</strong>.</>}</p><button onClick={restart} className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-violet-950 transition hover:bg-amber-200"><RotateCcw size={16} /> Recommencer</button></motion.div>
                 </motion.div>
               )}
               <AnimatePresence>
-                {phase === "playing" && !third && (
+                {phase === "playing" && !third && boss?.type !== "threshold" && boss?.type !== "sort" && (
                   <motion.div key="vs" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} transition={{ type: "spring", stiffness: 360, damping: 22 }}
                     style={{ x: "-50%", y: "-50%" }}
                     className="pointer-events-none absolute left-1/2 top-[38%] z-20 flex h-11 w-11 items-center justify-center rounded-full border-2 border-amber-300/70 bg-violet-950/90 font-mono text-xs font-extrabold text-amber-300 shadow-[0_0_22px_rgba(252,211,77,0.45)] backdrop-blur sm:h-14 sm:w-14 sm:text-sm">VS</motion.div>
                 )}
               </AnimatePresence>
-              <AnimatePresence>
-                {phase === "intro" && boss && (
-                  <motion.div key="boss-intro" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-40 flex items-center justify-center rounded-3xl bg-violet-950/85 p-3 backdrop-blur-sm">
-                    <motion.div initial={{ opacity: 0, scale: 0.8, rotate: -2 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 240, damping: 16 }} className="w-full max-w-xs rounded-3xl border border-rose-400/40 bg-violet-950/95 p-5 text-center shadow-2xl shadow-black/50">
-                      <motion.div animate={{ scale: [1, 1.15, 1] }} transition={{ repeat: Infinity, duration: 1.2 }} className="flex justify-center text-rose-300"><BossIcon type={boss.type} size={52} /></motion.div>
-                      <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.3em] text-rose-300">Boss</p>
-                      <p className="text-2xl font-extrabold text-white">{BOSSES[boss.type].name}</p>
-                      <p className="mt-1 text-sm text-violet-200">{BOSSES[boss.type].desc}</p>
-                      <p className="mt-2 text-xs text-amber-200">Gagne {BOSS_ROUNDS} manches d'affilée : +{BOSS_BONUS} points bonus.</p>
-                      <button onClick={() => setPhase("playing")} className="mt-4 inline-flex items-center justify-center rounded-xl bg-rose-400 px-5 py-3 text-sm font-bold text-violet-950 transition hover:bg-rose-300">Combattre !</button>
+              {createPortal(
+                <AnimatePresence>
+                  {phase === "intro" && boss && (
+                    <motion.div key="boss-intro" role="dialog" aria-modal="true" aria-label={`Boss : ${BOSSES[boss.type].name}`}
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      className="fixed inset-0 z-[60] flex items-center justify-center bg-violet-950/85 p-4 backdrop-blur-sm"
+                      style={{ paddingTop: "max(1rem, env(safe-area-inset-top))", paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+                      <motion.div initial={{ opacity: 0, scale: 0.8, rotate: -2 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 240, damping: 16 }} className="max-h-full w-full max-w-xs overflow-y-auto rounded-3xl border border-rose-400/40 bg-violet-950/95 p-5 text-center shadow-2xl shadow-black/50">
+                        <motion.div animate={{ scale: [1, 1.15, 1] }} transition={{ repeat: Infinity, duration: 1.2 }} className="flex justify-center text-rose-300"><BossIcon type={boss.type} size={52} /></motion.div>
+                        <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.3em] text-rose-300">Boss</p>
+                        <p className="text-2xl font-extrabold text-white">{BOSSES[boss.type].name}</p>
+                        <p className="mt-1 text-sm text-violet-200">{BOSSES[boss.type].desc}</p>
+                        <p className="mt-2 text-xs text-amber-200">{BOSSES[boss.type].flatPoints ? `Un seul essai : réussis l'épreuve pour gagner +${BOSSES[boss.type].flatPoints} points.` : `Gagne ${bossRounds(boss.type)} manches d'affilée : +${BOSS_BONUS} points bonus.`}</p>
+                        <button autoFocus onClick={() => setPhase("playing")} className="mt-4 inline-flex items-center justify-center rounded-xl bg-rose-400 px-5 py-3 text-sm font-bold text-violet-950 transition hover:bg-rose-300">Combattre !</button>
+                      </motion.div>
                     </motion.div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  )}
+                </AnimatePresence>,
+                document.body
+              )}
               <AnimatePresence>
                 {toast && (
                   <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
@@ -516,7 +754,33 @@ export function AniDle() {
                 )}
               </AnimatePresence>
             </div>
-            {phase === "playing" && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 text-center text-xs text-violet-400">Appuie sur une carte pour deviner laquelle est la plus aimée.</motion.p>}
+            {boss?.type === "threshold" && cards[0] && (
+              <div className="mx-auto mt-4 w-full max-w-xs text-center">
+                <p className="text-sm text-violet-200">Ce personnage a-t-il plus ou moins de</p>
+                <p className="my-1 flex items-center justify-center gap-2 text-3xl font-extrabold tabular-nums text-amber-300"><Heart size={22} fill="currentColor" />{boss.threshold.toLocaleString("fr-FR")}</p>
+                <p className="text-sm text-violet-200">likes ?</p>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  {[{ more: false, label: "Moins", Icon: ArrowDown }, { more: true, label: "Plus", Icon: ArrowUp }].map(({ more, label, Icon }) => {
+                    const revealed = phase === "revealed";
+                    const picked = chosenId === (more ? "more" : "less");
+                    const right = revealed && (more ? likesOf(cards[0]) > boss.threshold : likesOf(cards[0]) < boss.threshold);
+                    return (
+                      <button key={label} type="button" disabled={phase !== "playing"} onClick={() => answerThreshold(more)}
+                        className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3.5 text-base font-bold transition ${right ? "border-emerald-400/80 bg-emerald-400/15 text-emerald-200" : revealed && picked ? "border-rose-400/80 bg-rose-400/15 text-rose-200" : "border-white/15 bg-violet-900/60 text-violet-50 hover:border-amber-300/70"} ${phase !== "playing" ? "cursor-default" : ""}`}>
+                        <Icon size={18} aria-hidden="true" />{label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {boss?.type === "sort" && phase === "playing" && (
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <button type="button" onClick={() => setSortPicks(sortPicks.slice(0, -1))} disabled={!sortPicks.length} className="rounded-xl border border-white/15 bg-violet-900/60 px-4 py-2.5 text-sm font-semibold text-violet-100 transition disabled:opacity-40">Annuler</button>
+                <button type="button" onClick={submitSort} disabled={sortPicks.length < 3} className="rounded-xl bg-amber-300 px-5 py-2.5 text-sm font-bold text-violet-950 transition hover:bg-amber-200 disabled:opacity-40">Valider l'ordre</button>
+              </div>
+            )}
+            {phase === "playing" && !boss && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 text-center text-xs text-violet-400">Appuie sur une carte pour deviner laquelle est la plus aimée.</motion.p>}
             {phase === "revealed" && roundCorrect && <div className="mt-4 text-center text-xs text-emerald-200/80">Bonne réponse, manche suivante…</div>}
           </>
         )}

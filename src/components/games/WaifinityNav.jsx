@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
-import { Home, LayoutGrid, Sparkles, Users, Store } from "lucide-react";
+import { Home, Gamepad2, LayoutGrid, Sparkles, Users, Store } from "lucide-react";
 import { haptics } from "../../utils/haptics";
 
 // ── Barre de navigation de Waifinity ───────────────────────────────────────
@@ -8,14 +8,15 @@ import { haptics } from "../../utils/haptics";
 // Strictement le même habillage que la barre principale (common/BottomNav) :
 // même conteneur flottant, mêmes pastilles actives, mêmes libellés, même bouton
 // central ambré. Seuls les éléments changent : les 4 écrans du jeu + « Accueil »
-// pour quitter. Le bouton central (Boosters) est l'action la plus fréquente.
+// pour quitter, « Jeux » pour revenir à la liste des jeux. Le bouton central (Boosters) est l'action la plus fréquente.
 // Si tu modifies le style de l'une des deux barres, répercute-le dans l'autre.
 //
 // Seul ajout propre au jeu : une petite pastille de compteur (booster gratuit,
 // récompenses, échanges en attente).
 
 const ITEMS = [
-  { key: "home",       icon: Home,       label: "Accueil",    exit: true },
+  { key: "home",       icon: Home,       label: "Accueil",    exit: true, to: "/" },
+  { key: "games",      icon: Gamepad2,   label: "Jeux",       exit: true, to: "/games" },
   { key: "collection", icon: LayoutGrid, label: "Collection" },
   { key: "boosters",   icon: Sparkles,   label: "Boosters",   primary: true },
   { key: "social",     icon: Users,      label: "Social" },
@@ -45,7 +46,7 @@ export function WaifinityNav({ tab, onChange, badges = {} }) {
 
   function select(item) {
     haptics.tap();
-    if (item.exit) navigate("/");
+    if (item.exit) navigate(item.to || "/");
     else onChange(item.key);
   }
 
@@ -60,7 +61,7 @@ export function WaifinityNav({ tab, onChange, badges = {} }) {
           rounded-[1.75rem] bg-violet-950/75 backdrop-blur-xl border border-white/10
           shadow-2xl shadow-black/50 px-1.5 py-1.5"
       >
-        {ITEMS.map(({ key, icon: Icon, label, primary, exit }) => {
+        {ITEMS.map(({ key, icon: Icon, label, primary, exit, to }) => {
           const active = !exit && tab === key;
           const badge = badges[key];
 
@@ -84,7 +85,7 @@ export function WaifinityNav({ tab, onChange, badges = {} }) {
           return (
             <button
               key={key}
-              onClick={() => select({ key, exit })}
+              onClick={() => select({ key, exit, to })}
               aria-label={label}
               aria-current={active ? "page" : undefined}
               className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-2xl
