@@ -79,11 +79,11 @@ function buildSeries(pool) {
     .map((e) => ({ id: e.id, name: e.name, series: `${e.count} personnages`, image: e.top.image, favourites: e.favourites, isSeries: true }));
 }
 
-// Boss Tri : 4 personnages dont les likes s'étagent régulièrement (chacun vaut 35 à 80 % du précédent),
+// Boss Tri : 4 personnages dont les likes s'étagent nettement (chacun vaut 15 à 62 % du précédent),
 // pour que chaque paire soit départageable sans que le classement soit évident.
 function pickSortRound(pool, sorted, recent) {
   const n = sorted.length;
-  const startPool = sorted.slice(0, Math.max(4, Math.ceil(n * 0.75))).filter((c) => likesOf(c) >= 100);
+  const startPool = sorted.slice(0, Math.max(4, Math.ceil(n * 0.75))).filter((c) => likesOf(c) >= 300);
   for (let attempt = 0; attempt < 40; attempt++) {
     const avoid = attempt < 30 ? recent : [];
     const start = pickDifferent(startPool.length ? startPool : sorted, [], avoid);
@@ -91,7 +91,7 @@ function pickSortRound(pool, sorted, recent) {
     const chosen = [start];
     let target = likesOf(start);
     for (let k = 0; k < 3; k++) {
-      target *= 0.5 + Math.random() * 0.25;
+      target *= 0.3 + Math.random() * 0.25;
       let best = null;
       let bestD = Infinity;
       for (const c of pool) {
@@ -105,7 +105,7 @@ function pickSortRound(pool, sorted, recent) {
     }
     if (chosen.length < 4) continue;
     const likes = chosen.map(likesOf);
-    const steady = likes.every((l, i) => i === 0 || (l / likes[i - 1] >= 0.35 && l / likes[i - 1] <= 0.8));
+    const steady = likes.every((l, i) => i === 0 || (l / likes[i - 1] >= 0.15 && l / likes[i - 1] <= 0.62));
     if (steady) return shuffle(chosen);
   }
   // Repli (pool très petit ou atypique) : 4 rangs répartis sur tout le classement.
@@ -131,7 +131,7 @@ function pickBossRound(type, { pool, sorted, series, recent }) {
     return { cards: shuffle2(giant, rival), giantId: giant.id };
   }
   if (type === "mirror") {
-    // Likes proches mais départageables : le plus petit représente 60 à 85 % du plus grand.
+    // Likes proches mais clairement départageables : le plus petit représente 40 à 70 % du plus grand.
     let a = null;
     let close = [];
     for (let t = 0; t < 8 && !close.length; t++) {
@@ -142,7 +142,7 @@ function pickBossRound(type, { pool, sorted, series, recent }) {
         const lb = likesOf(c);
         const hi = Math.max(la, lb);
         const ratio = hi > 0 ? Math.min(la, lb) / hi : 1;
-        return ratio >= 0.6 && ratio <= 0.85;
+        return ratio >= 0.4 && ratio <= 0.7;
       });
     }
     let b = close.length ? rnd(close, [a.id]) : null;
@@ -172,17 +172,17 @@ function pickBossRound(type, { pool, sorted, series, recent }) {
     return { cards: [a, b] };
   }
   if (type === "threshold") {
-    // Le seuil est placé 20 à 40 % sous ou au-dessus du vrai nombre de likes, arrondi à un chiffre rond.
-    const eligible = pool.filter((c) => likesOf(c) >= 50);
+    // Le seuil est placé nettement sous (de 38 à 60 % en dessous) ou au-dessus (de x1,6 à x2,5) du vrai nombre de likes, arrondi.
+    const eligible = pool.filter((c) => likesOf(c) >= 100);
     const c = rnd(eligible.length ? eligible : pool);
     const likes = likesOf(c);
-    const r = 0.6 + Math.random() * 0.2;
+    const r = 0.4 + Math.random() * 0.22;
     let x = niceRound(Math.random() < 0.5 ? likes * r : likes / r);
     if (x === likes) x = likes + Math.max(1, Math.round(likes * 0.25));
     return { cards: [c], threshold: x, custom: true };
   }
   if (type === "collective") {
-    // Deux séries dont les likes cumulés sont comparables mais départageables (50 à 85 %).
+    // Deux séries dont les likes cumulés sont nettement différents (la plus petite vaut 20 à 55 % de l'autre).
     let a = null;
     let close = [];
     for (let t = 0; t < 8 && !close.length; t++) {
@@ -192,7 +192,7 @@ function pickBossRound(type, { pool, sorted, series, recent }) {
         if (s.id === a.id) return false;
         const hi = Math.max(sa, likesOf(s));
         const ratio = Math.min(sa, likesOf(s)) / hi;
-        return ratio >= 0.5 && ratio <= 0.85;
+        return ratio >= 0.2 && ratio <= 0.55;
       });
     }
     const b = (close.length ? rnd(close, [a.id]) : null) || rnd(series, [a.id]);

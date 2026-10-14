@@ -1,13 +1,13 @@
 import { motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
-import { Home, Gamepad2, LayoutGrid, Sparkles, Users, Store } from "lucide-react";
+import { Home, Gamepad2, LayoutGrid, Library, Sparkles, Users, Store } from "lucide-react";
 import { haptics } from "../../utils/haptics";
 
 // ── Barre de navigation de Waifinity ───────────────────────────────────────
 //
 // Strictement le même habillage que la barre principale (common/BottomNav) :
 // même conteneur flottant, mêmes pastilles actives, mêmes libellés, même bouton
-// central ambré. Seuls les éléments changent : les 4 écrans du jeu + « Accueil »
+// central ambré. Seuls les éléments changent : les 5 écrans du jeu + « Accueil »
 // pour quitter, « Jeux » pour revenir à la liste des jeux. Le bouton central (Boosters) est l'action la plus fréquente.
 // Si tu modifies le style de l'une des deux barres, répercute-le dans l'autre.
 //
@@ -20,6 +20,7 @@ const ITEMS = [
   { key: "collection", icon: LayoutGrid, label: "Collection" },
   { key: "boosters",   icon: Sparkles,   label: "Boosters",   primary: true },
   { key: "social",     icon: Users,      label: "Social" },
+  { key: "series",     icon: Library,    label: "Séries" },
   { key: "shop",       icon: Store,      label: "Boutique" },
 ];
 
@@ -37,7 +38,7 @@ function Badge({ count, className = "" }) {
 }
 
 /**
- * @param tab       écran actif ("boosters" | "collection" | "social" | "shop")
+ * @param tab       écran actif ("boosters" | "collection" | "social" | "series" | "shop")
  * @param onChange  (tabKey) => void
  * @param badges    { boosters?: number, social?: number }
  */

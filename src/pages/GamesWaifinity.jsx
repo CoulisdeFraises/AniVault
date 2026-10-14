@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronLeft, Sparkles, AlertTriangle } from "lucide-react";
@@ -16,17 +16,19 @@ import { ShopPanel } from "../components/games/ShopPanel";
 import { BoostersTab } from "../components/games/BoostersTab";
 import { SocialTab } from "../components/games/SocialTab";
 import { WaifinityNav } from "../components/games/WaifinityNav";
+import { SeriesExplorer } from "../components/games/SeriesExplorer";
 import { WalletHero } from "../components/games/WalletHero";
 import { useAuth } from "../context/AuthContext";
 import { tradeNeedsMe } from "../utils/waifinityTrades";
 
-// Les 4 écrans du jeu. La navigation se fait par la barre du bas (WaifinityNav) ;
+// Les 5 écrans du jeu. La navigation se fait par la barre du bas (WaifinityNav) ;
 // l'écran actif vit dans l'URL (?tab=…) pour que les liens des notifications,
 // le bouton retour et le rechargement retombent au bon endroit.
 const TABS = [
   { key: "boosters",   title: "Boosters",   desc: "Récupère tes récompenses et ouvre des boosters." },
-  { key: "collection", title: "Collection", desc: "Tes personnages, tes séries et tes favoris." },
+  { key: "collection", title: "Collection", desc: "Tes personnages et tes favoris." },
   { key: "social",     title: "Social",     desc: "Compare ta collection et échange avec tes amis." },
+  { key: "series",     title: "Séries",     desc: "Explore toutes les séries et complète-les." },
   { key: "shop",       title: "Boutique",   desc: "Dépense ton Anigold et tes fragments." },
 ];
 
@@ -67,6 +69,7 @@ export function GamesWaifinity() {
   const boostersTodo = (game.canOpenFree ? 1 : 0) + (game.daily && !game.daily.claimed ? 1 : 0) + missionsReady + bonusReady;
   const [result, setResult] = useState(null);
   const [sheetId, setSheetId] = useState(null);
+  const favSet = useMemo(() => new Set(game.favorites), [game.favorites]);
 
   const sheetEntry = sheetId != null ? game.collection[sheetId] : null;
   const sheetCharacter = sheetId != null ? (game.pool.find((c) => c.id === sheetId) || sheetEntry || null) : null;
@@ -136,6 +139,12 @@ export function GamesWaifinity() {
               {tab === "collection" && (
                 <CollectionGrid collectionList={game.collectionList} pool={game.pool} collection={game.collection} favorites={game.favorites} equipped={game.equipped} onOpenSheet={setSheetId}
                   onMoveFavorite={game.moveFavorite} onReorderFavorites={game.setFavoritesOrder} onToggleFavorite={companion.toggleFavorite} />
+              )}
+              {tab === "series" && (
+                <SeriesExplorer
+                  pool={game.pool} collection={game.collection} favorites={favSet} equipped={game.equipped} onOpenSheet={setSheetId}
+                  onBuyTargeted={game.openTargetedBooster} canAffordTarget={game.canAffordTarget} coins={game.coins} busy={!!game.pendingPack}
+                />
               )}
               {tab === "social" && <SocialTab game={game} initialView={searchParams.get("view")} />}
               {tab === "shop" && (

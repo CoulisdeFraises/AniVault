@@ -9,7 +9,6 @@ import { RarityBadge, RarityDot } from "./RarityBadge";
 import { GenderBadge } from "./GenderBadge";
 import { PillTabs } from "./PillTabs";
 import { CardFrame } from "./CardFrame";
-import { SeriesExplorer } from "./SeriesExplorer";
 import { FavoritesCarousel } from "./FavoritesCarousel";
 import { FavoriteActionSheet, FavoritesReorderModal } from "./FavoritesManager";
 import { LoadMore } from "./LoadMore";
@@ -34,11 +33,6 @@ function loadOpenSeries() {
 function saveOpenSeries(set) {
   try { localStorage.setItem(OPEN_SERIES_KEY, JSON.stringify([...set].slice(-300))); } catch { /* quota : on perd juste la mémoire */ }
 }
-
-const VIEWS = [
-  { key: "mine",     label: "Ma collection" },
-  { key: "explorer", label: "Explorer" },
-];
 
 const SORTS = [
   { key: "recent", label: "Récents" },
@@ -104,7 +98,6 @@ export function CollectionGrid({
   collectionList, pool, collection = {}, favorites = [], equipped = {}, onOpenSheet,
   onMoveFavorite, onReorderFavorites, onToggleFavorite,
 }) {
-  const [view, setView]                 = useState("mine");
   const [tierFilter, setTierFilter]     = useState("all");
   const [genderFilter, setGenderFilter] = useState("all");
   const [sort, setSort]                 = useState("recent");
@@ -204,25 +197,9 @@ export function CollectionGrid({
   const cardsPage  = usePagedList(filtered, { pageSize: PAGE_CARDS, resetKey });
   const groupsPage = usePagedList(groups || [], { pageSize: PAGE_GROUPS, resetKey });
 
-  const viewToggle = (
-    <div className="flex justify-center">
-      <PillTabs tabs={VIEWS} value={view} onChange={setView} layoutId="waifinity-collection-view" size="sm" tone="violet" />
-    </div>
-  );
-
-  if (view === "explorer") {
-    return (
-      <div className="space-y-4">
-        {viewToggle}
-        <SeriesExplorer pool={pool} collection={collection} favorites={favSet} equipped={equipped} onOpenSheet={onOpenSheet} />
-      </div>
-    );
-  }
-
   if (!collectionList.length) {
     return (
       <div className="space-y-4">
-        {viewToggle}
         <div className="rounded-2xl border border-dashed border-white/15 bg-violet-900/20 py-10 text-center">
           <HeartCrack size={26} className="mx-auto text-violet-500 mb-2" />
           <p className="text-sm text-violet-200">Ta collection est vide pour le moment</p>
@@ -239,7 +216,6 @@ export function CollectionGrid({
 
   return (
     <div className="space-y-4">
-      {viewToggle}
 
       {/* Progression globale */}
       <div className="flex items-center gap-4 rounded-2xl bg-violet-900/40 border border-white/10 p-4">
