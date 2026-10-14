@@ -92,7 +92,9 @@ function mapRow(row) {
     gender:     normalizeGender(row.gender),
     favourites: row.favourites || 0,
     seriesId:   row.anime_mal_id ?? null,
-    series:     row.series || "Série inconnue",
+    // Nom de la série en français (colonne serie_FR) ; repli sur l'ancienne
+    // colonne `series` pour les lignes pas encore traduites.
+    series:     row.serie_FR?.trim() || row.series || "Série inconnue",
     about:      row.about || null,
     stats:      mapStats(row),
   };
@@ -104,7 +106,7 @@ async function fetchSupabasePool() {
   for (let from = 0; ; from += SUPABASE_PAGE) {
     const { data, error } = await supabase
       .from(TABLE)
-      .select("mal_id, name, image, gender, favourites, anime_mal_id, series, about, intelligence, strength, dexterity, wisdom, luck, endurance, charisma, updated_at")
+      .select("mal_id, name, image, gender, favourites, anime_mal_id, series, serie_FR, about, intelligence, strength, dexterity, wisdom, luck, endurance, charisma, updated_at")
       .order("favourites", { ascending: false })
       .range(from, from + SUPABASE_PAGE - 1);
     if (error) throw new Error(error.message);
