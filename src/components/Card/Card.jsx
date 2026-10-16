@@ -279,29 +279,40 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   }, [tvW, tvT]);
 
   // ── Cover ─────────────────────────────────────────────────────────────────
+  // Image collée au bord gauche, pleine hauteur, qui se fond vers la droite
+  // (masque dégradé) pour laisser la place au texte sans cadre ni bordure.
   const coverImg = (() => {
     const img = cur?.coverImage || (activeTVIdx === 0 ? entry.coverImage : null);
     const fb  = tvSeasons[0]?.coverImage || entry.coverImage;
-    const box = `w-[58px] h-[82px] rounded-xl overflow-hidden bg-white/5 border border-white/10 ${dimmed}`;
     const TypeIcon = entry.category === "movie" ? Clapperboard : entry.type === "anime" ? Film : Tv;
+    const fade = {
+      WebkitMaskImage: "linear-gradient(to right, #000 0%, #000 50%, rgba(0,0,0,0.5) 78%, transparent 100%)",
+      maskImage:       "linear-gradient(to right, #000 0%, #000 50%, rgba(0,0,0,0.5) 78%, transparent 100%)",
+    };
     return (
-      <div className="relative flex-shrink-0 self-center">
-        {img ? (
-          <div className={box}><img src={img} alt="" loading="lazy" className="w-full h-full object-cover" /></div>
-        ) : fb ? (
-          <div className={`relative ${box}`}>
-            <img src={fb} alt="" className="w-full h-full object-cover brightness-[0.25]" />
-            <span className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-white/50">?</span>
-          </div>
-        ) : (
-          <div className={`${box} flex items-center justify-center`}><TypeIcon size={20} className="text-violet-600" /></div>
-        )}
+      <>
+        <div className={`absolute inset-y-0 left-0 w-[96px] pointer-events-none ${dimmed}`} style={fade} aria-hidden="true">
+          {img ? (
+            <img src={img} alt="" loading="lazy" className="w-full h-full object-cover" />
+          ) : fb ? (
+            <div className="relative w-full h-full">
+              <img src={fb} alt="" className="w-full h-full object-cover brightness-[0.25]" />
+              <span className="absolute inset-y-0 left-0 w-[60px] flex items-center justify-center text-3xl font-bold text-white/50">?</span>
+            </div>
+          ) : (
+            <div className="w-full h-full bg-violet-900/40 flex items-center">
+              <span className="w-[60px] flex items-center justify-center"><TypeIcon size={22} className="text-violet-500" /></span>
+            </div>
+          )}
+        </div>
+        {/* Voile de lisibilité : assombrit légèrement la zone de transition derrière le texte */}
+        <div className="absolute inset-y-0 left-0 w-[100px] pointer-events-none bg-gradient-to-r from-transparent to-violet-950/30" aria-hidden="true" />
         {isFavorite && (
-          <div className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center w-4 h-4 rounded-full bg-pink-500/90 shadow-md shadow-pink-500/50">
-            <Heart size={8} fill="white" className="text-white" />
+          <div className="absolute top-2 left-3 z-20 flex items-center justify-center w-5 h-5 rounded-full bg-pink-500/90 shadow-md shadow-pink-500/50 ring-1 ring-white/20">
+            <Heart size={10} fill="white" className="text-white" />
           </div>
         )}
-      </div>
+      </>
     );
   })();
 
@@ -358,21 +369,21 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             transform:  `translateX(${swipeX}px)`,
             transition: isSwiping ? "none" : "transform 0.35s cubic-bezier(0.34,1.56,0.64,1)",
           }}
-          className={`relative card-noise rounded-2xl overflow-hidden bg-violet-900/30 pl-4 pr-3 py-2.5 flex items-center gap-3 min-h-[100px] cursor-pointer hover:bg-violet-800/40 transition-colors motion-reduce:transition-none ${
+          className={`relative card-noise rounded-2xl overflow-hidden bg-violet-900/30 h-[118px] pl-[92px] pr-3 py-3 flex items-stretch cursor-pointer hover:bg-violet-800/40 transition-colors motion-reduce:transition-none ${
             isAiring
               ? "border border-teal-400/60 shadow-[0_0_14px_-2px_rgba(45,212,191,0.55)]"
               : "border border-white/10"
           }`}
         >
           {/* Liseré de statut */}
-          <span className="absolute left-0 inset-y-2.5 w-1 rounded-r-full pointer-events-none"
+          <span className="absolute left-0 inset-y-3 w-1 rounded-r-full pointer-events-none z-20"
             style={{ background: s.color, boxShadow: `0 0 10px ${s.color}80` }} />
 
           {coverImg}
 
-          <div className="flex-1 min-w-0 flex flex-col gap-1 relative z-10">
+          <div className="flex-1 min-w-0 flex flex-col justify-between relative z-10">
             {/* Ligne 1 : type + statut */}
-            <div className={`flex items-center gap-1.5 pr-14 min-w-0 overflow-hidden ${dimmed}`}>
+            <div className={`flex items-center gap-1.5 pr-14 min-w-0 overflow-hidden h-[18px] ${dimmed}`}>
               <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-violet-300 whitespace-nowrap flex-shrink-0">
                 <TypeIcon size={10} />
                 {entry.category === "movie" ? "Film" : entry.type === "anime" ? "Anime" : "Série"}
@@ -388,11 +399,11 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             </div>
 
             {/* Ligne 2 : titre */}
-            <h3 className={`font-semibold text-[15px] text-violet-50 leading-tight truncate pr-14 ${dimmed}`}
+            <h3 className={`font-semibold text-[15px] text-white leading-tight truncate pr-14 [text-shadow:0_1px_6px_rgba(0,0,0,0.55)] ${dimmed}`}
               style={{ fontFamily: "'Space Grotesk',sans-serif" }} title={entry.title}>{entry.title}</h3>
 
             {/* Ligne 3 : épisodes */}
-            <div className={`flex items-center gap-1.5 min-w-0 text-[11px] ${isAbandoned ? dimmed : ""}`}>
+            <div className={`flex items-center gap-1.5 min-w-0 h-[22px] text-[11px] ${isAbandoned ? dimmed : ""}`}>
               <span className="w-4 h-4 rounded-full bg-sky-400/25 flex items-center justify-center flex-shrink-0">
                 <Play size={8} fill="currentColor" strokeWidth={0} className="text-sky-300 ml-px" />
               </span>
@@ -408,8 +419,8 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             </div>
 
             {/* Ligne 4 : genres + prochaine diffusion */}
-            {(genres.length > 0 || cd) && (
-              <div className={`flex items-center justify-between gap-2 min-w-0 ${dimmed}`}>
+            {(
+              <div className={`flex items-center justify-between gap-2 min-w-0 h-[18px] ${dimmed}`}>
                 <div className="flex gap-1 overflow-hidden min-w-0">
                   {genres.map(g => (
                     <span key={g} className="px-2 py-px rounded-full bg-violet-500/15 border border-violet-400/20 text-[10px] text-violet-200 whitespace-nowrap">{g}</span>
@@ -426,7 +437,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             )}
 
             {/* Barre de progression */}
-            <div className={`h-1.5 rounded-full overflow-hidden mt-0.5 ${progressTotal ? "bg-white/10" : "bg-white/[0.04]"} ${isAbandoned ? dimmed : ""}`}>
+            <div className={`h-1.5 rounded-full overflow-hidden flex-shrink-0 ${progressTotal ? "bg-white/10" : "bg-white/[0.04]"} ${isAbandoned ? dimmed : ""}`}>
               <div className="h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
                 style={{ width: `${pct}%`, background: s.color, boxShadow: pct > 0 ? `0 0 8px ${s.color}70` : undefined }} />
             </div>

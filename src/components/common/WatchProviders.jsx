@@ -20,7 +20,8 @@ const GROUPS = [
 /**
  * Résout les plateformes d'un titre. `ids` : { tmdbId, anilistId, malId } ;
  * `titles` : titres à essayer pour retrouver le titre TMDB si pas d'id.
- * Renvoie { providers } (TMDB) ou { links } (Tenrai) ou null.
+ * Renvoie { providers, direct } (TMDB, `direct` = liens directs par plateforme
+ * quand MyAnimeList les connaît) ou { links } (Tenrai seul) ou null.
  */
 export async function resolveWatchProviders({ tmdbId, anilistId, malId, titles = [], kind = "tv" }) {
   let tmdb = tmdbId || null;
@@ -44,24 +45,68 @@ export async function resolveWatchProviders({ tmdbId, anilistId, malId, titles =
       }
     }
     const providers = tmdb ? await fetchTMDBProvidersFR(tmdb, kind) : null;
-    if (providers) return { providers };
+    if (providers) return { providers, direct: mal ? await fetchStreamingLinks(mal) : [] };
   }
 
   if (mal) {
-    try {
-      const json = await tenraiGet(`/anime/${mal}/streaming`);
-      const links = (json?.data || []).filter((l) => l?.name && l?.url);
-      if (links.length) return { links };
-    } catch { /* pas de repli disponible */ }
+    const links = await fetchStreamingLinks(mal);
+    if (links.length) return { links };
   }
   return null;
 }
 
-function Logo({ p, size }) {
-  return p.logo
-    ? <img src={p.logo} alt={p.name} title={p.name} loading="lazy" draggable="false"
-        style={{ width: size, height: size }} className="rounded-lg object-cover bg-white/10 flex-shrink-0" />
-    : <span title={p.name} style={{ height: size }} className="px-2 inline-flex items-center rounded-lg bg-white/10 text-[10px] text-violet-200">{p.name}</span>;
+// Liens de streaming MyAnimeList (Tenrai) : { name, url }. Mémorisés le temps de la session.
+const _streamCache = new Map();
+async function fetchStreamingLinks(mal) {
+  if (_streamCache.has(mal)) return _streamCache.get(mal);
+  let links = [];
+  try {
+    const json = await tenraiGet(`/anime/${mal}/streaming`);
+    links = (json?.data || []).filter((l) => l?.name && l?.url);
+  } catch { /* pas de lien direct : on se rabat sur la page JustWatch */ }
+  _streamCache.set(mal, links);
+  return links;
+}
+
+const norm = (n) => String(n || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** Lien direct d'une plateforme TMDB parmi les liens MyAnimeList (« Amazon Prime Video » ~ « Amazon »). */
+function directUrl(name, direct) {
+  const a = norm(name);
+  if (!a) return null;
+  const hit = direct?.find((l) => {
+    const b = norm(l.name);
+    return a === b || (a.length >= 4 && b.length >= 4 && (a.includes(b) || b.includes(a)));
+  });
+  return hit?.url || null;
+}
+
+function faviconOf(url) {
+  try { return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=64`; } catch { return null; }
+}
+
+/**
+ * Pastille de plateforme : logo, ou initiale sur fond coloré si le logo manque
+ * ou ne charge pas. Cliquable (nouvel onglet) quand `url` est fourni.
+ */
+function Logo({ p, size, url }) {
+  const [broken, setBroken] = useState(false);
+  const box = { width: size, height: size };
+  const inner = p.logo && !broken
+    ? <img src={p.logo} alt={p.name} loading="lazy" draggable="false" onError={() => setBroken(true)}
+        style={box} className="rounded-lg object-cover bg-white/10 block" />
+    : <span aria-label={p.name} style={{ ...box, fontSize: Math.round(size * 0.45) }}
+        className="inline-flex items-center justify-center rounded-lg bg-violet-600/40 border border-violet-400/30 font-bold text-violet-100 uppercase select-none">
+        {String(p.name || "?").trim().slice(0, 2)}
+      </span>;
+  if (!url) return <span title={p.name} className="flex-shrink-0">{inner}</span>;
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" title={`${p.name} — ouvrir`}
+       aria-label={`Ouvrir ${p.name}`}
+       className="flex-shrink-0 rounded-lg hover:ring-2 hover:ring-amber-400/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400 active:scale-95 transition-all motion-reduce:transition-none">
+      {inner}
+    </a>
+  );
 }
 
 /** Petite rangée de logos (cartes du calendrier) : abonnement/gratuit en priorité. */
@@ -116,27 +161,19 @@ export function WatchProviders({ tmdbId, anilistId, malId, titles, kind = "tv", 
             <div key={g.key} className="flex items-center gap-2 flex-wrap">
               <span className="w-[74px] flex-shrink-0 text-[10px] text-violet-400">{g.label}</span>
               <div className="flex flex-wrap gap-1.5">
-                {data.providers[g.key].map((p) => <Logo key={p.id} p={p} size={30} />)}
+                {data.providers[g.key].map((p) => (
+                  <Logo key={p.id} p={p} size={34} url={directUrl(p.name, data.direct) || data.providers.link} />
+                ))}
               </div>
             </div>
           ))}
-          <p className="text-[9px] text-violet-500">
-            Données{" "}
-            {data.providers.link
-              ? <a href={data.providers.link} target="_blank" rel="noopener noreferrer" className="underline hover:text-violet-300">JustWatch</a>
-              : "JustWatch"}
-            {" "}via TMDB
-          </p>
         </div>
       )}
 
       {data?.links && (
         <div className="flex flex-wrap gap-1.5">
           {data.links.map((l) => (
-            <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer"
-               className="px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[11px] text-violet-100 hover:bg-white/10 transition-colors">
-              {l.name}
-            </a>
+            <Logo key={l.url} p={{ name: l.name, logo: faviconOf(l.url) }} size={34} url={l.url} />
           ))}
           <p className="w-full text-[9px] text-violet-500">Liens MyAnimeList — disponibilité non vérifiée pour la France.</p>
         </div>

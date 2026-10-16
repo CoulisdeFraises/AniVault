@@ -1,14 +1,9 @@
 import { BarChart3, ChevronRight } from "lucide-react";
-import { RatingBadge } from "../common/Rating";
 
 const DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 export function ActivityCard({ week, goal, onOpenHistory }) {
   const max = Math.max(...week.perDay, 1);
-  const remaining = Math.max(0, goal - week.total);
-  const pct = week.total / goal;
-  const mood = pct >= 1 ? 10 : pct >= 0.5 ? 8 : week.total > 0 ? 6 : 5;
-  const line = remaining === 0 ? "Objectif atteint !" : remaining === 1 ? "Plus qu'un épisode !" : week.total === 0 ? "On s'y met ?" : "Toujours plus d'animes !";
 
   return (
     <section className="rounded-2xl bg-violet-900/40 border border-white/10 px-2.5 py-2 mb-4 animate-fadeIn">
@@ -38,11 +33,6 @@ export function ActivityCard({ week, goal, onOpenHistory }) {
               </div>
             );
           })}
-        </div>
-        <div className="relative w-[112px] h-[42px] flex-shrink-0">
-          <p className="absolute top-0 right-1 text-[13px] text-amber-300 -rotate-3 text-right leading-none"
-            style={{ fontFamily: "'Caveat', cursive" }}>{line}</p>
-          <RatingBadge rating={mood} className="absolute bottom-0 right-0 h-9 text-2xl leading-none drop-shadow-lg" />
         </div>
       </div>
     </section>

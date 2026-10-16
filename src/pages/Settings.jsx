@@ -507,6 +507,7 @@ export function Settings() {
           <Info size={15} className="text-violet-400" />
         </Row>
         <Row label="Sources de données" sublabel="AniList · TVmaze · Tenrai (MyAnimeList) · TMDB" />
+        <Row label="Plateformes de streaming" sublabel="Disponibilités en France : données JustWatch, via l'API TMDB. Ce produit utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB." />
         <Row label="Stockage" sublabel="Supabase — données synchronisées sur ton compte" />
       </Section>
 
