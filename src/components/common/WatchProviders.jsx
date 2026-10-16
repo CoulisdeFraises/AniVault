@@ -12,7 +12,7 @@ import { tenraiGet } from "../../api/tenrai";
 const norm = (n) => String(n || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
 // Pas de distinction « avec / sans pub » : « Netflix Standard with Ads » = « Netflix »,
-// et les offres gratuites avec pub rejoignent « Gratuit ».
+// et abonnement / gratuit / avec pub forment un seul groupe « Streaming ».
 const baseName = (n) => String(n || "")
   .replace(/\s*\(?\b(standard\s+)?with\s+ads\)?/i, "")
   .replace(/\s*\(?avec\s+pub\w*\)?/i, "")
@@ -30,16 +30,17 @@ function dedupeByBase(list, seen = new Set()) {
   return out;
 }
 
-/** Regroupe les offres TMDB : Abonnement, Gratuit (gratuit + avec pub), Location, Achat. */
+/** Regroupe les offres TMDB : Streaming (abonnement + gratuit + avec pub confondus), Location, Achat. */
 function buildGroups(providers) {
-  const seen = new Set(); // une plateforme déjà en « Abonnement » n'est pas répétée dans « Gratuit »
-  const flatrate = dedupeByBase(providers?.flatrate, seen);
-  const free     = dedupeByBase([...(providers?.free || []), ...(providers?.ads || [])], seen);
+  const streaming = dedupeByBase([
+    ...(providers?.flatrate || []),
+    ...(providers?.free || []),
+    ...(providers?.ads || []),
+  ]);
   return [
-    { key: "flatrate", label: "Abonnement", list: flatrate },
-    { key: "free",     label: "Gratuit",    list: free },
-    { key: "rent",     label: "Location",   list: dedupeByBase(providers?.rent) },
-    { key: "buy",      label: "Achat",      list: dedupeByBase(providers?.buy) },
+    { key: "streaming", label: "Streaming", list: streaming },
+    { key: "rent",      label: "Location",  list: dedupeByBase(providers?.rent) },
+    { key: "buy",       label: "Achat",     list: dedupeByBase(providers?.buy) },
   ].filter((g) => g.list.length);
 }
 
@@ -150,7 +151,7 @@ function Logo({ p, size, url }) {
 /** Petite rangée de logos (cartes du calendrier) : abonnement/gratuit en priorité. */
 export function ProviderLogos({ data, max = 3, size = 18 }) {
   const groups = data?.providers ? buildGroups(data.providers) : [];
-  const uniq = groups.filter((g) => g.key === "flatrate" || g.key === "free").flatMap((g) => g.list);
+  const uniq = groups.filter((g) => g.key === "streaming").flatMap((g) => g.list);
   if (!uniq.length) return null;
   return (
     <div className="flex items-center gap-1 mt-1.5" aria-label="Disponible sur">
