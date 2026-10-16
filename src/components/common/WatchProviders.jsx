@@ -9,13 +9,39 @@ import { tenraiGet } from "../../api/tenrai";
 // JustWatch). Repli : liens de streaming de MyAnimeList via Tenrai, sans pays
 // ni logo, quand TMDB ne connaît pas le titre ou n'a aucune offre en France.
 
-const GROUPS = [
-  { key: "flatrate", label: "Abonnement" },
-  { key: "free",     label: "Gratuit" },
-  { key: "ads",      label: "Avec pub" },
-  { key: "rent",     label: "Location" },
-  { key: "buy",      label: "Achat" },
-];
+const norm = (n) => String(n || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+// Pas de distinction « avec / sans pub » : « Netflix Standard with Ads » = « Netflix »,
+// et les offres gratuites avec pub rejoignent « Gratuit ».
+const baseName = (n) => String(n || "")
+  .replace(/\s*\(?\b(standard\s+)?with\s+ads\)?/i, "")
+  .replace(/\s*\(?avec\s+pub\w*\)?/i, "")
+  .trim();
+
+function dedupeByBase(list, seen = new Set()) {
+  const out = [];
+  for (const p of list || []) {
+    const name = baseName(p.name) || p.name;
+    const k = norm(name);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push({ ...p, name });
+  }
+  return out;
+}
+
+/** Regroupe les offres TMDB : Abonnement, Gratuit (gratuit + avec pub), Location, Achat. */
+function buildGroups(providers) {
+  const seen = new Set(); // une plateforme déjà en « Abonnement » n'est pas répétée dans « Gratuit »
+  const flatrate = dedupeByBase(providers?.flatrate, seen);
+  const free     = dedupeByBase([...(providers?.free || []), ...(providers?.ads || [])], seen);
+  return [
+    { key: "flatrate", label: "Abonnement", list: flatrate },
+    { key: "free",     label: "Gratuit",    list: free },
+    { key: "rent",     label: "Location",   list: dedupeByBase(providers?.rent) },
+    { key: "buy",      label: "Achat",      list: dedupeByBase(providers?.buy) },
+  ].filter((g) => g.list.length);
+}
 
 /**
  * Résout les plateformes d'un titre. `ids` : { tmdbId, anilistId, malId } ;
@@ -45,12 +71,12 @@ export async function resolveWatchProviders({ tmdbId, anilistId, malId, titles =
       }
     }
     const providers = tmdb ? await fetchTMDBProvidersFR(tmdb, kind) : null;
-    if (providers) return { providers, direct: mal ? await fetchStreamingLinks(mal) : [] };
+    if (providers) return { providers, direct: mal ? await fetchStreamingLinks(mal) : [], title: names[0] || null };
   }
 
   if (mal) {
     const links = await fetchStreamingLinks(mal);
-    if (links.length) return { links };
+    if (links.length) return { links, title: names[0] || null };
   }
   return null;
 }
@@ -68,8 +94,6 @@ async function fetchStreamingLinks(mal) {
   return links;
 }
 
-const norm = (n) => String(n || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-
 /** Lien direct d'une plateforme TMDB parmi les liens MyAnimeList (« Amazon Prime Video » ~ « Amazon »). */
 function directUrl(name, direct) {
   const a = norm(name);
@@ -79,6 +103,20 @@ function directUrl(name, direct) {
     return a === b || (a.length >= 4 && b.length >= 4 && (a.includes(b) || b.includes(a)));
   });
   return hit?.url || null;
+}
+
+// Les liens MyAnimeList pour Amazon / Prime Video pointent vers la boutique d'un autre pays
+// (amazon.com) ou vers une fiche qui n'existe pas en France : on ouvre plutôt une recherche
+// Prime Video sur le titre (redirigée vers le pays du compte), à défaut la page JustWatch France.
+const isPrime = (name) => /amazon|prime\s*video/i.test(String(name || ""));
+
+function linkFor(p, data, title) {
+  if (isPrime(p.name)) {
+    return title
+      ? `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${encodeURIComponent(title)}&ie=UTF8`
+      : data.providers.link || null;
+  }
+  return directUrl(p.name, data.direct) || data.providers.link || null;
 }
 
 function faviconOf(url) {
@@ -111,11 +149,8 @@ function Logo({ p, size, url }) {
 
 /** Petite rangée de logos (cartes du calendrier) : abonnement/gratuit en priorité. */
 export function ProviderLogos({ data, max = 3, size = 18 }) {
-  const list = data?.providers
-    ? [...data.providers.flatrate, ...data.providers.free, ...data.providers.ads]
-    : [];
-  const seen = new Set();
-  const uniq = list.filter((p) => (seen.has(p.id) ? false : seen.add(p.id)));
+  const groups = data?.providers ? buildGroups(data.providers) : [];
+  const uniq = groups.filter((g) => g.key === "flatrate" || g.key === "free").flatMap((g) => g.list);
   if (!uniq.length) return null;
   return (
     <div className="flex items-center gap-1 mt-1.5" aria-label="Disponible sur">
@@ -157,12 +192,12 @@ export function WatchProviders({ tmdbId, anilistId, malId, titles, kind = "tv", 
 
       {data?.providers && (
         <div className="space-y-2">
-          {GROUPS.filter((g) => data.providers[g.key]?.length).map((g) => (
+          {buildGroups(data.providers).map((g) => (
             <div key={g.key} className="flex items-center gap-2 flex-wrap">
               <span className="w-[74px] flex-shrink-0 text-[10px] text-violet-400">{g.label}</span>
               <div className="flex flex-wrap gap-1.5">
-                {data.providers[g.key].map((p) => (
-                  <Logo key={p.id} p={p} size={34} url={directUrl(p.name, data.direct) || data.providers.link} />
+                {g.list.map((p) => (
+                  <Logo key={p.id} p={p} size={34} url={linkFor(p, data, titles?.filter(Boolean)[0] || data.title)} />
                 ))}
               </div>
             </div>
