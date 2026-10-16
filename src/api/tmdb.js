@@ -3,6 +3,7 @@ import { fuzzyRank, buildFallbackQueries, mergeById } from "../utils/fuzzy";
 
 const TMDB_BEARER_TOKEN = import.meta.env.VITE_TMDB_TOKEN || "";
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const PROVIDERS_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 h — les catalogues bougent peu
 const THEATRICAL_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 heures — sorties cinéma, quasi statique
 
 function tmdbHeaders() {
@@ -200,6 +201,44 @@ export async function fetchTMDBWatchProvidersFR(tmdbId) {
       return !!(fr.flatrate?.length || fr.free?.length || fr.ads?.length);
     } catch {
       return false;
+    }
+  });
+}
+
+// ── Plateformes de diffusion en France (détail) ───────────────────────────────
+// GET /{tv|movie}/{id}/watch/providers → results.FR. Renvoie, par type d'offre,
+// la liste des plateformes { id, name, logo }, ou null s'il n'y en a aucune.
+// Données JustWatch : l'attribution est obligatoire (voir WatchProviders.jsx).
+const PROVIDER_KINDS = ["flatrate", "free", "ads", "rent", "buy"];
+
+export async function fetchTMDBProvidersFR(tmdbId, kind = "tv") {
+  if (!TMDB_BEARER_TOKEN || !tmdbId) return null;
+  const type = kind === "movie" ? "movie" : "tv";
+  return withCache(`tmdb:providers:fr:v2:${type}:${tmdbId}`, PROVIDERS_CACHE_TTL, async () => {
+    try {
+      const res = await fetch(
+        `https://api.themoviedb.org/3/${type}/${tmdbId}/watch/providers`,
+        { headers: tmdbHeaders() }
+      );
+      if (!res.ok) return null;
+      const fr = (await res.json()).results?.FR;
+      if (!fr) return null;
+      const out = { link: fr.link || null };
+      let any = false;
+      for (const k of PROVIDER_KINDS) {
+        out[k] = (fr[k] || [])
+          .slice()
+          .sort((a, b) => (a.display_priority ?? 99) - (b.display_priority ?? 99))
+          .map((p) => ({
+            id: p.provider_id,
+            name: p.provider_name,
+            logo: p.logo_path ? `https://image.tmdb.org/t/p/w92${p.logo_path}` : null,
+          }));
+        if (out[k].length) any = true;
+      }
+      return any ? out : null;
+    } catch {
+      return null;
     }
   });
 }

@@ -127,6 +127,7 @@ export function CalendarFilms() {
   function openSynopsis(m) {
     setSynopsisMovie({
       id:          m.id,
+      watchTmdbId: m.id,
       title:       m.title || m.original_title,
       image:       m.poster_path ? `https://image.tmdb.org/t/p/w342${m.poster_path}` : null,
       score:       m.vote_average ? Math.round(m.vote_average * 10) : 0,

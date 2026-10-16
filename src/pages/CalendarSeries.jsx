@@ -7,6 +7,7 @@ import { useLibrary }    from "../context/LibraryContext";
 import { importResult }  from "../api";
 import { TopBar }        from "../components/common/TopBar";
 import { Modal }         from "../components/Modal/Modal";
+import { WatchProviders } from "../components/common/WatchProviders";
 import { AnimatePresence } from "motion/react";
 import { PullToRefresh } from "../components/common/PullToRefresh";
 import { CalendarTabs }  from "../components/common/CalendarTabs";
@@ -116,6 +117,8 @@ function EpisodeDetailModal({ group, onClose }) {
           ) : (
             <p className="text-xs text-violet-500 font-mono italic">Aucun synopsis disponible.</p>
           )}
+
+          <WatchProviders className="pt-1" titles={[group.title]} kind="tv" />
 
           <p className="font-mono text-[10px] text-violet-500 pt-1 border-t border-white/5">
             {time.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}

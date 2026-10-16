@@ -12,6 +12,7 @@ import { fetchSeasonInfo, importResult, refreshEntryCard, fetchNextAiring } from
 import { fetchAniListRecommendations, fetchSimilarTitles } from "../api/recommendations";
 import { fetchTMDBSimilarMovies, fetchTMDBSimilarSeries, hasTMDB } from "../api/tmdb";
 import { SynopsisModal }  from "../components/common/SynopsisModal";
+import { WatchProviders } from "../components/common/WatchProviders";
 import { AddToListModal } from "../components/common/AddToListModal";
 import { useLists }       from "../context/ListsContext";
 import { getFormatGroup } from "../utils/format";
@@ -598,6 +599,15 @@ export function Details() {
               {entry.notes && <p className="text-[11px] text-violet-300/80 italic mt-1 line-clamp-2">{entry.notes}</p>}
             </div>
           </div>
+
+          {/* ── Où regarder (plateformes en France) ── */}
+          <WatchProviders
+            className="mt-3"
+            tmdbId={entry.tmdbId}
+            anilistId={entry.anilistIds?.[0]}
+            titles={[entry.title, entry.titleFrench]}
+            kind={entry.category === "movie" ? "movie" : "tv"}
+          />
 
           {/* ── Barre note + statut ── */}
           {/* Volontairement moins large que le bloc en-tête : laisse la place,

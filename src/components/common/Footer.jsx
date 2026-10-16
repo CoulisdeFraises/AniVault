@@ -34,8 +34,8 @@ export function Footer() {
           <a href="https://www.tvmaze.com" target="_blank" rel="noopener noreferrer"
              className="hover:text-violet-100 transition-colors motion-reduce:transition-none">TVmaze</a>
           {" · "}
-          <a href="https://jikan.moe" target="_blank" rel="noopener noreferrer"
-             className="hover:text-violet-100 transition-colors motion-reduce:transition-none">Jikan</a>
+          <a href="https://tenrai.org" target="_blank" rel="noopener noreferrer"
+             className="hover:text-violet-100 transition-colors motion-reduce:transition-none">Tenrai</a>
         </p>
 
         {/* Année */}

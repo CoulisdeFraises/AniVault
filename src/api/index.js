@@ -362,27 +362,27 @@ export async function fetchSeasonInfo(entry, seasonIndex) {
         }
       }
 
-      // 3. Jikan en dernier recours — seulement pour les numéros que ni
+      // 3. Tenrai (MyAnimeList) en dernier recours — seulement pour les numéros que ni
       // AniList ni TMDB n'ont pu nommer (évite un appel inutile si TMDB a
       // déjà tout couvert).
       const finalTotal = totalEpisodes ?? tmdbTotal ?? null;
       const namedByTMDB = new Map(tmdbEpisodes.map((e) => [e.number, e.name]).filter(([, n]) => n));
 
-      // On tente Jikan si AniList/TMDB n'ont donné AUCUN total (fréquent pour
+      // On tente Tenrai si AniList/TMDB n'ont donné AUCUN total (fréquent pour
       // les OVA/ONA mal documentées), ou si un total est connu mais que TMDB
       // n'a pas nommé tous les épisodes attendus.
       const stillMissing = finalTotal == null || namedByTMDB.size < finalTotal;
-      let jikanEpisodes = [];
+      let tenraiEpisodes = [];
       if (stillMissing) {
-        jikanEpisodes = await fetchAniListEpisodesBySeasonId(anilistId);
+        tenraiEpisodes = await fetchAniListEpisodesBySeasonId(anilistId);
       }
-      const namedByJikan = new Map(jikanEpisodes.map((e) => [e.number, e.name]).filter(([, n]) => n));
+      const namedByTenrai = new Map(tenraiEpisodes.map((e) => [e.number, e.name]).filter(([, n]) => n));
 
       // Le total vient d'AniList en priorité (déjà fiable pour "en cours" vs
       // "terminé"). Si vraiment aucune des trois sources ne le connaît, on se
       // rabat sur la taille de la liste nommée obtenue plutôt que de rester
       // bloqué à "inconnu".
-      const resolvedTotal = finalTotal ?? (tmdbEpisodes.length || jikanEpisodes.length || null);
+      const resolvedTotal = finalTotal ?? (tmdbEpisodes.length || tenraiEpisodes.length || null);
 
       // IMPORTANT : le nombre de lignes suit le total résolu, JAMAIS un max
       // brut des tailles de liste — sinon une saison TMDB mal alignée (qui
@@ -392,7 +392,7 @@ export async function fetchSeasonInfo(entry, seasonIndex) {
       const episodes = rowCount > 0
         ? Array.from({ length: rowCount }, (_, i) => {
             const number = i + 1;
-            return { number, name: namedByTMDB.get(number) || namedByJikan.get(number) || null };
+            return { number, name: namedByTMDB.get(number) || namedByTenrai.get(number) || null };
           })
         : [];
 

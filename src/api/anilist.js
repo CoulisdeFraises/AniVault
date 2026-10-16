@@ -1,5 +1,6 @@
 import { cacheGet, cacheSet } from "../services/cache";
 import { getMediaDetails } from "./media";
+import { tenraiFetch } from "./tenrai";
 import { fuzzyRank, buildFallbackQueries, mergeById } from "../utils/fuzzy";
 
 const ANILIST_QUERY_TTL = 10 * 60 * 1000; // 10 min — assez pour éviter les doublons dans une session, sans figer les données trop longtemps
@@ -298,24 +299,12 @@ export async function fetchAniListSeasonData(anilistId) {
   }
 }
 
-// ── File d'attente Jikan ─────────────────────────────────────────────────────
-let _jikanChain = Promise.resolve();
-
-function jikanFetch(url) {
-  const request = _jikanChain.then(async () => {
-    const res = await fetch(url);
-    await new Promise((r) => setTimeout(r, 500));
-    return res;
-  });
-  _jikanChain = request.then(() => {}).catch(() => {});
-  return request;
-}
-
-async function fetchJikanEpisodes(malId) {
+// ── Épisodes MyAnimeList via Tenrai (successeur de Jikan, file d'attente dans api/tenrai.js) ──
+async function fetchTenraiEpisodes(malId) {
   const eps = []; let page = 1, hasNext = true;
   while (hasNext && page <= 10) {
     try {
-      const res = await jikanFetch(`https://api.jikan.moe/v4/anime/${malId}/episodes?page=${page}`);
+      const res = await tenraiFetch(`/anime/${malId}/episodes`, { page });
       if (res.status === 429) { await new Promise((r) => setTimeout(r, 2000)); continue; }
       if (!res.ok) break;
       const j = await res.json();
@@ -334,7 +323,7 @@ async function fetchAniListIdMal(id) {
 export async function fetchAniListEpisodesBySeasonId(anilistId) {
   try {
     const malId = await fetchAniListIdMal(anilistId);
-    if (malId) { const e = await fetchJikanEpisodes(malId); if (e.length) return e; }
+    if (malId) { const e = await fetchTenraiEpisodes(malId); if (e.length) return e; }
   } catch {}
   return [];
 }

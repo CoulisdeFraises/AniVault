@@ -3,7 +3,7 @@
  *   1. localStorage — persiste entre les sessions (survit au rechargement).
  *   2. Map en mémoire  — fallback si localStorage est plein ou indisponible.
  *
- * Les résultats d'épisodes Jikan et AniList sont ainsi réutilisés sans
+ * Les résultats d'épisodes Tenrai et AniList sont ainsi réutilisés sans
  * refetcher à chaque ouverture de la page Détails.
  */
 

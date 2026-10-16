@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { ensureWaifinityWallet, adjustWaifinityBalance, fetchWaifinityWallet, newWalletOperationKey, creditOnce } from "../services/waifinityWallet";
 import { fetchWaifuPool } from "../api/waifu";
-import { currentSeason, fetchSeasonMalIds } from "../api/waifuBanner";
+import { currentSeason, fetchSeasonAnime } from "../api/waifuBanner";
 import { buildSeasonBanner, BANNER_COST } from "../utils/waifinityBanners";
 import { COSMETICS_BY_ID } from "../utils/waifinityCosmetics";
 import {
@@ -136,21 +136,21 @@ export function useWaifinity({ withPool = true, syncAccount = true } = {}) {
   // lui, chaque changement de collection reconstruisait une Map de ~3000 entrées).
   const poolById = useMemo(() => new Map(pool.map((c) => [c.id, c])), [pool]);
 
-  // ── Bannière de saison : ids MAL des animes de la saison (cache 12 h), puis
-  // croisement avec le bassin. Pas de bannière si AniList est injoignable ou
+  // ── Bannière de saison : animes à l'affiche (ids MAL, titres, animes liés ;
+  // cache 12 h), puis croisement avec le bassin par id et par nom. Pas de bannière si AniList est injoignable ou
   // si la saison compte trop peu de personnages dans le bassin.
-  const [seasonMal, setSeasonMal] = useState(null); // { ids, info }
+  const [seasonMal, setSeasonMal] = useState(null); // { anime, info }
   useEffect(() => {
     if (!withPool) return;
     let cancelled = false;
     const info = currentSeason();
-    fetchSeasonMalIds(info)
-      .then((ids) => { if (!cancelled) setSeasonMal({ ids, info }); })
+    fetchSeasonAnime(info)
+      .then((anime) => { if (!cancelled) setSeasonMal({ anime, info }); })
       .catch((e) => console.error("Waifinity bannière de saison :", e?.message || e));
     return () => { cancelled = true; };
   }, [withPool]);
   const banner = useMemo(
-    () => (seasonMal && pool.length ? buildSeasonBanner(pool, seasonMal.ids, seasonMal.info) : null),
+    () => (seasonMal && pool.length ? buildSeasonBanner(pool, seasonMal.anime, seasonMal.info) : null),
     [pool, seasonMal]
   );
 

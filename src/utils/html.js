@@ -2,7 +2,7 @@
 //
 // Les synopsis renvoyés par AniList (GraphQL) contiennent souvent du HTML
 // brut (<br>, <i>, <b>...) destiné à leur propre site — jamais nettoyé côté
-// API. TMDB/Jikan sont généralement déjà en texte brut, mais peuvent malgré
+// API. TMDB/Tenrai sont généralement déjà en texte brut, mais peuvent malgré
 // tout contenir quelques entités HTML. Comme ces objets `rec` sont affichés
 // tels quels dans SynopsisModal (utilisée sur Recommandations, Détails,
 // Recherche, Calendrier des films...), on nettoie une seule fois ici plutôt

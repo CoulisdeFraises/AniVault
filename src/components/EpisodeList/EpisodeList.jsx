@@ -2,11 +2,11 @@ import { Check } from "lucide-react";
 import { haptics } from "../../utils/haptics";
 
 export function EpisodeList({ episodes, totalEpisodes, watched, statusColor, onSetEpisode, unknownReason }) {
-  // Jikan (source de la liste détaillée) est souvent en retard ou incomplet
+  // Tenrai (source de la liste détaillée) est souvent en retard ou incomplet
   // pour les séries récentes/peu suivies — sa liste peut être plus courte que
   // le nombre d'épisodes réellement sortis (donné par AniList/totalEpisodes).
   // On complète avec des entrées génériques plutôt que de tronquer l'affichage
-  // à ce que Jikan connaît déjà.
+  // à ce que Tenrai connaît déjà.
   const rowCount = Math.max(episodes.length, totalEpisodes || 0);
 
   if (rowCount > 0) {

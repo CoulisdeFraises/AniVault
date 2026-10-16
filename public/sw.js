@@ -66,10 +66,10 @@ const PRECACHE = [
 
 // Domaines d'API publiques (pas de donnée utilisateur) que l'on peut se
 // permettre de mettre en cache pour une consultation hors ligne.
-const CACHEABLE_API_HOSTS = new Set(["api.themoviedb.org", "api.tvmaze.com", "api.jikan.moe"]);
+const CACHEABLE_API_HOSTS = new Set(["api.themoviedb.org", "api.tvmaze.com", "api.tenrai.org"]);
 
 // Chemin de la fonction Edge Supabase servant les fiches média (AniList /
-// TMDB / Jikan) — contenu public, identique pour tout le monde, idéal pour
+// TMDB / Tenrai) — contenu public, identique pour tout le monde, idéal pour
 // le cache. On ne cache RIEN d'autre côté Supabase (auth, rest, realtime)
 // pour ne jamais mélanger de données propres à une session utilisateur.
 const MEDIA_PROXY_PATH = "/functions/v1/smooth-task";

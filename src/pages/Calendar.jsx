@@ -6,7 +6,8 @@ import {
   ChevronLeft, ChevronRight, X, Plus, Check, Sparkles,
 } from "lucide-react";
 import { fetchWeeklySchedule, isReturningSeries } from "../api/anilist";
-import { hasTMDB, searchTMDBShow, fetchTMDBEpisodeFR } from "../api/tmdb";
+import { hasTMDB, searchTMDBShow, fetchTMDBEpisodeFR, fetchTMDBProvidersFR } from "../api/tmdb";
+import { WatchProviders, ProviderLogos } from "../components/common/WatchProviders";
 import { useLibrary }  from "../context/LibraryContext";
 import { importResult } from "../api";
 import { TopBar }    from "../components/common/TopBar";
@@ -20,6 +21,7 @@ import { WeekStrip }        from "../components/calendar/WeekStrip";
 import { DayCarousel }      from "../components/calendar/DayCarousel";
 import { useWeekNavigation, DAY_NAMES } from "../hooks/useWeekNavigation";
 import { getCached, getStaleCached, setCached, TTL } from "../lib/cache";
+import { tenraiFetch } from "../api/tenrai";
 
 const TMDB_CHUNK           = 5;
 
@@ -42,7 +44,7 @@ function stripHtml(html) {
 }
 
 // ── Modal détail épisode ──────────────────────────────────────────────────────
-function EpisodeDetailModal({ schedule, initialFrTitle, onClose }) {
+function EpisodeDetailModal({ schedule, initialFrTitle, initialProviders, onClose }) {
   const [loading,     setLoading]     = useState(true);
   const [frTitle,     setFrTitle]     = useState(initialFrTitle ?? null);
   const [frSynopsis,  setFrSynopsis]  = useState(null);
@@ -73,16 +75,16 @@ function EpisodeDetailModal({ schedule, initialFrTitle, onClose }) {
             .catch(() => ({ frTitle: null, frSynopsis: null, frEpName: null }))
         : Promise.resolve({ frTitle: null, frSynopsis: null, frEpName: null });
 
-      const jikanTask = schedule.media.idMal
-        ? fetch(`https://api.jikan.moe/v4/anime/${schedule.media.idMal}/episodes/${schedule.episode}`)
+      const tenraiTask = schedule.media.idMal
+        ? tenraiFetch(`/anime/${schedule.media.idMal}/episodes/${schedule.episode}`)
             .then((r) => (r.ok ? r.json() : null)).then((j) => j?.data?.title ?? null).catch(() => null)
         : Promise.resolve(null);
 
-      const [tmdb, jikanEpName] = await Promise.all([tmdbTask, jikanTask]);
+      const [tmdb, tenraiEpName] = await Promise.all([tmdbTask, tenraiTask]);
       if (cancelled) return;
       if (tmdb.frTitle)    setFrTitle(tmdb.frTitle);
       if (tmdb.frSynopsis) setFrSynopsis(tmdb.frSynopsis);
-      setEpisodeName(tmdb.frEpName || jikanEpName || null);
+      setEpisodeName(tmdb.frEpName || tenraiEpName || null);
       setLoading(false);
     }
     load();
@@ -124,6 +126,13 @@ function EpisodeDetailModal({ schedule, initialFrTitle, onClose }) {
           ) : (
             <p className="text-xs text-violet-500 font-mono italic">Aucun synopsis disponible.</p>
           )}
+          <WatchProviders
+            className="pt-1"
+            anilistId={schedule.media.id}
+            malId={schedule.media.idMal}
+            titles={[schedule.media.title.english, schedule.media.title.romaji]}
+            preloaded={initialProviders}
+          />
           <p className="font-mono text-[10px] text-violet-500 pt-1 border-t border-white/5">
             {airingDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
             {" · "}
@@ -137,7 +146,7 @@ function EpisodeDetailModal({ schedule, initialFrTitle, onClose }) {
 
 // ── Carte épisode ─────────────────────────────────────────────────────────────
 // Restructurée en <div> pour accueillir le bouton Ajouter sans imbriquer des <button>
-function EpisodeCard({ schedule, onClick, frTitle, isLoadingTitle, isInLibrary, onAdd, isAdding }) {
+function EpisodeCard({ schedule, onClick, frTitle, isLoadingTitle, providers, isInLibrary, onAdd, isAdding }) {
   const time  = new Date(schedule.airingAt * 1000);
   const title = frTitle || schedule.media.title.english || schedule.media.title.romaji;
 
@@ -163,6 +172,7 @@ function EpisodeCard({ schedule, onClick, frTitle, isLoadingTitle, isInLibrary, 
           <p className="font-mono text-[10px] text-violet-500">
             {time.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
           </p>
+          {providers && <ProviderLogos data={providers} />}
         </div>
       </button>
 
@@ -220,6 +230,7 @@ export function Calendar() {
   const weekOffset = 0;
   const [selectedSchedule, setSelectedSchedule]  = useState(null);
   const [tmdbTitles,       setTmdbTitles]        = useState({});
+  const [tmdbProviders,    setTmdbProviders]     = useState({}); // { [media.id]: { providers } } — seulement si TMDB en a trouvé
   const [contentFilter,    setContentFilter]     = useState("all");
 
   // IDs en cours d'ajout (Set de media.id AniList)
@@ -289,20 +300,25 @@ export function Calendar() {
         const results = await Promise.allSettled(
           chunk.map(async (media) => {
             const tmdb = await searchTMDBShow(media.title.english || media.title.romaji);
-            return { id: media.id, name: tmdb?.name ?? null };
+            const providers = tmdb?.id ? await fetchTMDBProvidersFR(tmdb.id, "tv").catch(() => null) : null;
+            return { id: media.id, name: tmdb?.name ?? null, providers };
           })
         );
         if (cancelled) return;
         const pt = {};
+        const pv = {};
         results.forEach((r) => {
           if (r.status !== "fulfilled") return;
           if (r.value.name) pt[r.value.id] = r.value.name;
+          if (r.value.providers) pv[r.value.id] = { providers: r.value.providers };
         });
         if (Object.keys(pt).length) setTmdbTitles((p) => ({ ...p, ...pt }));
+        if (Object.keys(pv).length) setTmdbProviders((p) => ({ ...p, ...pv }));
       }
     }
 
     setTmdbTitles({});
+    setTmdbProviders({});
     fetchTmdbData();
     return () => { cancelled = true; };
   }, [schedules]);
@@ -407,6 +423,7 @@ export function Calendar() {
                   onClick={() => setSelectedSchedule(s)}
                   frTitle={tmdbTitles[s.media.id] ?? null}
                   isLoadingTitle={hasTMDB() && !tmdbTitles[s.media.id]}
+                  providers={tmdbProviders[s.media.id] ?? null}
                   isInLibrary={libraryAnilistIds.has(String(s.media.id))}
                   onAdd={() => handleAddToLibrary(s)}
                   isAdding={addingIds.has(s.media.id)}
@@ -546,6 +563,7 @@ export function Calendar() {
             key="episode-detail"
             schedule={selectedSchedule}
             initialFrTitle={tmdbTitles[selectedSchedule.media.id] ?? null}
+            initialProviders={tmdbProviders[selectedSchedule.media.id]}
             onClose={() => setSelectedSchedule(null)}
           />
         )}

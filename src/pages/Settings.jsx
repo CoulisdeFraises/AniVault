@@ -506,7 +506,7 @@ export function Settings() {
         <Row label="ANIVAULT" sublabel="Journal de visionnage anime & séries">
           <Info size={15} className="text-violet-400" />
         </Row>
-        <Row label="Sources de données" sublabel="AniList · TVmaze · Jikan (MyAnimeList) · TMDB" />
+        <Row label="Sources de données" sublabel="AniList · TVmaze · Tenrai (MyAnimeList) · TMDB" />
         <Row label="Stockage" sublabel="Supabase — données synchronisées sur ton compte" />
       </Section>
 

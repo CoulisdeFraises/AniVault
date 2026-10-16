@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { EyePlus } from "./icons";
 import { Modal } from "../Modal/Modal";
 import { stripHtml } from "../../utils/html";
+import { WatchProviders } from "./WatchProviders";
 
 export function SynopsisModal({ rec, onClose, onAdd, onAddSeen, adding, alreadyInLib, surprise = false }) {
   if (!rec) return null;
@@ -55,6 +56,9 @@ export function SynopsisModal({ rec, onClose, onAdd, onAddSeen, adding, alreadyI
               : <p className="text-[11px] text-violet-600 italic">Aucun synopsis disponible.</p>
             }
           </div>
+
+          {/* Plateformes en France — uniquement quand l'appelant fournit un id TMDB de film (calendrier des films) */}
+          {rec.watchTmdbId && <WatchProviders tmdbId={rec.watchTmdbId} kind="movie" />}
 
           {alreadyInLib ? (
             <p className="text-center font-mono text-[11px] text-violet-500 py-1">✓ Déjà dans ta liste</p>

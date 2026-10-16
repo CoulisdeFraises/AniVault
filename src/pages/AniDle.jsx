@@ -30,6 +30,7 @@ function pickDifferent(pool, excludedIds = [], recentIds = []) {
 const BOSS_EVERY = 10;   // un boss toutes les 10 manches normales jouées (indépendant du score)
 const BOSS_ROUNDS = 3;   // manches à gagner d'affilée
 const BOSS_BONUS = 3;    // points bonus à la victoire
+const SORT_SIZE = 3;     // boss Tri : personnages à classer (le dernier se place tout seul)
 const BOSSES = {
   giant:      { icon: Crown,        name: "Le Géant",     rule: "Choisis le personnage le plus aimé.", desc: "Des personnages ultra-populaires. Le plus connu ne gagne pas toujours !" },
   sprint:     { icon: Timer,        name: "Le Sprint",    rule: "Choisis le plus aimé avant la fin du chrono.", desc: "Seulement 5 secondes par manche. Pas le temps de douter !", timer: 5 },
@@ -39,7 +40,7 @@ const BOSSES = {
   inverter:   { icon: ArrowUpDown,  name: "L'Inverseur",  rule: "Règle inversée : choisis le MOINS aimé.", desc: "Les règles sont inversées : désigne le personnage qui a le moins de likes." },
   threshold:  { icon: Target,       name: "Le Seuil",     rule: "Compare ses likes au chiffre indiqué.", desc: "Un seul personnage et un chiffre. A-t-il plus ou moins de likes ?" },
   collective: { icon: Library,      name: "Le Collectif", rule: "Choisis la série qui cumule le plus de likes.", desc: "Des séries entières : celle dont les personnages cumulent le plus de likes l'emporte." },
-  sort:       { icon: ListOrdered,  name: "Le Tri",       rule: "Touche les personnages du plus au moins aimé.", desc: "Classe 4 personnages du plus au moins aimé. Une seule épreuve, un seul essai.", rounds: 1, flatPoints: 3 },
+  sort:       { icon: ListOrdered,  name: "Le Tri",       rule: "Touche les personnages du plus au moins aimé.", desc: "Classe 3 personnages du plus au moins aimé. Les écarts de likes sont larges et la dernière carte se place toute seule. Un seul essai.", rounds: 1, flatPoints: 3 },
 };
 const bossRounds = (type) => BOSSES[type].rounds || BOSS_ROUNDS;
 
@@ -79,19 +80,19 @@ function buildSeries(pool) {
     .map((e) => ({ id: e.id, name: e.name, series: `${e.count} personnages`, image: e.top.image, favourites: e.favourites, isSeries: true }));
 }
 
-// Boss Tri : 4 personnages dont les likes s'étagent nettement (chacun vaut 15 à 62 % du précédent),
-// pour que chaque paire soit départageable sans que le classement soit évident.
+// Boss Tri : SORT_SIZE personnages dont les likes s'étagent très nettement (chacun vaut 6 à 42 % du
+// précédent), pour que le classement saute aux yeux sans être gratuit.
 function pickSortRound(pool, sorted, recent) {
   const n = sorted.length;
-  const startPool = sorted.slice(0, Math.max(4, Math.ceil(n * 0.75))).filter((c) => likesOf(c) >= 300);
+  const startPool = sorted.slice(0, Math.max(SORT_SIZE, Math.ceil(n * 0.75))).filter((c) => likesOf(c) >= 300);
   for (let attempt = 0; attempt < 40; attempt++) {
     const avoid = attempt < 30 ? recent : [];
     const start = pickDifferent(startPool.length ? startPool : sorted, [], avoid);
     if (!start) break;
     const chosen = [start];
     let target = likesOf(start);
-    for (let k = 0; k < 3; k++) {
-      target *= 0.3 + Math.random() * 0.25;
+    for (let k = 1; k < SORT_SIZE; k++) {
+      target *= 0.12 + Math.random() * 0.2;
       let best = null;
       let bestD = Infinity;
       for (const c of pool) {
@@ -103,20 +104,20 @@ function pickSortRound(pool, sorted, recent) {
       chosen.push(best);
       target = likesOf(best);
     }
-    if (chosen.length < 4) continue;
+    if (chosen.length < SORT_SIZE) continue;
     const likes = chosen.map(likesOf);
-    const steady = likes.every((l, i) => i === 0 || (l / likes[i - 1] >= 0.15 && l / likes[i - 1] <= 0.62));
+    const steady = likes.every((l, i) => i === 0 || (l / likes[i - 1] >= 0.06 && l / likes[i - 1] <= 0.42));
     if (steady) return shuffle(chosen);
   }
-  // Repli (pool très petit ou atypique) : 4 rangs répartis sur tout le classement.
-  const step = Math.max(1, Math.floor(n / 4));
+  // Repli (pool très petit ou atypique) : SORT_SIZE rangs répartis sur tout le classement.
+  const step = Math.max(1, Math.floor(n / SORT_SIZE));
   const picks = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < SORT_SIZE; i++) {
     const c = sorted[Math.min(n - 1, i * step + Math.floor(Math.random() * step))];
     if (c && !picks.includes(c)) picks.push(c);
   }
-  for (const c of sorted) { if (picks.length >= 4) break; if (!picks.includes(c)) picks.push(c); }
-  return shuffle(picks.slice(0, 4));
+  for (const c of sorted) { if (picks.length >= SORT_SIZE) break; if (!picks.includes(c)) picks.push(c); }
+  return shuffle(picks.slice(0, SORT_SIZE));
 }
 
 // Tire les personnages d'une manche de boss. `sorted` = pool trié par likes décroissants,
@@ -440,13 +441,13 @@ export function AniDle() {
   const sortedLikes = boss?.type === "sort" ? [...likesList].sort((x, y) => y - x) : [];
 
   // Ordre complet du boss Tri : les choix du joueur, plus la dernière carte qui est déduite.
-  const sortOrderIds = () => (sortPicks.length >= 3
+  const sortOrderIds = () => (sortPicks.length >= SORT_SIZE - 1
     ? [...sortPicks, ...cards.filter((c) => !sortPicks.includes(c.id)).map((c) => c.id)]
     : sortPicks);
   const rankOf = (id) => {
     const i = sortPicks.indexOf(id);
     if (i >= 0) return i + 1;
-    return sortPicks.length >= 3 ? 4 : null;
+    return sortPicks.length >= SORT_SIZE - 1 ? SORT_SIZE : null;
   };
   const cardCorrect = (c) => {
     if (boss?.type === "threshold") return !!roundCorrect;
@@ -517,12 +518,12 @@ export function AniDle() {
     haptics.tap();
     const idx = sortPicks.indexOf(id);
     if (idx >= 0) setSortPicks(sortPicks.slice(0, idx));
-    else if (sortPicks.length < 4) setSortPicks([...sortPicks, id]);
+    else if (sortPicks.length < SORT_SIZE) setSortPicks([...sortPicks, id]);
   };
   const submitSort = () => {
     if (phase !== "playing" || boss?.type !== "sort") return;
     const order = sortOrderIds();
-    if (order.length < 4) return;
+    if (order.length < SORT_SIZE) return;
     commitAnswer(order.every((id, i) => likesOf(cards.find((c) => c.id === id)) === sortedLikes[i]), null);
   };
 
@@ -612,7 +613,7 @@ export function AniDle() {
 
   const restart = () => startGame(pool);
 
-  // Raccourcis clavier : ← / → (ou 1 à 4 pour le Tri).
+  // Raccourcis clavier : ← / → (ou 1 à 3 pour le Tri).
   const handleKey = (key) => {
     if (phase !== "playing" || !champion) return;
     if (boss?.type === "threshold") {
@@ -621,7 +622,7 @@ export function AniDle() {
       return;
     }
     if (boss?.type === "sort") {
-      const i = ["1", "2", "3", "4"].indexOf(key);
+      const i = ["1", "2", "3"].indexOf(key);
       if (cards[i]) pickSort(cards[i].id);
       return;
     }
@@ -681,7 +682,7 @@ export function AniDle() {
             {recordHit && createPortal(<Confetti active intensity="season" />, document.body)}
             {boss && <BossHud boss={boss} phase={phase} roundCorrect={roundCorrect} onTimeout={() => timeoutRef.current?.()} />}
             <div className="relative mx-auto max-w-3xl">
-              <div className={`relative grid items-start ${boss?.type === "threshold" ? "mx-auto max-w-[220px] grid-cols-1 gap-3" : boss?.type === "sort" ? "grid-cols-2 gap-3 sm:gap-4" : third ? "grid-cols-3 gap-2 sm:gap-4" : "grid-cols-2 gap-3 sm:gap-5"}`}>
+              <div className={`relative grid items-start ${boss?.type === "threshold" ? "mx-auto max-w-[220px] grid-cols-1 gap-3" : boss?.type === "sort" ? "grid-cols-3 gap-2 sm:gap-4" : third ? "grid-cols-3 gap-2 sm:gap-4" : "grid-cols-2 gap-3 sm:gap-5"}`}>
                 <AnimatePresence mode="popLayout" initial={false}>
                   {cards.map((c, i) => (
                     <motion.div key={c.id} layout="position" exit={{ opacity: 0, x: -48, scale: 0.94 }} transition={{ type: "spring", stiffness: 260, damping: 30 }}>
@@ -697,7 +698,7 @@ export function AniDle() {
                         disabled={phase !== "playing" || boss?.type === "threshold"} revealed={phase === "revealed"}
                         isCorrect={cardCorrect(c)}
                         tie={(boss?.type === "inverter" ? minCount : topCount) > 1}
-                        compact={!!third} hideInfo={boss?.type === "blind"}
+                        compact={!!third || boss?.type === "sort"} hideInfo={boss?.type === "blind"}
                         inverted={boss?.type === "inverter"}
                         rank={boss?.type === "sort" ? rankOf(c.id) : null}
                         question={boss?.type === "collective" ? "Plus de likes cumulés ?"
@@ -777,7 +778,7 @@ export function AniDle() {
             {boss?.type === "sort" && phase === "playing" && (
               <div className="mt-4 flex items-center justify-center gap-2">
                 <button type="button" onClick={() => setSortPicks(sortPicks.slice(0, -1))} disabled={!sortPicks.length} className="rounded-xl border border-white/15 bg-violet-900/60 px-4 py-2.5 text-sm font-semibold text-violet-100 transition disabled:opacity-40">Annuler</button>
-                <button type="button" onClick={submitSort} disabled={sortPicks.length < 3} className="rounded-xl bg-amber-300 px-5 py-2.5 text-sm font-bold text-violet-950 transition hover:bg-amber-200 disabled:opacity-40">Valider l'ordre</button>
+                <button type="button" onClick={submitSort} disabled={sortPicks.length < SORT_SIZE - 1} className="rounded-xl bg-amber-300 px-5 py-2.5 text-sm font-bold text-violet-950 transition hover:bg-amber-200 disabled:opacity-40">Valider l'ordre</button>
               </div>
             )}
             {phase === "playing" && !boss && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 text-center text-xs text-violet-400">Appuie sur une carte pour deviner laquelle est la plus aimée.</motion.p>}
