@@ -16,6 +16,7 @@ import { AddToListModal }   from "../common/AddToListModal";
 import { TitlePickerModal } from "./TitlePickerModal";
 import { getFormatGroup }   from "../../utils/format";
 import { haptics }          from "../../utils/haptics";
+import { MarqueeText }      from "../common/MarqueeText";
 import {
   CARD_OVERLAY_VARIANTS, CARD_OVERLAY_TRANSITION,
   CARD_BADGE_VARIANTS,   CARD_BADGE_TRANSITION,
@@ -325,7 +326,6 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
   const extraTxt = hasTV && extraSeasons.length ? ` · +${extW}${extT != null ? `/${extT}` : ""} OVA` : "";
   const TypeIcon = entry.category === "movie" ? Clapperboard : entry.type === "anime" ? Film : Tv;
   const cd       = nextAiring ? formatCountdown(nextAiring.airingAt) : null;
-  const genres   = entry.genres.slice(0, 2);
   const pct      = progressTotal ? Math.min(100, (progressWatched / progressTotal) * 100) : 0;
 
   const swipeRevealOpacity = (val, dir) =>
@@ -369,7 +369,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
             transform:  `translateX(${swipeX}px)`,
             transition: isSwiping ? "none" : "transform 0.35s cubic-bezier(0.34,1.56,0.64,1)",
           }}
-          className={`relative card-noise rounded-2xl overflow-hidden bg-violet-900/30 h-[118px] pl-[92px] pr-3 py-3 flex items-stretch cursor-pointer hover:bg-violet-800/40 transition-colors motion-reduce:transition-none ${
+          className={`relative card-noise rounded-2xl overflow-hidden bg-violet-900/30 h-[118px] pl-[110px] pr-3 py-3 flex items-stretch cursor-pointer hover:bg-violet-800/40 transition-colors motion-reduce:transition-none ${
             isAiring
               ? "border border-teal-400/60 shadow-[0_0_14px_-2px_rgba(45,212,191,0.55)]"
               : "border border-white/10"
@@ -383,7 +383,8 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
 
           <div className="flex-1 min-w-0 flex flex-col justify-between relative z-10">
             {/* Ligne 1 : type + statut */}
-            <div className={`flex items-center gap-1.5 pr-14 min-w-0 overflow-hidden h-[18px] ${dimmed}`}>
+            <div className={`pr-14 min-w-0 h-[18px] ${dimmed}`}>
+            <MarqueeText className="h-full" innerClassName="inline-flex items-center gap-1.5 h-full">
               <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-violet-300 whitespace-nowrap flex-shrink-0">
                 <TypeIcon size={10} />
                 {entry.category === "movie" ? "Film" : entry.type === "anime" ? "Anime" : "Série"}
@@ -396,11 +397,14 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
                   <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse flex-shrink-0" />En production
                 </span>
               )}
+            </MarqueeText>
             </div>
 
             {/* Ligne 2 : titre */}
-            <h3 className={`font-semibold text-[15px] text-white leading-tight truncate pr-14 [text-shadow:0_1px_6px_rgba(0,0,0,0.55)] ${dimmed}`}
-              style={{ fontFamily: "'Space Grotesk',sans-serif" }} title={entry.title}>{entry.title}</h3>
+            <h3 className={`font-semibold text-[15px] text-white leading-tight min-w-0 pr-14 [text-shadow:0_1px_6px_rgba(0,0,0,0.55)] ${dimmed}`}
+              style={{ fontFamily: "'Space Grotesk',sans-serif" }} title={entry.title}>
+              <MarqueeText>{entry.title}</MarqueeText>
+            </h3>
 
             {/* Ligne 3 : épisodes */}
             <div className={`flex items-center gap-1.5 min-w-0 h-[22px] text-[11px] ${isAbandoned ? dimmed : ""}`}>
@@ -408,7 +412,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
                 <Play size={8} fill="currentColor" strokeWidth={0} className="text-sky-300 ml-px" />
               </span>
               <span className="font-semibold text-sky-300 whitespace-nowrap">{epMain}</span>
-              <span className="text-violet-400 truncate">{epSub}{extraTxt}</span>
+              <MarqueeText className="text-violet-400 flex-1">{epSub}{extraTxt}</MarqueeText>
               {canFinish && !isAbandoned && (
                 <button onClick={e => { e.stopPropagation(); markDone(entry.id); }}
                   title="Série principale terminée"
@@ -418,23 +422,16 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
               )}
             </div>
 
-            {/* Ligne 4 : genres + prochaine diffusion */}
-            {(
-              <div className={`flex items-center justify-between gap-2 min-w-0 h-[18px] ${dimmed}`}>
-                <div className="flex gap-1 overflow-hidden min-w-0">
-                  {genres.map(g => (
-                    <span key={g} className="px-2 py-px rounded-full bg-violet-500/15 border border-violet-400/20 text-[10px] text-violet-200 whitespace-nowrap">{g}</span>
-                  ))}
-                </div>
-                {cd && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono text-sky-300 flex-shrink-0">
-                    <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse flex-shrink-0" />
-                    {nextAiring.season ? `S${nextAiring.season} · ` : ""}Ép.{nextAiring.episode}
-                    <span className="hidden sm:inline">{cd}</span>
-                  </span>
-                )}
-              </div>
-            )}
+            {/* Ligne 4 : prochaine diffusion */}
+            <div className={`flex items-center min-w-0 h-[18px] ${dimmed}`}>
+              {cd && (
+                <MarqueeText className="text-[10px] font-mono text-sky-300" innerClassName="inline-flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse flex-shrink-0" />
+                  {nextAiring.season ? `S${nextAiring.season} · ` : ""}Ép.{nextAiring.episode}
+                  <span className="ml-1">{cd}</span>
+                </MarqueeText>
+              )}
+            </div>
 
             {/* Barre de progression */}
             <div className={`h-1.5 rounded-full overflow-hidden flex-shrink-0 ${progressTotal ? "bg-white/10" : "bg-white/[0.04]"} ${isAbandoned ? dimmed : ""}`}>
