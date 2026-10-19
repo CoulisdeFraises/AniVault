@@ -1,17 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import {
-  Trophy, Medal, RefreshCw, ArrowLeftRight, Check, Clock,
-  AlertTriangle, Search, X, Sparkles, ChevronDown,
-} from "lucide-react";
+import { Trophy, Medal, RefreshCw, AlertTriangle, Sparkles } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { fetchFriends, fetchMyProfile } from "../../services/community";
 import { fetchWaifinityItemsBulk } from "../../services/waifinitySocial";
-import { RARITY, RARITY_ORDER, normalizeTier, countByTier, collectionScore } from "../../utils/waifinity";
+import { RARITY, normalizeTier, countByTier, collectionScore } from "../../utils/waifinity";
 import { Avatar } from "../common/Avatar";
-import { RarityBadge } from "./RarityBadge";
 import { PillTabs } from "./PillTabs";
-import { GameButton, Panel } from "./ui";
-import { haptics } from "../../utils/haptics";
+import { GameButton } from "./ui";
+import { TradesView } from "./TradesView";
 
 const SOCIAL_VIEWS = [
   { key: "leaderboard", label: "Classement" },
@@ -34,167 +30,6 @@ function RankRow({ rank, name, color, photoUrl, score, owned, isMe }) {
         <p className="text-[10.5px] text-violet-400">{owned} personnage{owned > 1 ? "s" : ""}</p>
       </div>
       <p className="font-mono text-sm font-bold text-violet-100 flex-shrink-0">{score}</p>
-    </div>
-  );
-}
-
-function TradeCard({ item, selected, onClick, disabled = false }) {
-  const r = RARITY[normalizeTier(item.tier)];
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-pressed={selected}
-      className={`group relative w-full overflow-hidden rounded-xl border-2 text-left transition-all duration-200
-        ${selected
-          ? "border-amber-300 ring-2 ring-amber-400/40 -translate-y-0.5"
-          : `${r.border} hover:-translate-y-0.5 hover:border-white/30`}
-        ${disabled ? "opacity-40 cursor-not-allowed" : "active:scale-[0.97]"}`}
-    >
-      <div className="relative aspect-[3/4] bg-violet-900">
-        {item.image
-          ? <img src={item.image} alt="" loading="lazy" className="w-full h-full object-cover" />
-          : <div className="w-full h-full flex items-center justify-center text-violet-600 text-xl">?</div>}
-        <div className="absolute top-1 left-1"><RarityBadge tier={item.tier} /></div>
-        <span className="absolute top-1 right-1 min-w-[20px] h-[20px] px-1 rounded-full bg-black/75 text-white text-[9px] font-mono font-bold flex items-center justify-center">
-          ×{item.count}
-        </span>
-        {selected && (
-          <div className="absolute inset-0 bg-amber-400/20 flex items-center justify-center">
-            <span className="w-8 h-8 rounded-full bg-amber-300 text-violet-950 flex items-center justify-center shadow-lg shadow-amber-400/30">
-              <Check size={16} strokeWidth={3} />
-            </span>
-          </div>
-        )}
-      </div>
-      <div className="px-2 py-1.5 bg-black/55">
-        <p className="text-[10px] font-semibold text-white truncate">{item.name}</p>
-        <p className={`text-[9px] ${r.text} truncate`}>{r.label}{item.series ? ` · ${item.series}` : ""}</p>
-      </div>
-    </button>
-  );
-}
-
-function CardPicker({ title, subtitle, items, selected, onSelect, loading, accent = "amber", emptyText }) {
-  const [query, setQuery] = useState("");
-  const [tier, setTier] = useState("all");
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return items.filter((item) => {
-      const matchesQuery = !q || item.name?.toLowerCase().includes(q) || item.series?.toLowerCase().includes(q);
-      const matchesTier = tier === "all" || normalizeTier(item.tier) === tier;
-      return matchesQuery && matchesTier;
-    });
-  }, [items, query, tier]);
-
-  return (
-    <section className="rounded-2xl border border-white/10 bg-violet-900/35 overflow-hidden">
-      <div className="p-3 sm:p-4 border-b border-white/10">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className={`text-sm font-semibold ${accent === "amber" ? "text-amber-200" : "text-sky-200"}`}>{title}</p>
-            <p className="text-[10.5px] text-violet-400 mt-0.5">{subtitle}</p>
-          </div>
-          <span className="flex-shrink-0 rounded-full bg-white/5 border border-white/10 px-2 py-1 text-[10px] font-mono text-violet-300">
-            {items.length} carte{items.length > 1 ? "s" : ""}
-          </span>
-        </div>
-
-        <div className="flex gap-2 mt-3">
-          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-black/20 border border-white/10 px-2.5 focus-within:border-white/25">
-            <Search size={14} className="text-violet-500 flex-shrink-0" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Rechercher un personnage ou une série"
-              className="min-w-0 w-full bg-transparent py-2 text-xs text-white placeholder:text-violet-600 outline-none"
-              aria-label={`Rechercher dans ${title}`}
-            />
-            {query && <button type="button" onClick={() => setQuery("")} className="text-violet-400 hover:text-white"><X size={13} /></button>}
-          </label>
-
-          <label className="relative flex-shrink-0">
-            <select
-              value={tier}
-              onChange={(e) => setTier(e.target.value)}
-              className="h-full appearance-none rounded-xl bg-black/20 border border-white/10 pl-2.5 pr-7 text-[10px] text-violet-200 outline-none"
-              aria-label="Filtrer par rareté"
-            >
-              <option value="all">Toutes raretés</option>
-              {RARITY_ORDER.map((key) => <option key={key} value={key}>{RARITY[key].label}</option>)}
-            </select>
-            <ChevronDown size={12} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-violet-500" />
-          </label>
-        </div>
-      </div>
-
-      <div className="p-3 sm:p-4">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-10 gap-2 text-violet-400">
-            <RefreshCw size={19} className="animate-spin motion-reduce:animate-none" />
-            <p className="text-xs">Chargement de la collection…</p>
-          </div>
-        ) : filtered.length ? (
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2.5">
-            {filtered.map((item) => (
-              <TradeCard
-                key={item.id}
-                item={item}
-                selected={selected?.id === item.id}
-                onClick={() => onSelect(selected?.id === item.id ? null : item)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="py-10 text-center">
-            <Search size={20} className="mx-auto text-violet-600 mb-2" />
-            <p className="text-xs text-violet-400">{emptyText || "Aucune carte ne correspond à ta recherche."}</p>
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function MiniCard({ label, card, placeholder }) {
-  return (
-    <div className="min-w-0 flex-1 flex items-center gap-2 rounded-xl bg-white/5 p-2">
-      {card?.image
-        ? <img src={card.image} alt="" className="w-8 h-10 rounded-md object-cover bg-violet-900 flex-shrink-0" />
-        : <div className="w-8 h-10 rounded-md border border-dashed border-white/20 flex items-center justify-center text-violet-500 text-xs flex-shrink-0">?</div>}
-      <div className="min-w-0">
-        <p className="text-[9px] uppercase tracking-widest text-violet-500">{label}</p>
-        <p className="text-[11px] font-semibold text-white truncate">{card?.name || placeholder}</p>
-        {card?.tier && <div className="mt-0.5"><RarityBadge tier={card.tier} /></div>}
-      </div>
-    </div>
-  );
-}
-
-/** Barre fixe en bas : récapitulatif + bouton d'action (proposer / répondre). */
-function ActionBar({ giveLabel, give, getLabel, get, getPlaceholder, cta, busyLabel, busy, onClick, onCancel }) {
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-30 pb-nav animate-fadeIn">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-3">
-        <div className="rounded-2xl border border-amber-300/25 bg-violet-950/95 backdrop-blur-xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.06)] p-2.5 sm:p-3">
-          <div className="flex items-center gap-2.5 mb-2.5">
-            <MiniCard label={giveLabel} card={give} />
-            <ArrowLeftRight size={15} className="text-amber-300 flex-shrink-0" />
-            <MiniCard label={getLabel} card={get} placeholder={getPlaceholder} />
-          </div>
-          <div className="flex gap-2">
-            {onCancel && (
-              <GameButton variant="secondary" onClick={onCancel} disabled={busy}>Annuler</GameButton>
-            )}
-            <GameButton className="flex-1" onClick={onClick} loading={busy}>
-              {!busy && <ArrowLeftRight size={16} />}
-              {busy ? busyLabel : cta}
-            </GameButton>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -263,95 +98,6 @@ function TradeTransferOverlay({ trade, myId, onClose }) {
   );
 }
 
-const STATUS_LABEL = { offered: "En attente", countered: "À valider", accepted: "Accepté", declined: "Refusé", cancelled: "Annulé", failed: "Échoué" };
-
-function ThumbSlot({ card }) {
-  return (
-    <div className="w-9 h-11 rounded-md overflow-hidden bg-violet-950 flex-shrink-0 flex items-center justify-center">
-      {card?.image
-        ? <img src={card.image} alt="" className="w-full h-full object-cover" />
-        : <span className="text-violet-600 text-xs border border-dashed border-white/15 w-full h-full flex items-center justify-center">?</span>}
-    </div>
-  );
-}
-
-function ConfirmChip({ label, done }) {
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] border ${done ? "bg-emerald-400/10 border-emerald-400/30 text-emerald-300" : "bg-white/5 border-white/10 text-violet-400"}`}>
-      {done ? <Check size={10} strokeWidth={3} /> : <Clock size={10} />}{label}
-    </span>
-  );
-}
-
-function TradeRow({ trade, myId, friendsById, busy, onRespond, onConfirm, onClose }) {
-  const isFrom = trade.from_user === myId;
-  const otherName = friendsById[isFrom ? trade.to_user : trade.from_user]?.username || "un ami";
-  const offerCard   = { name: trade.offer_name,   image: trade.offer_image,   tier: trade.offer_tier };
-  const requestCard = trade.request_character_id != null ? { name: trade.request_name, image: trade.request_image, tier: trade.request_tier } : null;
-  const mine   = isFrom ? offerCard : requestCard;
-  const theirs = isFrom ? requestCard : offerCard;
-
-  const open = trade.status === "offered" || trade.status === "countered";
-  const myConfirmed    = isFrom ? trade.from_confirmed : trade.to_confirmed;
-  const theirConfirmed = isFrom ? trade.to_confirmed : trade.from_confirmed;
-
-  let statusText = STATUS_LABEL[trade.status] || trade.status;
-  if (trade.status === "offered") statusText = isFrom ? `En attente de la carte de ${otherName}` : "À toi de choisir une carte en retour";
-  if (trade.status === "countered") statusText = myConfirmed ? `En attente de la validation de ${otherName}` : "À valider";
-
-  return (
-    <Panel as="div" className="!p-3 !rounded-xl">
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          <ThumbSlot card={mine} />
-          <ArrowLeftRight size={13} className="text-violet-500 flex-shrink-0" />
-          <ThumbSlot card={theirs} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1.5 text-[11px] text-violet-300 min-w-0">
-            <span className="truncate">Toi : <span className="text-white font-medium">{mine?.name || "à choisir"}</span></span>
-            {mine?.tier && <span className="flex-shrink-0"><RarityBadge tier={mine.tier} /></span>}
-          </p>
-          <p className="flex items-center gap-1.5 text-[11px] text-violet-300 mt-0.5 min-w-0">
-            <span className="truncate">{otherName} : <span className="text-white font-medium">{theirs?.name || "à choisir"}</span></span>
-            {theirs?.tier && <span className="flex-shrink-0"><RarityBadge tier={theirs.tier} /></span>}
-          </p>
-        </div>
-      </div>
-
-      {trade.status === "countered" && (
-        <div className="flex gap-1.5 mt-2">
-          <ConfirmChip label="Toi" done={myConfirmed} />
-          <ConfirmChip label={otherName} done={theirConfirmed} />
-        </div>
-      )}
-
-      <div className="flex items-center justify-between gap-2 mt-2.5">
-        <span className="flex items-center gap-1 text-[10.5px] text-violet-400 min-w-0">
-          <Clock size={11} className="flex-shrink-0" /><span className="truncate">{statusText}</span>
-        </span>
-        {open && (
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <GameButton variant="secondary" size="sm" onClick={() => onClose(trade.id)} disabled={busy}>
-              {isFrom ? "Annuler" : "Refuser"}
-            </GameButton>
-            {!isFrom && (
-              <GameButton variant={trade.status === "offered" ? "primary" : "secondary"} size="sm" onClick={() => onRespond(trade)} disabled={busy}>
-                {trade.status === "offered" ? "Choisir ma carte" : "Changer ma carte"}
-              </GameButton>
-            )}
-            {trade.status === "countered" && !myConfirmed && (
-              <GameButton size="sm" onClick={() => onConfirm(trade)} disabled={busy}>
-                <Check size={12} strokeWidth={3} />Valider
-              </GameButton>
-            )}
-          </div>
-        )}
-      </div>
-    </Panel>
-  );
-}
-
 export function SocialTab({ game, initialView }) {
   const { user } = useAuth();
   const myId = user?.id || null;
@@ -369,21 +115,6 @@ export function SocialTab({ game, initialView }) {
   const [boardError, setBoardError] = useState(false);
   const [boardLoading, setBoardLoading] = useState(false);
   const [boardUpdatedAt, setBoardUpdatedAt] = useState(null);
-  const [busyTradeId, setBusyTradeId] = useState(null);
-  const [error, setError] = useState(null);
-
-  const myCards = useMemo(() => (game.collectionList || []).filter((c) => c.count > 0), [game.collectionList]);
-
-  // Création d'une offre (étape 1)
-  const [selectedFriendId, setSelectedFriendId] = useState(null);
-  const [myPick, setMyPick] = useState(null);
-  const [proposing, setProposing] = useState(false);
-
-  // Réponse à une offre (étape 2) : échange pour lequel je choisis ma carte
-  const [respondId, setRespondId] = useState(null);
-  const [returnPick, setReturnPick] = useState(null);
-  const [responding, setResponding] = useState(false);
-
   const [animationTrade, setAnimationTrade] = useState(null);
 
   const friendsById = useMemo(() => Object.fromEntries(friends.map((f) => [f.user_id, f])), [friends]);
@@ -476,81 +207,6 @@ export function SocialTab({ game, initialView }) {
     if (completedTrade) { setAnimationTrade(completedTrade); clearCompletedTrade(); }
   }, [completedTrade, clearCompletedTrade]);
 
-  // Si l'échange auquel je réponds n'est plus en cours (annulé, refusé…), on ferme le panneau.
-  const respondTrade = (game.trades || []).find((t) => t.id === respondId) || null;
-  useEffect(() => {
-    if (respondId && (!respondTrade || !["offered", "countered"].includes(respondTrade.status))) {
-      setRespondId(null); setReturnPick(null);
-    }
-  }, [respondId, respondTrade]);
-
-  function selectFriend(id) {
-    setSelectedFriendId(id);
-    setMyPick(null);
-    setError(null);
-  }
-
-  async function handlePropose() {
-    if (!myPick || !selectedFriendId) return;
-    setProposing(true);
-    setError(null);
-    try {
-      await game.proposeTrade(selectedFriendId, myPick);
-      haptics.success();
-      setMyPick(null);
-      setSelectedFriendId(null);
-    } catch (e) {
-      setError(e?.message || "Impossible de proposer cette carte.");
-    } finally {
-      setProposing(false);
-    }
-  }
-
-  function startRespond(trade) {
-    setRespondId(trade.id);
-    setReturnPick(null);
-    setSelectedFriendId(null);
-    setMyPick(null);
-    setError(null);
-  }
-
-  async function handleCounter() {
-    if (!respondTrade || !returnPick) return;
-    setResponding(true);
-    setError(null);
-    try {
-      await game.counterTrade(respondTrade, returnPick);
-      haptics.success();
-      setRespondId(null);
-      setReturnPick(null);
-    } catch (e) {
-      setError(e?.message || "Impossible d'envoyer ta carte en retour.");
-    } finally {
-      setResponding(false);
-    }
-  }
-
-  async function handleConfirm(trade) {
-    setBusyTradeId(trade.id);
-    setError(null);
-    try {
-      const { status } = await game.confirmTrade(trade);
-      if (status === "accepted") { haptics.success(); setAnimationTrade(trade); }
-      else if (status === "failed") setError("L'échange a échoué : une des cartes n'est plus disponible.");
-    } catch (e) {
-      setError(e?.message || "Cet échange n'a pas pu être validé.");
-    } finally {
-      setBusyTradeId(null);
-    }
-  }
-
-  async function handleClose(id) {
-    setBusyTradeId(id);
-    setError(null);
-    try { await game.declineTrade(id); } catch (e) { setError(e?.message || "Impossible de fermer cet échange."); }
-    finally { setBusyTradeId(null); }
-  }
-
   if (friendsLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3 text-violet-300">
@@ -569,33 +225,11 @@ export function SocialTab({ game, initialView }) {
     );
   }
 
-  const allTrades = game.trades || [];
-  const openTrades = allTrades.filter((t) => t.status === "offered" || t.status === "countered");
-  // « À toi de jouer » : offre à laquelle je dois répondre, ou échange que je dois valider.
-  const needsMe = (t) => {
-    const isFrom = t.from_user === myId;
-    if (t.status === "offered") return !isFrom;
-    return t.status === "countered" && !(isFrom ? t.from_confirmed : t.to_confirmed);
-  };
-  const todoTrades = openTrades.filter(needsMe);
-  const waitingTrades = openTrades.filter((t) => !needsMe(t));
-  const pastTrades = allTrades.filter((t) => !["offered", "countered"].includes(t.status));
-  const selectedFriend = friendsById[selectedFriendId];
-  const respondFriend = respondTrade ? friendsById[respondTrade.from_user] : null;
-
-  const rowProps = { myId, friendsById, onRespond: startRespond, onConfirm: handleConfirm, onClose: handleClose };
-
   return (
     <div className="space-y-4">
       <div className="flex justify-center">
         <PillTabs tabs={SOCIAL_VIEWS} value={view} onChange={setView} layoutId="waifinity-social-view" size="sm" tone="violet" />
       </div>
-
-      {error && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs">
-          <AlertTriangle size={13} className="flex-shrink-0" />{error}
-        </div>
-      )}
 
       {view === "leaderboard" && (
         <div className="space-y-2">
@@ -625,122 +259,15 @@ export function SocialTab({ game, initialView }) {
       )}
 
       {view === "trades" && (
-        <div className="space-y-4">
-          {todoTrades.length > 0 && (
-            <div className="space-y-2">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-amber-300">À toi de jouer</p>
-              {todoTrades.map((t) => <TradeRow key={t.id} trade={t} busy={busyTradeId === t.id} {...rowProps} />)}
-            </div>
-          )}
-
-          {respondTrade && (
-            <div className="space-y-3 pb-28">
-              <div className="flex items-center gap-2 px-1">
-                <Avatar name={respondFriend?.username || "Ami"} color={respondFriend?.avatar_color} photoUrl={respondFriend?.avatar_url} size="sm" />
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-white">Ta carte en retour pour {respondFriend?.username || "ton ami"}</p>
-                  <p className="text-[10px] text-violet-500">Il te propose {respondTrade.offer_name}. Choisis la carte que tu lui donnes.</p>
-                </div>
-              </div>
-              <CardPicker
-                title="Ta carte"
-                subtitle="N'importe quelle carte de ta collection, sauf celle qu'il te propose."
-                items={myCards.filter((c) => String(c.id) !== String(respondTrade.offer_character_id))}
-                selected={returnPick}
-                onSelect={setReturnPick}
-                emptyText={myCards.length ? "Aucune carte ne correspond à ta recherche." : "Ta collection est encore vide."}
-              />
-              {returnPick && (
-                <ActionBar
-                  giveLabel="Tu donnes" give={returnPick}
-                  getLabel={`${respondFriend?.username || "Ami"} donne`}
-                  get={{ name: respondTrade.offer_name, image: respondTrade.offer_image, tier: respondTrade.offer_tier }}
-                  cta="Proposer en retour" busyLabel="Envoi…" busy={responding}
-                  onClick={handleCounter}
-                  onCancel={() => { setRespondId(null); setReturnPick(null); }}
-                />
-              )}
-              {!returnPick && (
-                <button onClick={() => { setRespondId(null); setReturnPick(null); }}
-                  className="w-full text-xs text-violet-400 py-2">Annuler</button>
-              )}
-            </div>
-          )}
-
-          {waitingTrades.length > 0 && (
-            <div className="space-y-2">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">En attente de l'autre</p>
-              {waitingTrades.map((t) => <TradeRow key={t.id} trade={t} busy={busyTradeId === t.id} {...rowProps} />)}
-            </div>
-          )}
-
-          {!respondTrade && (
-            <div className="rounded-2xl border border-white/10 bg-violet-900/25 p-3 sm:p-4">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-amber-300/10 border border-amber-300/20 flex items-center justify-center text-amber-300 flex-shrink-0">
-                  <ArrowLeftRight size={18} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-white">Proposer une carte</p>
-                  <p className="text-[11px] text-violet-400 mt-0.5">
-                    Tu proposes une de tes cartes, ton ami choisit une carte à te donner en retour, puis vous validez tous les deux.
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-violet-500 mb-2">1 · À qui ?</p>
-                <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
-                  {friends.map((f) => (
-                    <button
-                      key={f.user_id}
-                      type="button"
-                      onClick={() => selectFriend(f.user_id)}
-                      className={`flex flex-col items-center gap-1.5 flex-shrink-0 min-w-[64px] px-2 py-2 rounded-xl border transition-colors ${
-                        selectedFriendId === f.user_id
-                          ? "bg-amber-300/10 border-amber-300/45"
-                          : "bg-white/[0.02] border-transparent hover:border-white/10"
-                      }`}
-                    >
-                      <Avatar name={f.username} color={f.avatar_color} photoUrl={f.avatar_url} size="sm" />
-                      <span className={`text-[10px] max-w-[70px] truncate ${selectedFriendId === f.user_id ? "text-amber-200" : "text-violet-300"}`}>{f.username}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {!respondTrade && selectedFriendId && (
-            <div className="space-y-3 pb-28">
-              <p className="text-[10px] uppercase tracking-widest text-violet-500 px-1">2 · Quelle carte lui proposes-tu ?</p>
-              <CardPicker
-                title="Ta carte"
-                subtitle={`${selectedFriend?.username || "Ton ami"} choisira ensuite une carte à te donner en retour.`}
-                items={myCards}
-                selected={myPick}
-                onSelect={setMyPick}
-                emptyText={myCards.length ? "Aucune carte ne correspond à ta recherche." : "Ta collection est encore vide."}
-              />
-              {myPick && (
-                <ActionBar
-                  giveLabel="Tu donnes" give={myPick}
-                  getLabel={`${selectedFriend?.username || "Ton ami"} donne`}
-                  get={null} getPlaceholder="Il choisira"
-                  cta="Proposer cette carte" busyLabel="Envoi de la proposition…" busy={proposing}
-                  onClick={handlePropose}
-                />
-              )}
-            </div>
-          )}
-
-          {pastTrades.length > 0 && (
-            <div className="space-y-2">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">Historique</p>
-              {pastTrades.slice(0, 10).map((t) => <TradeRow key={t.id} trade={t} busy={false} {...rowProps} />)}
-            </div>
-          )}
-        </div>
+        <TradesView
+          game={game}
+          myId={myId}
+          friends={friends}
+          friendsById={friendsById}
+          itemsByUser={itemsByUser}
+          onRefreshItems={loadItems}
+          onAccepted={setAnimationTrade}
+        />
       )}
 
       {animationTrade && (
