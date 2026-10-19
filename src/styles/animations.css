@@ -407,19 +407,11 @@
   .cos-fx-sparkle::before, .cos-fx-sparkle::after { animation: none; }
 }
 
-/* ── Texte long qui se déroule (MarqueeText) ───────────────────
-   Cycle : pause → défilement lent vers la gauche → pause → retour.
-   --marquee-dist (négatif) et --marquee-dur sont fournis par le composant. */
-@keyframes marqueeScroll {
-  0%, 18%   { transform: translateX(0); }
-  68%, 84%  { transform: translateX(var(--marquee-dist)); }
-  100%      { transform: translateX(0); }
-}
-.marquee-run {
-  will-change: transform;
-  animation: marqueeScroll var(--marquee-dur, 8s) ease-in-out infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  /* Pas d'animation : le texte reste fixe, tronqué par le conteneur. */
-  .marquee-run { animation: none !important; }
+/* ── Texte long (MarqueeText) ──────────────────────────────────
+   Le défilement est piloté en JS (components/common/MarqueeText.jsx).
+   Seul cas géré ici : « réduire les animations » → texte fixe coupé par une ellipse. */
+[data-marquee][data-static] > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

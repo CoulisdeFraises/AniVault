@@ -382,22 +382,22 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
           {coverImg}
 
           <div className="flex-1 min-w-0 flex flex-col justify-between relative z-10">
-            {/* Ligne 1 : type + statut */}
-            <div className={`pr-14 min-w-0 h-[18px] -mt-1 ${dimmed}`}>
-            <MarqueeText className="h-full" innerClassName="inline-flex items-center gap-1.5 h-full">
-              <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-violet-300 whitespace-nowrap flex-shrink-0">
-                <TypeIcon size={10} />
-                {entry.category === "movie" ? "Film" : entry.type === "anime" ? "Anime" : "Série"}
+            {/* Ligne 1 : type + statut (jamais de défilement : tout doit tenir en entier).
+                Les pastilles de statut ne rétrécissent pas ; si la place manque, c'est le
+                libellé du type (« Anime ») qui se raccourcit en premier. */}
+            <div className={`flex items-center gap-1 pr-14 min-w-0 h-5 -mt-1 overflow-hidden ${dimmed}`}>
+              <span className="inline-flex items-center gap-1 min-w-0 text-[9px] font-mono uppercase tracking-wider text-violet-300 whitespace-nowrap">
+                <TypeIcon size={10} className="flex-shrink-0" />
+                <span className="truncate">{entry.category === "movie" ? "Film" : entry.type === "anime" ? "Anime" : "Série"}</span>
               </span>
-              <span className={`inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-white/5 whitespace-nowrap flex-shrink-0 ${s.text}`}>
+              <span className={`inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-normal px-1.5 py-0.5 rounded-full bg-white/5 whitespace-nowrap flex-shrink-0 ${s.text}`}>
                 <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${s.dot}`} />{s.label}
               </span>
               {showEnProduction && (
-                <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-indigo-400/15 text-indigo-300 whitespace-nowrap">
+                <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-normal px-1.5 py-0.5 rounded-full bg-indigo-400/15 text-indigo-300 whitespace-nowrap flex-shrink-0">
                   <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse flex-shrink-0" />En prod.
                 </span>
               )}
-            </MarqueeText>
             </div>
 
             {/* Ligne 2 : titre */}
