@@ -71,7 +71,7 @@ export function MarqueeText({ children, as: Tag = "span", className = "", innerC
     >
       <span
         ref={textRef}
-        className={`${innerClassName || "inline-block"} ${scrolling ? "marquee-run" : ""}`}
+        className={`${innerClassName || "inline-block"} align-top ${scrolling ? "marquee-run" : ""}`}
         style={scrolling ? { "--marquee-dist": `-${dist}px`, "--marquee-dur": `${duration}s` } : undefined}
       >
         {children}

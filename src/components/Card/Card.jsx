@@ -383,7 +383,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
 
           <div className="flex-1 min-w-0 flex flex-col justify-between relative z-10">
             {/* Ligne 1 : type + statut */}
-            <div className={`pr-14 min-w-0 h-[18px] ${dimmed}`}>
+            <div className={`pr-14 min-w-0 h-[18px] -mt-1 ${dimmed}`}>
             <MarqueeText className="h-full" innerClassName="inline-flex items-center gap-1.5 h-full">
               <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-violet-300 whitespace-nowrap flex-shrink-0">
                 <TypeIcon size={10} />
@@ -394,7 +394,7 @@ export const Card = memo(function Card({ entry, onEdit, index = 0, isAiring = fa
               </span>
               {showEnProduction && (
                 <span className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-indigo-400/15 text-indigo-300 whitespace-nowrap">
-                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse flex-shrink-0" />En production
+                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse flex-shrink-0" />En prod.
                 </span>
               )}
             </MarqueeText>

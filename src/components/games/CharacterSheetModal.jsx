@@ -1,3 +1,4 @@
+import { MarqueeText } from "../common/MarqueeText";
 import { Calendar, Target, Star, Coins, HelpCircle, Heart, Palette } from "lucide-react";
 import { Modal } from "../Modal/Modal";
 import { RARITY, normalizeTier, SHOP_TARGET_COST, wishCost, isRecentlyObtained, MAX_FAVORITES, STATS, statGrade } from "../../utils/waifinity";
@@ -95,10 +96,10 @@ export function CharacterSheetModal({ character, entry, canAffordTarget, canAffo
                 <div className="absolute inset-x-0 top-0 px-3.5 pt-3 pb-7 bg-gradient-to-b from-black/85 via-black/35 to-transparent">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-xl font-bold text-white leading-tight truncate" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+                      <MarqueeText as="p" className="text-xl font-bold text-white leading-tight" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
                         {character.name}
-                      </p>
-                      <p className="text-[12px] text-violet-200/90 truncate">{character.series}</p>
+                      </MarqueeText>
+                      <MarqueeText as="p" className="text-[12px] text-violet-200/90">{character.series}</MarqueeText>
                     </div>
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
                       <RarityBadge tier={character.tier} size="md" />

@@ -12,6 +12,7 @@ import { useCountUp } from "../hooks/useCountUp";
 import { haptics } from "../utils/haptics";
 import { sounds } from "../utils/sounds";
 import { PageBanner } from "../components/common/PageBanner";
+import { MarqueeText } from "../components/common/MarqueeText";
 import { useWaifinity } from "../hooks/useWaifinity";
 
 const TABS = [
@@ -323,8 +324,8 @@ function CharacterChoice({ character, side, onChoose, disabled, revealed, isCorr
         <span className="absolute left-3 top-3 z-10 rounded-full border border-white/15 bg-black/50 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-violet-100 backdrop-blur">{side}</span>
         {rank != null && <span className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-amber-400 text-sm font-extrabold text-violet-950 shadow-lg">{rank}</span>}
         <div className="absolute inset-x-0 bottom-0 z-10 px-3 pb-2 pt-3 sm:px-4 sm:pb-3">
-          <h2 className={`line-clamp-2 font-bold leading-tight text-white ${compact ? "text-xs sm:text-base" : "text-base sm:text-xl"}`}>{masked ? "???" : character.name}</h2>
-          <p className={`mt-1 line-clamp-1 text-violet-200 ${compact ? "text-[10px]" : "text-xs"}`}>{masked ? "Personnage mystère" : (character.series || "Série inconnue")}</p>
+          <MarqueeText as="h2" className={`font-bold leading-tight text-white ${compact ? "text-xs sm:text-base" : "text-base sm:text-xl"}`}>{masked ? "???" : character.name}</MarqueeText>
+          <MarqueeText as="p" className={`mt-1 text-violet-200 ${compact ? "text-[10px]" : "text-xs"}`}>{masked ? "Personnage mystère" : (character.series || "Série inconnue")}</MarqueeText>
         </div>
       </div>
       <div className={`flex min-h-[44px] items-center justify-center gap-2 px-2 py-3 text-center font-semibold ${compact ? "text-[10px]" : "text-xs"} ${revealed ? (isCorrect ? "bg-emerald-400/15 text-emerald-200" : "bg-rose-400/15 text-rose-200") : "text-amber-200"}`}>{revealed ? (isCorrect ? (okLabel || (tie ? "Égalité" : "Bonne réponse")) : (koLabel || (inverted ? "Plus populaire" : "Moins populaire"))) : showLikes ? <><Heart size={15} fill="currentColor" /><span className="tabular-nums">{likes.toLocaleString("fr-FR")} likes</span></> : <><Heart size={15} /> {question || "Plus de likes ?"}</>}</div>

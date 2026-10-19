@@ -1,3 +1,4 @@
+import { MarqueeText } from "../common/MarqueeText";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Trophy, Medal, RefreshCw, AlertTriangle, Sparkles } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -71,7 +72,7 @@ function TradeTransferOverlay({ trade, myId, onClose }) {
             <div className="rounded-2xl overflow-hidden border-2 border-white/20 bg-violet-900 shadow-2xl shadow-fuchsia-500/20">
               {incoming.image && <img src={incoming.image} alt="" className="w-full aspect-[3/4] object-cover" />}
             </div>
-            <p className="mt-2 text-sm font-semibold text-white truncate">{incoming.name}</p>
+            <MarqueeText as="p" className="mt-2 text-sm font-semibold text-white">{incoming.name}</MarqueeText>
             <p className={`text-[10px] ${RARITY[normalizeTier(incoming.tier)].text}`}>{RARITY[normalizeTier(incoming.tier)].label}</p>
           </div>
 
@@ -79,7 +80,7 @@ function TradeTransferOverlay({ trade, myId, onClose }) {
             <div className="rounded-2xl overflow-hidden border-2 border-amber-300/40 bg-violet-900 shadow-2xl shadow-amber-500/20">
               {outgoing.image && <img src={outgoing.image} alt="" className="w-full aspect-[3/4] object-cover" />}
             </div>
-            <p className="mt-2 text-sm font-semibold text-white truncate">{outgoing.name}</p>
+            <MarqueeText as="p" className="mt-2 text-sm font-semibold text-white">{outgoing.name}</MarqueeText>
             <p className={`text-[10px] ${RARITY[normalizeTier(outgoing.tier)].text}`}>{RARITY[normalizeTier(outgoing.tier)].label} · carte échangée</p>
           </div>
 

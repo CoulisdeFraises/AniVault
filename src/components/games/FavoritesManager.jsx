@@ -1,3 +1,4 @@
+import { MarqueeText } from "../common/MarqueeText";
 import { Reorder, useDragControls } from "motion/react";
 import {
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
@@ -51,8 +52,8 @@ export function FavoriteActionSheet({ items, characterId, onMove, onOpenSheet, o
             {card.image && <img src={card.image} alt="" className="w-full h-full object-cover" />}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-white truncate" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{card.name}</p>
-            <p className="text-[11px] text-violet-300 truncate">{card.series}</p>
+            <MarqueeText as="p" className="text-sm font-bold text-white" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{card.name}</MarqueeText>
+            <MarqueeText as="p" className="text-[11px] text-violet-300">{card.series}</MarqueeText>
             <div className="flex items-center gap-2 mt-1">
               <RarityBadge tier={card.tier} />
               <span className="font-mono text-[11px] text-amber-300">Favori {index + 1} / {items.length}</span>
@@ -134,7 +135,7 @@ function ReorderRow({ card, index, total, onMove }) {
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold text-white truncate">{card.name}</p>
+        <MarqueeText as="p" className="text-xs font-semibold text-white">{card.name}</MarqueeText>
         <div className="mt-0.5"><RarityBadge tier={card.tier} /></div>
       </div>
 

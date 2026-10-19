@@ -1,3 +1,4 @@
+import { MarqueeText } from "../common/MarqueeText";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { AnimatePresence, motion, animate, useMotionValue, useTransform, useReducedMotion, useIsPresent } from "motion/react";
 import { Sparkles, Copy, Star, Gem } from "lucide-react";
@@ -75,10 +76,10 @@ function CardFace({ card, isDuplicate, fragments }) {
       </div>
       <div className="bg-black/35 px-3.5 py-2.5 text-left">
         <div className="flex items-center gap-1.5">
-          <p className="flex-1 truncate text-base font-bold leading-tight text-white" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{card.name}</p>
+          <MarqueeText as="p" className="flex-1 text-base font-bold leading-tight text-white" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{card.name}</MarqueeText>
           <GenderBadge gender={card.gender} />
         </div>
-        <p className="truncate text-xs text-violet-300">{card.series}</p>
+        <MarqueeText as="p" className="text-xs text-violet-300">{card.series}</MarqueeText>
       </div>
     </CardFrame>
   );

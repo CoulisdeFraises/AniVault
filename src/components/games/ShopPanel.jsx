@@ -1,3 +1,4 @@
+import { MarqueeText } from "../common/MarqueeText";
 import { useState, useMemo } from "react";
 import { Sparkles, Target, Users, Coins, ChevronDown, Search, Star } from "lucide-react";
 import {
@@ -159,7 +160,7 @@ export function ShopPanel({
                     onClick={() => { if (busy || !canAffordTarget) return; haptics.success(); setSeriesOpen(false); onBuyTargeted(s.seriesId); }}
                     disabled={busy || !canAffordTarget}
                     className="w-full flex items-center justify-between px-3 py-2 text-left text-sm text-violet-100 hover:bg-white/5 disabled:opacity-40">
-                    <span className="truncate">{s.series}</span>
+                    <MarqueeText className="">{s.series}</MarqueeText>
                     <span className="font-mono text-xs text-violet-400 flex-shrink-0 ml-2">{s.count} perso.</span>
                   </button>
                 )) : <p className="px-3 py-3 text-xs text-violet-400">Aucune série ne correspond.</p>}

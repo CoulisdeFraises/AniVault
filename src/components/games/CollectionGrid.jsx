@@ -1,3 +1,4 @@
+import { MarqueeText } from "../common/MarqueeText";
 import { useState, useMemo } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { HeartCrack, Heart, Search, X, Layers, ListOrdered, ChevronDown } from "lucide-react";
@@ -65,10 +66,10 @@ function CollectionCard({ c, onOpen, isFavorite, cosmetic }) {
       </div>
       <div className="px-2 py-1.5 bg-black/30">
         <div className="flex items-center gap-1">
-          <p className="text-[11px] font-semibold text-white leading-tight truncate flex-1">{c.name}</p>
+          <MarqueeText as="p" className="text-[11px] font-semibold text-white leading-tight flex-1">{c.name}</MarqueeText>
           <GenderBadge gender={c.gender} />
         </div>
-        <p className="text-[9.5px] text-violet-300 truncate">{c.series}</p>
+        <MarqueeText as="p" className="text-[9.5px] text-violet-300">{c.series}</MarqueeText>
       </div>
     </CardFrame>
   );
@@ -389,7 +390,7 @@ export function CollectionGrid({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="text-[13px] font-semibold text-white truncate min-w-0">{g.series}</p>
+                        <MarqueeText as="p" className="text-[13px] font-semibold text-white min-w-0">{g.series}</MarqueeText>
                         {complete && (
                           <span className="flex-shrink-0 text-[9px] font-mono uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-400/15 text-emerald-300 border border-emerald-400/30">Complète</span>
                         )}

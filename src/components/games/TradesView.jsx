@@ -1,3 +1,4 @@
+import { MarqueeText } from "../common/MarqueeText";
 import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import {
   ArrowLeftRight, Check, Clock, AlertTriangle, Search, X, Sparkles, ChevronDown,
@@ -95,8 +96,8 @@ function CardFace({ card, caption, placeholder = "À choisir", children, align =
           <div className="absolute top-1 left-1"><RarityBadge tier={card.tier} /></div>
         )}
       </div>
-      <p className="mt-1.5 w-full text-[11.5px] font-semibold text-white truncate">{card?.name || placeholder}</p>
-      {card?.series && <p className={`w-full text-[9.5px] truncate ${r.text}`}>{card.series}</p>}
+      <MarqueeText as="p" className="mt-1.5 w-full text-[11.5px] font-semibold text-white">{card?.name || placeholder}</MarqueeText>
+      {card?.series && <MarqueeText as="p" className={`w-full text-[9.5px] ${r.text}`}>{card.series}</MarqueeText>}
       {children && <div className="mt-1.5 flex flex-col items-center gap-1 w-full">{children}</div>}
     </div>
   );
@@ -301,9 +302,9 @@ const HistoryRow = memo(function HistoryRow({ trade, myId, friendsById }) {
       <ArrowLeftRight size={12} className="text-violet-500 flex-shrink-0" />
       <HistoryThumb card={get} />
       <div className="min-w-0 flex-1">
-        <p className="text-[11.5px] text-white font-medium truncate">
+        <MarqueeText as="p" className="text-[11.5px] text-white font-medium">
           {give?.name || "—"} <span className="text-violet-500">↔</span> {get?.name || "—"}
-        </p>
+        </MarqueeText>
         <p className="text-[10px] text-violet-400 truncate">{otherName} · {timeAgo(trade.updated_at || trade.created_at)}</p>
       </div>
       <span className={`flex-shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.cls}`}>{meta.label}</span>
@@ -348,8 +349,8 @@ function PickerTile({ item, owned, selected, onClick }) {
         </span>
       )}
       <div className="px-2 py-1.5 bg-black/60">
-        <p className="text-[10px] font-semibold text-white truncate">{item.name}</p>
-        <p className={`text-[9px] ${r.text} truncate`}>{item.series || r.label}</p>
+        <MarqueeText as="p" className="text-[10px] font-semibold text-white">{item.name}</MarqueeText>
+        <MarqueeText as="p" className={`text-[9px] ${r.text}`}>{item.series || r.label}</MarqueeText>
       </div>
     </button>
   );
@@ -558,7 +559,7 @@ function MiniCard({ label, card, placeholder, note }) {
         : <div className="w-9 h-12 rounded-md border border-dashed border-white/20 flex items-center justify-center text-violet-500 text-xs flex-shrink-0">?</div>}
       <div className="min-w-0">
         <p className="text-[9px] uppercase tracking-widest text-violet-500">{label}</p>
-        <p className="text-[11px] font-semibold text-white truncate">{card?.name || placeholder}</p>
+        <MarqueeText as="p" className="text-[11px] font-semibold text-white">{card?.name || placeholder}</MarqueeText>
         {note}
       </div>
     </div>
@@ -793,7 +794,7 @@ export function TradesView({ game, myId, friends, friendsById, itemsByUser, onRe
                 : <div className="w-14 aspect-[3/4] rounded-lg bg-violet-900 flex-shrink-0" />}
               <div className="min-w-0 flex-1">
                 <p className="text-[9.5px] font-mono uppercase tracking-widest text-violet-400">{respondName} te propose</p>
-                <p className="text-sm font-semibold text-white truncate">{offered.name}</p>
+                <MarqueeText as="p" className="text-sm font-semibold text-white">{offered.name}</MarqueeText>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                   <RarityBadge tier={offered.tier} />
                   <OwnershipPill count={offeredMine} subject={{ you: true }} />

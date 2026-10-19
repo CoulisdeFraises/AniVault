@@ -9,6 +9,7 @@ import { haptics } from "../../utils/haptics";
 // même conteneur flottant, mêmes pastilles actives, mêmes libellés, même bouton
 // central ambré. Seuls les éléments changent : les 5 écrans du jeu + « Accueil »
 // pour quitter, « Jeux » pour revenir à la liste des jeux. Le bouton central (Boosters) est l'action la plus fréquente.
+// « Jeux » occupe le MÊME emplacement (6e) que dans la barre principale : on retombe sur le même pouce.
 // Si tu modifies le style de l'une des deux barres, répercute-le dans l'autre.
 //
 // Seul ajout propre au jeu : une petite pastille de compteur (booster gratuit,
@@ -16,11 +17,11 @@ import { haptics } from "../../utils/haptics";
 
 const ITEMS = [
   { key: "home",       icon: Home,       label: "Accueil",    exit: true, to: "/" },
-  { key: "games",      icon: Gamepad2,   label: "Jeux",       exit: true, to: "/games" },
   { key: "collection", icon: LayoutGrid, label: "Collection" },
+  { key: "series",     icon: Library,    label: "Séries" },
   { key: "boosters",   icon: Sparkles,   label: "Boosters",   primary: true },
   { key: "social",     icon: Users,      label: "Social" },
-  { key: "series",     icon: Library,    label: "Séries" },
+  { key: "games",      icon: Gamepad2,   label: "Jeux",       exit: true, to: "/games" },
   { key: "shop",       icon: Store,      label: "Boutique" },
 ];
 

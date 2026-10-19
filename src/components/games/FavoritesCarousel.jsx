@@ -1,3 +1,4 @@
+import { MarqueeText } from "../common/MarqueeText";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { animate, motion, useMotionValue, useMotionValueEvent, useReducedMotion, useTransform } from "motion/react";
 import { Heart, ChevronLeft, ChevronRight } from "lucide-react";
@@ -106,8 +107,8 @@ function Leaf({ item, i, p, reduce, equipped, isActive, onTap }) {
               {r.shine && <div className="card-shine" />}
 
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-3 pb-2.5 pt-10">
-                <p className="truncate text-sm font-bold leading-tight text-white" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{item.name}</p>
-                <p className="truncate text-[11px] text-violet-200/90">{item.series}</p>
+                <MarqueeText as="p" className="text-sm font-bold leading-tight text-white" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{item.name}</MarqueeText>
+                <MarqueeText as="p" className="text-[11px] text-violet-200/90">{item.series}</MarqueeText>
               </div>
 
               <motion.div

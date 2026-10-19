@@ -1,3 +1,4 @@
+import { MarqueeText } from "../common/MarqueeText";
 import { useEffect, useState } from "react";
 import { Sparkles, Copy, Star, Gem } from "lucide-react";
 import { RARITY, normalizeTier } from "../../utils/waifinity";
@@ -110,10 +111,10 @@ export function BoosterCard({ card, revealed, isDuplicate, fragments = 0, onReve
           </div>
           <div className="px-2 py-1.5 bg-black/30 text-left">
             <div className="flex items-center gap-1">
-              <p className="text-[11px] font-semibold text-white leading-tight truncate flex-1">{card.name}</p>
+              <MarqueeText as="p" className="text-[11px] font-semibold text-white leading-tight flex-1">{card.name}</MarqueeText>
               <GenderBadge gender={card.gender} />
             </div>
-            <p className="text-[9.5px] text-violet-300 truncate">{card.series}</p>
+            <MarqueeText as="p" className="text-[9.5px] text-violet-300">{card.series}</MarqueeText>
           </div>
         </CardFrame>
       </div>
