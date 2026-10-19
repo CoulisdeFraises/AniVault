@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import {
   ArrowLeftRight, Check, Clock, AlertTriangle, Search, X, Sparkles, ChevronDown,
-  RefreshCw, Hourglass, History, Inbox, Send, Copy, Info,
+  RefreshCw, Hourglass, History, Inbox, Send, Copy, Info, ArrowUpDown,
 } from "lucide-react";
 import { RARITY, RARITY_ORDER, normalizeTier } from "../../utils/waifinity";
 import { tradeNeedsMe } from "../../utils/waifinityTrades";
@@ -271,8 +271,19 @@ function TradeTicket({ trade, myId, friendsById, countOf, myStock, busy, onRespo
   );
 }
 
+// Défini AU NIVEAU DU MODULE : déclaré dans HistoryRow, il changeait d'identité à chaque
+// rendu et React remontait toutes les images de l'historique (clignotement) à chaque
+// rafraîchissement des échanges.
+function HistoryThumb({ card }) {
+  return (
+    <div className={`w-8 h-10 rounded-md overflow-hidden bg-violet-950 border flex-shrink-0 ${card ? RARITY[normalizeTier(card.tier)].border : "border-dashed border-white/15"}`}>
+      {card?.image && <img src={card.image} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />}
+    </div>
+  );
+}
+
 /** Ligne compacte pour l'historique. */
-function HistoryRow({ trade, myId, friendsById }) {
+const HistoryRow = memo(function HistoryRow({ trade, myId, friendsById }) {
   const isFrom = trade.from_user === myId;
   const other = friendsById[isFrom ? trade.to_user : trade.from_user];
   const otherName = other?.username || "un ami";
@@ -284,17 +295,11 @@ function HistoryRow({ trade, myId, friendsById }) {
     : { name: trade.offer_name, image: trade.offer_image, tier: trade.offer_tier };
   const meta = STATUS_META[trade.status] || STATUS_META.cancelled;
 
-  const Thumb = ({ card }) => (
-    <div className={`w-8 h-10 rounded-md overflow-hidden bg-violet-950 border flex-shrink-0 ${card ? RARITY[normalizeTier(card.tier)].border : "border-dashed border-white/15"}`}>
-      {card?.image && <img src={card.image} alt="" loading="lazy" className="w-full h-full object-cover" />}
-    </div>
-  );
-
   return (
     <div className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-violet-900/30 px-3 py-2">
-      <Thumb card={give} />
+      <HistoryThumb card={give} />
       <ArrowLeftRight size={12} className="text-violet-500 flex-shrink-0" />
-      <Thumb card={get} />
+      <HistoryThumb card={get} />
       <div className="min-w-0 flex-1">
         <p className="text-[11.5px] text-white font-medium truncate">
           {give?.name || "—"} <span className="text-violet-500">↔</span> {get?.name || "—"}
@@ -304,7 +309,7 @@ function HistoryRow({ trade, myId, friendsById }) {
       <span className={`flex-shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.cls}`}>{meta.label}</span>
     </div>
   );
-}
+});
 
 // ── Sélecteur de carte ───────────────────────────────────────────────────────
 
@@ -323,7 +328,9 @@ function PickerTile({ item, owned, selected, onClick }) {
           ? <img src={item.image} alt="" loading="lazy" className="w-full h-full object-cover" />
           : <div className="w-full h-full flex items-center justify-center text-violet-600 text-xl">?</div>}
         <div className="absolute top-1 left-1"><RarityBadge tier={item.tier} /></div>
-        <span className="absolute top-1 right-1 min-w-[20px] h-[20px] px-1 rounded-full bg-black/75 text-white text-[9px] font-mono font-bold flex items-center justify-center">
+        <span className={`absolute top-1 right-1 min-w-[22px] h-[22px] px-1.5 rounded-full text-[10px] font-mono font-bold flex items-center justify-center shadow ${
+          item.count > 1 ? "bg-amber-400 text-violet-950" : "bg-black/75 text-white"}`}
+          title={item.count > 1 ? `${item.count} exemplaires (${item.count - 1} en double)` : "1 exemplaire"}>
           ×{item.count}
         </span>
         {selected && (
@@ -348,9 +355,47 @@ function PickerTile({ item, owned, selected, onClick }) {
   );
 }
 
+/** Interrupteur : piste + curseur + état écrit, pour qu'on voie tout de suite qu'on peut l'activer/désactiver. */
+function Switch({ checked, onChange, icon: Icon, label, count, tone = "emerald" }) {
+  const on = tone === "emerald"
+    ? { track: "bg-emerald-400", box: "bg-emerald-400/10 border-emerald-400/35", text: "text-emerald-200" }
+    : { track: "bg-amber-400", box: "bg-amber-400/10 border-amber-300/35", text: "text-amber-200" };
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition-colors active:scale-[0.99]
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 ${
+        checked ? on.box : "bg-white/[0.04] border-white/10 hover:border-white/25"}`}
+    >
+      <Icon size={13} className={`flex-shrink-0 ${checked ? on.text : "text-violet-400"}`} />
+      <span className="min-w-0 flex-1">
+        <span className={`block text-[11.5px] font-semibold leading-tight truncate ${checked ? on.text : "text-violet-100"}`}>
+          {label}{count != null && <span className="font-mono opacity-80"> · {count}</span>}
+        </span>
+        <span className="block text-[9.5px] leading-tight text-violet-400">{checked ? "Activé : filtre appliqué" : "Désactivé : touche pour filtrer"}</span>
+      </span>
+      <span aria-hidden="true" className={`relative h-5 w-9 flex-shrink-0 rounded-full transition-colors duration-200 ${checked ? on.track : "bg-white/20"}`}>
+        <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${checked ? "translate-x-4" : ""}`} />
+      </span>
+    </button>
+  );
+}
+
+const SORTS = [
+  { key: "smart",  label: "Nouvelles d'abord" },
+  { key: "count",  label: "Plus d'exemplaires" },
+  { key: "rarity", label: "Rareté" },
+  { key: "name",   label: "A → Z" },
+];
+
 function CardPicker({ title, subtitle, items, selected, onSelect, emptyText, partnerName, partnerCount }) {
   const [query, setQuery] = useState("");
   const [tier, setTier] = useState("all");
+  const [sort, setSort] = useState("smart");
+  const [onlyDupes, setOnlyDupes] = useState(false);
   const [limit, setLimit] = useState(PAGE);
 
   // Possession du partenaire par carte (null = inconnue, tant que son miroir n'est pas lu).
@@ -360,6 +405,7 @@ function CardPicker({ title, subtitle, items, selected, onSelect, emptyText, par
   );
   const known = enriched.some((e) => e.owned != null);
   const newCount = enriched.filter((e) => e.owned === 0).length;
+  const dupeCount = items.filter((i) => i.count > 1).length;
 
   // Par défaut : seulement ce qui manque au partenaire — c'est ce qui rend l'échange utile.
   // Tant que l'utilisateur n'a pas touché au filtre, il suit la donnée (le miroir peut arriver après l'ouverture).
@@ -367,24 +413,34 @@ function CardPicker({ title, subtitle, items, selected, onSelect, emptyText, par
   const [touched, setTouched] = useState(false);
   const setOnlyNew = (v) => { setTouched(true); setOnlyNewRaw(v); };
   useEffect(() => { if (!touched) setOnlyNewRaw(newCount > 0); }, [newCount, touched]);
-  useEffect(() => { setLimit(PAGE); }, [query, tier, onlyNew]);
+  useEffect(() => { setLimit(PAGE); }, [query, tier, onlyNew, onlyDupes, sort]);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const newFirst = (a, b) => (a.owned === 0 ? 0 : 1) - (b.owned === 0 ? 0 : 1);
+    const byRarity = (a, b) => rankOf(b.item.tier) - rankOf(a.item.tier);
+    const byName = (a, b) => String(a.item.name).localeCompare(String(b.item.name), "fr", { sensitivity: "base" });
+    const byCount = (a, b) => (b.item.count || 0) - (a.item.count || 0);
+    const comparators = {
+      smart:  (a, b) => newFirst(a, b) || byRarity(a, b) || byName(a, b),
+      count:  (a, b) => byCount(a, b) || newFirst(a, b) || byRarity(a, b) || byName(a, b),
+      rarity: (a, b) => byRarity(a, b) || newFirst(a, b) || byName(a, b),
+      name:   (a, b) => byName(a, b),
+    };
     return enriched
       .filter(({ item, owned }) => {
         if (onlyNew && known && owned !== 0) return false;
+        if (onlyDupes && !(item.count > 1)) return false;
         if (tier !== "all" && normalizeTier(item.tier) !== tier) return false;
         return !q || item.name?.toLowerCase().includes(q) || item.series?.toLowerCase().includes(q);
       })
-      .sort((a, b) =>
-        (a.owned === 0 ? 0 : 1) - (b.owned === 0 ? 0 : 1) ||
-        rankOf(b.item.tier) - rankOf(a.item.tier) ||
-        String(a.item.name).localeCompare(String(b.item.name), "fr", { sensitivity: "base" })
-      );
-  }, [enriched, query, tier, onlyNew, known]);
+      .sort(comparators[sort]);
+  }, [enriched, query, tier, onlyNew, onlyDupes, sort, known]);
 
   const shown = list.slice(0, limit);
+  const filtersActive = (onlyNew && known) || onlyDupes || tier !== "all" || query.trim();
+
+  function resetFilters() { setQuery(""); setTier("all"); setOnlyDupes(false); setOnlyNew(false); }
 
   return (
     <section className="rounded-2xl border border-white/10 bg-violet-900/35 overflow-hidden">
@@ -394,29 +450,43 @@ function CardPicker({ title, subtitle, items, selected, onSelect, emptyText, par
             <p className="text-sm font-semibold text-amber-200">{title}</p>
             <p className="text-[10.5px] text-violet-400 mt-0.5">{subtitle}</p>
           </div>
-          <span className="flex-shrink-0 rounded-full bg-white/5 border border-white/10 px-2 py-1 text-[10px] font-mono text-violet-300">
+          <span className="flex-shrink-0 rounded-full bg-white/5 border border-white/10 px-2 py-1 text-[10px] font-mono text-violet-300"
+            title="Cartes affichées / cartes au total">
             {list.length}/{items.length}
           </span>
         </div>
 
-        <div className="flex gap-2 mt-3">
-          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-black/20 border border-white/10 px-2.5 focus-within:border-white/25">
-            <Search size={14} className="text-violet-500 flex-shrink-0" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Personnage ou série"
-              className="min-w-0 w-full bg-transparent py-2 text-xs text-white placeholder:text-violet-600 outline-none"
-              aria-label={`Rechercher dans ${title}`}
-            />
-            {query && <button type="button" onClick={() => setQuery("")} className="text-violet-400 hover:text-white" aria-label="Effacer"><X size={13} /></button>}
+        <label className="mt-3 flex min-w-0 items-center gap-2 rounded-xl bg-black/20 border border-white/10 px-2.5 focus-within:border-white/25">
+          <Search size={14} className="text-violet-500 flex-shrink-0" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Personnage ou série"
+            className="min-w-0 w-full bg-transparent py-2 text-xs text-white placeholder:text-violet-600 outline-none"
+            aria-label={`Rechercher dans ${title}`}
+          />
+          {query && <button type="button" onClick={() => setQuery("")} className="text-violet-400 hover:text-white" aria-label="Effacer"><X size={13} /></button>}
+        </label>
+
+        <div className="flex gap-2 mt-2">
+          <label className="relative flex-1 min-w-0">
+            <span className="sr-only">Trier par</span>
+            <ArrowUpDown size={12} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-violet-400" />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="w-full appearance-none rounded-xl bg-black/20 border border-white/10 py-2 pl-7 pr-7 text-[11px] text-violet-100 outline-none focus:border-white/25"
+            >
+              {SORTS.filter((o) => o.key !== "smart" || known).map((o) => <option key={o.key} value={o.key}>Trier : {o.label}</option>)}
+            </select>
+            <ChevronDown size={12} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-violet-500" />
           </label>
-          <label className="relative flex-shrink-0">
+          <label className="relative flex-1 min-w-0">
+            <span className="sr-only">Filtrer par rareté</span>
             <select
               value={tier}
               onChange={(e) => setTier(e.target.value)}
-              className="h-full appearance-none rounded-xl bg-black/20 border border-white/10 pl-2.5 pr-7 text-[10px] text-violet-200 outline-none"
-              aria-label="Filtrer par rareté"
+              className="w-full appearance-none rounded-xl bg-black/20 border border-white/10 py-2 pl-2.5 pr-7 text-[11px] text-violet-100 outline-none focus:border-white/25"
             >
               <option value="all">Toutes raretés</option>
               {RARITY_ORDER.map((key) => <option key={key} value={key}>{RARITY[key].label}</option>)}
@@ -425,24 +495,14 @@ function CardPicker({ title, subtitle, items, selected, onSelect, emptyText, par
           </label>
         </div>
 
-        {known && (
-          <div className="mt-2.5 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setOnlyNew(!onlyNew)}
-              aria-pressed={onlyNew}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[10.5px] font-semibold transition-colors ${
-                onlyNew
-                  ? "bg-emerald-400/15 border-emerald-400/40 text-emerald-200"
-                  : "bg-white/5 border-white/10 text-violet-300 hover:text-white"}`}
-            >
-              <Sparkles size={11} />Nouvelles pour {partnerName} · {newCount}
-            </button>
-            <span className="text-[10px] text-violet-500 truncate">
-              {onlyNew ? "Les doublons sont masqués" : "Les nouvelles sont affichées en premier"}
-            </span>
-          </div>
-        )}
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {known && (
+            <Switch checked={onlyNew} onChange={setOnlyNew} icon={Sparkles}
+              label={`Nouvelles pour ${partnerName}`} count={newCount} />
+          )}
+          <Switch checked={onlyDupes} onChange={setOnlyDupes} icon={Copy} tone="amber"
+            label="Mes doublons (×2 et +)" count={dupeCount} />
+        </div>
       </div>
 
       <div className="p-3 sm:p-4">
@@ -471,13 +531,14 @@ function CardPicker({ title, subtitle, items, selected, onSelect, emptyText, par
           <div className="py-10 text-center">
             <Search size={20} className="mx-auto text-violet-600 mb-2" />
             <p className="text-xs text-violet-400">
-              {onlyNew && known && !query && tier === "all" && items.length
-                ? `${partnerName} possède déjà toutes tes cartes.`
-                : (emptyText || "Aucune carte ne correspond.")}
+              {!items.length ? (emptyText || "Aucune carte.")
+                : onlyNew && known && !onlyDupes && !query && tier === "all" ? `${partnerName} possède déjà toutes tes cartes.`
+                : onlyDupes && !dupeCount ? "Tu n'as aucun doublon pour l'instant."
+                : "Aucune carte ne correspond à ces filtres."}
             </p>
-            {onlyNew && known && items.length > 0 && (
-              <GameButton variant="secondary" size="sm" className="mt-3" onClick={() => setOnlyNew(false)}>
-                Afficher aussi les doublons
+            {filtersActive && (
+              <GameButton variant="secondary" size="sm" className="mt-3" onClick={resetFilters}>
+                Réinitialiser les filtres
               </GameButton>
             )}
           </div>

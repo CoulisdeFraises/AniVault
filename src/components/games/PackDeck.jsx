@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { AnimatePresence, motion, animate, useMotionValue, useTransform, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, animate, useMotionValue, useTransform, useReducedMotion, useIsPresent } from "motion/react";
 import { Sparkles, Copy, Star, Gem } from "lucide-react";
 import { RARITY, normalizeTier } from "../../utils/waifinity";
 import { RarityBadge, RarityDot } from "./RarityBadge";
@@ -123,6 +123,10 @@ function TopCard({ card, isDuplicate, fragments, reduce, onStep }) {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const rotate = useTransform(x, [-220, 220], [-14, 14]);
+  // Pendant son envol (AnimatePresence la garde dans le DOM), la carte sortante ne
+  // doit plus réagir : son gestionnaire est figé sur l'ancien index, et un 2e geste
+  // dessus faisait avancer le deck deux fois (index hors limites → crash).
+  const isPresent = useIsPresent();
 
   // La carte arrive de dos puis se retourne seule ; l'aura et les étincelles
   // partent quand la face commence à apparaître.
@@ -133,6 +137,7 @@ function TopCard({ card, isDuplicate, fragments, reduce, onStep }) {
   }, [reduce]);
 
   function onDragEnd(_, info) {
+    if (!isPresent) return;
     const { offset, velocity } = info;
     const dist = Math.hypot(offset.x, offset.y);
     const speed = Math.hypot(velocity.x, velocity.y);
@@ -151,15 +156,15 @@ function TopCard({ card, isDuplicate, fragments, reduce, onStep }) {
       variants={reduce ? reducedVariants : cardVariants}
       initial="enter" animate="center" exit="exit"
       transition={{ type: "spring", stiffness: 300, damping: 26 }}
-      drag
+      drag={isPresent}
       dragElastic={0.9}
       dragMomentum={false}
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
       whileDrag={{ scale: 1.03 }}
       onDragEnd={onDragEnd}
-      onTap={() => onStep()}
+      onTap={() => { if (isPresent) onStep(); }}
       className="absolute inset-0 touch-none cursor-grab active:cursor-grabbing select-none"
-      style={{ x, y, rotate: reduce ? 0 : rotate }}
+      style={{ x, y, rotate: reduce ? 0 : rotate, pointerEvents: isPresent ? "auto" : "none" }}
       role="button"
       tabIndex={0}
       aria-label="Carte suivante"
@@ -199,10 +204,14 @@ export function PackDeck({ cards, dupSlots, fragmentsFor, onRevealCard, onFinish
   const [leaving, setLeaving] = useState(false); // dernière carte envolée : le récapitulatif suit
   const finishTimer = useRef(0);
   useEffect(() => () => clearTimeout(finishTimer.current), []);
+  // Source de vérité synchrone : plusieurs gestes peuvent arriver avant le prochain
+  // rendu React, donc `index`/`leaving` de la fermeture seraient périmés.
+  const indexRef = useRef(0);
+  const leavingRef = useRef(false);
   const [tiers, setTiers] = useState([]); // paliers des cartes déjà révélées (pastilles de progression)
 
   const n = cards.length;
-  const card = cards[index];
+  const card = cards[Math.min(index, n - 1)]; // jamais undefined, même en cas de double geste
   const r = RARITY[normalizeTier(card.tier)];
   const isDuplicate = dupSlots.has(card.packSlot);
 
@@ -210,7 +219,8 @@ export function PackDeck({ cards, dupSlots, fragmentsFor, onRevealCard, onFinish
   // puis vibration et flash calés sur le moment où la face apparaît. Si on passe
   // la carte avant, ces deux effets sont annulés.
   useEffect(() => {
-    const c = cards[index];
+    const c = cards[Math.min(index, n - 1)];
+    if (!c) return undefined;
     const rr = RARITY[normalizeTier(c.tier)];
     setTiers((t) => { const next = [...t]; next[index] = c.tier; return next; });
     onRevealCard(c.packSlot);
@@ -227,16 +237,19 @@ export function PackDeck({ cards, dupSlots, fragmentsFor, onRevealCard, onFinish
   // `onDragEnd` faisait planter l'app. La carte s'envole d'abord (retirée de
   // l'AnimatePresence), puis le récapitulatif s'affiche une fois l'animation terminée.
   const step = useCallback((dir) => {
-    if (leaving) return;
-    setExitDir(dir || { x: index % 2 ? -1 : 1, y: 0 });
+    if (leavingRef.current) return;
+    const i = indexRef.current;
+    setExitDir(dir || { x: i % 2 ? -1 : 1, y: 0 });
     haptics.tap();
-    if (index + 1 >= n) {
+    if (i + 1 >= n) {
+      leavingRef.current = true;
       setLeaving(true);
       finishTimer.current = setTimeout(onFinish, reduce ? 0 : 360);
       return;
     }
-    setIndex((i) => i + 1);
-  }, [index, n, onFinish, leaving, reduce]);
+    indexRef.current = i + 1;
+    setIndex(i + 1);
+  }, [n, onFinish, reduce]);
 
   useEffect(() => {
     function onKey(e) {
