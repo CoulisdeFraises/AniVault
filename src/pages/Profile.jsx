@@ -613,7 +613,7 @@ export function Profile() {
                   <span className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold text-white overflow-hidden"
                     style={{ backgroundColor: c.swatch }}>
                     {c.imageFolder
-                      ? <img src={`${c.imageFolder}/rating-2.png`} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+                      ? <img src={`${c.imageFolder}/rating-2.webp`} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
                       : c.name[0]}
                   </span>
                   <span className="min-w-0">

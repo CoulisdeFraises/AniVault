@@ -22,7 +22,7 @@ export function HomeHeader() {
       <div className="flex items-center gap-2.5 min-w-0">
         <button type="button" onClick={playLogoOnce} aria-label="Rejouer l'animation du logo"
           className="flex-shrink-0 h-12 w-12 rounded-full bg-white p-[3px] shadow-lg shadow-black/30 active:scale-95 transition-transform motion-reduce:transition-none">
-          <img src={logoPlaying ? `/splash-anim.gif?t=${logoPlaying}` : "/logo.png"} alt="Logo AniVault"
+          <img src={logoPlaying ? `/splash-anim.webp?t=${logoPlaying}` : "/logo.webp"} alt="Logo AniVault"
             className="h-full w-full rounded-full object-cover" />
         </button>
         <h1 className="text-[1.65rem] font-bold italic tracking-tight leading-none truncate"

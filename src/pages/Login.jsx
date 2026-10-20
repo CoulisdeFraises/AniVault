@@ -61,7 +61,7 @@ export function Login() {
         {/* ── Logo ── */}
         <div className="flex flex-col items-center mb-8 gap-3">
           <img
-            src="/logo.png"
+            src="/logo.webp"
             alt="AniVault"
             className="h-16 w-16 rounded-2xl shadow-lg shadow-violet-900/50"
           />

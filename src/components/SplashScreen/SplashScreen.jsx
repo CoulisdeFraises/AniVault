@@ -109,7 +109,7 @@ const SplashScreen = ({ onFinish, isLoading = false }) => {
           <div className="splash-logo-glow" />
           <img
             key={playAnim ? "anim" : "poster"}
-            src={playAnim ? "/splash-anim.gif" : "/splash-poster.png"}
+            src={playAnim ? "/splash-anim.webp" : "/splash-poster.webp"}
             alt="AniVault"
             className={`splash-logo${bursting ? ' logo-burst' : ''}`}
           />

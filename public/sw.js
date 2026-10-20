@@ -1,96 +1,109 @@
-// ─────────────────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────
-// AniVault — Service Worker
+// -----------------------------------------------------------------------------
+// AniVault - Service Worker
 //
-// Objectif : app pleinement utilisable hors ligne pour tout ce qui a déjà
-// été consulté au moins une fois en ligne (bibliothèque, fiches détails,
-// affiches, recherches récentes...).
+// Objectif : une app utilisable hors ligne pour tout ce qui a déjà été consulté
+// au moins une fois (bibliothèque, fiches, affiches, polices, recherches).
 //
-// La bibliothèque elle-même (entrées, progression) vit déjà dans
-// localStorage (services/storage.js) — elle est donc hors ligne "gratuitement".
-// Ce Service Worker s'occupe de tout le reste : le shell de l'app (JS/CSS),
-// les affiches/images distantes, et les réponses JSON des API publiques
-// consultées en cours de navigation.
+// La bibliothèque elle-meme vit dans le localStorage et dans Supabase : ce
+// Service Worker ne s'occupe que du reste (shell de l'app, fichiers buildés,
+// images distantes, polices, réponses JSON des API publiques).
 //
-// Stratégies utilisées (classiques, façon Workbox, réécrites à la main pour
-// ne pas ajouter de dépendance de build) :
-//   • Navigation (changement de page / F5 sur une route SPA)
-//       → network-first, repli sur le shell mis en cache (index.html)
-//   • Fichiers buildés hashés (/assets/*.js, *.css)
-//       → cache-first (le hash garantit l'immutabilité du contenu)
-//   • Images (affiches AniList / TMDB / TVmaze, logos...)
-//       → cache-first avec purge des entrées les plus anciennes
-//   • Endpoints API publics et sans donnée utilisateur (fiche média,
-//     TMDB, TVmaze) → stale-while-revalidate : réponse immédiate depuis le
-//     cache si dispo, requête réseau en tâche de fond pour la fois suivante
-//   • Reste du même-origine (icônes, manifest...) → network-first classique
-//   • Tout le reste (Supabase auth/rest, GraphQL AniList en POST...) → non
-//     intercepté, comportement natif du navigateur (on ne veut surtout pas
-//     mettre en cache des réponses liées à une session utilisateur)
-// ─────────────────────────────────────────────────────────────────────────
+// Stratégies :
+//   - Navigation            : réseau d'abord (avec délai maximum), repli sur le
+//                             shell /index.html en cache
+//   - /assets/* (hashés)    : cache d'abord (contenu immuable)
+//   - Polices Google        : CSS en stale-while-revalidate, fichiers en cache
+//                             d'abord
+//   - Images (toute origine): cache d'abord, purge des plus anciennes
+//   - API publiques         : stale-while-revalidate avec âge maximum ; les
+//                             requêtes "force" et le calendrier hebdomadaire
+//                             passent par le réseau d'abord
+//   - Reste du même domaine : réseau d'abord
+//   - Tout le reste (Supabase auth/rest/realtime, GraphQL AniList en POST...) :
+//     non intercepté. On ne met jamais en cache une réponse liée à une session.
+// -----------------------------------------------------------------------------
 
-const SW_VERSION = "v10";
+const SW_VERSION = "v11";
 
-const STATIC_CACHE = `anivault-static-${SW_VERSION}`;
-const ASSETS_CACHE = `anivault-assets-${SW_VERSION}`;
-const IMAGES_CACHE = `anivault-images-${SW_VERSION}`;
-const API_CACHE    = `anivault-api-${SW_VERSION}`;
+const STATIC_CACHE  = `anivault-static-${SW_VERSION}`;   // précache + shell
+const ASSETS_CACHE  = `anivault-assets-${SW_VERSION}`;   // JS/CSS hashés
+const IMAGES_CACHE  = `anivault-images-${SW_VERSION}`;
+const API_CACHE     = `anivault-api-${SW_VERSION}`;
+const FONTS_CACHE   = `anivault-fonts-${SW_VERSION}`;
+const RUNTIME_CACHE = `anivault-runtime-${SW_VERSION}`;  // autres fichiers du domaine
 
-const ALL_CACHES = [STATIC_CACHE, ASSETS_CACHE, IMAGES_CACHE, API_CACHE];
+const ALL_CACHES = [STATIC_CACHE, ASSETS_CACHE, IMAGES_CACHE, API_CACHE, FONTS_CACHE, RUNTIME_CACHE];
 
-// Nombre maximum d'entrées conservées par cache "dynamique" (évite une
-// croissance illimitée — les Cache Storage n'ont pas de TTL natif).
+// Nombre maximal d'entrées par cache dynamique (le Cache Storage n'a pas de TTL).
+// STATIC_CACHE n'est jamais purgé : il contient le shell et le précache.
 const MAX_ENTRIES = {
   [ASSETS_CACHE]: 80,
   [IMAGES_CACHE]: 400,
   [API_CACHE]: 200,
+  [FONTS_CACHE]: 40,
+  [RUNTIME_CACHE]: 60,
 };
 
-// Assets statiques connus à l'avance à mettre en cache immédiatement.
-// (Les fichiers JS/CSS buildés sont hashés et inconnus à l'écriture de ce
-// fichier — ils rejoignent ASSETS_CACHE dynamiquement au premier chargement.)
+const SHELL_URL = "/index.html";
+
+// Fichiers connus à l'avance, mis en cache à l'installation. Les fichiers
+// JS/CSS buildés sont hashés : ils rejoignent ASSETS_CACHE au premier chargement.
 const PRECACHE = [
   "/",
-  "/index.html",
+  SHELL_URL,
   "/site.webmanifest",
-  "/logo.png",
-  "/logo-wide.png",
-  "/splash-poster.png",
-  "/splash-anim.gif",
+  "/logo.webp",
+  "/splash-poster.webp",
+  "/splash-anim.webp",
   "/favicon.svg",
   "/favicon-96x96.png",
-  "/apple-touch-icon.png",
   "/web-app-manifest-192x192.png",
-  "/web-app-manifest-512x512.png",
 ];
 
-// Domaines d'API publiques (pas de donnée utilisateur) que l'on peut se
-// permettre de mettre en cache pour une consultation hors ligne.
+// Icône des notifications système (PNG obligatoire côté OS) et badge.
+const NOTIF_ICON  = "/web-app-manifest-192x192.png";
+const NOTIF_BADGE = "/favicon-96x96.png";
+
+// Hôtes d'API publiques, sans donnée utilisateur.
 const CACHEABLE_API_HOSTS = new Set(["api.themoviedb.org", "api.tvmaze.com", "api.tenrai.org"]);
 
-// Chemin de la fonction Edge Supabase servant les fiches média (AniList /
-// TMDB / Tenrai) — contenu public, identique pour tout le monde, idéal pour
-// le cache. On ne cache RIEN d'autre côté Supabase (auth, rest, realtime)
-// pour ne jamais mélanger de données propres à une session utilisateur.
+// Fonction Edge Supabase servant les fiches média et le calendrier hebdomadaire
+// (contenu public). Rien d'autre côté Supabase n'est mis en cache.
 const MEDIA_PROXY_PATH = "/functions/v1/smooth-task";
+
+const FONT_CSS_HOST  = "fonts.googleapis.com";
+const FONT_FILE_HOST = "fonts.gstatic.com";
+
+// Âges maximaux : au-delà, le réseau est préféré et le cache ne sert qu'hors ligne.
+const API_MAX_AGE_MS     = 6 * 60 * 60 * 1000;
+const RUNTIME_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const FONT_CSS_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Délai avant de servir le shell en cache quand le réseau répond trop lentement.
+const NAVIGATION_TIMEOUT_MS = 4000;
 
 function isCacheableApiRequest(url) {
   if (CACHEABLE_API_HOSTS.has(url.hostname)) return true;
-  if (url.hostname.endsWith(".supabase.co") && url.pathname.includes(MEDIA_PROXY_PATH)) return true;
-  return false;
+  return url.hostname.endsWith(".supabase.co") && url.pathname.includes(MEDIA_PROXY_PATH);
 }
 
-// ── Installation : précache du shell ───────────────────────────────────────
+// Requêtes qui doivent toujours tenter le réseau en premier : rafraîchissement
+// force (synchro, tirer-pour-rafraichir) et calendrier hebdomadaire, dont les
+// horaires changent. Sans cela, un "force" pouvait être servi depuis le cache.
+function wantsFreshData(url) {
+  return url.searchParams.get("force") === "1" || url.searchParams.get("mode") === "schedule";
+}
+
+// -- Installation : précache du shell ------------------------------------------
 self.addEventListener("install", (e) => {
   e.waitUntil(
     caches.open(STATIC_CACHE).then((cache) =>
-      // { cache: "reload" } pour contourner le cache HTTP du navigateur et
-      // être sûr de récupérer les toutes dernières versions au moment de l'install.
       Promise.all(
         PRECACHE.map((url) =>
+          // cache: "reload" contourne le cache HTTP pour obtenir la dernière version.
           fetch(url, { cache: "reload" })
             .then((res) => (res.ok ? cache.put(url, res) : null))
-            .catch(() => null) // un asset manquant ne doit pas bloquer l'install
+            .catch(() => null) // un fichier manquant ne doit pas bloquer l'installation
         )
       )
     )
@@ -98,59 +111,83 @@ self.addEventListener("install", (e) => {
   self.skipWaiting();
 });
 
-// ── Activation : purge des anciennes versions de cache ─────────────────────
+// -- Activation : purge des anciennes versions, précharge de navigation ---------
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((k) => k.startsWith("anivault-") && !ALL_CACHES.includes(k))
-          .map((k) => caches.delete(k))
-      )
-    )
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys.filter((k) => k.startsWith("anivault-") && !ALL_CACHES.includes(k)).map((k) => caches.delete(k))
+      );
+      // Démarre la requête réseau de navigation en parallèle du démarrage du SW.
+      if (self.registration.navigationPreload) {
+        await self.registration.navigationPreload.enable().catch(() => {});
+      }
+      await self.clients.claim();
+    })()
   );
-  self.clients.claim();
 });
 
-// ── Utilitaires ──────────────────────────────────────────────────────────
+// -- Utilitaires ----------------------------------------------------------------
 
 /** Supprime les entrées les plus anciennes d'un cache au-delà de `max`. */
 async function trimCache(cacheName, max) {
   if (!max) return;
   const cache = await caches.open(cacheName);
   const keys = await cache.keys();
-  if (keys.length <= max) return;
-  const excess = keys.length - max;
-  for (let i = 0; i < excess; i++) await cache.delete(keys[i]);
+  for (let i = 0; i < keys.length - max; i++) await cache.delete(keys[i]);
 }
 
+/** Met une réponse en cache. Ignore silencieusement les échecs (quota, réponse opaque). */
 async function putInCache(cacheName, request, response) {
   if (!response || !response.ok) return;
   try {
     const cache = await caches.open(cacheName);
-    await cache.put(request, response.clone());
+    await cache.put(request, response);
     trimCache(cacheName, MAX_ENTRIES[cacheName]);
   } catch {
-    // Cache Storage plein ou requête non cachable (ex: réponse opaque
-    // volumineuse) — on abandonne silencieusement, ce n'est pas critique.
+    // Cache plein ou réponse non cachable : non critique.
   }
 }
 
-/** Cache-first : sert le cache s'il existe, sinon va au réseau et cache le résultat. */
-async function cacheFirst(request, cacheName) {
+/** Vrai si la réponse en cache a moins de `maxAgeMs` (d'après son en-tête Date). */
+function isFresh(response, maxAgeMs) {
+  const date = Date.parse(response.headers.get("date") || "");
+  return Number.isFinite(date) && Date.now() - date < maxAgeMs;
+}
+
+// Hôtes tiers dont le CDN n'a pas répondu en CORS : inutile de réessayer.
+const corsBlockedHosts = new Set();
+
+/**
+ * Récupère une ressource tierce. Une balise <img> ou <link> envoie une requête
+ * "no-cors" dont la réponse est opaque, donc impossible à mettre en cache de
+ * facon fiable. On retente donc d'abord en CORS : si le CDN l'autorise, la
+ * réponse est lisible et cachable ; sinon on retombe sur la requête d'origine.
+ */
+async function fetchCorsFirst(request) {
+  const url = new URL(request.url);
+  if (request.mode === "no-cors" && url.origin !== location.origin && !corsBlockedHosts.has(url.hostname)) {
+    try {
+      const res = await fetch(request.url, { mode: "cors", credentials: "omit" });
+      if (res.ok) return res;
+    } catch {
+      corsBlockedHosts.add(url.hostname);
+    }
+  }
+  return fetch(request);
+}
+
+/** Cache d'abord : sert le cache s'il existe, sinon va au réseau et met en cache. */
+async function cacheFirst(request, cacheName, fetcher = fetch) {
   const cached = await caches.match(request);
   if (cached) return cached;
-  try {
-    const fresh = await fetch(request);
-    putInCache(cacheName, request, fresh.clone());
-    return fresh;
-  } catch (err) {
-    if (cached) return cached;
-    throw err;
-  }
+  const fresh = await fetcher(request);
+  putInCache(cacheName, request, fresh.clone());
+  return fresh;
 }
 
-/** Network-first : tente le réseau, retombe sur le cache en cas d'échec. */
+/** Réseau d'abord : repli sur le cache uniquement si le réseau est injoignable. */
 async function networkFirst(request, cacheName) {
   try {
     const fresh = await fetch(request);
@@ -159,135 +196,161 @@ async function networkFirst(request, cacheName) {
   } catch {
     const cached = await caches.match(request);
     if (cached) return cached;
-    throw new Error("network-first: aucune ressource disponible (réseau + cache)");
-  }
-}
-
-/** Network-first spécial navigation : repli sur le shell (index.html) si tout échoue. */
-async function networkFirstNavigate(request) {
-  try {
-    const fresh = await fetch(request);
-    putInCache(STATIC_CACHE, request, fresh.clone());
-    return fresh;
-  } catch {
-    const cachedExact = await caches.match(request);
-    if (cachedExact) return cachedExact;
-    const shell = await caches.match("/index.html");
-    if (shell) return shell;
-    throw new Error("navigate: aucun shell en cache");
+    throw new Error("network-first: ni réseau ni cache");
   }
 }
 
 /**
- * Stale-while-revalidate : répond instantanément avec le cache si présent
- * (parfait pour une fiche déjà consultée), tout en rafraîchissant en tâche
- * de fond pour la prochaine visite. Si rien en cache, attend le réseau.
+ * Stale-while-revalidate avec âge maximum. Une réponse en cache récente est
+ * servie immédiatement pendant qu'une mise à jour part en arrière-plan. Une
+ * réponse trop ancienne n'est servie que si le réseau échoue.
  */
-async function staleWhileRevalidate(request, cacheName) {
+async function staleWhileRevalidate(event, request, cacheName, maxAgeMs, fetcher = fetch) {
   const cached = await caches.match(request);
 
-  const networkUpdate = fetch(request)
+  const update = fetcher(request)
     .then((fresh) => {
       putInCache(cacheName, request, fresh.clone());
       return fresh;
     })
     .catch(() => null);
 
-  if (cached) {
-    networkUpdate; // rafraîchissement en tâche de fond, on n'attend pas
+  if (cached && isFresh(cached, maxAgeMs)) {
+    event.waitUntil(update); // garde le SW en vie jusqu'à la fin de la mise à jour
     return cached;
   }
 
-  const fresh = await networkUpdate;
+  const fresh = await update;
+  if (fresh && fresh.ok) return fresh;
+  if (cached) return cached;
   if (fresh) return fresh;
-  throw new Error("stale-while-revalidate: ni cache ni réseau disponibles");
+  throw new Error("stale-while-revalidate: ni cache ni réseau");
 }
 
-// ── Interception des requêtes ───────────────────────────────────────────────
+/**
+ * Navigation. Le réseau est tenté en premier (précharge de navigation incluse).
+ * Si la réponse tarde trop ou si l'appareil est hors ligne, le shell en cache
+ * est servi. Toutes les routes sont la même page : on ne garde qu'une copie.
+ */
+async function handleNavigation(event) {
+  const network = (async () => (await event.preloadResponse) || fetch(event.request))().then((res) => {
+    if (res.ok && !res.redirected) putInCache(STATIC_CACHE, SHELL_URL, res.clone());
+    return res;
+  });
+  event.waitUntil(network.catch(() => {}));
+
+  try {
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("navigation-timeout")), NAVIGATION_TIMEOUT_MS)
+    );
+    return await Promise.race([network, timeout]);
+  } catch {
+    const shell = await caches.match(SHELL_URL);
+    if (shell) return shell;
+    return network; // pas de shell en cache : on attend le réseau jusqu'au bout
+  }
+}
+
+// -- Interception des requêtes ----------------------------------------------------
 self.addEventListener("fetch", (e) => {
   const { request } = e;
 
-  // On ne touche jamais aux écritures (POST/PUT/DELETE...) : GraphQL AniList,
-  // Supabase auth/insert/update, envoi de push subscription, etc.
+  // Jamais d'interception des écritures (GraphQL AniList, Supabase, abonnements push...).
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
   if (url.protocol !== "http:" && url.protocol !== "https:") return;
 
-  // 1. Navigation (chargement de page / F5 sur une route SPA) ────────────
+  // 1. Navigation
   if (request.mode === "navigate") {
-    e.respondWith(networkFirstNavigate(request));
+    e.respondWith(handleNavigation(e));
     return;
   }
 
-  // 2. Fichiers buildés hashés (immutables) ───────────────────────────────
+  // 2. Fichiers buildés hashés
   if (url.origin === location.origin && url.pathname.startsWith("/assets/")) {
     e.respondWith(cacheFirst(request, ASSETS_CACHE));
     return;
   }
 
-  // 3. Images (affiches, logos...), toute origine confondue ──────────────
+  // 3. Polices Google : feuille de style puis fichiers
+  if (url.hostname === FONT_CSS_HOST) {
+    e.respondWith(staleWhileRevalidate(e, request, FONTS_CACHE, FONT_CSS_MAX_AGE_MS, fetchCorsFirst));
+    return;
+  }
+  if (url.hostname === FONT_FILE_HOST) {
+    e.respondWith(cacheFirst(request, FONTS_CACHE));
+    return;
+  }
+
+  // 4. Images, toute origine confondue
   if (request.destination === "image") {
-    e.respondWith(cacheFirst(request, IMAGES_CACHE));
+    e.respondWith(cacheFirst(request, IMAGES_CACHE, fetchCorsFirst));
     return;
   }
 
-  // 4. APIs publiques sans donnée utilisateur (fiches média, TMDB, TVmaze) ─
+  // 5. API publiques sans donnée utilisateur
   if (isCacheableApiRequest(url)) {
-    e.respondWith(staleWhileRevalidate(request, API_CACHE));
+    e.respondWith(
+      wantsFreshData(url)
+        ? networkFirst(request, API_CACHE)
+        : staleWhileRevalidate(e, request, API_CACHE, API_MAX_AGE_MS)
+    );
     return;
   }
 
-  // 5. Reste du même-origine (manifest, icônes non précachées...) ────────
+  // 6. Autres fichiers du même domaine (manifest, icônes, donnees statiques)
   if (url.origin === location.origin) {
-    e.respondWith(networkFirst(request, STATIC_CACHE));
+    e.respondWith(staleWhileRevalidate(e, request, RUNTIME_CACHE, RUNTIME_MAX_AGE_MS));
     return;
   }
 
-  // 6. Tout le reste (Supabase auth/rest/realtime, GraphQL AniList, polices
-  //    Google...) : on laisse le navigateur gérer nativement, pas d'interception.
+  // 7. Tout le reste : comportement natif du navigateur.
 });
 
-// Réception de notifications push envoyées par la fonction Edge planifiée
-// (supabase/functions/notify-episodes). Fonctionne même onglet fermé.
+// -- Notifications push ------------------------------------------------------------
+// Envoyées par la fonction Edge planifiée (supabase/functions/notify-episodes),
+// même application fermée.
 self.addEventListener("push", (e) => {
-  const data = e.data?.json() ?? {};
-  const tag  = data.tag || (data.entryId ? `anivault-${data.entryId}-${data.episode ?? ""}` : "anivault");
+  let data = {};
+  try {
+    data = e.data?.json() ?? {};
+  } catch {
+    // Charge utile illisible : on affiche une notification générique.
+  }
+
+  const tag = data.tag || (data.entryId ? `anivault-${data.entryId}-${data.episode ?? ""}` : "anivault");
 
   e.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
-      // Vérifie si au moins un onglet/fenêtre est actuellement ouvert et visible
       const isAppOpen = list.some((client) => client.visibilityState === "visible");
-
       const tasks = [];
 
-      // 1. Si l'app est FERMÉE ou en ARRIÈRE-PLAN : on affiche la notif système OS
+      // Application fermée ou en arrière-plan : notification système.
       if (!isAppOpen) {
         tasks.push(
           self.registration.showNotification(data.title || "AniVault", {
-            body:  data.body  || "",
-            icon:  "/logo.png",
-            badge: "/favicon-96x96.png",
+            body: data.body || "",
+            icon: NOTIF_ICON,
+            badge: NOTIF_BADGE,
             tag,
-            data:  { entryId: data.entryId ?? null, link: data.link ?? null, iconKey: data.icon || "sparkles" },
+            data: { entryId: data.entryId ?? null, link: data.link ?? null, iconKey: data.icon || "sparkles" },
           })
         );
       }
 
-      // 2. Dans tous les cas, on prévient les clients ouverts pour mettre à jour le store/panel
-      tasks.push(
-        Promise.all(
-          list.map((client) => client.postMessage({
-            type: "PUSH_RECEIVED",
-            title: data.title || "AniVault",
-            body: data.body || "",
-            entryId: data.entryId ?? null,
-            episode: data.episode ?? null,
-            icon: data.icon || "sparkles",
-            link: data.link ?? null,
-            tag, // ← identifiant stable de la notif (voir App.jsx: dedup live/rattrapage)
-          }))
-        )
+      // Dans tous les cas, on prévient les fenêtres ouvertes (store et panneau de notifications).
+      list.forEach((client) =>
+        client.postMessage({
+          type: "PUSH_RECEIVED",
+          title: data.title || "AniVault",
+          body: data.body || "",
+          entryId: data.entryId ?? null,
+          episode: data.episode ?? null,
+          icon: data.icon || "sparkles",
+          link: data.link ?? null,
+          tag, // identifiant stable : déduplication live / rattrapage (voir App.jsx)
+        })
       );
 
       return Promise.all(tasks);
@@ -297,19 +360,20 @@ self.addEventListener("push", (e) => {
 
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
-  const entryId = e.notification.data?.entryId;
-  const link    = e.notification.data?.link;
+  const { entryId, link } = e.notification.data || {};
+  // L'application ne gère que le message OPEN_LINK : un entryId seul est
+  // converti en lien vers la fiche.
+  const target = link || (entryId ? `/details/${entryId}` : null);
+
   e.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
       for (const client of list) {
-        if (client.url.includes(location.origin)) {
-          if (link) client.postMessage({ type: "OPEN_LINK", link });
-          else if (entryId) client.postMessage({ type: "OPEN_ENTRY", entryId });
+        if (client.url.startsWith(location.origin)) {
+          if (target) client.postMessage({ type: "OPEN_LINK", link: target });
           return client.focus();
         }
       }
-      return clients.openWindow(link || (entryId ? `/details/${entryId}` : "/"));
+      return self.clients.openWindow(target || "/");
     })
   );
 });
-

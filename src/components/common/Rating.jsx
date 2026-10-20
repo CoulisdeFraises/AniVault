@@ -34,7 +34,7 @@ export function getRatingImageSrc(rating, companionId) {
   if (band === null) return null;
   const companion = resolveCompanion(companionId);
   if (!companion?.imageFolder) return null;
-  return `${companion.imageFolder}/rating-${band}.png`;
+  return `${companion.imageFolder}/rating-${band}.webp`;
 }
 
 /**
@@ -55,7 +55,7 @@ export function RatingBadge({ rating, companionId, className = "" }) {
   if (companion?.imageFolder) {
     return (
       <img
-        src={`${companion.imageFolder}/rating-${band}.png`}
+        src={`${companion.imageFolder}/rating-${band}.webp`}
         alt={`Note ${rating}/10`}
         className={`inline-block w-auto align-middle ${className}`}
         loading="lazy"

@@ -21,7 +21,7 @@ function showSystemNotification({ title, body, tag, link }) {
     navigator.serviceWorker.ready
       .then((reg) => reg.showNotification(title, {
         body, tag,
-        icon: "/logo.png",
+        icon: "/web-app-manifest-192x192.png",
         badge: "/favicon-96x96.png",
         data: { link },
       }))

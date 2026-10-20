@@ -21,7 +21,7 @@ export function Footer() {
         style={{ fontFamily: "'IBM Plex Mono', monospace", textShadow: "0 1px 6px rgba(20,8,50,0.9)" }}>
         {/* Logo + nom */}
         <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="" className="h-5 w-5 rounded-md opacity-60" aria-hidden />
+          <img src="/logo.webp" alt="" className="h-5 w-5 rounded-md opacity-60" aria-hidden />
           <span className="text-[11px] text-violet-300/80 uppercase tracking-widest">AniVault</span>
         </div>
 

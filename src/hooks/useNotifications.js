@@ -67,7 +67,7 @@ export function useNotifications(entries) {
                   .then((reg) =>
                     reg.showNotification(title, {
                       body,
-                      icon:  "/logo.png",
+                      icon:  "/web-app-manifest-192x192.png",
                       badge: "/favicon-96x96.png",
                       tag:   `anivault-${entry.id}-${airing.episode}`,
                       data:  { entryId: entry.id },

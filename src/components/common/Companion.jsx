@@ -65,11 +65,11 @@ function getCompanionPortrait(category) {
   const companion = resolveCompanion();
   if (!companion?.imageFolder) return null;
   const band = MOOD_BAND[category] ?? 3;
-  return `${companion.imageFolder}/rating-${band}.png`;
+  return `${companion.imageFolder}/rating-${band}.webp`;
 }
 
 // Silhouette "BD" dentelée de la bulle, dessinée en CSS (clip-path) plutôt
-// qu'avec une image (/companion-bubble.png) : la hauteur du conteneur est
+// qu'avec une image : la hauteur du conteneur est
 // pilotée par le texte (padding normal, comme n'importe quelle boîte), donc
 // le texte ne peut plus jamais déborder du dessin, quelle que soit sa
 // longueur — contrairement à une image à silhouette fixe.
