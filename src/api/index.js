@@ -331,9 +331,11 @@ export async function fetchSeasonInfo(entry, seasonIndex) {
     // ── AniList ─────────────────────────────────────────────────────────
     if (entry.source === "anilist") {
       const season = entry.seasons[seasonIndex];
+      // season.anilistId d'abord : `anilistIds[i]` n'est aligné sur `seasons[i]` que tant que
+      // les OVA/films restent après la chaîne principale (fragile après un sync/refresh).
       const anilistId =
-        entry.anilistIds?.[seasonIndex] ??
         season?.anilistId ??
+        entry.anilistIds?.[seasonIndex] ??
         null;
 
       if (!anilistId) {

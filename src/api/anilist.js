@@ -141,28 +141,58 @@ export async function fetchAniListFranchise(startId, { force = false } = {}) {
   function parseTitle(m) { return m.title?.english || m.title?.romaji || null; }
   function isTVFormat(fmt) { return fmt == null || TV_FORMATS.has(fmt); }
 
-  async function findRoot(id, visited = new Set()) {
-    if (visited.has(id)) return id; visited.add(id);
-    try {
-      const m = await fetchMedia(id);
-      const prequel = m.relations?.edges?.find(
-        (e) => e.relationType === "PREQUEL" && e.node.type === "ANIME" && isTVFormat(e.node.format)
-      );
-      return prequel ? findRoot(prequel.node.id, visited) : id;
-    } catch { return id; }
+  // Formats considérés comme « saison principale » : on essaie d'abord TV seul ; si la
+  // chaîne est vide (ex : Cyberpunk: Edgerunners, ONA → ONA), on élargit à ONA, puis OVA.
+  const MAIN_LADDER = [
+    new Set(["TV", "TV_SHORT"]),
+    new Set(["TV", "TV_SHORT", "ONA"]),
+    new Set(["TV", "TV_SHORT", "ONA", "OVA"]),
+  ];
+  const isMain = (main, fmt) => main.has(fmt ?? "TV");
+  const animeEdges = (m, type) =>
+    (m.relations?.edges || []).filter((e) => e.relationType === type && e.node.type === "ANIME");
+
+  // Remonte à la 1re saison. Une saison dont le PREQUEL est un film / spécial (cas courant :
+  // film entre deux saisons) n'était pas traversée → la chaîne démarrait au milieu.
+  // Les erreurs réseau/429 remontent (avant : `catch { return id }` tronquait la chaîne en silence).
+  async function findRoot(id, main, visited = new Set()) {
+    if (visited.has(id)) return id;
+    visited.add(id);
+    const m = await fetchMedia(id);
+    const prevId = await findPrevMain(m, main, visited);
+    return prevId ? findRoot(prevId, main, visited) : id;
   }
 
-  async function followTVChain(id, visited = new Set()) {
+  async function findPrevMain(m, main, visited) {
+    const edges = animeEdges(m, "PREQUEL");
+    const direct = edges.find((e) => isMain(main, e.node.format));
+    if (direct) return direct.node.id;
+    // Traverse jusqu'à 3 prequels non principaux (film, spécial…) pour retrouver une saison.
+    let frontier = edges.map((e) => e.node.id).filter((i) => !visited.has(i));
+    for (let hop = 0; hop < 3 && frontier.length; hop++) {
+      const next = [];
+      for (const pid of frontier) {
+        visited.add(pid);
+        const pm = await fetchMedia(pid);
+        const pe = animeEdges(pm, "PREQUEL");
+        const hit = pe.find((e) => isMain(main, e.node.format));
+        if (hit) return hit.node.id;
+        next.push(...pe.map((e) => e.node.id).filter((i) => !visited.has(i)));
+      }
+      frontier = next;
+    }
+    return null;
+  }
+
+  async function followChain(id, main, visited = new Set()) {
     if (!id || visited.has(id)) return []; visited.add(id);
     const m = await fetchMedia(id); // laisse remonter les erreurs (429, réseau…)
     const fmt  = m.format ?? "TV";
-    const isTV = TV_FORMATS.has(fmt);
     const edges = m.relations?.edges || [];
-    const sequel =
-      edges.find((e) => e.relationType === "SEQUEL" && e.node.type === "ANIME" && isTVFormat(e.node.format)) ??
-      edges.find((e) => e.relationType === "SEQUEL" && e.node.type === "ANIME");
-    const rest = await followTVChain(sequel?.node?.id ?? null, visited);
-    if (isTV) {
+    const sequels = edges.filter((e) => e.relationType === "SEQUEL" && e.node.type === "ANIME");
+    const sequel = sequels.find((e) => isMain(main, e.node.format)) ?? sequels[0];
+    const rest = await followChain(sequel?.node?.id ?? null, main, visited);
+    if (isMain(main, fmt)) {
       return [{ anilistId: id, format: fmt, title: parseTitle(m), totalEpisodes: parseEps(m),
                 releaseStatus: m.status ?? null, coverImage: m.coverImage?.large ?? null, edges }, ...rest];
     }
@@ -213,8 +243,12 @@ export async function fetchAniListFranchise(startId, { force = false } = {}) {
     }
   }
 
-  const rootId  = await findRoot(startId);
-  const tvChain = await followTVChain(rootId);
+  let tvChain = [];
+  for (const main of MAIN_LADDER) {
+    const rootId = await findRoot(startId, main);
+    tvChain = await followChain(rootId, main);
+    if (tvChain.length) break;
+  }
   const tvIds   = new Set(tvChain.map((n) => n.anilistId));
   await collectExtras(tvChain, tvIds);
 
@@ -425,18 +459,51 @@ export function seasonLabelFR(season, year) { return `${SEASON_LABELS_FR[season]
  * liste ne dépend pas de la bibliothèque de l'utilisateur, un cache client de
  * quelques heures (voir lib/cache TTL.SEASON_PREVIEW côté appelant) suffit.
  */
-export async function fetchSeasonalAnime(season, year, { perPage = 40 } = {}) {
+export async function fetchSeasonalAnime(season, year, { perPage = 50, maxPages = 6 } = {}) {
   const cultureMode = localStorage.getItem("pref_culture_mode") === "true";
-  const query = `query ($season: MediaSeason, $year: Int, $perPage: Int) {
-    Page(perPage: $perPage) {
-      media(season: $season, seasonYear: $year, type: ANIME, sort: POPULARITY_DESC, format_not_in: [MUSIC]) {
-        id title { romaji english } coverImage { large } genres format episodes
-        startDate { day month year } popularity
-      }
+  const FIELDS = `id title { romaji english } coverImage { large } genres format episodes
+        startDate { day month year } popularity season seasonYear`;
+
+  // 1) Par tag de saison AniList — PAGINÉ. Avant : une seule page de 40 triée par popularité,
+  //    donc tout titre au-delà du 40e (une saison compte 150+ titres) était invisible.
+  const bySeason = `query ($season: MediaSeason, $year: Int, $perPage: Int, $page: Int) {
+    Page(page: $page, perPage: $perPage) {
+      pageInfo { hasNextPage }
+      media(season: $season, seasonYear: $year, type: ANIME, sort: POPULARITY_DESC, format_not_in: [MUSIC]) { ${FIELDS} }
     }
   }`;
-  const json = await anilistQuery(query, { season, year, perPage });
-  return (json.data?.Page?.media || [])
+  // 2) Par plage de dates — rattrape les titres dont la saison n'est pas (encore) renseignée sur AniList
+  //    (originaux Netflix/ONA annoncés avec une simple date de sortie).
+  const { from, to } = seasonDateRange(season, year);
+  const byDate = `query ($from: FuzzyDateInt, $to: FuzzyDateInt, $perPage: Int, $page: Int) {
+    Page(page: $page, perPage: $perPage) {
+      pageInfo { hasNextPage }
+      media(startDate_greater: $from, startDate_lesser: $to, type: ANIME, sort: POPULARITY_DESC, format_not_in: [MUSIC]) { ${FIELDS} }
+    }
+  }`;
+
+  async function collect(q, vars) {
+    const out = [];
+    for (let page = 1; page <= maxPages; page++) {
+      const json = await anilistQuery(q, { ...vars, perPage, page });
+      const p = json.data?.Page;
+      out.push(...(p?.media || []));
+      if (!p?.pageInfo?.hasNextPage) break;
+    }
+    return out;
+  }
+
+  const [seasonList, dateList] = await Promise.all([
+    collect(bySeason, { season, year }),
+    // La requête par date est un complément : son échec ne doit pas casser la liste principale.
+    collect(byDate, { from, to }).catch(() => []),
+  ]);
+
+  const seen = new Set();
+  return [...seasonList, ...dateList]
+    .filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true)))
+    // Ne garde pas les titres rattachés à une AUTRE saison (ex : début en mars d'une série tagguée Hiver)
+    .filter((m) => !m.season || !m.seasonYear || (m.season === season && m.seasonYear === year))
     .filter((m) => cultureMode || !m.genres?.includes("Hentai"))
     .map((m) => ({
       id: m.id,
@@ -449,7 +516,27 @@ export async function fetchSeasonalAnime(season, year, { perPage = 40 } = {}) {
         ? { day: m.startDate.day, month: m.startDate.month, year: m.startDate.year }
         : null,
       popularity: m.popularity ?? 0,
-    }));
+    }))
+    .sort((x, y) => y.popularity - x.popularity);
+}
+
+/** Bornes (FuzzyDateInt AAAAMMJJ, exclusives) d'une saison AniList. */
+function seasonDateRange(season, year) {
+  const ranges = {
+    WINTER: [[year, 1, 1],  [year, 3, 31]],
+    SPRING: [[year, 4, 1],  [year, 6, 30]],
+    SUMMER: [[year, 7, 1],  [year, 9, 30]],
+    FALL:   [[year, 10, 1], [year, 12, 31]],
+  };
+  const [[y1, m1, d1], [y2, m2, d2]] = ranges[season];
+  const toInt = (y, m, d) => y * 10000 + m * 100 + d;
+  return { from: toInt(y1, m1, d1) - 1, to: toInt(y2, m2, d2) + 1 };
+}
+
+/** Saison AniList en cours (WINTER/SPRING/SUMMER/FALL + année). */
+export function getCurrentSeason(from = new Date()) {
+  const month = from.getMonth() + 1;
+  return { season: SEASON_ORDER[month <= 3 ? 0 : month <= 6 ? 1 : month <= 9 ? 2 : 3], year: from.getFullYear() };
 }
 
 export function isReturningSeries(media) {

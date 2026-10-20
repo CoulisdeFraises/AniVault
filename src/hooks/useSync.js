@@ -22,7 +22,8 @@ import { autoStatus, isEnProduction, AIRING_REFRESH_EVENT } from "../utils/statu
 
 const INTER_CALL_DELAY_MS = 700;
 const AUTO_COOLDOWN_MS    = 20 * 60 * 1000;       // pas plus d'une synchro auto toutes les 20 min
-const RECHECK_MS          = 6 * 60 * 60 * 1000;   // relecture des titres hors calendrier
+const RECHECK_MS          = 6 * 60 * 60 * 1000;   // relecture des titres hors calendrier (sortie non définitive)
+const RECHECK_FINISHED_MS = 7 * 24 * 60 * 60 * 1000; // titres terminés : une suite peut être annoncée plus tard
 const MAX_PER_RUN         = 30;                   // garde-fou : le calendrier passe toujours en premier
 const LAST_SYNC_KEY       = "anivault:lastSync";
 const CHECKED_KEY         = "anivault:syncChecked"; // { [entryId]: timestamp }
@@ -92,14 +93,23 @@ function applyFranchise(entry, fresh, freshIds) {
     }
   }
 
-  const newTV = fresh.filter((f) => f.format === "TV" && !byId.has(String(f.anilistId)));
+  // Nouvelles saisons PRINCIPALES : celles de la chaîne renvoyée par fetchAniListFranchise
+  // (freshIds). Avant : `format === "TV"` uniquement → la suite d'un ONA (ex : Cyberpunk:
+  // Edgerunners 2) n'était jamais ajoutée, et l'insertion se faisait en TÊTE de liste.
+  // OVA / films restent volontairement hors synchro automatique.
+  const mainIds = new Set((freshIds || []).map(String));
+  const newTV = fresh.filter((f) => mainIds.has(String(f.anilistId)) && !byId.has(String(f.anilistId)));
   const anilistIds = [...(entry.anilistIds || [])];
   if (newTV.length) {
-    let insertAt = seasons.reduce((acc, s, i) => (s.format === "TV" || !s.format ? i + 1 : acc), 0);
-    let tvCount  = seasons.filter((s) => s.format === "TV" || !s.format).length;
+    const isMainSeason = (s) => (s.anilistId != null && mainIds.has(String(s.anilistId)));
+    let lastMain = -1;
+    seasons.forEach((s, i) => { if (isMainSeason(s)) lastMain = i; });
+    if (lastMain < 0) seasons.forEach((s, i) => { if (s.format === "TV" || !s.format) lastMain = i; });
+    let insertAt = lastMain + 1;
+    let mainCount = seasons.filter((s) => isMainSeason(s) || ((s.format === "TV" || !s.format) && lastMain >= 0)).length;
     for (const f of newTV) {
       seasons.splice(insertAt++, 0, {
-        number: ++tvCount, format: "TV", title: f.title ?? null,
+        number: ++mainCount, format: f.format ?? "TV", title: f.title ?? null,
         totalEpisodes: f.totalEpisodes ?? null, watchedEpisodes: 0,
         coverImage: f.coverImage ?? null, rating: 0,
         anilistId: f.anilistId, releaseStatus: f.releaseStatus ?? null,
@@ -109,8 +119,6 @@ function applyFranchise(entry, fresh, freshIds) {
     changed = true;
   }
   if (!changed) return entry;
-  // freshIds sert de contrôle de cohérence uniquement : on ne remplace jamais la liste existante.
-  void freshIds;
   return { ...entry, seasons, anilistIds, status: autoStatus(entry, seasons) };
 }
 
@@ -141,10 +149,16 @@ export function useSync() {
     try {
       // ── Calendrier de la semaine : ids AniList diffusés ────────────────────
       const airingIds = new Set();
+      const airingPrequelIds = new Set(); // prequels des titres diffusés cette semaine
       let calendarOk = false;
       try {
         const schedules = await loadWeeklySchedules();
-        schedules.forEach((s) => { if (s.media?.id != null) airingIds.add(Number(s.media.id)); });
+        schedules.forEach((s) => {
+          if (s.media?.id != null) airingIds.add(Number(s.media.id));
+          (s.media?.relations?.edges || []).forEach((r) => {
+            if (r.relationType === "PREQUEL" && r.node?.id != null) airingPrequelIds.add(Number(r.node.id));
+          });
+        });
         calendarOk = true;
       } catch { /* calendrier injoignable : on retombe sur les titres « à vérifier » seuls */ }
 
@@ -153,17 +167,24 @@ export function useSync() {
 
       // 1) bibliothèque ∩ calendrier — priorité absolue, lecture forcée
       const inCalendar = calendarOk
-        ? anilist.filter((e) => (e.anilistIds || []).some((id) => airingIds.has(Number(id))))
+        // Un titre est « au calendrier » s'il diffuse, OU si une suite non encore dans la
+        // bibliothèque diffuse (son prequel est un de nos IDs) → on relit la franchise pour la rattacher.
+        ? anilist.filter((e) => (e.anilistIds || []).some((id) => airingIds.has(Number(id)) || airingPrequelIds.has(Number(id))))
         : [];
       const calendarIds = new Set(inCalendar.map((e) => e.id));
 
       // 2) titres suivis dont l'état de sortie n'est pas définitif, relus au plus toutes les 6 h
       const checked = loadChecked();
-      const toCheck = anilist.filter((e) =>
-        !calendarIds.has(e.id)
-        && e.status !== "termine"
-        && !isFinalRelease(lastTVSeason(e))
-        && (force || Date.now() - (checked[e.id] || 0) > RECHECK_MS));
+      // Avant : les titres « terminés » / dont la dernière saison est FINISHED n'étaient JAMAIS
+      // relus → une suite annoncée plus tard n'était jamais trouvée. Ils le sont maintenant
+      // une fois par semaine. Les plus anciennement vérifiés passent d'abord (pas de famine
+      // quand la file dépasse MAX_PER_RUN).
+      const isDone = (e) => e.status === "termine" || isFinalRelease(lastTVSeason(e));
+      const interval = (e) => (isDone(e) ? RECHECK_FINISHED_MS : RECHECK_MS);
+      const due = (e) => Date.now() - (checked[e.id] || 0) > interval(e);
+      const toCheck = anilist
+        .filter((e) => !calendarIds.has(e.id) && (force || due(e)))
+        .sort((x, y) => (checked[x.id] || 0) - (checked[y.id] || 0));
 
       // 3) TVmaze en production (pas de calendrier global pour cette source)
       const tvmaze = library.filter((e) =>
@@ -177,6 +198,7 @@ export function useSync() {
       setProgress({ current: 0, total });
 
       let done = 0;
+      let okCount = 0;
       let refreshedAiring = false;
 
       for (const { e, kind } of queue) {
@@ -191,6 +213,7 @@ export function useSync() {
             refreshedAiring = true;
           }
           checked[e.id] = Date.now();
+          okCount++;
         } catch { /* réseau / limite : on réessaiera à la prochaine synchro */ }
         await sleep(INTER_CALL_DELAY_MS);
       }
@@ -213,7 +236,8 @@ export function useSync() {
       }
 
       try { localStorage.setItem(CHECKED_KEY, JSON.stringify(checked)); } catch { /* quota */ }
-      localStorage.setItem(LAST_SYNC_KEY, Date.now().toString());
+      // Pas de cooldown de 20 min si tout a échoué (hors-ligne au lancement) : on réessaiera vite.
+      if (calendarOk || okCount > 0 || total === 0) localStorage.setItem(LAST_SYNC_KEY, Date.now().toString());
       if (refreshedAiring) window.dispatchEvent(new Event(AIRING_REFRESH_EVENT));
     } finally {
       inFlight = false;

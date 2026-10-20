@@ -17,6 +17,7 @@ import { PageTransition }              from "./components/common/PageTransition"
 import { useAchievements }             from "./hooks/useAchievements";
 import { syncProfileStats }            from "./services/community";
 import { useNotifications }            from "./hooks/useNotifications";
+import { useSync }                     from "./hooks/useSync";
 import { useFriendRequestNotifications } from "./hooks/useFriendRequestNotifications";
 import { useWaifinityTradeNotifications, useFreeBoosterNotification } from "./hooks/useWaifinityNotifications";
 import { addNotification }             from "./hooks/useNotificationStore";
@@ -161,6 +162,7 @@ function NotificationLayer() {
   const { user }    = useAuth();          // ← ajouter
   const navigate    = useNavigate();
   const syncedRef   = useRef(false);      // évite de re-fetch à chaque changement d'entries
+  const { syncAll } = useSync();
   useNotifications(entries);
   useFriendRequestNotifications(user?.id); // ← demandes d'ami en temps réel (Supabase Realtime)
   useWaifinityTradeNotifications(user?.id); // ← échanges de cartes Waifinity (temps réel + rattrapage)
@@ -185,6 +187,21 @@ function NotificationLayer() {
     syncedRef.current = true;
     syncMissedNotifications(user.id, entries);
   }, [user?.id, entries]);
+
+  // ── Synchro automatique bibliothèque ⇄ AniList/TVmaze ─────────────────
+  // Rien n'appelait syncAll() hors actions manuelles (tirer-pour-rafraîchir, bouton) : la synchro
+  // « auto » décrite dans useSync.js n'existait donc plus. On la lance ~3 s après le chargement de la
+  // bibliothèque, au retour sur l'onglet/PWA, et toutes les 30 min. syncAll(false) applique son propre
+  // délai minimal (20 min) et ignore les appels concurrents.
+  const hasEntries = Boolean(entries?.length);
+  useEffect(() => {
+    if (!user?.id || !hasEntries) return;
+    const run = () => { if (document.visibilityState === "visible") syncAll(false); };
+    const t  = setTimeout(run, 3000);
+    const iv = setInterval(run, 30 * 60 * 1000);
+    document.addEventListener("visibilitychange", run);
+    return () => { clearTimeout(t); clearInterval(iv); document.removeEventListener("visibilitychange", run); };
+  }, [user?.id, hasEntries, syncAll]);
 
   // ── Listener SW (push reçu quand l'app est ouverte) ──────────────────
   useEffect(() => {

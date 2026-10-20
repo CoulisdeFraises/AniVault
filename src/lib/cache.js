@@ -115,4 +115,5 @@ export const TTL = {
   SERIES_CALENDAR: 3  * 60 * 60 * 1000,  //  3 heures — planning TV, change peu dans la journée
   FILMS_CALENDAR:  6  * 60 * 60 * 1000,  //  6 heures — sorties cinéma, quasi statique
   WAIFU_POOL:      24 * 60 * 60 * 1000,  // 24 heures — bassin de personnages Waifinity
+  SEASON_PREVIEW:  3  * 60 * 60 * 1000,  //  3 heures — listes de saison (était référencé mais jamais défini → expiresAt = NaN)
 };

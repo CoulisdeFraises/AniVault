@@ -72,7 +72,7 @@ export function NextSeason() {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     setError("");
     try {
-      const data = await fetchSeasonalAnime(season, year, { perPage: 40 });
+      const data = await fetchSeasonalAnime(season, year);
       setCached(cacheKey, data, TTL.SEASON_PREVIEW);
       setItems(data);
     } catch (err) {
