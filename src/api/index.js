@@ -236,7 +236,11 @@ export async function refreshEntryCard(entry) {
           ...freshSeason,         // données fraîches : titre, couverture, statut de sortie…
           watchedEpisodes: existing.watchedEpisodes,
           rating: existing.rating,
-          totalEpisodes: freshSeason.totalEpisodes ?? existing.totalEpisodes,
+          // Saison non sortie : on fait confiance à AniList, même s'il ne connaît pas encore le
+          // total, pour pouvoir corriger un ancien total erroné (ex : copie d'une autre saison).
+          totalEpisodes: freshSeason.releaseStatus === "NOT_YET_RELEASED"
+            ? (freshSeason.totalEpisodes ?? null)
+            : (freshSeason.totalEpisodes ?? existing.totalEpisodes),
         };
       }
       return { ...freshSeason, watchedEpisodes: 0 };
@@ -350,6 +354,14 @@ export async function fetchSeasonInfo(entry, seasonIndex) {
       const seasonData = await fetchAniListSeasonData(anilistId);
       const totalEpisodes = seasonData.totalEpisodes;
 
+      // Saison annoncée mais pas encore sortie : elle n'a pas d'épisodes à nommer. On ne
+      // consulte NI TMDB NI Tenrai, sinon une fiche voisine (la saison précédente, par
+      // exemple) peut être prise pour la sienne : la saison afficherait alors les épisodes
+      // d'une autre, et ce total erroné serait ensuite enregistré dans la bibliothèque.
+      if (seasonData.status === "NOT_YET_RELEASED") {
+        return { episodes: [], totalEpisodes: totalEpisodes ?? null, reason: "not-released" };
+      }
+
       // 2. TMDB ensuite — uniquement pour les NOMS d'épisodes (en français),
       // et en filet de sécurité pour le total si AniList ne le connaît pas.
       let tmdbEpisodes = [];
@@ -376,7 +388,17 @@ export async function fetchSeasonInfo(entry, seasonIndex) {
       const stillMissing = finalTotal == null || namedByTMDB.size < finalTotal;
       let tenraiEpisodes = [];
       if (stillMissing) {
-        tenraiEpisodes = await fetchAniListEpisodesBySeasonId(anilistId);
+        // Garde-fou : si une AUTRE saison de cette entrée pointe vers la même fiche
+        // MyAnimeList, le lien AniList -> MAL est faux pour l'une des deux. Tenrai
+        // renverrait alors la liste d'épisodes de l'autre saison : on l'ignore.
+        const otherIds = entry.seasons
+          .map((s, i) => (i === seasonIndex ? null : (s.anilistId ?? entry.anilistIds?.[i] ?? null)))
+          .filter((id) => id != null && String(id) !== String(anilistId));
+        const others = await Promise.all(otherIds.map((id) => fetchAniListSeasonData(id)));
+        const sharedMalId = seasonData.malId != null && others.some((o) => o.malId === seasonData.malId);
+        if (!sharedMalId) {
+          tenraiEpisodes = await fetchAniListEpisodesBySeasonId(anilistId);
+        }
       }
       const namedByTenrai = new Map(tenraiEpisodes.map((e) => [e.number, e.name]).filter(([, n]) => n));
 

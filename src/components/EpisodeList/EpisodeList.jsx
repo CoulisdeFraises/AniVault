@@ -51,7 +51,12 @@ export function EpisodeList({ episodes, totalEpisodes, watched, statusColor, onS
 
   return (
     <ul className="space-y-1">
-      {unknownReason === "lost-link" ? (
+      {unknownReason === "not-released" ? (
+        <p className="text-sm text-violet-500 py-6 text-center leading-relaxed">
+          Cette saison n'est pas encore sortie.<br />
+          Les épisodes apparaîtront à l'approche de la diffusion.
+        </p>
+      ) : unknownReason === "lost-link" ? (
         <p className="text-sm text-violet-500 py-6 text-center leading-relaxed">
           Ce titre a perdu son lien vers AniList (probablement suite à un ancien souci de synchronisation).<br />
           Supprime-le puis rajoute-le depuis la recherche pour le relier à nouveau.

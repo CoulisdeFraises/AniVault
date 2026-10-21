@@ -319,7 +319,7 @@ export async function fetchAniListNextSeason(rootId, currentSeasonCount) {
 export async function fetchAniListSeasonData(anilistId) {
   try {
     const m = await getMediaDetails("anilist", anilistId);
-    if (!m) return { malId: null, totalEpisodes: null };
+    if (!m) return { malId: null, totalEpisodes: null, status: null };
     const fromAiring = m.nextAiringEpisode?.episode != null ? m.nextAiringEpisode.episode - 1 : null;
     // Tant que la diffusion est en cours, seul le nombre d'épisodes déjà
     // sortis compte — jamais le total annoncé à l'avance par AniList
@@ -327,9 +327,9 @@ export async function fetchAniListSeasonData(anilistId) {
     const totalEpisodes = m.status === "RELEASING"
       ? (fromAiring ?? m.episodes ?? null)
       : (m.episodes ?? fromAiring ?? null);
-    return { malId: m.idMal ?? null, totalEpisodes };
+    return { malId: m.idMal ?? null, totalEpisodes, status: m.status ?? null };
   } catch {
-    return { malId: null, totalEpisodes: null };
+    return { malId: null, totalEpisodes: null, status: null };
   }
 }
 
