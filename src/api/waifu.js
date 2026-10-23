@@ -25,6 +25,7 @@
 import { supabase } from "../lib/supabase";
 import { anilistQuery } from "./anilist";
 import { getCached, setCached, removeCached, TTL } from "../lib/cache";
+import { idbGet, idbSet, idbDelete } from "../lib/idbCache";
 import { computeTiers, normalizeGender, STATS } from "../utils/waifinity";
 
 const TABLE           = "waifinity_characters";
@@ -33,6 +34,19 @@ const LIVE_CACHE_KEY  = "waifinity_pool_live_v2";
 const LIVE_PAGES      = 8;   // 8 × 50 = 400 personnages max en repli
 const PER_PAGE        = 50;
 const MIN_POOL        = 100; // en dessous, on considère la source invalide
+
+// Cache PERSISTANT (IndexedDB) du bassin Supabase. Sans lui, les ~3000 personnages (avec
+// descriptions et stats, plusieurs centaines de Ko) étaient retéléchargés à CHAQUE ouverture
+// de l'app par CHAQUE joueur : c'était de loin le plus gros poste de trafic sortant.
+// Il n'est relu sur le réseau qu'au bout de TTL.WAIFU_POOL, ou via « Actualiser le bassin ».
+const POOL_IDB_KEY = "waifinity_pool_supabase_v1";
+
+async function readPoolCache() {
+  const hit = await idbGet(POOL_IDB_KEY);
+  const v = hit?.value;
+  if (!v?.list?.length || v.list.length < MIN_POOL) return null;
+  return { list: v.list, meta: v.meta, savedAt: hit.savedAt || 0 };
+}
 
 const CHAR_QUERY = `
   query ($page: Int, $perPage: Int) {
@@ -163,8 +177,19 @@ export function fetchWaifuPool({ force = false } = {}) {
 
   inflight = (async () => {
     let result;
-    try { result = await fetchSupabasePool(); }
-    catch { result = await fetchLive(force); }
+    const cached = force ? null : await readPoolCache();
+    if (cached && Date.now() - cached.savedAt < TTL.WAIFU_POOL) {
+      result = { list: cached.list, meta: cached.meta };
+    } else {
+      try {
+        result = await fetchSupabasePool();
+        idbSet(POOL_IDB_KEY, { list: result.list, meta: result.meta });
+      } catch {
+        // Supabase injoignable : un bassin ancien vaut mieux que le repli AniList (autre base, autres raretés).
+        if (cached) result = { list: cached.list, meta: cached.meta };
+        else result = await fetchLive(force);
+      }
+    }
 
     const sorted = result.list.sort((a, b) => b.favourites - a.favourites);
     const pool = computeTiers(sorted);

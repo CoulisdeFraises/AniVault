@@ -1,5 +1,5 @@
 import { MarqueeText } from "../common/MarqueeText";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Trophy, Medal, RefreshCw, AlertTriangle, Sparkles } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { fetchFriends, fetchMyProfile } from "../../services/community";
@@ -155,6 +155,7 @@ export function SocialTab({ game, initialView }) {
   const collectionSize = (game.collectionList || []).length;
 
   const friendIds = useMemo(() => friends.map((f) => f.user_id), [friends]);
+  const lastItemsLoadRef = useRef(0);
 
   // Moi + mes amis, lus au même endroit (colonnes minimales, lecture paginée) : tous
   // les scores sont comparables et identiques à ce que mes amis voient de moi.
@@ -162,6 +163,7 @@ export function SocialTab({ game, initialView }) {
   // d'afficher des scores calculés sur des données incomplètes.
   const loadItems = useCallback(async () => {
     if (!myId) return;
+    lastItemsLoadRef.current = Date.now();
     setBoardLoading(true);
     const byUser = await fetchWaifinityItemsBulk([myId, ...friendIds], "user_id, character_id, count, tier");
     setBoardLoading(false);
@@ -174,7 +176,13 @@ export function SocialTab({ game, initialView }) {
   // Relu à l'ouverture, quand ma collection change (booster, échange) et au retour sur l'app.
   useEffect(() => { if (!friendsLoading) loadItems(); }, [friendsLoading, loadItems, collectionSize]);
   useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === "visible" && !friendsLoading) loadItems(); };
+    // Au retour sur l'app : pas plus d'une relecture toutes les 5 min (chaque relecture télécharge la
+    // collection de MOI + de TOUS mes amis). Les changements de ma collection relancent déjà la lecture.
+    const onVisible = () => {
+      if (document.visibilityState !== "visible" || friendsLoading) return;
+      if (Date.now() - lastItemsLoadRef.current < 5 * 60 * 1000) return;
+      loadItems();
+    };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [friendsLoading, loadItems]);

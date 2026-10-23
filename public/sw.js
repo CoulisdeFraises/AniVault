@@ -23,7 +23,7 @@
 //     non intercepté. On ne met jamais en cache une réponse liée à une session.
 // -----------------------------------------------------------------------------
 
-const SW_VERSION = "v11";
+const SW_VERSION = "v12";
 
 const STATIC_CACHE  = `anivault-static-${SW_VERSION}`;   // précache + shell
 const ASSETS_CACHE  = `anivault-assets-${SW_VERSION}`;   // JS/CSS hashés
@@ -92,6 +92,14 @@ function isCacheableApiRequest(url) {
 // horaires changent. Sans cela, un "force" pouvait être servi depuis le cache.
 function wantsFreshData(url) {
   return url.searchParams.get("force") === "1" || url.searchParams.get("mode") === "schedule";
+}
+
+/** URL « normale » (sans `force`) équivalente à une requête force=1 — ou null. */
+function forceAsNormalRequest(url) {
+  if (url.searchParams.get("force") !== "1") return null;
+  const normal = new URL(url.href);
+  normal.searchParams.delete("force");
+  return normal.href;
 }
 
 // -- Installation : précache du shell ------------------------------------------
@@ -187,11 +195,17 @@ async function cacheFirst(request, cacheName, fetcher = fetch) {
   return fresh;
 }
 
-/** Réseau d'abord : repli sur le cache uniquement si le réseau est injoignable. */
-async function networkFirst(request, cacheName) {
+/**
+ * Réseau d'abord : repli sur le cache uniquement si le réseau est injoignable.
+ * `alsoCacheAs` : seconde clé de cache alimentée avec la même réponse (voir
+ * l'usage pour les requêtes "force" : la donnée fraîche remplace aussi la version
+ * « normale » en cache, sinon celle-ci restait périmée jusqu'à 6 h).
+ */
+async function networkFirst(request, cacheName, alsoCacheAs = null) {
   try {
     const fresh = await fetch(request);
     putInCache(cacheName, request, fresh.clone());
+    if (alsoCacheAs) putInCache(cacheName, alsoCacheAs, fresh.clone());
     return fresh;
   } catch {
     const cached = await caches.match(request);
@@ -205,8 +219,14 @@ async function networkFirst(request, cacheName) {
  * servie immédiatement pendant qu'une mise à jour part en arrière-plan. Une
  * réponse trop ancienne n'est servie que si le réseau échoue.
  */
-async function staleWhileRevalidate(event, request, cacheName, maxAgeMs, fetcher = fetch) {
+async function staleWhileRevalidate(event, request, cacheName, maxAgeMs, fetcher = fetch, { revalidateFresh = true } = {}) {
   const cached = await caches.match(request);
+
+  // revalidateFresh: false → une réponse en cache encore valable est servie TELLE QUELLE, sans
+  // relancer de requête réseau. Avant, la requête de mise à jour partait systématiquement, même
+  // pour une réponse toute fraîche : chaque lecture « en cache » de la fonction Edge Supabase
+  // déclenchait quand même une invocation (+ du trafic sortant + une ligne de log).
+  if (cached && !revalidateFresh && isFresh(cached, maxAgeMs)) return cached;
 
   const update = fetcher(request)
     .then((fresh) => {
@@ -293,8 +313,8 @@ self.addEventListener("fetch", (e) => {
   if (isCacheableApiRequest(url)) {
     e.respondWith(
       wantsFreshData(url)
-        ? networkFirst(request, API_CACHE)
-        : staleWhileRevalidate(e, request, API_CACHE, API_MAX_AGE_MS)
+        ? networkFirst(request, API_CACHE, forceAsNormalRequest(url))
+        : staleWhileRevalidate(e, request, API_CACHE, API_MAX_AGE_MS, fetch, { revalidateFresh: false })
     );
     return;
   }

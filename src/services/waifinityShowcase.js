@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-import { fetchWaifinityItems } from "./waifinitySocial";
+import { fetchWaifinityItemsByIds } from "./waifinitySocial";
 
 // ── Vitrine Waifinity + fragments / cosmétiques (table waifinity_profiles) ───
 //
@@ -61,7 +61,7 @@ export async function fetchShowcase(userId) {
   const ids = Array.isArray(row.favorites) ? row.favorites : [];
   if (!ids.length) return { items: [], equipped: {} };
 
-  const rows = await fetchWaifinityItems(userId);
+  const rows = await fetchWaifinityItemsByIds(userId, ids); // seulement les favoris, pas toute la collection
   const byId = new Map(rows.map((r) => [r.character_id, r]));
   const items = ids
     .map((id) => byId.get(id))

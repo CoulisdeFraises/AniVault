@@ -110,10 +110,10 @@ export function purgeStaleCaches() {
 // TTL constants
 export const TTL = {
   RECOMMENDATIONS: 7  * 24 * 60 * 60 * 1000, //  7 jours — persistance entre sessions
-  CALENDAR:        30 * 60 * 1000,       // 30 minutes
+  CALENDAR:        2  * 60 * 60 * 1000,  //  2 heures — le tirer-pour-rafraîchir contourne ce cache
   TMDB_TITLES:     24 * 60 * 60 * 1000,  // 24 heures
   SERIES_CALENDAR: 3  * 60 * 60 * 1000,  //  3 heures — planning TV, change peu dans la journée
   FILMS_CALENDAR:  6  * 60 * 60 * 1000,  //  6 heures — sorties cinéma, quasi statique
   WAIFU_POOL:      24 * 60 * 60 * 1000,  // 24 heures — bassin de personnages Waifinity
   SEASON_PREVIEW:  3  * 60 * 60 * 1000,  //  3 heures — listes de saison (était référencé mais jamais défini → expiresAt = NaN)
-};
+};

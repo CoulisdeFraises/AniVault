@@ -35,6 +35,9 @@ function withMissionEvents(state, uid, events) {
  * `withPool: false` → ne charge pas le bassin de personnages (utile pour un
  * simple aperçu : pièces, taille de la collection…).
  */
+const RECONCILE_MIN_INTERVAL_MS = 30 * 60 * 1000;
+const lastReconcileAt = new Map(); // uid → timestamp (vit le temps du chargement de la page)
+
 export function useWaifinity({ withPool = true, syncAccount = true } = {}) {
   const { user } = useAuth();
   const uid = user?.id || null;
@@ -184,12 +187,19 @@ export function useWaifinity({ withPool = true, syncAccount = true } = {}) {
   useEffect(() => {
     if (!accountUid || reconciledRef.current === accountUid) return;
     reconciledRef.current = accountUid;
+    // Une seule réconciliation par fenêtre de 30 min et par chargement de page : le hook est monté
+    // par plusieurs pages (Jeux, Waifinity…) et relisait TOUTE la collection à chaque navigation.
+    // L'état local est de toute façon relu depuis localStorage, qui suit chaque modification ; les
+    // échanges en direct passent par Realtime, et « Actualiser » reste disponible.
+    const last = lastReconcileAt.get(accountUid) || 0;
+    if (Date.now() - last < RECONCILE_MIN_INTERVAL_MS) return;
+    lastReconcileAt.set(accountUid, Date.now());
     (async () => {
       // D'abord renvoyer ce qui n'avait pas pu l'être (réseau coupé après un booster),
       // sinon la lecture ci-dessous ferait disparaître ces cartes de la collection locale.
       await flushWaifinitySyncQueue(accountUid).catch(() => {});
       const server = await fetchMyWaifinityCollection(accountUid);
-      if (!server) return;
+      if (!server) { lastReconcileAt.delete(accountUid); return; } // échec : on retentera au prochain montage
       persist((prev) => ({ ...prev, collection: server }));
     })();
   }, [accountUid, persist]);
@@ -473,7 +483,7 @@ export function useWaifinity({ withPool = true, syncAccount = true } = {}) {
         fetchMyWaifinityCollection(uid),
         fetchWaifinityWallet(uid),
         fetchMyTrades(uid),
-        withPool ? loadPool(true) : Promise.resolve(),
+        withPool ? loadPool() : Promise.resolve(), // bassin : cache (le bouton « Actualiser le bassin » force, lui)
       ]);
 
       let wallet = walletR.status === "fulfilled" ? walletR.value : null;

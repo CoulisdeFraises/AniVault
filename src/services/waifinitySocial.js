@@ -188,6 +188,23 @@ export async function fetchWaifinityItems(userId) {
   }
 }
 
+/** Seulement certains personnages d'un joueur (vitrine : ses favoris, pas toute sa collection). */
+export async function fetchWaifinityItemsByIds(userId, characterIds) {
+  if (!userId || !characterIds?.length) return [];
+  try {
+    const { data, error } = await supabase
+      .from("waifinity_collection_items")
+      .select("character_id, count, tier, name, image, series, gender")
+      .eq("user_id", userId)
+      .in("character_id", characterIds);
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Fetch Waifinity items (ids) :", error.message);
+    return [];
+  }
+}
+
 /**
  * Items de plusieurs utilisateurs à la fois (classement). `columns` permet de ne
  * lire que le nécessaire (le classement n'a besoin ni des noms ni des images).

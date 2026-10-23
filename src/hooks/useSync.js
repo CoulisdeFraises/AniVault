@@ -21,7 +21,11 @@ import { autoStatus, isEnProduction, AIRING_REFRESH_EVENT } from "../utils/statu
 // avant les appels réseau.
 
 const INTER_CALL_DELAY_MS = 700;
-const AUTO_COOLDOWN_MS    = 20 * 60 * 1000;       // pas plus d'une synchro auto toutes les 20 min
+const AUTO_COOLDOWN_MS    = 60 * 60 * 1000;       // pas plus d'une synchro auto par heure
+// Relecture FORCÉE de toute la franchise (1 invocation Edge par saison) : au plus toutes les 6 h par titre
+// (sauf synchro manuelle). La prochaine diffusion, elle, reste relue en force à chaque synchro.
+const FORCE_FRANCHISE_MS  = 6 * 60 * 60 * 1000;
+const FORCED_KEY          = "anivault:syncForced";  // { [entryId]: timestamp }
 const RECHECK_MS          = 6 * 60 * 60 * 1000;   // relecture des titres hors calendrier (sortie non définitive)
 const RECHECK_FINISHED_MS = 7 * 24 * 60 * 60 * 1000; // titres terminés : une suite peut être annoncée plus tard
 const MAX_PER_RUN         = 30;                   // garde-fou : le calendrier passe toujours en premier
@@ -37,6 +41,9 @@ function isTV(s) { return !s.format || s.format === "TV" || s.format === "TV_SHO
 
 function loadChecked() {
   try { return JSON.parse(localStorage.getItem(CHECKED_KEY) || "{}"); } catch { return {}; }
+}
+function loadForced() {
+  try { return JSON.parse(localStorage.getItem(FORCED_KEY) || "{}"); } catch { return {}; }
 }
 
 /** Dernière saison TV d'une entrée (celle dont l'état peut encore évoluer). */
@@ -175,6 +182,7 @@ export function useSync() {
 
       // 2) titres suivis dont l'état de sortie n'est pas définitif, relus au plus toutes les 6 h
       const checked = loadChecked();
+      const forced  = loadForced();
       // Avant : les titres « terminés » / dont la dernière saison est FINISHED n'étaient JAMAIS
       // relus → une suite annoncée plus tard n'était jamais trouvée. Ils le sont maintenant
       // une fois par semaine. Les plus anciennement vérifiés passent d'abord (pas de famine
@@ -205,7 +213,9 @@ export function useSync() {
         setProgress({ current: ++done, total });
         const seed = e.anilistIds?.[0] ?? e.seasons?.find((s) => s.anilistId)?.anilistId;
         try {
-          const { seasons: fresh, anilistIds: freshIds } = await fetchAniListFranchise(seed, { force: kind === "calendar" });
+          const forceFranchise = kind === "calendar" && (force || Date.now() - (forced[e.id] || 0) > FORCE_FRANCHISE_MS);
+          const { seasons: fresh, anilistIds: freshIds } = await fetchAniListFranchise(seed, { force: forceFranchise });
+          if (forceFranchise) forced[e.id] = Date.now();
           if (fresh?.length) patchEntry(e.id, (latest) => applyFranchise(latest, fresh, freshIds));
           if (kind === "calendar") {
             // Amorce le cache avec la prochaine diffusion FRAÎCHE (les cartes la relisent ensuite).
@@ -236,6 +246,7 @@ export function useSync() {
       }
 
       try { localStorage.setItem(CHECKED_KEY, JSON.stringify(checked)); } catch { /* quota */ }
+      try { localStorage.setItem(FORCED_KEY, JSON.stringify(forced)); } catch { /* quota */ }
       // Pas de cooldown de 20 min si tout a échoué (hors-ligne au lancement) : on réessaiera vite.
       if (calendarOk || okCount > 0 || total === 0) localStorage.setItem(LAST_SYNC_KEY, Date.now().toString());
       if (refreshedAiring) window.dispatchEvent(new Event(AIRING_REFRESH_EVENT));

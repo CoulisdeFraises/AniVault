@@ -439,7 +439,9 @@ export async function findNextSeason(entry) {
   return null;
 }
 
-const NEXT_AIRING_TTL = 5 * 60 * 1000;
+// 2 h : la carte relit d'elle-même (force) juste après l'heure de diffusion connue — voir Card.jsx —,
+// donc un TTL court ne servait qu'à multiplier les invocations de la fonction Edge.
+const NEXT_AIRING_TTL = 2 * 60 * 60 * 1000;
 export async function fetchNextAiring(entry, { force = false } = {}) {
   const key = entry.source === "anilist"
     ? `next-airing:anilist:${entry.anilistIds?.[entry.anilistIds.length - 1]}`
@@ -461,4 +463,4 @@ export async function fetchNextAiring(entry, { force = false } = {}) {
     return data;
   }
   return withCache(key, NEXT_AIRING_TTL, load);
-}
+}
