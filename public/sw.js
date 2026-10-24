@@ -91,7 +91,7 @@ function isCacheableApiRequest(url) {
 // force (synchro, tirer-pour-rafraichir) et calendrier hebdomadaire, dont les
 // horaires changent. Sans cela, un "force" pouvait être servi depuis le cache.
 function wantsFreshData(url) {
-  return url.searchParams.get("force") === "1" || url.searchParams.get("mode") === "schedule";
+  return url.searchParams.get("force") === "1" || url.searchParams.get("mode") === "schedule" || url.searchParams.get("mode") === "airing";
 }
 
 /** URL « normale » (sans `force`) équivalente à une requête force=1 — ou null. */

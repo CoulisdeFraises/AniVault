@@ -1,5 +1,5 @@
 import { cacheGet, cacheSet } from "../services/cache";
-import { getMediaDetails } from "./media";
+import { getMediaDetails, getNextAiringBatched } from "./media";
 import { tenraiFetch } from "./tenrai";
 import { fuzzyRank, buildFallbackQueries, mergeById } from "../utils/fuzzy";
 
@@ -405,8 +405,15 @@ export async function fetchNextAiringAniList(anilistId, { force = false } = {}) 
   try {
     // force : contourne le cache « catalogue » (valable plusieurs heures) — sans ça, après la
     // diffusion d'un épisode on relisait pendant des heures l'ancienne « prochaine diffusion ».
-    const m = await getMediaDetails("anilist", anilistId, { force });
-    const n = m?.nextAiringEpisode;
+    // Appel GROUPÉ (1 requête pour tous les titres demandés au même moment, réponse de quelques octets).
+    // Repli sur la lecture unitaire (fiche complète) si le mode groupé est indisponible.
+    let n;
+    try {
+      n = await getNextAiringBatched(anilistId, { force });
+    } catch {
+      const m = await getMediaDetails("anilist", anilistId, { force });
+      n = m?.nextAiringEpisode;
+    }
     return n ? { episode: n.episode, airingAt: n.airingAt * 1000 } : null;
   } catch { return null; }
 }
