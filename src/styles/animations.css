@@ -402,9 +402,156 @@
   animation: cosPulse 2.8s ease-in-out infinite;
 }
 
+/* ── Cadres animés (nouveaux) : l'animation prime sur le style en ligne
+   posé par CardFrame, comme pour .cos-neon. ── */
+@keyframes cosFrost {
+  0%, 100% { box-shadow: 0 0 12px -2px rgba(125, 211, 252, 0.65), 0 0 26px -8px rgba(224, 242, 254, 0.50); }
+  50%      { box-shadow: 0 0 20px 0 rgba(186, 230, 253, 0.95),   0 0 36px -6px rgba(125, 211, 252, 0.70); }
+}
+.cos-frost { animation: cosFrost 3.2s ease-in-out infinite; }
+
+@keyframes cosInferno {
+  0%, 100% { border-color: #fb923c; box-shadow: 0 0 12px -2px rgba(251, 146, 60, 0.80), 0 0 28px -8px rgba(239, 68, 68, 0.60); }
+  25%      { border-color: #fdba74; box-shadow: 0 0 18px 0 rgba(253, 186, 116, 0.95),   0 0 36px -4px rgba(239, 68, 68, 0.80); }
+  55%      { border-color: #f97316; box-shadow: 0 0 10px -3px rgba(249, 115, 22, 0.75), 0 0 24px -8px rgba(220, 38, 38, 0.55); }
+  80%      { border-color: #fcd34d; box-shadow: 0 0 16px -1px rgba(252, 211, 77, 0.85),  0 0 32px -6px rgba(239, 68, 68, 0.70); }
+}
+.cos-inferno { animation: cosInferno 2.6s ease-in-out infinite; }
+
+@keyframes cosPrism {
+  0%, 100% { border-color: #f472b6; box-shadow: 0 0 16px -2px rgba(244, 114, 182, 0.85), 0 0 30px -8px rgba(244, 114, 182, 0.50); }
+  20%      { border-color: #fbbf24; box-shadow: 0 0 16px -2px rgba(251, 191, 36, 0.85),  0 0 30px -8px rgba(251, 191, 36, 0.50); }
+  40%      { border-color: #34d399; box-shadow: 0 0 16px -2px rgba(52, 211, 153, 0.85),  0 0 30px -8px rgba(52, 211, 153, 0.50); }
+  60%      { border-color: #22d3ee; box-shadow: 0 0 16px -2px rgba(34, 211, 238, 0.85),  0 0 30px -8px rgba(34, 211, 238, 0.50); }
+  80%      { border-color: #a78bfa; box-shadow: 0 0 16px -2px rgba(167, 139, 250, 0.85), 0 0 30px -8px rgba(167, 139, 250, 0.50); }
+}
+.cos-prism { animation: cosPrism 6s linear infinite; }
+
+/* ── Effets (nouveaux) ── */
+
+/* Reflet : une bande lumineuse traverse la carte, puis pause. */
+@keyframes cosShine {
+  0%, 55% { transform: translateX(-150%) skewX(-18deg); }
+  100%    { transform: translateX(450%) skewX(-18deg); }
+}
+.cos-fx-shine::before {
+  content: "";
+  position: absolute;
+  top: -10%;
+  bottom: -10%;
+  left: 0;
+  width: 40%;
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.55) 50%, transparent 100%);
+  animation: cosShine 3.8s ease-in-out infinite;
+}
+
+/* Pétales : deux calques de pétales qui tombent à des vitesses différentes. */
+@keyframes cosFallA {
+  from { background-position: 0 0, 0 0, 0 0; }
+  to   { background-position: 18px 90px, -12px 90px, 10px 90px; }
+}
+@keyframes cosFallB {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: -14px 70px, 12px 70px; }
+}
+.cos-fx-petals::before,
+.cos-fx-petals::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat;
+}
+.cos-fx-petals::before {
+  background-image:
+    radial-gradient(ellipse 3px 5px at 20% 30%, rgba(255, 192, 214, 0.95) 96%, transparent),
+    radial-gradient(ellipse 2.5px 4px at 70% 65%, rgba(255, 228, 236, 0.90) 96%, transparent),
+    radial-gradient(ellipse 2px 3px at 45% 85%, rgba(249, 168, 212, 0.90) 96%, transparent);
+  background-size: 60px 90px;
+  animation: cosFallA 7s linear infinite;
+}
+.cos-fx-petals::after {
+  background-image:
+    radial-gradient(ellipse 2.5px 4px at 35% 20%, rgba(255, 214, 228, 0.85) 96%, transparent),
+    radial-gradient(ellipse 2px 3px at 80% 70%, rgba(249, 168, 212, 0.80) 96%, transparent);
+  background-size: 46px 70px;
+  animation: cosFallB 5s linear infinite;
+}
+
+/* Rétro : lignes de balayage fixes + une barre lumineuse qui descend. */
+@keyframes cosScan {
+  from { transform: translateY(0); }
+  to   { transform: translateY(440%); }
+}
+.cos-fx-scan {
+  background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0, 0, 0, 0.20) 2px 3px);
+}
+.cos-fx-scan::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -30%;
+  height: 30%;
+  background: linear-gradient(to bottom, transparent, rgba(125, 255, 240, 0.26), transparent);
+  animation: cosScan 3.6s linear infinite;
+}
+
+/* Braises : lueur chaude en bas + braises qui montent. */
+@keyframes cosRiseA {
+  from { background-position: 0 0, 0 0, 0 0; }
+  to   { background-position: 14px -100px, -10px -100px, 8px -100px; }
+}
+@keyframes cosRiseB {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: -12px -64px, 10px -64px; }
+}
+.cos-fx-embers {
+  background: linear-gradient(to top, rgba(251, 113, 36, 0.38), transparent 42%);
+}
+.cos-fx-embers::before,
+.cos-fx-embers::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat;
+}
+.cos-fx-embers::before {
+  background-image:
+    radial-gradient(circle at 25% 40%, rgba(253, 186, 116, 0.95) 0 1.4px, transparent 2.4px),
+    radial-gradient(circle at 70% 70%, rgba(251, 146, 60, 0.95) 0 1.2px, transparent 2.2px),
+    radial-gradient(circle at 50% 15%, rgba(254, 243, 199, 0.95) 0 1px, transparent 2px);
+  background-size: 64px 100px;
+  animation: cosRiseA 5.5s linear infinite;
+}
+.cos-fx-embers::after {
+  background-image:
+    radial-gradient(circle at 30% 60%, rgba(253, 186, 116, 0.80) 0 1px, transparent 2px),
+    radial-gradient(circle at 75% 25%, rgba(251, 146, 60, 0.80) 0 1.2px, transparent 2.2px);
+  background-size: 48px 64px;
+  animation: cosRiseB 3.8s linear infinite;
+}
+
+/* Aurore : rideaux de lumière qui dérivent. */
+@keyframes cosAurora {
+  from { background-position: 0 0%; }
+  to   { background-position: 0 100%; }
+}
+.cos-fx-aurora {
+  background: linear-gradient(160deg,
+    rgba(52, 211, 153, 0) 8%, rgba(52, 211, 153, 0.36) 32%, rgba(56, 189, 248, 0.36) 52%,
+    rgba(167, 139, 250, 0.36) 72%, rgba(167, 139, 250, 0) 94%);
+  background-size: 100% 260%;
+  mix-blend-mode: screen;
+  animation: cosAurora 7s ease-in-out infinite alternate;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .cos-neon, .cos-fx-holo, .cos-fx-pulse,
+  .cos-neon, .cos-frost, .cos-inferno, .cos-prism,
+  .cos-fx-holo, .cos-fx-pulse, .cos-fx-shine::before, .cos-fx-scan::before,
+  .cos-fx-petals::before, .cos-fx-petals::after,
+  .cos-fx-embers::before, .cos-fx-embers::after, .cos-fx-aurora,
   .cos-fx-sparkle::before, .cos-fx-sparkle::after { animation: none; }
+  .cos-fx-shine::before { opacity: 0; }
 }
 
 /* ── Texte long (MarqueeText) ──────────────────────────────────

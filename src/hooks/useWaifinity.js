@@ -4,7 +4,7 @@ import { ensureWaifinityWallet, adjustWaifinityBalance, fetchWaifinityWallet, ne
 import { fetchWaifuPool } from "../api/waifu";
 import { currentSeason, fetchSeasonAnime } from "../api/waifuBanner";
 import { buildSeasonBanner, BANNER_COST } from "../utils/waifinityBanners";
-import { COSMETICS_BY_ID } from "../utils/waifinityCosmetics";
+import { COSMETICS_BY_ID, MAX_COSMETIC_STOCK, normalizeCosmetics } from "../utils/waifinityCosmetics";
 import {
   ensureMissionDay, applyMissionEvents, packMissionEvents, describeMissions, getMission, MISSION_BONUS,
 } from "../utils/waifinityMissions";
@@ -633,35 +633,63 @@ export function useWaifinity({ withPool = true, syncAccount = true } = {}) {
     });
   }, [persist]);
 
-  // ── Atelier : cosmétiques achetés avec des fragments ──────────────────────
-  const buyCosmetic = useCallback((id) => {
+  // ── Atelier : cosmétiques consommables, achetés avec des fragments ────────
+  // Un achat ajoute des exemplaires au STOCK ; appliquer un cosmétique sur une
+  // carte consomme un exemplaire et le lie à cette carte (voir waifinityCosmetics.js).
+  const buyCosmetic = useCallback((id, qty = 1) => {
     const item = COSMETICS_BY_ID[id];
+    const n = Math.max(1, Math.floor(Number(qty)) || 1);
     const s = stateRef.current;
-    if (!item || s.cosmetics.owned.includes(id) || (s.fragments || 0) < item.cost) return false;
+    if (!item) return false;
+    const have = s.cosmetics.inventory[id] || 0;
+    if (have + n > MAX_COSMETIC_STOCK || (s.fragments || 0) < item.cost * n) return false;
     persist((prev) => {
-      if (prev.cosmetics.owned.includes(id) || (prev.fragments || 0) < item.cost) return prev;
+      const h = prev.cosmetics.inventory[id] || 0;
+      if (h + n > MAX_COSMETIC_STOCK || (prev.fragments || 0) < item.cost * n) return prev;
       return {
         ...prev,
-        fragments: prev.fragments - item.cost,
-        cosmetics: { ...prev.cosmetics, owned: [...prev.cosmetics.owned, id] },
+        fragments: prev.fragments - item.cost * n,
+        cosmetics: { ...prev.cosmetics, inventory: { ...prev.cosmetics.inventory, [id]: h + n } },
       };
     });
     return true;
   }, [persist]);
 
-  /** Équipe (ou retire, avec id = null) le cadre ou l'effet d'UN personnage possédé. */
-  const equipCosmetic = useCallback((characterId, slot, id) => {
+  /**
+   * Applique un cosmétique du stock sur UN personnage possédé : l'exemplaire est
+   * consommé. Si l'emplacement (cadre / effet) était déjà occupé, l'ancien objet
+   * est remplacé — et perdu.
+   */
+  const applyCosmetic = useCallback((characterId, id) => {
+    const item = COSMETICS_BY_ID[id];
+    const s = stateRef.current;
+    if (!item || !s.collection[characterId] || !(s.cosmetics.inventory[id] > 0)) return false;
+    if (s.cosmetics.equipped[characterId]?.[item.slot] === id) return false;
     persist((prev) => {
-      if (!prev.collection[characterId]) return prev;
-      if (id && !prev.cosmetics.owned.includes(id)) return prev;
-      const next = { ...(prev.cosmetics.equipped[characterId] || {}), [slot]: id || null };
+      const stock = prev.cosmetics.inventory[id] || 0;
+      if (!prev.collection[characterId] || stock <= 0) return prev;
+      const cur = prev.cosmetics.equipped[characterId] || {};
+      if (cur[item.slot] === id) return prev;
+      const inventory = { ...prev.cosmetics.inventory };
+      if (stock - 1 > 0) inventory[id] = stock - 1; else delete inventory[id];
+      const equipped = { ...prev.cosmetics.equipped, [characterId]: { ...cur, [item.slot]: id } };
+      return withMissionEvents({ ...prev, cosmetics: { inventory, equipped } }, uid, [{ type: "equip", amount: 1 }]);
+    });
+    return true;
+  }, [persist, uid]);
+
+  /** Retire le cadre ou l'effet d'une carte. L'objet est détruit : il n'est pas rendu au stock. */
+  const removeCosmetic = useCallback((characterId, slot) => {
+    persist((prev) => {
+      const cur = prev.cosmetics.equipped[characterId];
+      if (!cur?.[slot]) return prev;
+      const next = { ...cur, [slot]: null };
       const equipped = { ...prev.cosmetics.equipped };
       if (!next.frame && !next.effect) delete equipped[characterId];
       else equipped[characterId] = next;
-      const out = { ...prev, cosmetics: { ...prev.cosmetics, equipped } };
-      return id ? withMissionEvents(out, uid, [{ type: "equip", amount: 1 }]) : out;
+      return { ...prev, cosmetics: { ...prev.cosmetics, equipped } };
     });
-  }, [persist, uid]);
+  }, [persist]);
 
   // ── Missions quotidiennes : récompense en Anigold, versée une seule fois ──
   const claimMission = useCallback(async (missionId) => {
@@ -745,7 +773,7 @@ export function useWaifinity({ withPool = true, syncAccount = true } = {}) {
           ...prev,
           favorites: Array.isArray(row.favorites) ? row.favorites : prev.favorites,
           fragments: Number.isFinite(row.fragments) ? row.fragments : prev.fragments,
-          cosmetics: row.cosmetics?.owned ? { owned: row.cosmetics.owned, equipped: row.cosmetics.equipped || {} } : prev.cosmetics,
+          cosmetics: (row.cosmetics?.inventory || row.cosmetics?.owned) ? normalizeCosmetics(row.cosmetics) : prev.cosmetics,
           extrasUpdatedAt: serverAt,
         }));
       }
@@ -784,9 +812,9 @@ export function useWaifinity({ withPool = true, syncAccount = true } = {}) {
     daily: dailyStatus(state), claimDaily,
     // Fragments, cosmétiques, missions, bannière de saison
     fragments: state.fragments || 0,
-    ownedCosmetics: state.cosmetics?.owned || [],
+    cosmeticStock: state.cosmetics?.inventory || {},
     equipped: state.cosmetics?.equipped || {},
-    buyCosmetic, equipCosmetic,
+    buyCosmetic, applyCosmetic, removeCosmetic,
     missions: describeMissions(ensureMissionDay(state.missions, uid)), claimMission, claimMissionBonus,
     banner, openBannerBooster, canAffordBanner: state.coins >= BANNER_COST,
     canAffordBooster: state.coins >= SHOP_BOOSTER_COST,

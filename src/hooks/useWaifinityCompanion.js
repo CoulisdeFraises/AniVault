@@ -141,8 +141,8 @@ export function useWaifinityCompanion(game) {
   }, [react]);
 
   // ── Atelier : achat d'un cosmétique ──
-  const buyCosmetic = useCallback((id) => {
-    const ok = gameRef.current.buyCosmetic(id);
+  const buyCosmetic = useCallback((id, qty = 1) => {
+    const ok = gameRef.current.buyCosmetic(id, qty);
     if (ok) react("wfCosmetic", { name: COSMETICS_BY_ID[id]?.name || "ce cosmétique" });
     return ok;
   }, [react]);

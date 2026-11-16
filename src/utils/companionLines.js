@@ -140,9 +140,9 @@ export const COMPANION_LINES = {
     "Journée bouclée : bonus de {coins} Anigold et {fragments} fragments !",
   ],
   wfCosmetic: [
-    "{name} débloqué ! Il va falloir l'essayer sur un de tes persos.",
+    "{name} ajouté à ton stock ! Choisis la carte qui le mérite.",
     "Joli choix, {name}. Tes cartes vont briller.",
-    "{name}, c'est dans la boîte. Va l'équiper depuis la fiche d'un personnage.",
+    "{name}, c'est dans la boîte. Applique-le sur une carte depuis l'Atelier.",
   ],
 };
 
@@ -270,7 +270,7 @@ const CHLO_LINES = {
   wfCosmetic: [
     "{name} ? Tu dépenses tes fragments pour de la déco. J'adore.",
     "Tiens, {name}. Au moins tes cartes auront de la gueule, elles.",
-    "{name} débloqué. Va l'équiper, que je voie si ça te va.",
+    "{name} en stock. Applique-le sur une carte, que je voie si ça te va.",
   ],
 };
 

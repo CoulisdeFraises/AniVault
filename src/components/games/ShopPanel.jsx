@@ -58,9 +58,10 @@ export function ShopPanel({
   pool, pendingPack, coins = 0, canAffordBooster, canAffordTarget, canAffordGender,
   onBuyStandard, onBuyTargeted, onBuyGender,
   banner, canAffordBanner, onBuyBanner,
-  fragments = 0, ownedCosmetics = [], onBuyCosmetic,
+  fragments = 0, cosmeticStock = {}, collectionList = [], favorites = [], equipped = {},
+  onBuyCosmetic, onApplyCosmetic, onOpenSheet, initialView,
 }) {
-  const [view, setView] = useState("boosters");
+  const [view, setView] = useState(initialView === "atelier" ? "atelier" : "boosters");
   const [seriesOpen, setSeriesOpen] = useState(false);
   const [seriesQuery, setSeriesQuery] = useState("");
   const series = useMemo(() => topSeries(pool, 300), [pool]);
@@ -84,7 +85,11 @@ export function ShopPanel({
     return (
       <div className="space-y-5">
         {viewTabs}
-        <AtelierPanel fragments={fragments} owned={ownedCosmetics} onBuy={onBuyCosmetic} />
+        <AtelierPanel
+          fragments={fragments} stock={cosmeticStock} collectionList={collectionList}
+          favorites={favorites} equipped={equipped}
+          onBuy={onBuyCosmetic} onApply={onApplyCosmetic} onOpenSheet={onOpenSheet}
+        />
       </div>
     );
   }

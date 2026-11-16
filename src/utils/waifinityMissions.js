@@ -19,7 +19,7 @@ export const MISSION_POOL = [
   { id: "daily_1",    type: "daily",     target: 1,  reward: 10, label: "Récupère la récompense quotidienne" },
   { id: "trade_1",    type: "trade",     target: 1,  reward: 30, label: "Propose un échange à un ami" },
   { id: "banner_1",   type: "banner",    target: 1,  reward: 30, label: "Ouvre un booster de saison" },
-  { id: "equip_1",    type: "equip",     target: 1,  reward: 15, label: "Équipe un cosmétique" },
+  { id: "equip_1",    type: "equip",     target: 1,  reward: 15, label: "Applique un cosmétique sur une carte" },
 ];
 export const MISSIONS_PER_DAY = 3;
 export const MISSION_BONUS = { coins: 40, fragments: 15 };

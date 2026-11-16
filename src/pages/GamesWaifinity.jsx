@@ -153,7 +153,10 @@ export function GamesWaifinity() {
                   canAffordBooster={game.canAffordBooster} canAffordTarget={game.canAffordTarget} canAffordGender={game.canAffordGender}
                   onBuyStandard={game.openStandardBooster} onBuyTargeted={game.openTargetedBooster} onBuyGender={game.openGenderBooster}
                   banner={game.banner} canAffordBanner={game.canAffordBanner} onBuyBanner={game.openBannerBooster}
-                  fragments={game.fragments} ownedCosmetics={game.ownedCosmetics} onBuyCosmetic={companion.buyCosmetic}
+                  fragments={game.fragments} cosmeticStock={game.cosmeticStock} collectionList={game.collectionList}
+                  favorites={game.favorites} equipped={game.equipped}
+                  onBuyCosmetic={companion.buyCosmetic} onApplyCosmetic={game.applyCosmetic} onOpenSheet={setSheetId}
+                  initialView={searchParams.get("view")}
                 />
               )}
             </motion.div>
@@ -190,8 +193,10 @@ export function GamesWaifinity() {
             isFavorite={sheetId != null && game.favorites.includes(sheetId)}
             favoritesFull={game.favorites.length >= MAX_FAVORITES}
             cosmetic={game.equipped[sheetId]}
-            ownedCosmetics={game.ownedCosmetics}
-            onEquip={(slot, id) => game.equipCosmetic(sheetId, slot, id)}
+            stock={game.cosmeticStock}
+            onApplyCosmetic={(id) => game.applyCosmetic(sheetId, id)}
+            onRemoveCosmetic={(slot) => game.removeCosmetic(sheetId, slot)}
+            onGoAtelier={() => { setSheetId(null); setSearchParams({ tab: "shop", view: "atelier" }, { replace: true }); window.scrollTo(0, 0); }}
             onBuyTargeted={game.openTargetedBooster}
             onBuyWish={game.openWishBooster}
             onToggleFavorite={companion.toggleFavorite}

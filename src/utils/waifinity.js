@@ -1,5 +1,5 @@
 import { purgeStaleCaches } from "../lib/cache.js";
-import { fragmentsForDuplicate, defaultCosmetics } from "./waifinityCosmetics.js";
+import { fragmentsForDuplicate, defaultCosmetics, normalizeCosmetics } from "./waifinityCosmetics.js";
 
 // ── Waifinity : règles du jeu ────────────────────────────────────────────────
 //
@@ -290,7 +290,7 @@ export function defaultState() {
     dailyStreak:        0,       // jour (1-7) de la dernière récompense quotidienne récupérée
     lastDailyKey:       null,    // "AAAA-MM-JJ" (jour local) de cette récupération
     fragments:          0,       // gagnés sur les doublons, dépensés à l'Atelier (voir waifinityCosmetics.js)
-    cosmetics:          defaultCosmetics(), // { owned: [ids], equipped: { [characterId]: { frame, effect } } }
+    cosmetics:          defaultCosmetics(), // { inventory: { [id]: qté }, equipped: { [characterId]: { frame, effect } } } — consommables, voir waifinityCosmetics.js
     missions:           null,    // { dayKey, list, bonusClaimed } — créé à la demande (voir waifinityMissions.js)
     extrasUpdatedAt:    0,       // dernière synchro de favoris/fragments/cosmétiques avec Supabase (ms)
   };
@@ -306,7 +306,7 @@ function migrateState({ genderPref: _legacyGenderPref, ...s }) {
   const pendingPack = s.pendingPack
     ? { ...s.pendingPack, cards: (s.pendingPack.cards || []).map((c) => ({ ...c, tier: normalizeTier(c.tier) })) }
     : null;
-  return { ...s, collection, pendingPack };
+  return { ...s, collection, pendingPack, cosmetics: normalizeCosmetics(s.cosmetics) };
 }
 
 export function loadState(uid) {
