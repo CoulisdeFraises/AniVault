@@ -7,7 +7,7 @@ import { fetchWaifinityItemsBulk } from "../../services/waifinitySocial";
 import { RARITY, normalizeTier, countByTier, collectionScore } from "../../utils/waifinity";
 import { Avatar } from "../common/Avatar";
 import { PillTabs } from "./PillTabs";
-import { GameButton } from "./ui";
+import { GameButton, Panel } from "./ui";
 import { TradesView } from "./TradesView";
 
 const SOCIAL_VIEWS = [
@@ -16,10 +16,16 @@ const SOCIAL_VIEWS = [
 ];
 
 const MEDAL_COLOR = ["text-amber-300", "text-slate-300", "text-orange-400"];
+const HEADING = { fontFamily: "'Space Grotesk',sans-serif" };
 
-function RankRow({ rank, name, color, photoUrl, score, owned, isMe }) {
+function RankRow({ rank, name, color, photoUrl, score, owned, isMe, max = 0 }) {
+  // Barre fine sous la ligne : score relatif au premier, pour voir l'écart d'un coup d'œil.
+  const pct = max > 0 ? Math.max(4, Math.min(100, (score / max) * 100)) : 0;
   return (
-    <div className={`flex items-center gap-3 rounded-xl px-3 py-2.5 ${isMe ? "bg-amber-400/10 border border-amber-400/30" : "bg-violet-900/40 border border-white/10"}`}>
+    <div className={`relative overflow-hidden flex items-center gap-3 rounded-xl px-3 py-2.5 ${isMe ? "bg-amber-400/10 border border-amber-400/30" : "bg-violet-900/40 border border-white/10"}`}>
+      <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[3px] bg-white/[0.04]">
+        <span className={`block h-full ${isMe ? "bg-amber-400/80" : "bg-violet-400/50"}`} style={{ width: `${pct}%` }} />
+      </span>
       <div className="w-6 flex-shrink-0 text-center">
         {rank <= 3
           ? <Medal size={16} className={`mx-auto ${MEDAL_COLOR[rank - 1]}`} />
@@ -234,6 +240,12 @@ export function SocialTab({ game, initialView }) {
     );
   }
 
+  // Ma place dans le classement (calculée ici, après les retours anticipés : ce ne sont pas des hooks).
+  const myIndex = leaderboard ? leaderboard.findIndex((r) => r.isMe) : -1;
+  const me = myIndex >= 0 ? leaderboard[myIndex] : null;
+  const ahead = myIndex > 0 ? leaderboard[myIndex - 1] : null;
+  const topScore = leaderboard?.[0]?.score || 0;
+
   return (
     <div className="space-y-4">
       <div className="flex justify-center">
@@ -242,6 +254,36 @@ export function SocialTab({ game, initialView }) {
 
       {view === "leaderboard" && (
         <div className="space-y-2">
+          {/* Ma place : le rang d'abord, puis ce qu'il faut pour monter */}
+          {me && (
+            <Panel tone={myIndex === 0 ? "highlight" : "default"} className="mb-1">
+              <div className="flex items-center gap-4">
+                <div className="w-16 flex-shrink-0 text-center">
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">Rang</p>
+                  <p className="mt-1 flex items-baseline justify-center text-3xl font-bold leading-none text-white tabular-nums" style={HEADING}>
+                    {myIndex + 1}<span className="text-sm font-medium text-violet-400">/{leaderboard.length}</span>
+                  </p>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-white" style={HEADING}>
+                    {myIndex === 0 ? "Tu mènes le classement" : `Tu es ${myIndex + 1}e du classement`}
+                  </p>
+                  <p className="mt-0.5 text-xs text-violet-300">
+                    {myIndex === 0
+                      ? (leaderboard[1] ? `${me.score - leaderboard[1].score} point${me.score - leaderboard[1].score > 1 ? "s" : ""} d'avance sur ${leaderboard[1].name}` : "Seul en lice pour l'instant")
+                      : ahead.score > me.score
+                        ? `${ahead.score - me.score} point${ahead.score - me.score > 1 ? "s" : ""} de retard sur ${ahead.name}`
+                        : `À égalité avec ${ahead.name}`}
+                  </p>
+                </div>
+                <div className="flex-shrink-0 text-right">
+                  <p className="text-xl font-bold text-amber-200 tabular-nums" style={HEADING}>{me.score}</p>
+                  <p className="text-[10px] text-violet-400">{me.owned} perso.</p>
+                </div>
+              </div>
+            </Panel>
+          )}
+
           <div className="flex items-center justify-between gap-2 px-0.5">
             <p className="text-[11px] text-violet-400">
               {boardUpdatedAt ? `Mis à jour à ${new Date(boardUpdatedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : "Chargement du classement…"}
@@ -259,11 +301,14 @@ export function SocialTab({ game, initialView }) {
           )}
 
           {(leaderboard || []).map((r, i) => (
-            <RankRow key={r.userId} rank={i + 1} name={r.name} color={r.color} photoUrl={r.photoUrl} score={r.score} owned={r.owned} isMe={r.isMe} />
+            <RankRow key={r.userId} rank={i + 1} name={r.name} color={r.color} photoUrl={r.photoUrl} score={r.score} owned={r.owned} isMe={r.isMe} max={topScore} />
           ))}
-          <p className="text-[10px] text-violet-500 px-1 pt-1">
-            Score = personnages distincts pondérés par rareté (les doublons ne comptent qu'une fois), d'après les collections synchronisées. À score égal : plus de personnages, puis ordre alphabétique.
-          </p>
+          <details className="group rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 mt-2">
+            <summary className="cursor-pointer list-none text-[11px] font-medium text-violet-300 select-none">Comment le score est calculé ?</summary>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-violet-400">
+              Score = personnages distincts pondérés par rareté (les doublons ne comptent qu'une fois), d'après les collections synchronisées. À score égal : plus de personnages, puis ordre alphabétique.
+            </p>
+          </details>
         </div>
       )}
 

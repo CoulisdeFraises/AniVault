@@ -9,6 +9,7 @@ import {
 import { RarityBadge, RarityDot } from "./RarityBadge";
 import { GenderBadge } from "./GenderBadge";
 import { PillTabs } from "./PillTabs";
+import { FilterChip, ScrollRow, GameButton } from "./ui";
 import { CardFrame } from "./CardFrame";
 import { FavoritesCarousel } from "./FavoritesCarousel";
 import { FavoriteActionSheet, FavoritesReorderModal } from "./FavoritesManager";
@@ -80,7 +81,7 @@ function ProgressRing({ pct }) {
   const R = 34;
   const C = 2 * Math.PI * R;
   return (
-    <svg viewBox="0 0 84 84" className="w-[84px] h-[84px] -rotate-90" aria-hidden="true">
+    <svg viewBox="0 0 84 84" className="w-full h-full -rotate-90" aria-hidden="true">
       <defs>
         <linearGradient id="wf-ring" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#fbbf24" />
@@ -97,7 +98,7 @@ function ProgressRing({ pct }) {
 
 export function CollectionGrid({
   collectionList, pool, collection = {}, favorites = [], equipped = {}, onOpenSheet,
-  onMoveFavorite, onReorderFavorites, onToggleFavorite,
+  onMoveFavorite, onReorderFavorites, onToggleFavorite, onGoBoosters,
 }) {
   const [tierFilter, setTierFilter]     = useState("all");
   const [genderFilter, setGenderFilter] = useState("all");
@@ -201,10 +202,11 @@ export function CollectionGrid({
   if (!collectionList.length) {
     return (
       <div className="space-y-4">
-        <div className="rounded-2xl border border-dashed border-white/15 bg-violet-900/20 py-10 text-center">
+        <div className="rounded-2xl border border-dashed border-white/15 bg-violet-900/20 py-10 px-4 text-center">
           <HeartCrack size={26} className="mx-auto text-violet-500 mb-2" />
           <p className="text-sm text-violet-200">Ta collection est vide pour le moment</p>
           <p className="text-[11px] text-violet-400 mt-1">Ouvre un booster pour obtenir tes premiers personnages !</p>
+          {onGoBoosters && <GameButton className="mt-4" onClick={onGoBoosters}>Ouvrir un booster</GameButton>}
         </div>
       </div>
     );
@@ -218,21 +220,21 @@ export function CollectionGrid({
   return (
     <div className="space-y-4">
 
-      {/* Progression globale */}
-      <div className="flex items-center gap-4 rounded-2xl bg-violet-900/40 border border-white/10 p-4">
-        <div className="relative w-[84px] h-[84px] flex-shrink-0">
+      {/* Résumé : progression globale */}
+      <div className="flex items-center gap-3.5 rounded-2xl bg-gradient-to-br from-violet-800/45 to-violet-900/30 border border-white/10 p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+        <div className="relative w-[68px] h-[68px] flex-shrink-0">
           <ProgressRing pct={pct} />
-          <span className="absolute inset-0 flex items-center justify-center font-mono text-sm font-bold text-white">{pctLabel}</span>
+          <span className="absolute inset-0 flex items-center justify-center font-mono text-xs font-bold text-white">{pctLabel}</span>
         </div>
-        <div className="min-w-0">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-violet-500">Progression</p>
-          <p className="text-3xl font-bold leading-tight text-white" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+        <div className="min-w-0 flex-1">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">Ma collection</p>
+          <p className="text-2xl font-bold leading-tight text-white tabular-nums" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
             {collectionList.length}
-            {pool.length > 0 && <span className="text-base font-medium text-violet-400"> / {pool.length}</span>}
+            {pool.length > 0 && <span className="text-sm font-medium text-violet-400"> / {pool.length}</span>}
+            <span className="ml-1.5 text-xs font-medium text-violet-300">personnage{collectionList.length > 1 ? "s" : ""}</span>
           </p>
-          <p className="text-[11px] text-violet-300">personnage{collectionList.length > 1 ? "s" : ""}</p>
           {topOwned > 0 && (
-            <p className="mt-1 flex items-center gap-1.5 text-[11px] text-amber-300"><RarityDot tier="legendary" size={7} />{topOwned} Legendary &amp; Secret</p>
+            <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-amber-300"><RarityDot tier="legendary" size={7} />{topOwned} Legendary &amp; Secret</p>
           )}
         </div>
       </div>
@@ -293,57 +295,72 @@ export function CollectionGrid({
         )}
       </AnimatePresence>
 
-      {/* Raretés : progression par palier + filtre */}
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+      {/* Raretés : progression par palier + filtre (une seule rangée qui défile) */}
+      <ScrollRow>
+        <FilterChip active={tierFilter === "all"} onClick={() => setTierFilter("all")}>Toutes</FilterChip>
         {RARITY_ORDER.map((t) => {
           const r = RARITY[t];
           const active = tierFilter === t;
           return (
-            <button key={t} onClick={() => setTierFilter(active ? "all" : t)}
-              aria-pressed={active}
-              className={`rounded-xl border px-2.5 py-2 text-left active:scale-95 transition-colors motion-reduce:transition-none ${
+            <button key={t} type="button" onClick={() => setTierFilter(active ? "all" : t)} aria-pressed={active}
+              className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] whitespace-nowrap active:scale-95 transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 ${
                 active ? `bg-white/10 ${r.border}` : "bg-violet-900/40 border-white/10 hover:bg-white/5"}`}>
-              <div className="flex items-center justify-between">
-                <RarityDot tier={t} size={9} />
-                <span className="font-mono text-[10px] text-violet-300">{ownedTotals[t]}{poolTotals[t] ? `/${poolTotals[t]}` : ""}</span>
-              </div>
-              <p className={`mt-1 text-[11px] font-semibold ${r.text}`}>{r.label}</p>
+              <RarityDot tier={t} size={8} />
+              <span className={`font-semibold ${r.text}`}>{r.label}</span>
+              <span className="font-mono text-[10px] text-violet-300 tabular-nums">{ownedTotals[t]}{poolTotals[t] ? `/${poolTotals[t]}` : ""}</span>
             </button>
           );
         })}
+      </ScrollRow>
+
+      {/* Recherche + tri + regroupement par série */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 min-w-0">
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-violet-500 pointer-events-none" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Personnage ou série…"
+            className="w-full h-[38px] pl-9 pr-9 rounded-xl bg-violet-900/40 border border-white/10 text-sm text-violet-50 placeholder-violet-500 focus:outline-none focus:ring-2 focus:ring-amber-400"
+          />
+          {query && (
+            <button onClick={() => setQuery("")} aria-label="Effacer la recherche"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-violet-400 hover:bg-white/10">
+              <X size={13} />
+            </button>
+          )}
+        </div>
+        {/* Tri : sélecteur natif (une seule ligne, bon sur mobile) */}
+        <label className="relative flex-shrink-0">
+          <span className="sr-only">Trier la collection</span>
+          <select value={sort} onChange={(e) => setSort(e.target.value)}
+            className="appearance-none h-[38px] pl-3 pr-8 rounded-xl bg-violet-900/40 border border-white/10 text-xs font-medium text-violet-100 focus:outline-none focus:ring-2 focus:ring-amber-400 [color-scheme:dark]">
+            {SORTS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+          </select>
+          <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-violet-400 pointer-events-none" />
+        </label>
+        <button type="button" onClick={() => setGroupBySeries((v) => !v)} aria-pressed={groupBySeries}
+          aria-label="Regrouper par série" title="Regrouper par série"
+          className={`flex-shrink-0 w-[38px] h-[38px] rounded-xl border flex items-center justify-center active:scale-95 transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 ${
+            groupBySeries ? "bg-amber-400 text-violet-950 border-amber-400" : "bg-violet-900/40 border-white/10 text-violet-300 hover:bg-white/10"}`}>
+          <Layers size={16} />
+        </button>
       </div>
 
-      {/* Recherche */}
-      <div className="relative">
-        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-violet-500 pointer-events-none" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher un personnage ou une série…"
-          className="w-full pl-9 pr-9 py-2 rounded-xl bg-violet-900/40 border border-white/10 text-sm text-violet-50 placeholder-violet-500 focus:outline-none focus:ring-2 focus:ring-amber-400"
-        />
-        {query && (
-          <button onClick={() => setQuery("")} aria-label="Effacer la recherche"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-violet-400 hover:bg-white/10">
-            <X size={13} />
-          </button>
-        )}
+      {/* Genre */}
+      <div className="flex">
+        <PillTabs tabs={GENDER_TABS} value={genderFilter} onChange={setGenderFilter} layoutId="waifinity-gender-filter" size="sm" tone="violet" />
       </div>
 
-      {/* Genre + tri + regroupement */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="max-w-full overflow-x-auto scrollbar-none">
-          <PillTabs tabs={GENDER_TABS} value={genderFilter} onChange={setGenderFilter} layoutId="waifinity-gender-filter" size="sm" tone="violet" />
-        </div>
-        <div className="flex items-center gap-2 max-w-full">
-          <PillTabs tabs={SORTS} value={sort} onChange={setSort} layoutId="waifinity-sort" size="sm" tone="violet" />
-          <button onClick={() => setGroupBySeries((v) => !v)} aria-pressed={groupBySeries}
-            className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] active:scale-95 transition-colors motion-reduce:transition-none ${
-              groupBySeries ? "bg-amber-400 text-violet-950 border-amber-400 font-semibold" : "bg-white/5 border-white/10 text-violet-300 font-medium"}`}>
-            <Layers size={11} />Par série
+      {hasFilters && (
+        <div className="flex items-center justify-between gap-2 px-0.5 -mt-1">
+          <p className="text-[11px] text-violet-400">{filtered.length} personnage{filtered.length > 1 ? "s" : ""} trouvé{filtered.length > 1 ? "s" : ""}</p>
+          <button onClick={() => { setTierFilter("all"); setGenderFilter("all"); setQuery(""); }}
+            className="text-[11px] font-semibold text-amber-300 hover:text-amber-200">
+            Réinitialiser
           </button>
         </div>
-      </div>
+      )}
 
       {filtered.length ? (
         groups ? (

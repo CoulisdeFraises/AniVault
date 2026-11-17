@@ -1,13 +1,14 @@
 import { MarqueeText } from "../common/MarqueeText";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { ChevronDown, Search, X, HelpCircle, Heart, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronRight, Search, X, HelpCircle, Heart, Sparkles, Flag } from "lucide-react";
 import { RARITY, normalizeTier, groupPoolBySeries, isRecentlyObtained, SHOP_TARGET_COST } from "../../utils/waifinity";
 import { RarityBadge } from "./RarityBadge";
 import { GenderBadge } from "./GenderBadge";
 import { CardFrame } from "./CardFrame";
 import { LoadMore } from "./LoadMore";
 import { PillTabs } from "./PillTabs";
+import { ScrollRow } from "./ui";
 import { usePagedList } from "../../hooks/usePagedList";
 import { haptics } from "../../utils/haptics";
 
@@ -296,7 +297,7 @@ export function SeriesExplorer({ pool, collection, favorites, equipped, onOpenSh
     for (const g of enriched) {
       if (g.owned === 0 || g.owned === g.total) continue;
       const m = g.total - g.owned;
-      if (!best || m < best.missing || (m === best.missing && g.total > best.total)) best = { key: g.key, series: g.series, missing: m, total: g.total };
+      if (!best || m < best.missing || (m === best.missing && g.total > best.total)) best = { key: g.key, series: g.series, missing: m, total: g.total, owned: g.owned };
     }
     return best;
   }, [enriched]);
@@ -311,15 +312,15 @@ export function SeriesExplorer({ pool, collection, favorites, equipped, onOpenSh
 
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl border border-white/10 bg-violet-900/40 p-4">
+      <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-violet-800/45 to-violet-900/30 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
         <div className="flex items-end justify-between gap-3">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">Personnages découverts</p>
-            <p className="mt-0.5 text-lg font-bold text-white tabular-nums">
+            <p className="mt-0.5 text-2xl font-bold text-white tabular-nums" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
               {totalOwned}<span className="text-sm font-medium text-violet-400"> / {pool.length}</span>
             </p>
           </div>
-          <p className="text-right text-[11px] text-violet-300">{counts.complete}/{counts.all} séries complètes</p>
+          <p className="text-right text-[11px] text-violet-300 pb-1">{counts.complete}/{counts.all} séries complètes</p>
         </div>
         <div className="mt-3 h-1.5 rounded-full bg-white/10 overflow-hidden">
           <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-fuchsia-500 transition-[width] duration-500 motion-reduce:transition-none"
@@ -328,33 +329,53 @@ export function SeriesExplorer({ pool, collection, favorites, equipped, onOpenSh
         {nearest && (
           <button type="button"
             onClick={() => { setQuery(""); setFilter("all"); setSort("almost"); setExpandedKey(nearest.key); haptics.tap(); }}
-            className="mt-3 w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-left text-[11px] text-violet-200 hover:bg-white/10 transition-colors motion-reduce:transition-none">
-            Plus proche de la fin : <span className="font-semibold text-white">{nearest.series}</span>
-            <span className="text-violet-400"> · il en manque {nearest.missing}</span>
+            className="mt-3 w-full flex items-center gap-3 rounded-xl bg-amber-400/10 border border-amber-300/30 px-3 py-2.5 text-left hover:bg-amber-400/15 active:scale-[0.99] transition-[background,transform] motion-reduce:transition-none">
+            <span className="w-8 h-8 rounded-lg bg-amber-400/20 border border-amber-300/30 flex items-center justify-center flex-shrink-0 text-amber-200"><Flag size={15} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-mono text-[9.5px] uppercase tracking-widest text-amber-200/80">Prochain objectif</span>
+              <MarqueeText as="p" className="text-[13px] font-semibold text-white">{nearest.series}</MarqueeText>
+              <span className="mt-1 flex items-center gap-2">
+                <span className="h-1 flex-1 rounded-full bg-white/10 overflow-hidden">
+                  <span className="block h-full rounded-full bg-gradient-to-r from-amber-400 to-fuchsia-500" style={{ width: `${Math.max((nearest.owned / nearest.total) * 100, 3)}%` }} />
+                </span>
+                <span className="text-[10.5px] text-violet-300 tabular-nums flex-shrink-0">il en manque {nearest.missing}</span>
+              </span>
+            </span>
+            <ChevronRight size={16} className="flex-shrink-0 text-amber-200" />
           </button>
         )}
       </div>
 
-      <div className="relative">
-        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-violet-500 pointer-events-none" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Chercher une série ou un personnage…"
-          className="w-full pl-9 pr-9 py-2 rounded-xl bg-violet-900/40 border border-white/10 text-sm text-violet-50 placeholder-violet-500 focus:outline-none focus:ring-2 focus:ring-amber-400"
-        />
-        {query && (
-          <button onClick={() => setQuery("")} aria-label="Effacer la recherche"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-violet-400 hover:bg-white/10">
-            <X size={13} />
-          </button>
-        )}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 min-w-0">
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-violet-500 pointer-events-none" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Série ou personnage…"
+            className="w-full h-[38px] pl-9 pr-9 rounded-xl bg-violet-900/40 border border-white/10 text-sm text-violet-50 placeholder-violet-500 focus:outline-none focus:ring-2 focus:ring-amber-400"
+          />
+          {query && (
+            <button onClick={() => setQuery("")} aria-label="Effacer la recherche"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-violet-400 hover:bg-white/10">
+              <X size={13} />
+            </button>
+          )}
+        </div>
+        {/* Tri : sélecteur natif (une seule ligne, bon sur mobile) */}
+        <label className="relative flex-shrink-0">
+          <span className="sr-only">Trier les séries</span>
+          <select value={sort} onChange={(e) => setSort(e.target.value)}
+            className="appearance-none h-[38px] pl-3 pr-8 rounded-xl bg-violet-900/40 border border-white/10 text-xs font-medium text-violet-100 focus:outline-none focus:ring-2 focus:ring-amber-400 [color-scheme:dark]">
+            {SORTS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+          </select>
+          <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-violet-400 pointer-events-none" />
+        </label>
       </div>
 
-      <div className="space-y-2">
-        <PillTabs tabs={filterTabs} value={filter} onChange={setFilter} layoutId="waifinity-series-filter" size="sm" tone="violet" />
-        <PillTabs tabs={SORTS} value={sort} onChange={setSort} layoutId="waifinity-series-sort" size="sm" tone="violet" />
-      </div>
+      <ScrollRow>
+        <PillTabs tabs={filterTabs} value={filter} onChange={setFilter} layoutId="waifinity-series-filter" size="sm" tone="violet" className="flex-shrink-0" />
+      </ScrollRow>
 
       {filtered.length ? (
         <div className="space-y-2">

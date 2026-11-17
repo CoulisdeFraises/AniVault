@@ -26,6 +26,11 @@ export function MissionsCard({ missions, onClaim, onClaimBonus, busy, ready }) {
           </p>
           <p className="text-xs text-violet-300 mt-0.5">{doneCount}/{list.length} terminées · nouvelles missions demain</p>
         </div>
+        <div className="flex items-center gap-1 flex-shrink-0" role="img" aria-label={`${doneCount} mission${doneCount > 1 ? "s" : ""} sur ${list.length}`}>
+          {list.map((m) => (
+            <span key={m.id} className={`h-1.5 w-5 rounded-full ${m.claimed ? "bg-emerald-400" : m.done ? "bg-amber-400" : "bg-white/15"}`} />
+          ))}
+        </div>
       </div>
 
       <ul className="mt-3 space-y-2">

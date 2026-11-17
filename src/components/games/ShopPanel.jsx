@@ -11,6 +11,7 @@ import { BannerCard } from "./BannerCard";
 import { AtelierPanel } from "./AtelierPanel";
 import { haptics } from "../../utils/haptics";
 import { GameButton, Panel, SectionTitle } from "./ui";
+import { stockCount } from "../../utils/waifinityCosmetics";
 
 const HEADING = { fontFamily: "'Space Grotesk',sans-serif" };
 
@@ -59,7 +60,7 @@ export function ShopPanel({
   onBuyStandard, onBuyTargeted, onBuyGender,
   banner, canAffordBanner, onBuyBanner,
   fragments = 0, cosmeticStock = {}, collectionList = [], favorites = [], equipped = {},
-  onBuyCosmetic, onApplyCosmetic, onOpenSheet, initialView,
+  onBuyCosmetic, onApplyCosmetic, onOpenSheet, onGoSeries, initialView,
 }) {
   const [view, setView] = useState(initialView === "atelier" ? "atelier" : "boosters");
   const [seriesOpen, setSeriesOpen] = useState(false);
@@ -75,9 +76,12 @@ export function ShopPanel({
   );
   const busy = !!pendingPack;
 
+  // L'onglet Atelier annonce le nombre d'objets prêts à être appliqués.
+  const stockTotal = stockCount(cosmeticStock);
+  const shopTabs = SHOP_VIEWS.map((t) => (t.key === "atelier" && stockTotal > 0 ? { ...t, label: `Atelier · ${stockTotal}` } : t));
   const viewTabs = (
     <div className="flex justify-center">
-      <PillTabs tabs={SHOP_VIEWS} value={view} onChange={setView} layoutId="waifinity-shop-view" size="sm" tone="violet" />
+      <PillTabs tabs={shopTabs} value={view} onChange={setView} layoutId="waifinity-shop-view" size="sm" tone="violet" />
     </div>
   );
 
@@ -123,7 +127,7 @@ export function ShopPanel({
         >
           <div className="mt-3 grid grid-cols-2 gap-2">
             {Object.entries(GENDER_BOOSTERS).map(([gender, cfg]) => (
-              <GameButton key={gender}
+              <GameButton key={gender} variant="secondary"
                 className="!flex-col !gap-0.5"
                 onClick={() => { haptics.success(); onBuyGender(gender); }}
                 disabled={busy || !canAffordGender || !genderCounts[gender]}>
@@ -178,9 +182,9 @@ export function ShopPanel({
         <ShopCard
           icon={<Star size={18} />}
           title="Vœu sur un personnage"
-          desc="Garantit un personnage précis parmi les 10 cartes d'un booster normal. Ouvre sa fiche depuis Collection › Explorer pour faire ton vœu."
+          desc="Garantit un personnage précis parmi les 10 cartes d'un booster normal. Ouvre sa fiche depuis l'onglet Séries pour faire ton vœu."
         >
-          <ul className="mt-3 grid grid-cols-3 gap-1.5">
+          <ul className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-1.5">
             {RARITY_ORDER.map((t) => (
               <li key={t} className="flex items-center justify-between gap-1 rounded-lg bg-white/[0.04] border border-white/10 px-2 py-1.5">
                 <span className="flex items-center gap-1.5 min-w-0">
@@ -191,6 +195,11 @@ export function ShopPanel({
               </li>
             ))}
           </ul>
+          {onGoSeries && (
+            <GameButton variant="secondary" full className="mt-3" onClick={() => { haptics.tap(); onGoSeries(); }}>
+              Choisir un personnage dans les séries
+            </GameButton>
+          )}
         </ShopCard>
       </Group>
     </div>

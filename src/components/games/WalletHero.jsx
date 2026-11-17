@@ -31,13 +31,20 @@ export function WalletHero({ game, compact = false }) {
   const opened = game.stats.opened;
 
   if (compact) {
+    // Barre collante : le solde reste sous les yeux pendant qu'on fait défiler la
+    // boutique, la collection ou les séries. Fond flouté pour ne rien mélanger au contenu.
     return (
-      <div className="mb-5 flex items-center gap-2.5">
-        <CurrencyPill icon={Coins} value={coins.toLocaleString("fr-FR")} label="Anigold" />
-        <CurrencyPill icon={Gem} value={game.fragments} label="Fragments" tone="violet" />
-        <div className="ml-auto flex items-center gap-2 min-w-0 flex-1 max-w-[11rem]">
-          <div className="flex-1 min-w-0"><ProgressBar pct={pct} owned={owned} thin /></div>
-          <span className="text-[11px] text-violet-300 tabular-nums flex-shrink-0">{owned}{total ? `/${total}` : ""}</span>
+      <div
+        className="sticky top-0 z-30 -mx-4 sm:-mx-6 px-4 sm:px-6 pb-2 mb-3 bg-violet-950/80 backdrop-blur-md"
+        style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
+      >
+        <div className="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-gradient-to-br from-violet-800/45 to-violet-900/30 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+          <CurrencyPill icon={Coins} value={coins.toLocaleString("fr-FR")} label="Anigold" />
+          <CurrencyPill icon={Gem} value={game.fragments} label="Fragments" tone="violet" />
+          <div className="ml-auto flex items-center gap-2 min-w-0 flex-1 max-w-[9rem]">
+            <div className="flex-1 min-w-0"><ProgressBar pct={pct} owned={owned} thin /></div>
+            <span className="text-[11px] text-violet-300 tabular-nums flex-shrink-0">{owned}{total ? `/${total}` : ""}</span>
+          </div>
         </div>
       </div>
     );

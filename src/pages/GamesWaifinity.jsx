@@ -137,7 +137,7 @@ export function GamesWaifinity() {
                 />
               )}
               {tab === "collection" && (
-                <CollectionGrid collectionList={game.collectionList} pool={game.pool} collection={game.collection} favorites={game.favorites} equipped={game.equipped} onOpenSheet={setSheetId}
+                <CollectionGrid collectionList={game.collectionList} pool={game.pool} collection={game.collection} favorites={game.favorites} equipped={game.equipped} onOpenSheet={setSheetId} onGoBoosters={() => setTab("boosters")}
                   onMoveFavorite={game.moveFavorite} onReorderFavorites={game.setFavoritesOrder} onToggleFavorite={companion.toggleFavorite} />
               )}
               {tab === "series" && (
@@ -156,6 +156,7 @@ export function GamesWaifinity() {
                   fragments={game.fragments} cosmeticStock={game.cosmeticStock} collectionList={game.collectionList}
                   favorites={game.favorites} equipped={game.equipped}
                   onBuyCosmetic={companion.buyCosmetic} onApplyCosmetic={game.applyCosmetic} onOpenSheet={setSheetId}
+                  onGoSeries={() => setTab("series")}
                   initialView={searchParams.get("view")}
                 />
               )}

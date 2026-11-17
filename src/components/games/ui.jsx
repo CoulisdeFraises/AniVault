@@ -115,3 +115,36 @@ export function CurrencyPill({ icon: Icon, value, label, tone = "amber" }) {
     </span>
   );
 }
+
+/**
+ * Puce de filtre : même habillage partout (actif = ambre). `count` ajoute un
+ * compteur discret ; `className` permet d'ajuster un cas particulier.
+ */
+export function FilterChip({ active = false, count, className = "", children, type = "button", ...rest }) {
+  return (
+    <button
+      type={type}
+      aria-pressed={active}
+      className={`inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] whitespace-nowrap
+        active:scale-95 transition-colors motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70
+        ${active ? "bg-amber-400 text-violet-950 border-amber-400 font-semibold" : "bg-white/5 border-white/10 text-violet-200 font-medium hover:bg-white/10"} ${className}`}
+      {...rest}
+    >
+      {children}
+      {count != null && <span className={`tabular-nums ${active ? "text-violet-950/70" : "text-violet-400"}`}>{count}</span>}
+    </button>
+  );
+}
+
+/**
+ * Rangée qui défile horizontalement, de bord à bord de l'écran (sans barre de
+ * défilement) : pour les filtres, qui ne doivent jamais passer sur deux lignes.
+ */
+export function ScrollRow({ className = "", children }) {
+  return (
+    <div className={`-mx-4 sm:-mx-6 px-4 sm:px-6 flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${className}`}>
+      {children}
+    </div>
+  );
+}

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Sparkles, Clock, RefreshCw, AlertTriangle, Coins, ChevronDown, Check, Gift } from "lucide-react";
+import { Sparkles, Clock, RefreshCw, AlertTriangle, Coins, ChevronDown, ChevronRight, Check, Gift } from "lucide-react";
 import {
   RARITY, RARITY_ORDER, PACK_WEIGHTS, FREE_COOLDOWN_HOURS, FREE_COOLDOWN_MS, SHOP_BOOSTER_COST,
   DAILY_REWARDS, NEW_CARD_COINS, SERIES_MIN_SIZE, SERIES_BONUS_CAP,
@@ -8,7 +8,7 @@ import {
 } from "../../utils/waifinity";
 import { RarityDot } from "./RarityBadge";
 import { MissionsCard } from "./MissionsCard";
-import { GameButton, Panel } from "./ui";
+import { GameButton, Panel, SectionTitle } from "./ui";
 import { haptics } from "../../utils/haptics";
 
 const HEADING = { fontFamily: "'Space Grotesk',sans-serif" };
@@ -122,6 +122,15 @@ export function BoostersTab({ game, onGoShop }) {
   }
 
   const generatedAt = poolMeta?.generatedAt ? new Date(poolMeta.generatedAt).toLocaleDateString("fr-FR") : null;
+  // Récompenses prêtes à être récupérées : le titre de la section « Aujourd'hui » les annonce.
+  const missionsReadyCount = missions?.list?.filter((m) => m.done && !m.claimed).length || 0;
+  const bonusReady = missions?.allClaimed && !missions?.bonusClaimed ? 1 : 0;
+  const dailyReady = daily && !daily.claimed && walletReady ? 1 : 0;
+  const claimable = missionsReadyCount + bonusReady + dailyReady;
+  const allCollected = !!daily?.claimed && (!missions?.list?.length || (missions.allClaimed && missions.bonusClaimed));
+  const todayHint = claimable
+    ? `${claimable} récompense${claimable > 1 ? "s" : ""} à récupérer`
+    : allCollected ? "Tout est récupéré. Reviens demain." : "Récompense et missions du jour";
   const waiting = !canOpenFree && cooldownMs > 0;
   const waitPct = waiting ? Math.min(100, Math.max(0, (1 - cooldownMs / FREE_COOLDOWN_MS) * 100)) : 100;
 
@@ -165,20 +174,31 @@ export function BoostersTab({ game, onGoShop }) {
 
         {onGoShop && (
           <button onClick={() => { haptics.tap(); onGoShop(); }}
-            className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs text-violet-300 hover:text-amber-300 active:scale-[0.98] transition-colors motion-reduce:transition-none">
-            Envie d'en ouvrir plus ? Booster normal en boutique ·
-            <Coins size={11} className="text-amber-400" />{SHOP_BOOSTER_COST}
+            className="mt-3 w-full flex items-center justify-between gap-2 rounded-xl bg-white/[0.05] border border-white/10 px-3 py-2 text-xs text-violet-200 hover:bg-white/[0.09] active:scale-[0.98] transition-[background,transform] motion-reduce:transition-none">
+            <span>Envie d'en ouvrir plus ?</span>
+            <span className="flex items-center gap-1 font-semibold text-amber-200">
+              Booster normal<span className="text-violet-400 font-normal">·</span><Coins size={11} className="text-amber-400" />{SHOP_BOOSTER_COST}<ChevronRight size={13} className="text-violet-400" />
+            </span>
           </button>
         )}
       </Panel>
 
-      {/* ── Récompense quotidienne ── */}
-      <DailyReward daily={daily} onClaim={claimDaily} busy={walletBusy} ready={walletReady} />
+      {/* ── Aujourd'hui : récompense quotidienne + missions ── */}
+      <section className="space-y-3 pt-3">
+        <SectionTitle
+          title="Aujourd'hui"
+          hint={todayHint}
+          action={claimable > 0 ? (
+            <span aria-hidden="true" className="min-w-[22px] h-[22px] px-1.5 rounded-full bg-rose-500 text-white text-[11px] font-bold flex items-center justify-center tabular-nums">{claimable}</span>
+          ) : null}
+        />
+        <DailyReward daily={daily} onClaim={claimDaily} busy={walletBusy} ready={walletReady} />
+        {missions && <MissionsCard missions={missions} onClaim={claimMission} onClaimBonus={claimMissionBonus} busy={walletBusy} ready={walletReady} />}
+      </section>
 
-      {/* ── Missions du jour ── */}
-      {missions && <MissionsCard missions={missions} onClaim={claimMission} onClaimBonus={claimMissionBonus} busy={walletBusy} ready={walletReady} />}
-
-      {/* ── Chances de tirage ── */}
+      {/* ── Bon à savoir : chances de tirage, gains d'Anigold ── */}
+      <section className="space-y-3 pt-3">
+      <SectionTitle title="Bon à savoir" />
       <Disclosure title="Chances de tirage">
         <div className="flex items-center gap-2 px-4 pb-1 text-[11px] text-violet-400">
           <span className="flex-1">Rareté · personnages dans le bassin</span>
@@ -223,6 +243,8 @@ export function BoostersTab({ game, onGoShop }) {
           <li>Récompense quotidienne : de {DAILY_REWARDS[0]} à {DAILY_REWARDS[DAILY_REWARDS.length - 1]} sur 7 jours.</li>
         </ul>
       </Disclosure>
+
+      </section>
 
       {/* ── Source du bassin ── */}
       <div className="flex items-center justify-between gap-3 px-1 text-xs text-violet-500">

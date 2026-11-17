@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
-import { Gem, Check, Palette, Package, Store } from "lucide-react";
+import { Gem, Check, Package, Store } from "lucide-react";
 import {
   COSMETICS, COSMETICS_BY_ID, COSMETIC_SLOTS, MAX_COSMETIC_STOCK, stockCount,
 } from "../../utils/waifinityCosmetics";
 import { CardFrame } from "./CardFrame";
 import { PillTabs } from "./PillTabs";
-import { GameButton, Panel, SectionTitle } from "./ui";
+import { FilterChip, GameButton, Panel, ScrollRow, SectionTitle } from "./ui";
 import { CosmeticPreview, GradeChip, SLOT_LABEL } from "./CosmeticPreview";
 import { CosmeticSheet } from "./CosmeticSheet";
 import { haptics } from "../../utils/haptics";
@@ -21,7 +21,7 @@ function ProductCard({ item, previewCard, qty, fragments, flashed, onOpen, onBuy
   return (
     <li className="flex flex-col rounded-2xl border border-white/10 bg-gradient-to-br from-violet-800/45 to-violet-900/30 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
       <button onClick={onOpen} className="block w-full text-left rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70" aria-label={`${item.name} : voir le détail`}>
-        <div className="relative">
+        <div className="relative w-[74%] mx-auto">
           <CosmeticPreview card={previewCard} cosmetic={previewOf(item)} />
           {qty > 0 && (
             <span className="absolute top-1.5 right-1.5 z-20 min-w-[22px] h-[20px] px-1.5 rounded-full bg-black/70 border border-white/15 text-white text-[10px] font-mono font-bold flex items-center justify-center">
@@ -35,12 +35,12 @@ function ProductCard({ item, previewCard, qty, fragments, flashed, onOpen, onBuy
         <p className="mt-1 text-sm font-semibold text-white leading-tight" style={HEADING}>{item.name}</p>
         <p className="mt-0.5 text-[11px] leading-snug text-violet-300 line-clamp-2 min-h-[2.1rem]">{item.desc}</p>
       </button>
-      <GameButton size="sm" className="mt-2 !justify-between" disabled={!affordable || full} onClick={onBuy}>
+      <GameButton size="sm" variant="secondary" className="mt-2 !justify-between" disabled={!affordable || full} onClick={onBuy}>
         {flashed
           ? <span className="flex items-center gap-1 mx-auto"><Check size={13} />Ajouté</span>
           : <>
               <span>{full ? "Stock plein" : "Acheter"}</span>
-              <span className="flex items-center gap-1 tabular-nums"><Gem size={12} />{item.cost}</span>
+              <span className="flex items-center gap-1 tabular-nums text-violet-200"><Gem size={12} className="text-violet-300" />{item.cost}</span>
             </>}
       </GameButton>
       {!affordable && !full && (
@@ -108,48 +108,31 @@ export function AtelierPanel({
   }
 
   const tabs = [
-    { key: "shop",  label: "Boutique", icon: Store },
+    { key: "shop",  label: "Catalogue", icon: Store },
     { key: "stock", label: total ? `Mon stock (${total})` : "Mon stock", icon: Package },
   ];
-  const slotChips = [{ key: "all", label: "Tout" }, ...COSMETIC_SLOTS];
   const sheetItem = sheet ? COSMETICS_BY_ID[sheet.id] : null;
 
   return (
     <div className="space-y-5">
-      {/* En-tête : solde + règle du jeu en une phrase */}
-      <Panel>
-        <div className="flex items-center gap-3">
-          <span className="w-10 h-10 rounded-xl bg-violet-500/20 border border-violet-400/30 flex items-center justify-center flex-shrink-0 text-violet-200">
-            <Palette size={18} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-white" style={HEADING}>Personnalise tes cartes</p>
-            <p className="text-xs text-violet-300 mt-0.5">1 objet = 1 carte. Une fois appliqué, il y reste.</p>
-          </div>
-          <span className="flex items-center gap-1.5 text-2xl font-bold text-violet-100 tabular-nums" style={HEADING} aria-label={`${fragments} fragments`}>
-            <Gem size={18} className="text-violet-300" />{fragments}
-          </span>
-        </div>
-        <p className="mt-3 text-[11px] text-violet-400">Les fragments viennent des doublons de boosters et des missions du jour.</p>
-      </Panel>
-
-      <div className="flex justify-center">
-        <PillTabs tabs={tabs} value={view} onChange={setView} layoutId="waifinity-atelier-view" size="sm" tone="violet" />
+      {/* Une seule rangée : vue (boutique / stock) + filtre par type. Le solde est dans la barre collante. */}
+      <div className="space-y-2">
+        <ScrollRow>
+          <PillTabs tabs={tabs} value={view} onChange={setView} layoutId="waifinity-atelier-view" size="sm" tone="violet" className="flex-shrink-0" />
+          {view === "shop" && COSMETIC_SLOTS.map(({ key, label }) => (
+            <FilterChip key={key} active={slotFilter === key} onClick={() => { haptics.tap(); setSlotFilter(slotFilter === key ? "all" : key); }}>
+              {label}
+            </FilterChip>
+          ))}
+        </ScrollRow>
+        <p className="px-0.5 text-[11px] text-violet-400">
+          1 objet = 1 carte : une fois appliqué, il y reste. Les fragments viennent des doublons et des missions du jour.
+        </p>
       </div>
 
       {/* ── Boutique ── */}
       {view === "shop" && (
         <div className="space-y-5">
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrer par type">
-            {slotChips.map(({ key, label }) => (
-              <button key={key} onClick={() => { haptics.tap(); setSlotFilter(key); }} aria-pressed={slotFilter === key}
-                className={`px-3 py-1 rounded-full text-[11px] font-medium border active:scale-95 transition-colors motion-reduce:transition-none ${
-                  slotFilter === key ? "bg-amber-400 text-violet-950 border-amber-400 font-semibold" : "bg-white/5 border-white/10 text-violet-200 hover:bg-white/10"}`}>
-                {label}
-              </button>
-            ))}
-          </div>
-
           {COSMETIC_SLOTS.filter(({ key }) => slotFilter === "all" || slotFilter === key).map(({ key, label }) => (
             <section key={key} className="space-y-2.5">
               <SectionTitle title={label} hint={key === "frame" ? "Remplace la bordure et le halo de la carte." : "Calque animé par-dessus l'illustration."} />
