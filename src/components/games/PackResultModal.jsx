@@ -4,6 +4,7 @@ import { Modal } from "../Modal/Modal";
 import { Confetti } from "../common/Confetti";
 import { RARITY, normalizeTier } from "../../utils/waifinity";
 import { CardFrame } from "./CardFrame";
+import { GameButton } from "./ui";
 
 const HEADING = { fontFamily: "'Space Grotesk',sans-serif" };
 
@@ -47,8 +48,8 @@ export function PackResultModal({ results, onClose }) {
       <Modal onClose={onClose} maxWidth="max-w-md" zIndex="z-50">
         <div className="p-5">
           <div className="text-center mb-4">
-            <span className="mx-auto mb-2 flex w-10 h-10 items-center justify-center rounded-full bg-teal-400/15 text-teal-300">
-              <PackageCheck size={20} />
+            <span className="mx-auto mb-2 flex w-12 h-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400/25 to-fuchsia-500/20 border border-amber-300/30 text-amber-200 shadow-[0_0_24px_-4px_rgba(251,191,36,0.5)]">
+              <PackageCheck size={22} />
             </span>
             <h2 className="text-lg font-bold text-white" style={HEADING}>Booster ajouté à ta collection</h2>
             <p className="text-sm text-violet-300 mt-0.5">
@@ -104,9 +105,7 @@ export function PackResultModal({ results, onClose }) {
             </div>
           )}
 
-          <button onClick={onClose} className="w-full py-2.5 rounded-xl bg-amber-400 text-violet-950 text-sm font-semibold active:scale-[0.98] transition-transform motion-reduce:transition-none">
-            Continuer
-          </button>
+          <GameButton size="lg" full onClick={onClose}>Continuer</GameButton>
         </div>
       </Modal>
     </>

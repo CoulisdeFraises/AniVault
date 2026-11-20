@@ -1,27 +1,23 @@
 import { motion } from "motion/react";
-import { useNavigate } from "react-router-dom";
-import { Home, Gamepad2, LayoutGrid, Library, Sparkles, Users, Store } from "lucide-react";
+import { LayoutGrid, Library, Sparkles, Users, Store } from "lucide-react";
 import { haptics } from "../../utils/haptics";
 
 // ── Barre de navigation de Waifinity ───────────────────────────────────────
 //
-// Strictement le même habillage que la barre principale (common/BottomNav) :
-// même conteneur flottant, mêmes pastilles actives, mêmes libellés, même bouton
-// central ambré. Seuls les éléments changent : les 5 écrans du jeu + « Accueil »
-// pour quitter, « Jeux » pour revenir à la liste des jeux. Le bouton central (Boosters) est l'action la plus fréquente.
-// « Jeux » occupe le MÊME emplacement (6e) que dans la barre principale : on retombe sur le même pouce.
-// Si tu modifies le style de l'une des deux barres, répercute-le dans l'autre.
+// Les 5 écrans du jeu, et rien d'autre : le retour aux jeux vit dans la barre
+// de statut en haut (WaifinityHud). Le bouton central ambré (Boosters) est
+// l'action la plus fréquente ; il pulse quand il y a quelque chose à récupérer.
+// Même habillage « dock flottant » que la barre principale de l'app (verre
+// violet, pastille active ambrée), pour que le jeu reste de la même famille.
 //
-// Seul ajout propre au jeu : une petite pastille de compteur (booster gratuit,
+// Pastilles rouges : ce qui attend une action du joueur (booster gratuit,
 // récompenses, échanges en attente).
 
 const ITEMS = [
-  { key: "home",       icon: Home,       label: "Accueil",    exit: true, to: "/" },
   { key: "collection", icon: LayoutGrid, label: "Collection" },
   { key: "series",     icon: Library,    label: "Séries" },
-  { key: "boosters",   icon: Sparkles,   label: "Boosters",   primary: true },
+  { key: "boosters",   icon: Sparkles,   label: "Boosters", primary: true },
   { key: "social",     icon: Users,      label: "Social" },
-  { key: "games",      icon: Gamepad2,   label: "Jeux",       exit: true, to: "/games" },
   { key: "shop",       icon: Store,      label: "Boutique" },
 ];
 
@@ -30,8 +26,8 @@ function Badge({ count, className = "" }) {
   return (
     <span
       aria-label={`${count} à traiter`}
-      className={`absolute z-20 min-w-[15px] h-[15px] px-1 rounded-full flex items-center justify-center
-        bg-rose-500 text-white text-[9px] font-bold leading-none tabular-nums ring-2 ring-violet-950 ${className}`}
+      className={`absolute z-20 min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center
+        bg-rose-500 text-white text-[9.5px] font-bold leading-none tabular-nums ring-2 ring-violet-950 ${className}`}
     >
       {count > 9 ? "9+" : count}
     </span>
@@ -44,14 +40,6 @@ function Badge({ count, className = "" }) {
  * @param badges    { boosters?: number, social?: number }
  */
 export function WaifinityNav({ tab, onChange, badges = {} }) {
-  const navigate = useNavigate();
-
-  function select(item) {
-    haptics.tap();
-    if (item.exit) navigate(item.to || "/");
-    else onChange(item.key);
-  }
-
   return (
     <nav
       aria-label="Navigation Waifinity"
@@ -59,58 +47,59 @@ export function WaifinityNav({ tab, onChange, badges = {} }) {
       style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
     >
       <div
-        className="pointer-events-auto w-full max-w-md flex items-center justify-between gap-0.5
-          rounded-[1.75rem] bg-violet-950/75 backdrop-blur-xl border border-white/10
-          shadow-2xl shadow-black/50 px-1.5 py-1.5"
+        className="pointer-events-auto w-full max-w-md grid grid-cols-5 items-end
+          rounded-[1.75rem] bg-violet-950/80 backdrop-blur-xl border border-white/[0.12]
+          shadow-[0_20px_50px_-10px_rgba(0,0,0,0.75),inset_0_1px_0_rgba(255,255,255,0.08)] px-1.5 py-1.5"
       >
-        {ITEMS.map(({ key, icon: Icon, label, primary, exit, to }) => {
-          const active = !exit && tab === key;
+        {ITEMS.map(({ key, icon: Icon, label, primary }) => {
+          const active = tab === key;
           const badge = badges[key];
 
           if (primary) {
             return (
-              <button
-                key={key}
-                onClick={() => select({ key })}
-                aria-label={label}
-                aria-current={active ? "page" : undefined}
-                className={`relative flex-shrink-0 -mt-6 w-14 h-14 rounded-full flex items-center justify-center
-                  shadow-lg shadow-amber-500/30 active:scale-90 transition-all motion-reduce:transition-none
-                  ${active ? "bg-amber-300" : "bg-amber-400"} ${badge ? "animate-glowPulse motion-reduce:animate-none" : ""}`}
-              >
-                <Icon size={20} className="text-violet-950" />
-                <Badge count={badge} className="-top-0.5 -right-0.5" />
-              </button>
+              <div key={key} className="flex justify-center">
+                <button
+                  onClick={() => { haptics.tap(); onChange(key); }}
+                  aria-label={label}
+                  aria-current={active ? "page" : undefined}
+                  className={`relative -mt-7 w-[3.75rem] h-[3.75rem] rounded-full flex flex-col items-center justify-center
+                    bg-gradient-to-b from-amber-200 via-amber-300 to-amber-400 border-2 border-violet-950
+                    shadow-[inset_0_1px_0_rgba(255,255,255,0.7),inset_0_-3px_0_rgba(180,83,9,0.4),0_10px_24px_-6px_rgba(245,158,11,0.7)]
+                    active:scale-90 transition-transform motion-reduce:transition-none
+                    ${badge ? "animate-glowPulse motion-reduce:animate-none" : ""} ${active ? "" : "saturate-[0.85]"}`}
+                >
+                  <Icon size={22} className="text-violet-950" />
+                  <Badge count={badge} className="-top-0.5 -right-0.5" />
+                </button>
+              </div>
             );
           }
 
           return (
             <button
               key={key}
-              onClick={() => select({ key, exit, to })}
+              onClick={() => { haptics.tap(); onChange(key); }}
               aria-label={label}
               aria-current={active ? "page" : undefined}
-              className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-2xl
-                active:scale-95 transition-all motion-reduce:transition-none"
+              className="flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-2xl
+                active:scale-95 transition-transform motion-reduce:transition-none"
             >
-              <span className="relative flex items-center justify-center w-9 h-7 rounded-xl">
+              <span className="relative flex items-center justify-center w-11 h-7 rounded-xl">
                 {active && (
                   <motion.span
                     layoutId="waifinityNavActivePill"
-                    className="absolute inset-0 rounded-xl bg-amber-400/15"
+                    className="absolute inset-0 rounded-xl bg-amber-400/[0.16] ring-1 ring-amber-300/25"
                     transition={{ type: "spring", bounce: 0.25, duration: 0.4 }}
                   />
                 )}
                 <Icon size={18} className={`relative z-10 transition-colors motion-reduce:transition-none ${
-                  active ? "text-amber-400" : "text-violet-400"
+                  active ? "text-amber-300" : "text-violet-400"
                 }`} />
-                <Badge count={badge} className="-top-1 -right-1" />
+                <Badge count={badge} className="-top-1 -right-0.5" />
               </span>
-              <span
-                className={`font-mono text-[8.5px] uppercase tracking-wide leading-none ${
-                  active ? "text-amber-300" : "text-violet-500"
-                }`}
-              >
+              <span className={`font-mono text-[9px] uppercase tracking-wide leading-none ${
+                active ? "text-amber-300" : "text-violet-400"
+              }`}>
                 {label}
               </span>
             </button>

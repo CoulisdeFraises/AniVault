@@ -2,24 +2,28 @@ import { RefreshCw } from "lucide-react";
 
 // ── Kit d'interface Waifinity ──────────────────────────────────────────────
 //
-// Langage visuel commun à tout le jeu, aligné sur l'Agenda :
-//  • ambre dégradé  = l'action principale de l'écran (une seule à la fois) ;
+// Langage visuel commun à tout le jeu :
+//  • ambre « touche arcade » = l'action principale de l'écran (une seule à la fois) :
+//    dégradé + tranche sombre en bas, qui s'écrase au toucher ;
 //  • violet verre   = actions secondaires ;
-//  • surfaces       = dégradé violet très doux + reflet fin en haut, jamais
-//                     de aplat gris.
-// Les écrans n'écrivent plus leurs propres classes de boutons : ils passent par
+//  • surfaces       = dégradé violet profond + reflet fin en haut, jamais d'aplat gris ;
+//  • jauges         = toujours le même dégradé ambre → fuchsia (voir Meter).
+// Les écrans n'écrivent pas leurs propres classes de boutons : ils passent par
 // GameButton, pour que états désactivé / chargement / focus restent cohérents.
 
+export const HEADING = { fontFamily: "'Space Grotesk',sans-serif" };
+
 const VARIANT = {
-  // Action principale : dégradé ambre, reflet intérieur, halo chaud.
+  // Action principale : bouton d'arcade (dégradé, reflet, tranche en bas, halo chaud).
   primary:
-    "text-violet-950 font-semibold bg-gradient-to-b from-amber-300 to-amber-500 " +
-    "shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_8px_20px_-8px_rgba(245,158,11,0.65)] " +
-    "hover:from-amber-200 hover:to-amber-400",
+    "text-violet-950 font-bold bg-gradient-to-b from-amber-200 via-amber-300 to-amber-400 " +
+    "shadow-[inset_0_1px_0_rgba(255,255,255,0.65),inset_0_-3px_0_rgba(180,83,9,0.45),0_10px_24px_-8px_rgba(245,158,11,0.7)] " +
+    "hover:from-amber-100 hover:via-amber-200 hover:to-amber-300 " +
+    "active:shadow-[inset_0_1px_0_rgba(255,255,255,0.5),inset_0_-1px_0_rgba(180,83,9,0.45),0_4px_12px_-6px_rgba(245,158,11,0.7)] active:translate-y-[2px]",
   // Action secondaire : verre violet.
   secondary:
-    "text-violet-50 font-medium bg-gradient-to-b from-white/[0.09] to-white/[0.03] border border-white/[0.12] " +
-    "shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] hover:from-white/[0.14] hover:to-white/[0.06]",
+    "text-violet-50 font-semibold bg-gradient-to-b from-white/[0.10] to-white/[0.03] border border-white/[0.14] " +
+    "shadow-[inset_0_1px_0_rgba(255,255,255,0.10)] hover:from-white/[0.16] hover:to-white/[0.06]",
   // Discrète : texte seul, pour les liens d'appoint.
   ghost: "text-violet-300 font-medium hover:text-white hover:bg-white/[0.08]",
   // Destructive : refuser, annuler, retirer.
@@ -33,11 +37,11 @@ const VARIANT = {
 const SIZE = {
   sm: "px-3 py-1.5 text-xs rounded-lg gap-1.5",
   md: "px-4 py-2.5 text-sm rounded-xl gap-2",
-  lg: "px-5 py-3.5 text-[15px] rounded-2xl gap-2.5",
+  lg: "px-5 py-4 text-base rounded-2xl gap-2.5 tracking-tight",
 };
 
 const DISABLED =
-  "disabled:cursor-not-allowed disabled:opacity-100 disabled:shadow-none disabled:bg-none " +
+  "disabled:cursor-not-allowed disabled:opacity-100 disabled:shadow-none disabled:bg-none disabled:translate-y-0 " +
   "disabled:bg-white/[0.04] disabled:border disabled:border-white/10 disabled:text-violet-400";
 
 /**
@@ -53,7 +57,8 @@ export function GameButton({
       type={type}
       disabled={disabled || loading}
       className={`relative inline-flex items-center justify-center whitespace-nowrap select-none
-        transition-[transform,background,box-shadow,color] duration-150 active:scale-[0.97] motion-reduce:transition-none
+        transition-[transform,background,box-shadow,color] duration-100 motion-reduce:transition-none
+        ${variant === "primary" ? "" : "active:scale-[0.97]"}
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-violet-950
         ${VARIANT[variant]} ${SIZE[size]} ${DISABLED} ${full ? "w-full" : ""} ${className}`}
       {...rest}
@@ -65,18 +70,26 @@ export function GameButton({
 }
 
 /**
- * Surface d'un bloc de contenu. `tone="highlight"` l'accentue (booster prêt,
- * récompense disponible) avec un liseré ambre ; `flush` retire le padding.
+ * Surface d'un bloc de contenu.
+ *  - `tone="highlight"` : accentuée (booster prêt, récompense à récupérer), liseré ambre + halo ;
+ *  - `tone="flat"` : plus discrète, pour les blocs d'information secondaires ;
+ *  - `flush` retire le padding.
  */
 export function Panel({ tone = "default", flush = false, className = "", children, as: Tag = "section", ...rest }) {
-  const border = tone === "highlight" ? "border-amber-300/35" : "border-white/10";
-  const surface = tone === "highlight"
-    ? "bg-gradient-to-br from-amber-400/[0.12] via-violet-800/40 to-fuchsia-600/[0.12]"
-    : "bg-gradient-to-br from-violet-800/45 to-violet-900/30";
+  const border = tone === "highlight" ? "border-amber-300/40" : tone === "flat" ? "border-white/[0.07]" : "border-white/[0.11]";
+  const surface =
+    tone === "highlight" ? "bg-gradient-to-br from-amber-400/[0.14] via-violet-800/45 to-fuchsia-600/[0.14]"
+    : tone === "flat" ? "bg-white/[0.03]"
+    : "bg-gradient-to-br from-violet-800/50 to-violet-900/35";
+  const shadow =
+    tone === "highlight"
+      ? "shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_0_1px_rgba(251,191,36,0.08),0_14px_36px_-16px_rgba(245,158,11,0.45)]"
+      : tone === "flat"
+        ? ""
+        : "shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_12px_30px_-18px_rgba(0,0,0,0.75)]";
   return (
     <Tag
-      className={`relative rounded-2xl border ${border} ${surface} backdrop-blur-sm
-        shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_30px_-18px_rgba(0,0,0,0.7)]
+      className={`relative rounded-2xl border ${border} ${surface} ${shadow} backdrop-blur-sm
         ${flush ? "" : "p-4"} ${className}`}
       {...rest}
     >
@@ -85,31 +98,65 @@ export function Panel({ tone = "default", flush = false, className = "", childre
   );
 }
 
-/** Titre de section : une ligne claire, action optionnelle à droite. */
+/** Titre de section : barre d'accent ambre + titre, action optionnelle à droite. */
 export function SectionTitle({ title, hint, action, className = "" }) {
   return (
     <div className={`flex items-end justify-between gap-3 px-0.5 ${className}`}>
-      <div className="min-w-0">
-        <h2 className="text-[15px] font-semibold text-white leading-tight" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>{title}</h2>
-        {hint && <p className="text-xs text-violet-300 mt-0.5">{hint}</p>}
+      <div className="min-w-0 flex items-stretch gap-2.5">
+        <span aria-hidden="true" className="w-1 rounded-full bg-gradient-to-b from-amber-300 to-fuchsia-500 flex-shrink-0" />
+        <div className="min-w-0">
+          <h2 className="text-base font-bold text-white leading-tight" style={HEADING}>{title}</h2>
+          {hint && <p className="text-xs text-violet-300 mt-0.5">{hint}</p>}
+        </div>
       </div>
       {action}
     </div>
   );
 }
 
+/** Petit libellé en capitales mono (« MA COLLECTION », « PROCHAIN OBJECTIF »…). */
+export function Eyebrow({ children, className = "" }) {
+  return <p className={`font-mono text-[10px] uppercase tracking-[0.2em] text-violet-300/80 ${className}`}>{children}</p>;
+}
+
+/**
+ * Jauge de progression : le même dégradé partout. `value` = 0–100.
+ * `done` la passe en vert (objectif atteint), `min` garantit un minimum visible.
+ */
+export function Meter({ value = 0, done = false, thin = false, min = 0, className = "", label }) {
+  const pct = Math.max(min, Math.min(100, value));
+  return (
+    <div
+      className={`${thin ? "h-1.5" : "h-2.5"} rounded-full bg-black/30 overflow-hidden ring-1 ring-white/[0.06] ${className}`}
+      role={label ? "progressbar" : undefined}
+      aria-label={label}
+      aria-valuemin={label ? 0 : undefined}
+      aria-valuemax={label ? 100 : undefined}
+      aria-valuenow={label ? Math.round(pct) : undefined}
+    >
+      <div
+        className={`h-full rounded-full transition-[width] duration-700 motion-reduce:transition-none ${
+          done ? "bg-emerald-400" : "bg-gradient-to-r from-amber-300 via-amber-400 to-fuchsia-500 shadow-[0_0_12px_rgba(251,191,36,0.4)]"}`}
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
+}
+
 /** Pastille de monnaie (Anigold, fragments…) : icône + valeur, lisible d'un coup d'œil. */
-export function CurrencyPill({ icon: Icon, value, label, tone = "amber" }) {
+export function CurrencyPill({ icon: Icon, value, label, tone = "amber", size = "md" }) {
   const tones = {
-    amber: "from-amber-400/20 to-amber-500/5 border-amber-300/30 text-amber-200",
-    violet: "from-violet-300/20 to-violet-500/5 border-violet-300/30 text-violet-100",
+    amber: "from-amber-400/25 to-amber-500/5 border-amber-300/35 text-amber-100",
+    violet: "from-violet-300/25 to-violet-500/5 border-violet-300/35 text-violet-50",
   };
+  const iconTone = tone === "amber" ? "text-amber-300" : "text-violet-300";
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border bg-gradient-to-b px-2.5 py-1 text-xs font-semibold tabular-nums ${tones[tone]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border bg-gradient-to-b font-bold tabular-nums
+        shadow-[inset_0_1px_0_rgba(255,255,255,0.10)] ${size === "sm" ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-1 text-xs"} ${tones[tone]}`}
       title={label}
     >
-      <Icon size={13} className="flex-shrink-0" aria-hidden="true" />
+      <Icon size={size === "sm" ? 12 : 13} className={`flex-shrink-0 ${iconTone}`} aria-hidden="true" />
       <span>{value}</span>
       <span className="sr-only">{label}</span>
     </span>
@@ -145,6 +192,39 @@ export function ScrollRow({ className = "", children }) {
   return (
     <div className={`-mx-4 sm:-mx-6 px-4 sm:px-6 flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${className}`}>
       {children}
+    </div>
+  );
+}
+
+// ── Sachets de booster ───────────────────────────────────────────────────────
+// Mêmes visuels que l'ouverture (PackOpening) : violet = tous les boosters,
+// rose = Waifus, bleu = Husbandos. Images détourées dans public/boosters/.
+export const PACKS = {
+  violet: { img: "/boosters/sachet-violet.webp", glow: "rgba(167,139,250,0.65)" },
+  rose:   { img: "/boosters/sachet-rose.webp",   glow: "rgba(244,114,182,0.65)" },
+  bleu:   { img: "/boosters/sachet-bleu.webp",   glow: "rgba(96,165,250,0.65)" },
+};
+
+/** Sachet avec son halo. `className` fixe la taille (ex. « w-20 »), le ratio est 2/3. */
+export function PackArt({ variant = "violet", className = "w-20", tilt = 0, dim = false }) {
+  const p = PACKS[variant] || PACKS.violet;
+  return (
+    <span aria-hidden="true" className={`relative inline-block aspect-[2/3] flex-shrink-0 ${className}`} style={{ transform: tilt ? `rotate(${tilt}deg)` : undefined }}>
+      <span className="absolute -inset-4 rounded-full blur-xl" style={{ background: `radial-gradient(circle, ${p.glow} 0%, transparent 70%)`, opacity: dim ? 0.25 : 0.7 }} />
+      <img src={p.img} alt="" draggable="false" loading="lazy"
+        className={`relative w-full h-full object-contain drop-shadow-[0_10px_14px_rgba(0,0,0,0.5)] ${dim ? "grayscale opacity-60" : ""}`} />
+    </span>
+  );
+}
+
+/** État vide : icône, message, action facultative. */
+export function EmptyState({ icon: Icon, title, text, children }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-white/15 bg-violet-900/20 py-10 px-5 text-center">
+      {Icon && <Icon size={28} className="mx-auto text-violet-500 mb-2.5" />}
+      <p className="text-sm font-semibold text-violet-100">{title}</p>
+      {text && <p className="text-xs text-violet-400 mt-1 max-w-xs mx-auto">{text}</p>}
+      {children && <div className="mt-4">{children}</div>}
     </div>
   );
 }

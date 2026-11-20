@@ -8,7 +8,7 @@ import { GenderBadge } from "./GenderBadge";
 import { CardFrame } from "./CardFrame";
 import { LoadMore } from "./LoadMore";
 import { PillTabs } from "./PillTabs";
-import { ScrollRow } from "./ui";
+import { ScrollRow, Panel, Eyebrow, Meter, HEADING } from "./ui";
 import { usePagedList } from "../../hooks/usePagedList";
 import { haptics } from "../../utils/haptics";
 
@@ -312,20 +312,20 @@ export function SeriesExplorer({ pool, collection, favorites, equipped, onOpenSh
 
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-violet-800/45 to-violet-900/30 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+      <Panel>
         <div className="flex items-end justify-between gap-3">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">Personnages découverts</p>
-            <p className="mt-0.5 text-2xl font-bold text-white tabular-nums" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+            <Eyebrow>Personnages découverts</Eyebrow>
+            <p className="mt-0.5 text-[1.7rem] leading-tight font-bold text-white tabular-nums" style={HEADING}>
               {totalOwned}<span className="text-sm font-medium text-violet-400"> / {pool.length}</span>
             </p>
           </div>
-          <p className="text-right text-[11px] text-violet-300 pb-1">{counts.complete}/{counts.all} séries complètes</p>
+          <p className="text-right text-[11px] text-violet-300 pb-1">
+            <span className="block text-base font-bold text-amber-200 tabular-nums" style={HEADING}>{counts.complete}<span className="text-xs font-medium text-violet-400">/{counts.all}</span></span>
+            séries complètes
+          </p>
         </div>
-        <div className="mt-3 h-1.5 rounded-full bg-white/10 overflow-hidden">
-          <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-fuchsia-500 transition-[width] duration-500 motion-reduce:transition-none"
-            style={{ width: `${Math.max(globalPct, totalOwned ? 2 : 0)}%` }} />
-        </div>
+        <Meter value={globalPct} min={totalOwned ? 2 : 0} className="mt-3" label="Personnages découverts" />
         {nearest && (
           <button type="button"
             onClick={() => { setQuery(""); setFilter("all"); setSort("almost"); setExpandedKey(nearest.key); haptics.tap(); }}
@@ -344,7 +344,7 @@ export function SeriesExplorer({ pool, collection, favorites, equipped, onOpenSh
             <ChevronRight size={16} className="flex-shrink-0 text-amber-200" />
           </button>
         )}
-      </div>
+      </Panel>
 
       <div className="flex items-center gap-2">
         <div className="relative flex-1 min-w-0">

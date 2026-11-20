@@ -1,6 +1,6 @@
 import { MarqueeText } from "../common/MarqueeText";
 import { useState, useMemo } from "react";
-import { Sparkles, Target, Users, Coins, ChevronDown, Search, Star } from "lucide-react";
+import { Target, Coins, ChevronDown, Search, Star } from "lucide-react";
 import {
   SHOP_BOOSTER_COST, SHOP_TARGET_COST, SHOP_GENDER_COST, GENDER_BOOSTERS,
   RARITY, RARITY_ORDER, WISH_COST, filterPoolByGender, topSeries,
@@ -10,10 +10,8 @@ import { PillTabs } from "./PillTabs";
 import { BannerCard } from "./BannerCard";
 import { AtelierPanel } from "./AtelierPanel";
 import { haptics } from "../../utils/haptics";
-import { GameButton, Panel, SectionTitle } from "./ui";
+import { GameButton, Panel, SectionTitle, PackArt, HEADING } from "./ui";
 import { stockCount } from "../../utils/waifinityCosmetics";
-
-const HEADING = { fontFamily: "'Space Grotesk',sans-serif" };
 
 const SHOP_VIEWS = [
   { key: "boosters", label: "Boosters" },
@@ -40,14 +38,18 @@ function Price({ cost, coins }) {
   );
 }
 
-function ShopCard({ icon, title, desc, children }) {
+function ShopCard({ icon, pack, title, desc, children }) {
   return (
     <Panel as="div">
-      <div className="flex items-start gap-3">
-        <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-300/25 to-violet-500/10 border border-violet-300/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] flex items-center justify-center flex-shrink-0 text-violet-100">{icon}</span>
+      <div className="flex items-start gap-3.5">
+        {pack ? (
+          <PackArt variant={pack} className="w-14" />
+        ) : (
+          <span className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-300/25 to-violet-500/10 border border-violet-300/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] flex items-center justify-center flex-shrink-0 text-violet-100">{icon}</span>
+        )}
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-white" style={HEADING}>{title}</p>
-          <p className="text-xs text-violet-300 mt-0.5">{desc}</p>
+          <p className="text-[15px] font-bold text-white" style={HEADING}>{title}</p>
+          <p className="text-xs text-violet-300 mt-0.5 leading-relaxed">{desc}</p>
         </div>
       </div>
       {children}
@@ -107,7 +109,7 @@ export function ShopPanel({
 
       <Group title="Boosters aléatoires">
         <ShopCard
-          icon={<Sparkles size={18} />}
+          pack="violet"
           title="Booster normal"
           desc="10 cartes, toutes ajoutées à ta collection, avec les mêmes chances que le booster gratuit. Sans attendre les 3 heures."
         >
@@ -120,24 +122,21 @@ export function ShopPanel({
           </GameButton>
         </ShopCard>
 
-        <ShopCard
-          icon={<Users size={18} />}
-          title="Booster Waifus ou Husbandos"
-          desc="10 cartes uniquement ♀ ou uniquement ♂, avec les chances du booster normal."
-        >
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {Object.entries(GENDER_BOOSTERS).map(([gender, cfg]) => (
-              <GameButton key={gender} variant="secondary"
-                className="!flex-col !gap-0.5"
+        <div className="grid grid-cols-2 gap-3">
+          {Object.entries(GENDER_BOOSTERS).map(([gender, cfg]) => (
+            <Panel as="div" key={gender} className="text-center !px-3">
+              <PackArt variant={gender === "female" ? "rose" : "bleu"} className="w-16 mx-auto" />
+              <p className="mt-2.5 text-[15px] font-bold text-white" style={HEADING}>{gender === "female" ? "♀" : "♂"} {cfg.label}</p>
+              <p className="text-[11px] text-violet-300 mt-0.5 leading-snug">10 cartes uniquement {gender === "female" ? "♀" : "♂"}, mêmes chances que le booster normal.</p>
+              <GameButton
+                full className="mt-3 !justify-between" size="sm"
                 onClick={() => { haptics.success(); onBuyGender(gender); }}
                 disabled={busy || !canAffordGender || !genderCounts[gender]}>
-                <span>{gender === "female" ? "♀" : "♂"} {cfg.label}</span>
-                <span className="flex items-center gap-1 text-xs font-medium"><Coins size={11} />{SHOP_GENDER_COST}</span>
+                <span>Acheter</span><Price cost={SHOP_GENDER_COST} coins={coins} />
               </GameButton>
-            ))}
-          </div>
-          {!canAffordGender && <p className="text-xs text-violet-400 text-center mt-2">Il te manque {SHOP_GENDER_COST - coins} Anigold.</p>}
-        </ShopCard>
+            </Panel>
+          ))}
+        </div>
       </Group>
 
       <Group title="Boosters ciblés">

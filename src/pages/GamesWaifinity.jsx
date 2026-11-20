@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronLeft, Sparkles, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { TopBar } from "../components/common/TopBar";
 import { PageBanner } from "../components/common/PageBanner";
 import { PullToRefresh } from "../components/common/PullToRefresh";
@@ -17,7 +17,8 @@ import { BoostersTab } from "../components/games/BoostersTab";
 import { SocialTab } from "../components/games/SocialTab";
 import { WaifinityNav } from "../components/games/WaifinityNav";
 import { SeriesExplorer } from "../components/games/SeriesExplorer";
-import { WalletHero } from "../components/games/WalletHero";
+import { WaifinityHud } from "../components/games/WaifinityHud";
+import { Eyebrow, HEADING } from "../components/games/ui";
 import { useAuth } from "../context/AuthContext";
 import { tradeNeedsMe } from "../utils/waifinityTrades";
 
@@ -26,7 +27,7 @@ import { tradeNeedsMe } from "../utils/waifinityTrades";
 // le bouton retour et le rechargement retombent au bon endroit.
 const TABS = [
   { key: "boosters",   title: "Boosters",   desc: "Récupère tes récompenses et ouvre des boosters." },
-  { key: "collection", title: "Collection", desc: "Tes personnages et tes favoris." },
+  { key: "collection", title: "Collection", desc: "Tes personnages, tes favoris, ta progression." },
   { key: "social",     title: "Social",     desc: "Compare ta collection et échange avec tes amis." },
   { key: "series",     title: "Séries",     desc: "Explore toutes les séries et complète-les." },
   { key: "shop",       title: "Boutique",   desc: "Dépense ton Anigold et tes fragments." },
@@ -46,7 +47,6 @@ function Banner({ tone = "error", children }) {
 }
 
 export function GamesWaifinity() {
-  const navigate = useNavigate();
   const game = useWaifinity();
   // Réactions du compagnon (booster, série complétée, favori, récompense du jour…)
   const companion = useWaifinityCompanion(game);
@@ -85,28 +85,31 @@ export function GamesWaifinity() {
 
   return (
     <div className="relative min-h-screen bg-violet-950 text-violet-50" style={{ fontFamily: "'Inter',sans-serif" }}>
-      <PageBanner height="clamp(180px, 26vw, 280px)" position="80% 20%" />
+      {/* Décor : lueurs fixes derrière tous les écrans (l'illustration n'habille que l'écran Boosters) */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 80% 45% at 50% -8%, rgba(109,40,217,0.55) 0%, transparent 70%)" }} />
+        <div className="absolute -top-20 -right-24 w-96 h-96 rounded-full bg-fuchsia-600/[0.14] blur-3xl" />
+        <div className="absolute bottom-10 -left-28 w-96 h-96 rounded-full bg-amber-400/[0.08] blur-3xl" />
+      </div>
+      {tab === "boosters" && <PageBanner height="clamp(200px, 28vw, 300px)" position="80% 20%" />}
 
       <PullToRefresh onRefresh={handlePullRefresh} className="relative z-10">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-nav pt-safe-8">
+      {/* Barre de statut du joueur : niveau, Anigold, fragments — collée en haut de tous les écrans */}
+      <WaifinityHud game={game} />
 
-        {/* ── En-tête ── */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-nav pt-5">
+
+        {/* ── En-tête de l'écran ── */}
         <div className="flex items-start justify-between gap-3 mb-5">
           <div className="min-w-0">
-            <button onClick={() => navigate("/games")}
-              className="flex items-center gap-1.5 text-sm text-violet-300 hover:text-violet-100 transition-colors mb-3 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)]">
-              <ChevronLeft size={16} /> Jeux
-            </button>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2 [text-shadow:0_2px_14px_rgba(20,8,50,0.9)]" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-              <Sparkles size={26} className="text-amber-300" /> Waifinity
-              <span className="text-violet-300 font-medium">/ {tabMeta.title}</span>
+            <Eyebrow className="[text-shadow:0_1px_8px_rgba(20,8,50,0.9)]">Waifinity</Eyebrow>
+            <h1 className="mt-0.5 text-[1.7rem] sm:text-3xl font-bold tracking-tight text-white [text-shadow:0_2px_14px_rgba(20,8,50,0.9)]" style={HEADING}>
+              {tabMeta.title}
             </h1>
             <p className="mt-1 text-sm text-violet-200 [text-shadow:0_1px_8px_rgba(20,8,50,0.9)]">{tabMeta.desc}</p>
           </div>
           <TopBar onRefresh={game.refreshWaifinity} refreshing={game.refreshing} refreshLabel="Rafraîchir Waifinity" />
         </div>
-
-        <WalletHero game={game} compact={tab !== "boosters"} />
 
         {game.saveIssue && game.syncIssue && (
           <Banner>Sauvegarde locale et synchronisation en ligne impossibles (stockage plein et pas de connexion). Ta dernière action risque de ne pas être conservée : vérifie ta connexion et libère de l'espace sur cet appareil.</Banner>

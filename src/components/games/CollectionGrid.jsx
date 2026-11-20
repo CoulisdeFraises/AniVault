@@ -9,7 +9,7 @@ import {
 import { RarityBadge, RarityDot } from "./RarityBadge";
 import { GenderBadge } from "./GenderBadge";
 import { PillTabs } from "./PillTabs";
-import { FilterChip, ScrollRow, GameButton } from "./ui";
+import { GameButton, Panel, EmptyState, Eyebrow, HEADING } from "./ui";
 import { CardFrame } from "./CardFrame";
 import { FavoritesCarousel } from "./FavoritesCarousel";
 import { FavoriteActionSheet, FavoritesReorderModal } from "./FavoritesManager";
@@ -201,14 +201,9 @@ export function CollectionGrid({
 
   if (!collectionList.length) {
     return (
-      <div className="space-y-4">
-        <div className="rounded-2xl border border-dashed border-white/15 bg-violet-900/20 py-10 px-4 text-center">
-          <HeartCrack size={26} className="mx-auto text-violet-500 mb-2" />
-          <p className="text-sm text-violet-200">Ta collection est vide pour le moment</p>
-          <p className="text-[11px] text-violet-400 mt-1">Ouvre un booster pour obtenir tes premiers personnages !</p>
-          {onGoBoosters && <GameButton className="mt-4" onClick={onGoBoosters}>Ouvrir un booster</GameButton>}
-        </div>
-      </div>
+      <EmptyState icon={HeartCrack} title="Ta collection est vide pour le moment" text="Ouvre un booster pour obtenir tes premiers personnages !">
+        {onGoBoosters && <GameButton onClick={onGoBoosters}>Ouvrir un booster</GameButton>}
+      </EmptyState>
     );
   }
 
@@ -220,24 +215,54 @@ export function CollectionGrid({
   return (
     <div className="space-y-4">
 
-      {/* Résumé : progression globale */}
-      <div className="flex items-center gap-3.5 rounded-2xl bg-gradient-to-br from-violet-800/45 to-violet-900/30 border border-white/10 p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-        <div className="relative w-[68px] h-[68px] flex-shrink-0">
-          <ProgressRing pct={pct} />
-          <span className="absolute inset-0 flex items-center justify-center font-mono text-xs font-bold text-white">{pctLabel}</span>
+      {/* Résumé : progression globale + échelle des raretés (un tap filtre) */}
+      <Panel>
+        <div className="flex items-center gap-4">
+          <div className="relative w-[76px] h-[76px] flex-shrink-0">
+            <ProgressRing pct={pct} />
+            <span className="absolute inset-0 flex items-center justify-center font-mono text-[13px] font-bold text-white">{pctLabel}</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <Eyebrow>Ma collection</Eyebrow>
+            <p className="text-[1.7rem] font-bold leading-tight text-white tabular-nums" style={HEADING}>
+              {collectionList.length}
+              {pool.length > 0 && <span className="text-sm font-medium text-violet-400"> / {pool.length}</span>}
+              <span className="ml-1.5 text-xs font-medium text-violet-300">personnage{collectionList.length > 1 ? "s" : ""}</span>
+            </p>
+            {topOwned > 0 && (
+              <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-amber-300"><RarityDot tier="legendary" size={7} />{topOwned} Legendary &amp; Secret</p>
+            )}
+          </div>
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-violet-400">Ma collection</p>
-          <p className="text-2xl font-bold leading-tight text-white tabular-nums" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-            {collectionList.length}
-            {pool.length > 0 && <span className="text-sm font-medium text-violet-400"> / {pool.length}</span>}
-            <span className="ml-1.5 text-xs font-medium text-violet-300">personnage{collectionList.length > 1 ? "s" : ""}</span>
-          </p>
-          {topOwned > 0 && (
-            <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-amber-300"><RarityDot tier="legendary" size={7} />{topOwned} Legendary &amp; Secret</p>
-          )}
-        </div>
-      </div>
+
+        <ul className="mt-4 grid grid-cols-6 gap-1.5" aria-label="Filtrer par rareté">
+          {RARITY_ORDER.map((t) => {
+            const r = RARITY[t];
+            const active = tierFilter === t;
+            const own = ownedTotals[t] || 0;
+            const tot = poolTotals[t] || 0;
+            return (
+              <li key={t}>
+                <button
+                  type="button"
+                  onClick={() => setTierFilter(active ? "all" : t)}
+                  aria-pressed={active}
+                  aria-label={`${r.label} : ${own} sur ${tot}`}
+                  className={`w-full flex flex-col items-center gap-1.5 rounded-xl border px-1 py-2 active:scale-95 transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 ${
+                    active ? `bg-white/10 ${r.border}` : "bg-black/20 border-white/[0.07] hover:bg-white/5"}`}
+                >
+                  <RarityDot tier={t} size={9} />
+                  <span className="font-mono text-[9.5px] leading-none text-white tabular-nums">{own}<span className="text-violet-400">/{tot}</span></span>
+                  <span className="h-1 w-full rounded-full bg-white/10 overflow-hidden">
+                    <span className={`block h-full rounded-full bg-gradient-to-r ${r.grad}`} style={{ width: `${tot ? Math.max(own ? 8 : 0, (own / tot) * 100) : 0}%` }} />
+                  </span>
+                  <span className={`text-[8.5px] leading-none font-semibold ${r.text}`}>{r.label}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </Panel>
 
       {/* Favoris épinglés */}
       {!hasFilters && favItems.length > 0 && (
@@ -294,24 +319,6 @@ export function CollectionGrid({
           />
         )}
       </AnimatePresence>
-
-      {/* Raretés : progression par palier + filtre (une seule rangée qui défile) */}
-      <ScrollRow>
-        <FilterChip active={tierFilter === "all"} onClick={() => setTierFilter("all")}>Toutes</FilterChip>
-        {RARITY_ORDER.map((t) => {
-          const r = RARITY[t];
-          const active = tierFilter === t;
-          return (
-            <button key={t} type="button" onClick={() => setTierFilter(active ? "all" : t)} aria-pressed={active}
-              className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] whitespace-nowrap active:scale-95 transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 ${
-                active ? `bg-white/10 ${r.border}` : "bg-violet-900/40 border-white/10 hover:bg-white/5"}`}>
-              <RarityDot tier={t} size={8} />
-              <span className={`font-semibold ${r.text}`}>{r.label}</span>
-              <span className="font-mono text-[10px] text-violet-300 tabular-nums">{ownedTotals[t]}{poolTotals[t] ? `/${poolTotals[t]}` : ""}</span>
-            </button>
-          );
-        })}
-      </ScrollRow>
 
       {/* Recherche + tri + regroupement par série */}
       <div className="flex items-center gap-2">

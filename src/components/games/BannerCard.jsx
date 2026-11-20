@@ -1,9 +1,10 @@
 import { useMemo } from "react";
-import { Sparkles, Coins, CalendarDays } from "lucide-react";
+import { Sparkles, Coins } from "lucide-react";
 import { RARITY, normalizeTier } from "../../utils/waifinity";
 import { BANNER_COST, BANNER_RATE } from "../../utils/waifinityBanners";
 import { CardFrame } from "./CardFrame";
 import { RarityBadge } from "./RarityBadge";
+import { GameButton, PackArt } from "./ui";
 import { haptics } from "../../utils/haptics";
 
 const HEADING = { fontFamily: "'Space Grotesk',sans-serif" };
@@ -25,9 +26,7 @@ export function BannerCard({ banner, coins, busy, canAfford, onBuy }) {
       <div aria-hidden="true" className="pointer-events-none absolute -top-10 -right-10 w-40 h-40 rounded-full bg-amber-400/20 blur-3xl" />
 
       <div className="relative flex items-start gap-3">
-        <span className="w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-300/40 flex items-center justify-center flex-shrink-0 text-amber-200">
-          <CalendarDays size={18} />
-        </span>
+        <PackArt variant="violet" className="w-12" tilt={-6} />
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-mono uppercase tracking-widest text-amber-300">Bannière de saison</p>
           <p className="text-base font-bold text-white leading-tight" style={HEADING}>{banner.label}</p>
@@ -56,17 +55,17 @@ export function BannerCard({ banner, coins, busy, canAfford, onBuy }) {
         })}
       </div>
 
-      <button
+      <GameButton
+        full className="relative mt-3 !justify-between"
         onClick={() => { haptics.success(); onBuy(); }}
         disabled={busy || !canAfford}
-        className="relative mt-3 w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-amber-400 text-violet-950 text-sm font-semibold disabled:bg-white/5 disabled:border disabled:border-white/10 disabled:text-violet-400 disabled:cursor-not-allowed active:scale-[0.98] transition-transform motion-reduce:transition-none"
       >
-        <span className="flex items-center gap-1.5"><Sparkles size={14} />Booster de saison</span>
+        <span className="flex items-center gap-1.5"><Sparkles size={15} />Booster de saison</span>
         <span className="flex flex-col items-end leading-tight">
           <span className="flex items-center gap-1 font-semibold tabular-nums"><Coins size={13} />{BANNER_COST}</span>
           {missing > 0 && <span className="text-[10px] font-medium opacity-80">{missing} de plus</span>}
         </span>
-      </button>
+      </GameButton>
     </section>
   );
 }

@@ -7,7 +7,7 @@ import { fetchWaifinityItemsBulk } from "../../services/waifinitySocial";
 import { RARITY, normalizeTier, countByTier, collectionScore } from "../../utils/waifinity";
 import { Avatar } from "../common/Avatar";
 import { PillTabs } from "./PillTabs";
-import { GameButton, Panel } from "./ui";
+import { GameButton, Panel, EmptyState } from "./ui";
 import { TradesView } from "./TradesView";
 
 const SOCIAL_VIEWS = [
@@ -22,7 +22,7 @@ function RankRow({ rank, name, color, photoUrl, score, owned, isMe, max = 0 }) {
   // Barre fine sous la ligne : score relatif au premier, pour voir l'écart d'un coup d'œil.
   const pct = max > 0 ? Math.max(4, Math.min(100, (score / max) * 100)) : 0;
   return (
-    <div className={`relative overflow-hidden flex items-center gap-3 rounded-xl px-3 py-2.5 ${isMe ? "bg-amber-400/10 border border-amber-400/30" : "bg-violet-900/40 border border-white/10"}`}>
+    <div className={`relative overflow-hidden flex items-center gap-3 rounded-xl px-3 py-2.5 ${isMe ? "bg-amber-400/10 border border-amber-400/30" : rank === 1 ? "bg-gradient-to-r from-amber-400/[0.12] to-violet-900/40 border border-amber-300/25" : "bg-violet-900/40 border border-white/10"}`}>
       <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[3px] bg-white/[0.04]">
         <span className={`block h-full ${isMe ? "bg-amber-400/80" : "bg-violet-400/50"}`} style={{ width: `${pct}%` }} />
       </span>
@@ -233,10 +233,8 @@ export function SocialTab({ game, initialView }) {
 
   if (!friends.length) {
     return (
-      <div className="rounded-2xl border border-dashed border-white/15 bg-violet-900/20 py-10 text-center px-4">
-        <Trophy size={26} className="mx-auto text-violet-500 mb-2" />
-        <p className="text-sm text-violet-200">Ajoute des amis sur AniVault pour débloquer le classement et les échanges de cartes.</p>
-      </div>
+      <EmptyState icon={Trophy} title="Classement et échanges"
+        text="Ajoute des amis sur AniVault pour débloquer le classement et les échanges de cartes." />
     );
   }
 
