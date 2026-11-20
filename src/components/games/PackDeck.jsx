@@ -7,6 +7,8 @@ import { RarityBadge, RarityDot } from "./RarityBadge";
 import { GenderBadge } from "./GenderBadge";
 import { CardFrame } from "./CardFrame";
 import { ScreenFlash } from "./ScreenFlash";
+import { Rays, Shockwave } from "./PackFx";
+import { GameButton } from "./ui";
 import { haptics } from "../../utils/haptics";
 
 // ── Ouverture carte par carte ───────────────────────────────────────────────
@@ -20,20 +22,29 @@ import { haptics } from "../../utils/haptics";
 
 const SWIPE_DISTANCE = 80;   // px parcourus pour valider un glissé
 const SWIPE_VELOCITY = 450;  // px/s : un geste court mais vif compte aussi
+const FIRST_FLIP_MS = 480; // la 1re carte monte d'abord du sachet, puis se retourne
 const BURST = { epic: 8, legendary: 12, secret: 16 }; // particules à la révélation
 
 /** Dos de carte : identique pour toutes (aucune indication sur la rareté). */
 function CardBack() {
   return (
-    <div className="absolute inset-0 rounded-2xl overflow-hidden border border-white/20 bg-gradient-to-br from-violet-700 via-violet-900 to-violet-950
-      shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_20px_40px_-18px_rgba(0,0,0,0.9)]">
+    <div className="absolute inset-0 rounded-2xl overflow-hidden border border-amber-200/30 bg-gradient-to-br from-violet-600 via-violet-900 to-violet-950
+      shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_20px_40px_-18px_rgba(0,0,0,0.9)]">
+      {/* Motif losangé discret */}
+      <div className="absolute inset-0 opacity-[0.14]"
+        style={{ backgroundImage: "repeating-linear-gradient(45deg, #fff 0 1px, transparent 1px 14px), repeating-linear-gradient(-45deg, #fff 0 1px, transparent 1px 14px)" }} />
       <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(circle at 28% 18%, white, transparent 42%)" }} />
-      <div className="absolute inset-3 rounded-xl border border-amber-300/30" />
+      {/* Double liseré doré */}
+      <div className="absolute inset-2.5 rounded-xl border border-amber-300/45" />
+      <div className="absolute inset-4 rounded-lg border border-amber-300/15" />
+      {/* Emblème */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="w-16 h-16 rounded-full bg-gradient-to-b from-amber-300/25 to-fuchsia-500/20 border border-amber-300/40 flex items-center justify-center">
-          <Sparkles size={28} className="text-amber-200" />
+        <span className="relative flex w-20 h-20 items-center justify-center rounded-full bg-gradient-to-b from-amber-300/30 to-fuchsia-500/25 border border-amber-300/50 shadow-[0_0_28px_-4px_rgba(251,191,36,0.6)]">
+          <span className="absolute inset-1.5 rounded-full border border-amber-200/25" />
+          <Sparkles size={32} className="text-amber-200" />
         </span>
       </div>
+      <div className="card-shine" />
     </div>
   );
 }
@@ -53,7 +64,10 @@ function CardFace({ card, isDuplicate, fragments }) {
           : <div className="w-full h-full flex items-center justify-center text-violet-600 text-4xl">?</div>}
         <div className="absolute top-2 left-2"><RarityBadge tier={card.tier} size="md" /></div>
         {!isDuplicate && (
-          <span className="absolute top-2 right-2 rounded-full bg-teal-400 px-2 py-0.5 text-[10px] font-bold text-violet-950 shadow-md">Nouveau</span>
+          <motion.span
+            initial={{ scale: 0, rotate: -14 }} animate={{ scale: 1, rotate: 0 }}
+            transition={{ delay: 0.6, type: "spring", stiffness: 520, damping: 13 }}
+            className="absolute top-2 right-2 rounded-full bg-teal-400 px-2 py-0.5 text-[10px] font-bold text-violet-950 shadow-md">Nouveau</motion.span>
         )}
         {isDuplicate && (
           <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 bg-gradient-to-t from-black/80 to-transparent px-3 pb-2 pt-8">
@@ -113,13 +127,16 @@ const cardVariants = {
   }),
 };
 
+// 1re carte : elle jaillit du sachet qui vient de s'ouvrir (plus bas, plus petite) au lieu d'arriver de la pile.
+const firstVariants = { ...cardVariants, enter: { scale: 0.45, y: 160, opacity: 0, rotate: -8 } };
+
 /**
  * Carte du dessus : glissable dans toutes les directions. Elle possède ses
  * propres valeurs x/y (donc remise à zéro à chaque nouvelle carte) ; si le
  * glissé est trop court, elle revient seule, sinon `onStep` reçoit la direction
  * et l'envol est joué par la variante `exit` (voir AnimatePresence plus bas).
  */
-function TopCard({ card, isDuplicate, fragments, reduce, onStep }) {
+function TopCard({ card, isDuplicate, fragments, reduce, first, onStep }) {
   const r = RARITY[normalizeTier(card.tier)];
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -133,9 +150,9 @@ function TopCard({ card, isDuplicate, fragments, reduce, onStep }) {
   // partent quand la face commence à apparaître.
   const [open, setOpen] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setOpen(true), reduce ? 0 : 260);
+    const t = setTimeout(() => setOpen(true), reduce ? 0 : first ? FIRST_FLIP_MS : 260);
     return () => clearTimeout(t);
-  }, [reduce]);
+  }, [reduce, first]);
 
   function onDragEnd(_, info) {
     if (!isPresent) return;
@@ -154,7 +171,7 @@ function TopCard({ card, isDuplicate, fragments, reduce, onStep }) {
 
   return (
     <motion.div
-      variants={reduce ? reducedVariants : cardVariants}
+      variants={reduce ? reducedVariants : first ? firstVariants : cardVariants}
       initial="enter" animate="center" exit="exit"
       transition={{ type: "spring", stiffness: 300, damping: 26 }}
       drag={isPresent}
@@ -184,13 +201,15 @@ function TopCard({ card, isDuplicate, fragments, reduce, onStep }) {
         className="relative h-full w-full [transform-style:preserve-3d]"
         initial={{ rotateY: reduce ? 0 : 180 }}
         animate={{ rotateY: 0 }}
-        transition={reduce ? { duration: 0 } : { delay: 0.14, type: "spring", stiffness: 150, damping: 17, mass: 0.9 }}
+        transition={reduce ? { duration: 0 } : { delay: first ? FIRST_FLIP_MS / 1000 - 0.12 : 0.14, type: "spring", stiffness: 150, damping: 17, mass: 0.9 }}
       >
         <div className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)]"><CardBack /></div>
         <CardFace card={card} isDuplicate={isDuplicate} fragments={fragments} />
       </motion.div>
 
       {open && <Burst tier={card.tier} />}
+      {/* Onde de choc à la révélation d'un Epic ou mieux */}
+      {open && !reduce && r.flashPeak > 0 && <Shockwave color={r.glow} size="17rem" />}
     </motion.div>
   );
 }
@@ -228,7 +247,7 @@ export function PackDeck({ cards, dupSlots, fragmentsFor, onRevealCard, onFinish
     const timer = setTimeout(() => {
       if (rr.shine) haptics.success(); else haptics.light();
       if (rr.flashPeak) setFlash(c.packSlot);
-    }, reduce ? 0 : 260);
+    }, reduce ? 0 : index === 0 ? FIRST_FLIP_MS : 260);
     return () => clearTimeout(timer);
   }, [index]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -280,12 +299,15 @@ export function PackDeck({ cards, dupSlots, fragmentsFor, onRevealCard, onFinish
         <AnimatePresence>
           <motion.div
             key={`glow-${card.packSlot}`}
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4, delay: reduce ? 0 : 0.25 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5, delay: reduce ? 0 : index === 0 ? FIRST_FLIP_MS / 1000 : 0.25 }}
             className="pointer-events-none absolute inset-0"
             style={{ background: `radial-gradient(circle at 50% 48%, ${r.glow} 0%, transparent 62%)` }}
             aria-hidden="true"
           />
         </AnimatePresence>
+
+        {/* Rayons tournants : Legendary et Secret seulement, calés sur le retournement */}
+        {r.shine && !reduce && <Rays key={`rays-${card.packSlot}`} color={r.glow} delay={index === 0 ? FIRST_FLIP_MS / 1000 : 0.3} />}
 
         <div className="relative aspect-[3/4] w-[min(72vw,18rem)] max-h-full [perspective:1100px]">
           {/* Cartes en attente, empilées derrière */}
@@ -310,6 +332,7 @@ export function PackDeck({ cards, dupSlots, fragmentsFor, onRevealCard, onFinish
                 isDuplicate={isDuplicate}
                 fragments={isDuplicate ? fragmentsFor(card) : 0}
                 reduce={reduce}
+                first={index === 0}
                 onStep={step}
               />
             )}
@@ -317,22 +340,30 @@ export function PackDeck({ cards, dupSlots, fragmentsFor, onRevealCard, onFinish
         </div>
       </div>
 
-      <p className="mt-3 min-h-[1.25rem] text-center text-sm text-violet-200" aria-live="polite">
-        <span className={`font-semibold ${r.text}`}>{card.name}</span> · {r.label}{isDuplicate ? " · doublon" : " · nouveau"}
-      </p>
+      {/* Légende : pastille qui « claque » à chaque carte, pleine couleur dès l'Epic */}
+      <div className="mt-3 flex min-h-[2rem] w-full items-center justify-center px-4" aria-live="polite">
+        <motion.p
+          key={card.packSlot}
+          initial={reduce ? false : { opacity: 0, y: 10, scale: 0.8 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ delay: reduce ? 0 : index === 0 ? FIRST_FLIP_MS / 1000 + 0.1 : 0.3, type: "spring", stiffness: 380, damping: 18 }}
+          className={`inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm ${
+            r.flashPeak ? `bg-gradient-to-r ${r.grad} border-white/30 font-bold text-white` : "border-white/10 bg-white/[0.06] text-violet-200"}`}
+          style={r.flashPeak ? { boxShadow: `0 0 26px -2px ${r.glow}` } : undefined}
+        >
+          <span className={`truncate ${r.flashPeak ? "" : `font-semibold ${r.text}`}`}>{card.name}</span>
+          <span className="flex-shrink-0 opacity-90">· {r.label}{isDuplicate ? " · doublon" : " · nouveau"}</span>
+        </motion.p>
+      </div>
       <p className="mb-1 text-xs text-violet-500">
         {index + 1 >= n ? "Touche ou glisse pour voir tout ton booster" : "Touche ou glisse pour passer à la suivante"}
       </p>
 
       {flash === card.packSlot && <ScreenFlash tier={card.tier} onDone={() => setFlash(null)} />}
 
-      <button
-        type="button"
-        onClick={() => { haptics.tap(); onRevealAll(); }}
-        className="mt-1 flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.06] px-4 py-2 text-xs font-medium text-violet-100 hover:bg-white/10 active:scale-95"
-      >
+      <GameButton variant="secondary" size="sm" className="mt-1" onClick={() => { haptics.tap(); onRevealAll(); }}>
         <Sparkles size={13} className="text-amber-300" />Tout révéler
-      </button>
+      </GameButton>
     </div>
   );
 }

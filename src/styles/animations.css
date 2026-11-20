@@ -562,3 +562,44 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+
+/* ── Ouverture de booster : ambiance et suspense (Waifinity) ─────────────────
+   Braises qui montent en continu derrière toute l'ouverture. */
+@keyframes packFloatUp {
+  0%   { transform: translateY(0) scale(0.6); opacity: 0; }
+  15%  { opacity: 0.85; }
+  100% { transform: translateY(-110vh) scale(1); opacity: 0; }
+}
+.pack-ember {
+  position: absolute;
+  bottom: -12px;
+  border-radius: 9999px;
+  animation: packFloatUp var(--dur, 8s) linear infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+/* Éclat de lumière qui traverse le sachet (découpé à sa silhouette par un masque). */
+@keyframes packSheen {
+  0%   { transform: translateX(-130%) skewX(-18deg); }
+  55%, 100% { transform: translateX(330%) skewX(-18deg); }
+}
+.pack-sheen { animation: packSheen 1.6s ease-in-out infinite; }
+
+/* Énergie aspirée vers le sachet pendant la charge (même principe que sparkle-burst, à l'envers). */
+@keyframes packConverge {
+  0%   { transform: translate(-50%, -50%) rotate(var(--angle)) translateX(var(--dist)) scale(1); opacity: 0; }
+  25%  { opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(var(--angle)) translateX(0) scale(0.2); opacity: 0; }
+}
+.pack-converge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  pointer-events: none;
+  animation: packConverge 0.75s ease-in infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pack-ember, .pack-sheen, .pack-converge { animation: none; display: none; }
+}
