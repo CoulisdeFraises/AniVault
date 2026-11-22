@@ -206,7 +206,35 @@ export async function fetchAniListFranchise(startId, { force = false } = {}) {
     extrasMap.set(id, {
       anilistId: id, format: m.format ?? formatHint, title: parseTitle(m),
       totalEpisodes: parseEps(m), releaseStatus: m.status ?? null, coverImage: m.coverImage?.large ?? null,
+      // Relations de l'extra lui-même : uniquement pour détecter les extras « partagés » (voir
+      // isSharedExtra) — elles ne sont JAMAIS suivies pour élargir la franchise.
+      edges: m.relations?.edges || [],
     });
+  }
+
+  // ── Extras partagés (crossovers, OVA promo) ───────────────────────────────
+  // Certains OVA/spéciaux sont reliés par AniList (OTHER / SIDE_STORY…) à de nombreuses séries sans
+  // rapport entre elles (ex : l'OVA de « Reincarnated as a Sword » listé sur Blue Exorcist, Horimiya,
+  // Blue Spring Ride, Hyouka…). Sans garde-fou, il s'ajoute à CHACUNE de ces franchises et fausse le suivi.
+  // Règle : un extra relié à au moins SHARED_EXTRA_MIN_LINKS œuvres étrangères (hors chaîne TV et hors
+  // autres extras de cette franchise) n'est gardé que si c'est un lien de continuité net (PREQUEL / SEQUEL /
+  // SUMMARY) ou si son titre reprend celui de la franchise — donc il reste dans la sienne, pas dans les autres.
+  const SHARED_EXTRA_MIN_LINKS = 3;
+  const STRICT_REL = new Set(["PREQUEL", "SEQUEL", "SUMMARY"]);
+  const normTitle = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+  function titleBelongsTo(extraTitle, rootTitle) {
+    const a = normTitle(extraTitle), b = normTitle(rootTitle);
+    return !!a && !!b && (a.includes(b) || b.includes(a));
+  }
+  function isSharedExtra(extra, relType, knownIds, rootTitle) {
+    if (STRICT_REL.has(relType)) return false;
+    const foreign = new Set();
+    for (const e of extra.edges || []) {
+      if (e.node?.type !== "ANIME" || !e.node.id || knownIds.has(e.node.id)) continue;
+      foreign.add(e.node.id);
+    }
+    if (foreign.size < SHARED_EXTRA_MIN_LINKS) return false;
+    return !titleBelongsTo(extra.title, rootTitle);
   }
 
   /**
@@ -230,7 +258,7 @@ export async function fetchAniListFranchise(startId, { force = false } = {}) {
         const id = edge.node.id;
         if (!id || tvIds.has(id) || queued.has(id)) continue;
         queued.add(id);
-        toFetch.push({ id, formatHint: edge.node.format });
+        toFetch.push({ id, formatHint: edge.node.format, relType: edge.relationType });
         if (toFetch.length >= MAX_EXTRAS) break;
       }
       if (toFetch.length >= MAX_EXTRAS) break;
@@ -240,6 +268,14 @@ export async function fetchAniListFranchise(startId, { force = false } = {}) {
     for (let i = 0; i < toFetch.length; i += 5) {
       const batch = toFetch.slice(i, i + 5);
       await Promise.all(batch.map(({ id, formatHint }) => fetchOneExtra(id, formatHint)));
+    }
+
+    // Écarte les extras partagés avec d'autres franchises (voir isSharedExtra).
+    const knownIds = new Set([...tvIds, ...queued]);
+    const rootTitle = tvChain[0]?.title ?? null;
+    for (const { id, relType } of toFetch) {
+      const extra = extrasMap.get(id);
+      if (extra && isSharedExtra(extra, relType, knownIds, rootTitle)) extrasMap.delete(id);
     }
   }
 
